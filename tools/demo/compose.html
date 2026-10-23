@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>デモ動画を組み立て中</title>
+<style>
+  body { margin: 0; background: #111; color: #ddd; font: 14px 'Yu Gothic UI', sans-serif; }
+  #status { position: fixed; left: 8px; top: 8px; z-index: 2; padding: 4px 8px; background: #000a; }
+  canvas { display: block; max-width: 100vw; max-height: 100vh; margin: auto; }
+</style>
+</head>
+<body>
+<div id="status">準備中…</div>
+<canvas id="c"></canvas>
+<script>
+// デモ動画を組み立てる：撮ったコマ（frames.txt と JPEG）に、字幕の帯・カーソル・押したキーを重ねて、MediaRecorder で録る。
+// 見取り図（静止画）も作る。できたものは server.py の /upload で out\ に置く（record.ps1 が demo\ へ写す）
+//   ?dir=frames/<名前>  ?only=mock で見取り図だけ
+const FONT = "'Yu Gothic UI', 'Meiryo', sans-serif";
+const status = (s) => (document.getElementById('status').textContent = s);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const BAND = 150;
+const DIR = new URLSearchParams(location.search).get('dir') || 'frames';
+const INTRO = 5.0;
+const OUTRO = 9.0;
+
+async function main() {
+  const meta = await (await fetch(`${DIR}/meta.json`)).json();
+  const timeline = (await (await fetch(`${DIR}/timeline.json`)).json()).sort((a, b) => a.t - b.t);
+  const frames = (await (await fetch(`${DIR}/frames.txt`)).text())
+    .trim()
+    .split('\n')
+    .map((l) => l.trim().split(' ').map(Number))
+    .map(([i, t]) => ({ i, t }));
+  const W = meta.outW;
+  const FH = meta.outH - (meta.outH % 2);
+  const H = FH + BAND;
+  const canvas = document.getElementById('c');
+  canvas.width = W;
+  canvas.height = H;
+  const g = canvas.getContext('2d');
+  const dip = W / (meta.clientW / meta.scale); // DIP → 画面の点
+
+  const start = (timeline.find((e) => e.type === 'start') ?? { t: frames[0].t }).t;
+  const end = (timeline.find((e) => e.type === 'end') ?? { t: frames[frames.length - 1].t }).t + 600;
+
+  // 速さの区間：撮った時刻 → 動画の時刻
+  const segs = [];
+  let rate = 1;
+  let c0 = start;
+  for (const e of timeline.filter((e) => e.type === 'speed')) {
+    if (e.t <= c0) {
+      rate = e.rate;
+      continue;
+    }
+    segs.push({ c0, c1: Math.min(e.t, end), rate });
+    c0 = Math.min(e.t, end);
+    rate = e.rate;
+  }
+  segs.push({ c0, c1: end, rate });
+  let acc = 0;
+  for (const s of segs) {
+    s.v0 = acc;
+    acc += (s.c1 - s.c0) / s.rate / 1000;
+  }
+  const body = acc;
+  const vToC = (v) => {
+    for (const s of segs) if (v <= s.v0 + (s.c1 - s.c0) / s.rate / 1000) return { c: s.c0 + (v - s.v0) * 1000 * s.rate, rate: s.rate };
+    return { c: end, rate: 1 };
+  };
+
+  // ---------- コマの読み込み ----------
+  const cache = new Map();
+  const load = (k) => {
+    if (k < 0 || k >= frames.length || cache.has(k)) return;
+    const p = fetch(`${DIR}/f${String(frames[k].i).padStart(5, '0')}.jpg`)
+      .then((r) => r.blob())
+      .then((b) => createImageBitmap(b))
+      .then((bmp) => (cache.get(k).bmp = bmp))
+      .catch(() => {});
+    cache.set(k, { p, bmp: null });
+  };
+  const frameAt = (c) => {
+    let lo = 0;
+    let hi = frames.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (frames[mid].t <= c) lo = mid;
+      else hi = mid - 1;
+    }
+    return lo;
+  };
+  let shown = null;
+  const drawFrame = (k) => {
+    for (let j = k; j < k + 24; j++) load(j);
+    for (const key of [...cache.keys()]) {
+      if (key < k - 2) {
+        cache.get(key).bmp?.close?.();
+        cache.delete(key);
+      }
+    }
+    for (let j = k; j >= Math.max(0, k - 2); j--) {
+      const e = cache.get(j);
+      if (e?.bmp) {
+        shown = e.bmp;
+        break;
+      }
+    }
+    if (shown) g.drawImage(shown, 0, 0, W, FH);
+  };
+
+  // ---------- 重ねるもの ----------
+  const evs = (type) => timeline.filter((e) => e.type === type);
+  const captions = evs('caption');
+  const cursors = evs('cursor');
+  const clicks = evs('click');
+  const keys = evs('key');
+  const round = (x, y, w, h, r) => {
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  };
+  const hexPath = (cx, cy, r) => {
+    g.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 3) * i - Math.PI / 2;
+      g[i ? 'lineTo' : 'moveTo'](cx + r * Math.cos(a), cy + r * Math.sin(a));
+    }
+    g.closePath();
+  };
+  const wrap = (text, maxW) => {
+    const lines = [];
+    let line = '';
+    for (const ch of text) {
+      if (g.measureText(line + ch).width > maxW && line) {
+        lines.push(line);
+        line = ch;
+      } else line += ch;
+    }
+    if (line) lines.push(line);
+    return lines;
+  };
+  function drawBand(c, v, rate) {
+    g.fillStyle = '#17171a';
+    g.fillRect(0, FH, W, BAND);
+    g.fillStyle = '#e2a43a';
+    g.fillRect(0, FH, W, 3);
+    const cap = [...captions].reverse().find((e) => e.t <= c);
+    if (cap) {
+      const age = (c - cap.t) / 1000 / rate;
+      g.globalAlpha = Math.min(1, age / 0.35);
+      hexPath(52, FH + 58, 26);
+      g.fillStyle = '#e2a43a';
+      g.fill();
+      g.fillStyle = '#17171a';
+      g.font = `700 24px ${FONT}`;
+      g.textAlign = 'center';
+      g.fillText(cap.title.match(/^\d+/)?.[0] ?? '●', 52, FH + 67);
+      g.textAlign = 'left';
+      g.fillStyle = '#f3c46a';
+      g.font = `700 30px ${FONT}`;
+      g.fillText(cap.title.replace(/^\d+\.\s*/, ''), 96, FH + 48);
+      g.fillStyle = '#f1efe9';
+      g.font = `500 23px ${FONT}`;
+      const lines = wrap(cap.text, W - 420);
+      lines.slice(0, 2).forEach((l, i) => g.fillText(l, 96, FH + 86 + i * 30));
+      if (cap.note) {
+        g.fillStyle = '#9d9a92';
+        g.font = `500 17px ${FONT}`;
+        g.fillText(`※ ${cap.note}`, 96, FH + 86 + Math.min(lines.length, 2) * 30 + 2);
+      }
+      g.globalAlpha = 1;
+    }
+    // キー
+    const recent = keys.filter((k) => k.t <= c && c - k.t < 1100 * rate).slice(-3);
+    let x = W - 28;
+    for (const k of [...recent].reverse()) {
+      g.font = `700 24px ${FONT}`;
+      const w = Math.max(48, g.measureText(k.label).width + 30);
+      x -= w;
+      g.globalAlpha = 1 - Math.max(0, (c - k.t) / (1100 * rate) - 0.6) / 0.4;
+      round(x, FH + 40, w, 48, 10);
+      g.fillStyle = '#2c2c31';
+      g.fill();
+      g.strokeStyle = '#6d6b66';
+      g.lineWidth = 2;
+      g.stroke();
+      g.fillStyle = '#fff';
+      g.textAlign = 'center';
+      g.fillText(k.label, x + w / 2, FH + 73);
+      g.textAlign = 'left';
+      g.globalAlpha = 1;
+      x -= 10;
+    }
+    if (rate > 1) {
+      g.font = `700 20px ${FONT}`;
+      g.fillStyle = '#9fd3c7';
+      g.textAlign = 'right';
+      g.fillText(`▶▶ 早送り ×${rate}`, W - 30, FH + 30);
+      g.textAlign = 'left';
+    }
+    g.font = `500 15px ${FONT}`;
+    g.fillStyle = '#6d6b66';
+    g.textAlign = 'right';
+    g.fillText('Rocks-cells Browser ・ 2026-10-04 時点', W - 30, FH + BAND - 12);
+    g.textAlign = 'left';
+  }
+  function cursorAt(c) {
+    let prev = null;
+    let next = null;
+    for (const e of cursors) {
+      if (e.t <= c) prev = e;
+      else {
+        next = e;
+        break;
+      }
+    }
+    if (!prev) return null;
+    if (!next) return prev;
+    const k = Math.min(1, (c - prev.t) / Math.max(1, next.t - prev.t));
+    const ease = k * k * (3 - 2 * k);
+    return { x: prev.x + (next.x - prev.x) * ease, y: prev.y + (next.y - prev.y) * ease };
+  }
+  function drawCursor(c, rate) {
+    for (const e of clicks) {
+      const age = (c - e.t) / rate;
+      if (age < 0 || age > 650) continue;
+      const k = age / 650;
+      g.beginPath();
+      g.arc(e.x * dip, e.y * dip, 10 + 34 * k, 0, Math.PI * 2);
+      g.strokeStyle = e.button === 'right' ? `rgba(240,140,60,${1 - k})` : `rgba(80,160,255,${1 - k})`;
+      g.lineWidth = 5;
+      g.stroke();
+    }
+    const p = cursorAt(c);
+    if (!p) return;
+    const x = p.x * dip;
+    const y = p.y * dip;
+    g.save();
+    g.translate(x, y);
+    g.scale(1.5, 1.5);
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.lineTo(0, 17);
+    g.lineTo(4.5, 13);
+    g.lineTo(7.5, 20);
+    g.lineTo(10.5, 18.6);
+    g.lineTo(7.6, 12);
+    g.lineTo(13, 12);
+    g.closePath();
+    g.fillStyle = '#fff';
+    g.fill();
+    g.strokeStyle = '#111';
+    g.lineWidth = 1.2;
+    g.stroke();
+    g.restore();
+  }
+
+  // ---------- はじめと終わりの画面 ----------
+  function hexBackground(t) {
+    const grad = g.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, '#1d1a14');
+    grad.addColorStop(1, '#2a2116');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, W, H);
+    for (let row = 0; row < 12; row++) {
+      for (let col = 0; col < 20; col++) {
+        const r = 46;
+        const cx = col * r * 1.732 + (row % 2 ? r * 0.866 : 0);
+        const cy = row * r * 1.5;
+        const wave = Math.sin(t * 1.2 + col * 0.4 + row * 0.6);
+        hexPath(cx, cy, r - 4);
+        g.fillStyle = `rgba(226,164,58,${0.04 + 0.05 * Math.max(0, wave)})`;
+        g.fill();
+      }
+    }
+  }
+  function intro(v) {
+    hexBackground(v);
+    const a = Math.min(1, v / 0.8);
+    g.globalAlpha = a;
+    g.fillStyle = '#f3c46a';
+    g.font = `700 76px ${FONT}`;
+    g.fillText('Rocks-cells Browser', 110, 300);
+    g.fillStyle = '#f1efe9';
+    g.font = `500 34px ${FONT}`;
+    g.fillText('六角形のタブと、AI の相棒のブラウザ', 112, 362);
+    g.fillStyle = '#b9b4a8';
+    g.font = `500 24px ${FONT}`;
+    g.fillText('いまの仕様のデモ（2026年10月4日 時点）', 114, 412);
+    const items = ['1. 六角形のタブ', '2. メモのセル', '3. 六角形スクショ', '4. 六角で読む', '5. 順路', '6. AI の相棒', '7. 自分の音声ファイル', '8. ラジオを聞き取る'];
+    g.font = `500 24px ${FONT}`;
+    items.forEach((s, i) => {
+      g.globalAlpha = Math.max(0, Math.min(1, (v - 0.8 - i * 0.12) / 0.4));
+      g.fillStyle = '#e8e4da';
+      g.fillText(s, 114 + (i % 4) * 330, 520 + Math.floor(i / 4) * 52);
+    });
+    g.globalAlpha = 1;
+    g.fillStyle = '#8a857a';
+    g.font = `500 18px ${FONT}`;
+    g.fillText('実際のアプリをテスト用のデータで操作して録画。AI の返事は練習モード（料金なし）。ページと音声はデモ用に作ったもの', 114, H - 70);
+  }
+  function outro(v) {
+    hexBackground(v + 5);
+    g.globalAlpha = Math.min(1, v / 0.6);
+    g.fillStyle = '#f3c46a';
+    g.font = `700 44px ${FONT}`;
+    g.fillText('ほかにもできること', 110, 150);
+    const left = [
+      '自動休眠：5分で一時停止 → 25分で休眠（音・入力途中は眠らせない）',
+      'タグと島：AI のタグ付けと島分けの案（バッチで半額）',
+      '相棒の道具：タブの操作・リマインダー・音楽（閉じるなどは確認つき）',
+      '相棒の記憶：人が読んで直せる記憶（六角メモのノートにも）',
+      '情報収集と採点：Web 検索で集め、六角形の辺で点数',
+      '単語帳と復習：六角形の辺で覚えた度合い・1日1回の知らせ',
+      'YouTube の区間セル：字幕を時刻つきのマスに・♥ だけ再生',
+      'セルの範囲コピー・セット：六角メモとクリップボードでやりとり',
+    ];
+    g.font = `500 25px ${FONT}`;
+    left.forEach((s, i) => {
+      g.globalAlpha = Math.max(0, Math.min(1, (v - 0.4 - i * 0.15) / 0.4));
+      hexPath(126, 212 + i * 54, 9);
+      g.fillStyle = '#e2a43a';
+      g.fill();
+      g.fillStyle = '#ece8de';
+      g.fillText(s, 150, 221 + i * 54);
+    });
+    g.globalAlpha = Math.max(0, Math.min(1, (v - 2.2) / 0.6));
+    g.fillStyle = '#9fd3c7';
+    g.font = `700 30px ${FONT}`;
+    g.fillText('これから（docs/ideas-next.md）', 110, 700);
+    g.fillStyle = '#d8e9e4';
+    g.font = `500 23px ${FONT}`;
+    g.fillText('字幕の翻訳セル ・ 見たページの履歴と「言葉で探す」 ・ 今日のふりかえり ・ AI に渡さないサイトと月の予算', 112, 748);
+    g.fillStyle = '#b9b4a8';
+    g.font = `500 20px ${FONT}`;
+    g.fillText('フォーム入力・購入などを AI に任せる機能は、入れるなら一回ごとの確認つきに限る', 112, 790);
+    g.globalAlpha = 1;
+  }
+
+  // ---------- 見取り図（静止画） ----------
+  async function renderMock(name, heading, file) {
+    const ev = timeline.find((e) => e.type === 'mock' && e.name === name);
+    if (!ev) return;
+    const k = frameAt(ev.t + 400);
+    const blob = await (await fetch(`${DIR}/f${String(frames[k].i).padStart(5, '0')}.jpg`)).blob();
+    const bmp = await createImageBitmap(blob);
+    const PANEL = 560;
+    const mc = document.createElement('canvas');
+    mc.width = W + PANEL;
+    mc.height = FH;
+    const m = mc.getContext('2d');
+    m.drawImage(bmp, 0, 0, W, FH);
+    m.fillStyle = '#1b1b1f';
+    m.fillRect(W, 0, PANEL, FH);
+    m.fillStyle = '#f3c46a';
+    m.font = `700 34px ${FONT}`;
+    m.fillText('画面の見取り図', W + 36, 70);
+    m.fillStyle = '#b9b4a8';
+    m.font = `500 20px ${FONT}`;
+    m.fillText(heading, W + 38, 108);
+    const badge = (x, y, n, r = 21) => {
+      m.beginPath();
+      m.arc(x, y, r, 0, Math.PI * 2);
+      m.fillStyle = '#e8467c';
+      m.fill();
+      m.lineWidth = 3.5;
+      m.strokeStyle = '#fff';
+      m.stroke();
+      m.fillStyle = '#fff';
+      m.font = `700 ${Math.round(r * 1.1)}px ${FONT}`;
+      m.textAlign = 'center';
+      m.fillText(String(n), x, y + r * 0.38);
+      m.textAlign = 'left';
+    };
+    const pointer = (x, y, bx, by, n, r) => {
+      if (Math.hypot(bx - x, by - y) > 4) {
+        m.beginPath();
+        m.moveTo(x, y);
+        m.lineTo(bx, by);
+        m.strokeStyle = '#1b1b1f';
+        m.lineWidth = 6;
+        m.stroke();
+        m.strokeStyle = '#e8467c';
+        m.lineWidth = 3;
+        m.stroke();
+        m.beginPath();
+        m.arc(x, y, 6, 0, Math.PI * 2);
+        m.fillStyle = '#e8467c';
+        m.fill();
+        m.lineWidth = 2.5;
+        m.strokeStyle = '#fff';
+        m.stroke();
+      }
+      badge(bx, by, n, r);
+    };
+    // 盤面の拡大（小さいセルを大きく見せる）
+    const inset = ev.inset;
+    let insetBox = null;
+    if (inset) {
+      const sx = inset.x * dip;
+      const sy = inset.y * dip;
+      const sw = inset.w * dip;
+      const sh = inset.h * dip;
+      const maxW = PANEL - 76;
+      const maxH = 330;
+      const z = Math.min(maxW / sw, maxH / sh);
+      insetBox = { x: W + 38, y: FH - 60 - sh * z, w: sw * z, h: sh * z, z, sx, sy };
+      m.fillStyle = '#b9b4a8';
+      m.font = `700 20px ${FONT}`;
+      m.fillText(inset.title, insetBox.x, insetBox.y - 12);
+      m.drawImage(bmp, sx * (bmp.width / W), sy * (bmp.height / FH), sw * (bmp.width / W), sh * (bmp.height / FH), insetBox.x, insetBox.y, insetBox.w, insetBox.h);
+      m.strokeStyle = '#e8467c';
+      m.lineWidth = 2;
+      m.strokeRect(insetBox.x, insetBox.y, insetBox.w, insetBox.h);
+      m.setLineDash([6, 5]);
+      m.strokeRect(sx, sy, sw, sh);
+      m.setLineDash([]);
+    }
+    ev.points.forEach((p, i) => {
+      const x = p.x * dip;
+      const y = p.y * dip;
+      pointer(x, y, x + (p.dx ?? 0) * dip, y + (p.dy ?? 0) * dip, i + 1);
+      if (insetBox && inset.points.includes(i)) {
+        const ix = insetBox.x + (x - insetBox.sx) * insetBox.z;
+        const iy = insetBox.y + (y - insetBox.sy) * insetBox.z;
+        const ox = Math.sign(p.dx ?? 0) * 34;
+        const oy = Math.sign(p.dy ?? 0) * 34;
+        pointer(ix, iy, Math.min(insetBox.x + insetBox.w - 18, Math.max(insetBox.x + 18, ix + ox)), Math.min(insetBox.y + insetBox.h - 18, Math.max(insetBox.y + 18, iy + oy)), i + 1, 16);
+      }
+      const ly = 168 + i * 56;
+      badge(W + 56, ly - 8, i + 1, 17);
+      m.fillStyle = '#ece8de';
+      m.font = `500 22px ${FONT}`;
+      const words = [];
+      let line = '';
+      for (const ch of p.label) {
+        if (m.measureText(line + ch).width > PANEL - 110 && line) {
+          words.push(line);
+          line = ch;
+        } else line += ch;
+      }
+      words.push(line);
+      words.forEach((w, j) => m.fillText(w, W + 86, ly + j * 26));
+    });
+    m.fillStyle = '#6d6b66';
+    m.font = `500 16px ${FONT}`;
+    m.fillText('Rocks-cells Browser ・ 2026-10-04 時点', W + 38, FH - 28);
+    const png = await new Promise((r) => mc.toBlob(r, 'image/png'));
+    await fetch(`upload?name=${encodeURIComponent(file)}.png`, { method: 'POST', body: png });
+  }
+
+  status('見取り図を作っています…');
+  await renderMock('board', '左：六角形のタブの盤面　中：ページ　右：AI の相棒', '見取り図-盤面と相棒');
+  await renderMock('listen', '自分の音声ファイルを、下に並べた区間セルで AI と聞く', '見取り図-音声ファイルとAI');
+  if (new URLSearchParams(location.search).get('only') === 'mock') {
+    await fetch('upload?name=done-mock.json', { method: 'POST', body: '{}' });
+    status('見取り図ができました');
+    return;
+  }
+
+  // ---------- 録画 ----------
+  for (let k = 0; k < 30; k++) load(k);
+  await Promise.all([...cache.values()].map((e) => e.p));
+  const types = ['video/mp4;codecs=avc1.640033', 'video/mp4;codecs=avc1.4d0033', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+  const mimeType = types.find((t) => MediaRecorder.isTypeSupported(t));
+  const stream = canvas.captureStream(30);
+  const rec = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 7_000_000 });
+  const chunks = [];
+  rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  const stopped = new Promise((r) => (rec.onstop = r));
+  const total = INTRO + body + OUTRO;
+  rec.start(1000);
+  const t0 = performance.now();
+  await new Promise((resolve) => {
+    const tick = () => {
+      const v = (performance.now() - t0) / 1000;
+      if (v < INTRO) intro(v);
+      else if (v < INTRO + body) {
+        const { c, rate } = vToC(v - INTRO);
+        g.fillStyle = '#000';
+        g.fillRect(0, 0, W, FH);
+        drawFrame(frameAt(c));
+        drawCursor(c, rate);
+        drawBand(c, v, rate);
+        if (v - INTRO < 0.5) {
+          g.fillStyle = `rgba(29,26,20,${1 - (v - INTRO) / 0.5})`;
+          g.fillRect(0, 0, W, H);
+        }
+      } else if (v < total) outro(v - INTRO - body);
+      else return resolve();
+      status(`録画中 ${v.toFixed(1)} / ${total.toFixed(1)} 秒`);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  rec.stop();
+  await stopped;
+  const blob = new Blob(chunks, { type: mimeType });
+  const ext = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm';
+  status('保存しています…');
+  await fetch(`upload?name=honeycomb-demo.${ext}`, { method: 'POST', body: blob });
+  await fetch(`upload?name=done.json`, { method: 'POST', body: JSON.stringify({ ext, mimeType, seconds: total, size: blob.size }) });
+  status(`できました（${ext}, ${(blob.size / 1e6).toFixed(1)} MB, ${total.toFixed(0)} 秒）`);
+}
+main().catch((e) => {
+  status('失敗: ' + e);
+  fetch('upload?name=error.txt', { method: 'POST', body: String(e && e.stack || e) });
+});
+</script>
+</body>
+</html>

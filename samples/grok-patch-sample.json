@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "type": "patch",
+  "id": "sample-safe-1",
+  "title": "試しの提案（タグとメモを足すだけ）",
+  "note": "https://example.com/ のタブに、タグ「grok-test」とメモを 1 つ足します。消す・閉じる・書き換えるものはありません。",
+  "basedOn": null,
+  "ops": [
+    {
+      "op": "tags.add",
+      "target": { "url": "https://example.com/" },
+      "tags": ["grok-test"]
+    },
+    {
+      "op": "tab.addNote",
+      "target": { "url": "https://example.com/" },
+      "text": "Grok Bot からの試しのメモです。「元に戻す」で消えます。"
+    }
+  ]
+}

@@ -1,0 +1,340 @@
+/* ---------- データ置き場（右サイドバーの下のパネルの欄の中、メモの区画のすぐ下） ---------- */
+
+/* 区画の高さには上限があり、項目が多いときは区画の中で動かす（見出しはいつも見える） */
+.vault-panel {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 36px;
+  max-height: 34vh;
+  margin: 0 10px 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+/* 下のパネルの欄（.panels-scroll）の中では、ほかのパネルと同じ幅・間隔で並べ、縮めない（欄ごと動かす）。高さの上限はそのまま */
+.panels-scroll > .vault-panel {
+  flex: none;
+  margin: 0;
+}
+
+.vault-panel.folded {
+  flex: none;
+}
+
+.vault-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.vault-fold,
+.vault-folder {
+  flex: none;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 4px;
+}
+
+.vault-title {
+  flex: none;
+  font-weight: 600;
+}
+
+.vault-count {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.vault-usage {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-add {
+  flex: none;
+  height: 24px;
+  border-color: var(--border);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.vault-status {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.vault-status:empty {
+  display: none;
+}
+
+.vault-list {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  margin-top: 4px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.vault-panel.folded .vault-list {
+  display: none;
+}
+
+.vault-empty {
+  padding: 4px 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.vault-filter {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.vault-filter-chip {
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--tag, var(--border)) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tag, var(--border)) 12%, transparent);
+  font-size: 11px;
+}
+
+.vault-item {
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.vault-item.open {
+  border-color: var(--accent);
+}
+
+.vault-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: auto;
+  min-height: 28px;
+  padding: 3px 6px;
+  text-align: left;
+}
+
+.vault-kind {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ai-soft);
+  color: var(--ai-border);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.vault-kind.conversation {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.vault-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-meta {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.vault-row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 0 6px 4px;
+}
+
+.vault-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 8px 8px;
+  user-select: text;
+}
+
+.vault-thumb {
+  position: relative;
+  display: block;
+  height: auto;
+  max-height: 160px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.vault-thumb img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* theme: fixed begin：画像の上の数（どのテーマでも同じ） */
+.vault-thumb-count {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 60%);
+  color: #fff;
+  font-size: 11px;
+}
+/* theme: fixed end */
+
+.vault-info,
+.vault-note {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.vault-note.failed {
+  color: var(--danger);
+}
+
+.vault-text {
+  max-height: 7.5em;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.vault-text.full {
+  max-height: none;
+}
+
+.vault-text.loading {
+  color: var(--muted);
+}
+
+.vault-link {
+  align-self: flex-start;
+  height: 22px;
+  padding: 0 4px;
+  color: var(--accent-ink);
+  font-size: 12px;
+}
+
+.vault-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.vault-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* 画像を大きく見る（右サイドバーの全体に重ねる） */
+.vault-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.vault-viewer-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.vault-viewer-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-viewer-pages {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  overflow: auto;
+}
+
+.vault-viewer-pages img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* 書き出し用の入れ物：会話を全部の高さで、画面の外（下）に描く。撮る窓（この入れ物）は動かさず、中身を上へずらして何枚かに分けて撮る */
+.vault-export {
+  position: absolute;
+  left: 0;
+  overflow: hidden;
+  background: var(--surface);
+  pointer-events: none;
+}
+
+.vault-export-log.ai-log {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
+}
+
+.vault-export-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 2px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.vault-export-caption strong {
+  color: var(--text);
+  font-size: 13px;
+}

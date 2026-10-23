@@ -1,0 +1,1005 @@
+/* 右サイドバーの「撮影」（データ置き場のすぐ下） */
+
+.capture-panel {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: 36px;
+  max-height: 42vh;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.capture-panel.folded {
+  flex: none;
+  max-height: none;
+}
+
+.capture-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.capture-fold {
+  flex: none;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 4px;
+}
+
+.capture-title {
+  flex: none;
+  font-weight: 600;
+}
+
+.capture-count {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.capture-shoot,
+.capture-stop,
+.capture-play,
+.capture-read,
+.capture-ask-open {
+  flex: none;
+  height: 24px;
+  border-color: var(--border);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.capture-shoot,
+.capture-rec {
+  margin-left: auto;
+}
+
+.capture-rec {
+  flex: none;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.capture-stop {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.capture-times {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.capture-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.capture-panel.folded .capture-body {
+  display: none;
+}
+
+.capture-note {
+  flex: none;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.capture-status {
+  flex: none;
+  min-height: 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.capture-status:empty {
+  display: none;
+}
+
+.capture-status.is-live {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.capture-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  margin-top: 6px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.capture-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.capture-card {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.capture-card.is-revealed {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.capture-thumb {
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  height: auto;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--hover);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* theme: fixed begin：画像の上の文字の枠 */
+.capture-ocr-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid #4fa3ff;
+  background: #4fa3ff22;
+  pointer-events: none;
+}
+/* theme: fixed end */
+
+.capture-thumb img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 140px;
+  border-radius: 5px;
+}
+
+.capture-when,
+.capture-source {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.capture-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.capture-source-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capture-open {
+  flex: none;
+  height: 22px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+
+.capture-comment {
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.capture-count-line {
+  align-self: flex-end;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.capture-count-line.is-long {
+  color: var(--warn);
+}
+
+.capture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.capture-page-text {
+  margin: 0;
+  max-height: 4.5em;
+  overflow: auto;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.capture-ocr {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.capture-ocr li,
+.capture-ocr label {
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.capture-ocr label {
+  flex: 1 1 auto;
+}
+
+.capture-ocr-text {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.capture-ocr-at {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.capture-like.is-on {
+  color: var(--heart);
+}
+
+.capture-delete.is-confirm {
+  color: var(--danger);
+}
+
+.capture-asked {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.capture-ask {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--hover);
+}
+
+.capture-ask-head,
+.capture-ask-leave,
+.capture-ask-cost,
+.capture-ask-block,
+.capture-ask-warn {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.capture-ask-head {
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.capture-ask-warn,
+.capture-ask-block {
+  color: var(--danger);
+}
+
+.capture-ask-leave,
+.capture-ask-cost {
+  color: var(--muted);
+}
+
+.capture-ask-check {
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.capture-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.capture-kinds .sidebar-tag.is-current {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.capture-ask-note {
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.capture-ask-dest {
+  width: 100%;
+  height: 26px;
+  font-size: 12px;
+}
+
+.capture-ask-preview {
+  margin: 0;
+  max-height: 9em;
+  overflow: auto;
+  padding: 6px;
+  border-radius: 6px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.capture-send {
+  align-self: flex-start;
+  height: 24px;
+  border-color: var(--border);
+  font-size: 12px;
+}
+
+.capture-ask-notice {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+/* theme: fixed begin：撮ったものを大きく見る幕（どのテーマでも暗い） */
+.capture-lightbox {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: rgb(20 18 14 / 92%);
+}
+
+.capture-lightbox img {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+
+.capture-lightbox-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #f4f0e6;
+  font-size: 12px;
+}
+
+.capture-lightbox-bar button {
+  flex: none;
+  border-color: rgb(255 255 255 / 35%);
+  color: #f4f0e6;
+}
+/* theme: fixed end */
+
+.capture-widen {
+  height: 22px;
+  margin-right: auto;
+  padding: 0 6px;
+  font-size: 11px;
+}
+
+.capture-mark-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.capture-scope-note {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.capture-mark-list li {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* theme: fixed begin：撮ったものの閲覧器（どのテーマでも暗い。画像を見る所） */
+.capture-view {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px 16px;
+  background: #1c1915;
+  color: #f4f0e6;
+  outline: none;
+}
+
+.capture-view-head {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.capture-view-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.capture-view-hint,
+.capture-view-status {
+  margin: 2px 0 0;
+  color: #d9d0c0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.capture-view-status:empty {
+  display: none;
+}
+
+.capture-view-close {
+  flex: none;
+  border-color: rgb(255 255 255 / 35%);
+  color: #f4f0e6;
+}
+
+/* 見出しの右：拡大の段（合わせる・100%・200%）と、閉じる */
+.capture-view-actions {
+  display: flex;
+  flex: none;
+  gap: 12px;
+  align-items: center;
+}
+
+.capture-zoom-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* はみ出すほど拡大しても左上から読めるよう、grid の place-items ではなく flex ＋ frame の margin:auto で真ん中に置く
+   （はみ出せば auto が 0 になる） */
+.capture-stage {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.capture-frame {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  max-width: 100%;
+  margin: auto;
+  line-height: 0;
+  touch-action: none; /* 指・ペンで線を引くとき、画面がスクロールしないように */
+}
+
+/* 100%・200%：img の幅は JS が入れる。frame が画像より小さくなると canvas がずれるので、frame も img も上限を外す */
+.capture-frame[data-zoom='1'],
+.capture-frame[data-zoom='2'] {
+  max-width: none;
+}
+
+.capture-frame[data-zoom='1'] .capture-view-image,
+.capture-frame[data-zoom='2'] .capture-view-image {
+  max-width: none;
+  max-height: none;
+}
+
+.capture-frame .capture-view-image {
+  cursor: crosshair;
+}
+
+.capture-frame[data-tool='text'] .capture-view-image {
+  cursor: text;
+}
+
+.capture-frame[data-tool='stamp'] .capture-view-image {
+  cursor: copy;
+}
+
+.capture-view-image {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 156px);
+  border-radius: 8px;
+}
+
+.capture-tools {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.capture-view .capture-tool {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: 999px;
+  color: #f4f0e6;
+  font-size: 12px;
+}
+
+.capture-view .capture-tool:hover:not(:disabled) {
+  background: rgb(255 255 255 / 12%);
+}
+
+.capture-view .capture-tool.is-current,
+.capture-view .capture-tool.is-current:hover {
+  border-color: #e6c98a;
+  background: rgb(230 201 138 / 28%);
+  color: #f8e7c2;
+}
+
+/* 「戻す」だけを右へ寄せる。「やり直す」(.capture-redo) はその隣に並ぶ */
+.capture-undo {
+  margin-left: auto;
+}
+
+.capture-stamp-kinds[hidden] {
+  display: none;
+}
+
+/* 隠すの確認。囲んだ四角のそばに、frame の中で絶対配置する（位置は JS が決める）。入力欄（z-index 4）より上 */
+.capture-hide-confirm {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(100%, 360px);
+  padding: 6px 8px;
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: 8px;
+  background: rgb(28 25 21 / 94%);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 45%);
+  color: #f4f0e6;
+  font-size: 13px;
+  line-height: 1.4;
+  pointer-events: auto;
+}
+
+.capture-hide-confirm[hidden] {
+  display: none;
+}
+
+.capture-hide-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.capture-hide-modes {
+  display: flex;
+  gap: 4px;
+}
+
+.capture-hide-note {
+  margin: 0;
+  color: #d9d0c0;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+/* 「隠すのを取り消す」と、確認の中のボタン。押せないとき（取り消せるものが無い・返事を待っている）は薄く */
+.capture-view .capture-unhide:disabled,
+.capture-view .capture-hide-confirm .capture-tool:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 書き込みの絵（canvas）。画像の上に重ねるだけで、マウスは下の画像に届く */
+.capture-draw {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.capture-ink-note {
+  position: absolute;
+  z-index: 4;
+  width: min(60%, 420px);
+  transform: translate(0, -1.4em);
+}
+
+.capture-ink-note input {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #e2d3b0;
+  border-radius: 6px;
+  background: #fffaf0;
+  color: #1c1915;
+  font: inherit;
+  font-size: 13px;
+}
+
+.capture-blur-shade {
+  position: absolute;
+  z-index: 2;
+  background: repeating-linear-gradient(45deg, rgb(90 90 90 / 45%) 0 6px, rgb(210 210 210 / 45%) 6px 12px);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 75%);
+  pointer-events: none;
+}
+
+/* 読む画面の面は z-index 100。右クリックのメニュー（ふだん 50）が、その下に隠れないようにする */
+body:has(.capture-view) > .cell-menu {
+  z-index: 120;
+}
+
+.capture-crop-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  background: #111;
+  touch-action: none;
+}
+
+.capture-crop-stage img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+}
+
+.capture-crop-dim {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 45%);
+  pointer-events: none;
+}
+
+.capture-crop-hole {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 9999px rgb(0 0 0 / 50%);
+  pointer-events: none;
+}
+
+.capture-crop-actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.capture-crop-actions button {
+  height: 32px;
+  padding: 0 14px;
+}
+
+/* スタンプの見た目は canvas の札。これは当たり用の透明なボタン（大きさは JS が札に合わせて入れる） */
+.capture-stamp {
+  position: absolute;
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+}
+
+.capture-stamp:focus-visible {
+  outline: 2px solid #e6c98a;
+  outline-offset: 2px;
+}
+
+/* 選んだ線のつまみ（矢印・蛍光ペンの両端、四角の 4 隅）。当たりは 28 CSS px の透明なボタン、見た目は中の小さな白丸（スタンプのボタンと同じ作法） */
+.capture-handle {
+  position: absolute;
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  cursor: crosshair;
+}
+
+.capture-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #2b2b2b;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 85%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.capture-handle:focus-visible {
+  outline: 2px solid #e6c98a;
+  outline-offset: 2px;
+}
+
+.capture-stamp-note {
+  position: absolute;
+  z-index: 4;
+  width: 220px;
+  margin: 18px 0 0;
+  transform: translate(-50%, 0);
+}
+
+.capture-stamp-note input {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #e2d3b0;
+  border-radius: 6px;
+  background: #fffaf0;
+  color: #1c1915;
+  font: inherit;
+  font-size: 13px;
+}
+
+/* 右のカードで隠す（R3）。読んだ行の「隠す」・候補の札・行を選んで隠す・隠した矩形の枠・送る画像の下見・mp4 だけ消す */
+.capture-ocr-tools,
+.capture-ocr-pickbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.capture-ocr-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.capture-ocr-hide-cands,
+.capture-ocr-pick-start,
+.capture-ocr-pick-go,
+.capture-ocr-pick-cancel,
+.capture-ask-hide-cands {
+  flex: none;
+  height: 22px;
+  padding: 0 6px;
+  border-color: var(--border);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.capture-ocr-hide {
+  flex: none;
+  height: 20px;
+  padding: 0 6px;
+  border-color: var(--border);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.capture-ocr-cand {
+  flex: none;
+  padding: 0 5px;
+  border: 1px solid #d9a441;
+  border-radius: 999px;
+  background: #d9a44122;
+  color: var(--text, inherit);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+/* theme: fixed end */
+
+.capture-ocr li.is-hidden .capture-ocr-text {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.capture-ocr-pick {
+  flex: none;
+  margin: 2px 0 0;
+}
+
+.capture-drop-video.is-confirm {
+  color: var(--danger);
+}
+
+.capture-ask-image {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.capture-ask-image-open {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+}
+
+.capture-ask-image-open img {
+  display: block;
+  width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.capture-ask-image-note,
+.capture-ask-image-wait,
+.capture-ask-textnote {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.capture-ask-warn .capture-ask-hide-cands {
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.capture-drop-video {
+  flex: none;
+  height: 24px;
+  border-color: var(--border);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* 右のカード（R4）：縮図と拡大に書き込みを重ねる・「出ていくもの」の字下げ・切り抜きの下見 */
+.capture-lightbox-frame {
+  position: relative;
+  /* 伸ばさない（伸びると、書き込みの canvas が画像より縦に長くなってずれる）。余白は margin: auto が吸う */
+  flex: none;
+  width: fit-content;
+  margin: auto;
+  line-height: 0;
+}
+
+.capture-lightbox .capture-lightbox-frame img {
+  display: block;
+  flex: none;
+  width: auto;
+  height: auto;
+  max-width: calc(100vw - 20px);
+  max-height: calc(100vh - 60px);
+  object-fit: fill;
+}
+
+.capture-ask-check.capture-ask-sub {
+  margin-left: 20px;
+}
+
+.capture-ask-crops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.capture-ask-crop {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+}
+
+.capture-ask-crop img {
+  display: block;
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.capture-ask-crop-label {
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}

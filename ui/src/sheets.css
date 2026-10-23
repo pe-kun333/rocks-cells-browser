@@ -1,0 +1,4137 @@
+/* シート（盤面を何枚も）・シートへの入口・タブの見え方（画像・コメント）・見た目の欄 */
+
+/* ---------- 盤面の左上：戻る ← とシートの名前 ---------- */
+.sheet-bar {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 4; /* 拡大表示の「自由に配置」・ポップアップより上 */
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  max-width: calc(100% - 12px);
+}
+
+.sheet-bar button {
+  height: 26px;
+  border-color: var(--border);
+  background: var(--surface);
+  box-shadow: 0 1px 3px var(--shadow);
+  font-size: 12px;
+}
+
+.sheet-bar .sheet-back[hidden] {
+  display: none;
+}
+
+.sheet-chip {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  min-width: 0;
+  max-width: 200px;
+}
+
+.sheet-swatch {
+  flex: none;
+  width: 10px;
+  height: 11px;
+  background: var(--sheet, var(--accent));
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+
+.sheet-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 大きい表示（リスト）も、左上のシートの名前の下から */
+.tab-list {
+  padding-top: 38px;
+}
+
+.list-empty {
+  padding: 16px 8px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ---------- 乗せたときの吹き出し（セルの上で読めないコメント） ---------- */
+.cell-balloon {
+  position: absolute;
+  z-index: 25;
+  max-width: 210px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 3px 10px var(--shadow);
+  font-size: 11.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+.cell-balloon[hidden] {
+  display: none;
+}
+
+.cell-balloon b {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- タブのセル：画像・コメント ---------- */
+/* 画像の上の縁（表示中・読み込み中・休眠中の枠を、画像の上にも見せる） */
+.cell .face-rim {
+  fill: none;
+  stroke: var(--cell-border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.cell:hover .face-rim {
+  stroke: var(--accent);
+}
+
+.cell.active .face-rim {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+.cell.loading .face-rim {
+  stroke: var(--accent);
+  stroke-dasharray: 4 3;
+  animation: march 0.6s linear infinite;
+}
+
+.cell.asleep .face-rim {
+  stroke-dasharray: 3 3;
+}
+
+/* 休眠中でも、付けた画像は見分けられる濃さに（アイコンは 0.5） */
+.cell.asleep image.face-image {
+  opacity: 0.72;
+}
+
+.cell.suspended image.face-image {
+  opacity: 0.85;
+}
+
+.face-text {
+  fill: var(--text);
+  font-size: 8px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.face-text.dim {
+  fill: var(--muted);
+  font-weight: 500;
+}
+
+.cell.asleep .face-text {
+  fill: var(--muted);
+}
+
+.face-mini-icon {
+  pointer-events: none;
+}
+
+.comment-mark {
+  pointer-events: none;
+}
+
+.comment-mark circle {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.comment-mark-text {
+  fill: var(--accent-text);
+  font-size: 7px;
+  font-weight: 700;
+}
+
+/* ---------- シートへの入口（扉：シートの色の六角形に、白い内枠と名前） ---------- */
+.cell.portal .portal-door {
+  fill: var(--sheet);
+  stroke: var(--sheet);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.cell.portal:hover .portal-door {
+  filter: drop-shadow(0 0 3px var(--sheet));
+}
+
+.cell.portal .portal-frame {
+  fill: none;
+  stroke: var(--on-data);
+  stroke-width: 1.2;
+  opacity: 0.8;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.cell.portal .portal-rim {
+  fill: none;
+  stroke: var(--sheet);
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.portal-name {
+  fill: var(--on-data);
+  font-size: 8px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: color-mix(in srgb, var(--text) 22%, transparent); /* 字の縁取り（字と逆の明るさ） */
+  stroke-width: 1.6px;
+  pointer-events: none;
+}
+
+.portal-count {
+  fill: var(--sheet);
+  stroke: var(--bg);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.portal-count-text {
+  fill: var(--on-data);
+  font-size: 6.5px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.cell.portal.lost .portal-door {
+  fill: var(--muted);
+  stroke: var(--muted);
+}
+
+/* ---------- ボットのセル（外の Grok Bot への窓口：石板の色・四角い頭・左上の外へ出る矢印・右上の四角い札） ---------- */
+.bot-face .bot-plate {
+  fill: var(--bot-soft);
+  stroke: var(--bot);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.cell:hover .bot-face .bot-plate {
+  filter: drop-shadow(0 0 2.5px var(--bot));
+}
+
+.bot-face .bot-rim {
+  fill: none;
+  stroke: var(--bot);
+  stroke-width: 0.8;
+  opacity: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.bot-face .bot-image-rim {
+  fill: none;
+  stroke: var(--bot);
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.bot-head {
+  fill: var(--surface);
+  stroke: var(--bot);
+  stroke-width: 1;
+}
+
+.bot-antenna {
+  stroke: var(--bot);
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+.bot-antenna-tip {
+  fill: var(--bot);
+}
+
+.bot-eye {
+  fill: var(--bot-ink);
+}
+
+.bot-line {
+  fill: none;
+  stroke: var(--bot-ink);
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+/* 左上：外へ出る矢印 */
+.bot-exit {
+  fill: var(--surface);
+  stroke: var(--bot);
+  stroke-width: 0.9;
+}
+
+.bot-exit-arrow {
+  fill: none;
+  stroke: var(--bot);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 右上：四角い札（まだ読んでいない返事の数。第2段から） */
+.bot-tag {
+  fill: var(--accent);
+}
+
+.bot-tag-text {
+  fill: var(--accent-text);
+  font-size: 6.6px;
+  font-weight: 700;
+}
+
+/* 左下：状態の丸（リンクなし「?」・アプリなし「×」） */
+.bot-badge {
+  fill: var(--muted);
+  stroke: var(--bg);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.bot-badge-text {
+  fill: var(--surface);
+  font-size: 6.6px;
+  font-weight: 700;
+}
+
+.bot-face .bot-rim,
+.bot-face .bot-image-rim,
+.bot-head-group,
+.bot-exit,
+.bot-exit-arrow,
+.bot-tag,
+.bot-tag-text,
+.bot-badge,
+.bot-badge-text {
+  pointer-events: none;
+}
+
+/* リンクなし・アプリなし：灰色の点線（押してもアプリは開けない） */
+.bot-face.bot-off .bot-plate {
+  fill: var(--hover);
+  stroke: var(--muted);
+  stroke-dasharray: 3 2;
+}
+
+.bot-face.bot-off .bot-rim,
+.bot-face.bot-off .bot-image-rim,
+.bot-face.bot-off .bot-head,
+.bot-face.bot-off .bot-antenna,
+.bot-face.bot-off .bot-exit,
+.bot-face.bot-off .bot-exit-arrow {
+  stroke: var(--muted);
+}
+
+.bot-face.bot-off .bot-antenna-tip {
+  fill: var(--muted);
+}
+
+.bot-face.bot-off .bot-line {
+  stroke: var(--muted);
+}
+
+/* 第2段の状態（§9.6）：待っている・作業中・遅れている＝点線の輪、返事あり＝札の色の縁、ボットのエラー＝赤い枠 */
+.bot-ring {
+  fill: none;
+  stroke: var(--bot);
+  stroke-width: 1;
+  stroke-dasharray: 2.4 2;
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.bot-face.bot-working .bot-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bot-ring-turn 6s linear infinite;
+}
+
+.bot-face.bot-late .bot-ring,
+.bot-face.bot-late .bot-plate,
+.bot-face.bot-replied .bot-plate {
+  stroke: var(--accent);
+}
+
+.bot-face.bot-replied .bot-plate {
+  stroke-width: 2;
+}
+
+.bot-face.bot-botError .bot-plate {
+  stroke: var(--danger);
+  stroke-width: 2.4;
+}
+
+.bot-badge.wait {
+  fill: var(--bot);
+}
+
+.bot-badge-text.wait {
+  fill: var(--bot-soft);
+}
+
+.bot-badge.wait.late {
+  fill: var(--accent);
+}
+
+.bot-badge-text.wait.late {
+  fill: var(--accent-text);
+}
+
+.bot-badge.alert {
+  fill: var(--danger);
+}
+
+.bot-badge-text.alert {
+  fill: var(--on-danger);
+}
+
+/* 返事が届いたボットのセル・ボットから置いたメモのセルを光らせる（flashMemo） */
+.cell.bot.just-added .bot-plate,
+.cell.app.just-added .app-plate,
+.cell.memo.just-added .hex {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+/* ---------- アプリのセル（登録した Windows のアプリ：青緑の六角形にアイコン） ---------- */
+.app-plate {
+  fill: var(--app-soft);
+  stroke: var(--app);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.cell.app:hover .app-plate {
+  filter: drop-shadow(0 0 2.5px var(--app));
+}
+
+.app-letter {
+  fill: var(--app);
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.app-icon {
+  pointer-events: none;
+}
+
+.cell.app.lost .app-plate {
+  fill: var(--surface);
+  stroke: var(--muted);
+}
+
+.cell.app.lost .app-letter {
+  fill: var(--muted);
+}
+
+@keyframes bot-ring-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bot-face.bot-working .bot-ring {
+    animation: none;
+  }
+}
+
+/* 入口の上に落とすと、そのシートへ移る */
+.drop-target.into-portal {
+  fill: none; /* 下の入口（色と名前）が見えるように */
+  stroke-dasharray: none;
+  stroke-width: 2.5;
+}
+
+/* ---------- 大きい表示（リスト）：画像とコメント ---------- */
+.hex-icon .face-photo {
+  width: 26px;
+  height: 30px;
+  object-fit: cover;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+
+.row .title.with-comment {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.2;
+}
+
+.row-title,
+.row-comment {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-comment {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* ---------- 拡大表示のカード ---------- */
+.preview-hex.face-hex {
+  overflow: hidden;
+}
+
+.preview-hex.face-hex img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-comment,
+.portal-comment {
+  padding: 3px 8px;
+  border-left: 3px solid var(--accent);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.pill-sheet,
+.pill-portal {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.portal-card .portal-visual {
+  display: grid;
+  place-items: center;
+}
+
+.portal-card-svg {
+  width: 84px;
+  height: 92px;
+}
+
+.preview-card.compact .portal-card-svg {
+  width: 64px;
+  height: 70px;
+}
+
+/* ---------- ボットのセルのカード ---------- */
+.bot-comment {
+  padding: 3px 8px;
+  border-left: 3px solid var(--bot);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.pill-bot {
+  background: var(--bot-soft);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--bot);
+}
+
+.pill-bot-off {
+  color: var(--danger);
+}
+
+.bot-card .bot-visual {
+  display: grid;
+  place-items: center;
+}
+
+.bot-card-svg {
+  width: 84px;
+  height: 92px;
+}
+
+.preview-card.compact .bot-card-svg {
+  width: 64px;
+  height: 70px;
+}
+
+/* ---------- アプリのセルのカード ---------- */
+.pill-app {
+  background: var(--app-soft);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--app);
+}
+
+.app-card .app-visual {
+  display: grid;
+  place-items: center;
+}
+
+.app-card-svg {
+  width: 84px;
+  height: 92px;
+}
+
+.preview-card.compact .app-card-svg {
+  width: 64px;
+  height: 70px;
+}
+
+.app-card-file {
+  padding: 0 8px 4px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.app-card-note {
+  margin: 0;
+  padding: 0 8px 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* エージェントの id（URL は出さない） */
+.bot-card-id {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.bot-card-hint {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.bot-card-hint.warn {
+  color: var(--danger);
+}
+
+/* アプリとの行き来（コピーで）：頼む文をコピーしてアプリを開く・クリップボードの返事をメモにする */
+.bot-card-relay {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--bot);
+  border-radius: 8px;
+  background: var(--bot-soft);
+}
+
+.bot-card-relay .preview-actions {
+  margin: 0;
+}
+
+.bot-card-relay-title {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ---------- 右下の Grok-Bot の巣（右サイドバーの相棒の並びの下。6つの席を六角形の輪に。第3段 S3.2・bot-nest.ts） ----------
+   相棒の六角形（色の付いた顔）とは分けて、ボットのセルと同じ石板の色・役の形の顔と「↗ Grok Bot」の札で並べる。
+   高さは 240px ほど（相棒の会話を開いていて画面が低いときは 170px ほどに詰める）。動き（アニメーション）は合体 Grok（S3.7。ファイルの終わり）だけ */
+.bot-nest {
+  --nest-face: 34px; /* 席の顔の大きさ */
+  --nest-label: 13px; /* 顔の下の名前の行 */
+  --nest-label-w: 72px; /* 席の幅（名前が入る幅） */
+  --nest-rx: min(96px, 50% - 40px); /* 輪の横の半径（細い幅では縮める。合体 Grok の席の transform にも同じ式〔50cqw〕。S3.7） */
+  --nest-ry: 52px; /* 輪の縦の半径 */
+  --nest-plate-h: 36px; /* 真ん中の札の高さ */
+  --nest-cy: calc(var(--nest-ry) + var(--nest-face) / 2 + 2px); /* 輪の真ん中（上から） */
+  position: relative; /* 設定の欄（.bns）を巣の上に重ねる */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+
+.bot-nest[hidden] {
+  display: none;
+}
+
+/* 相棒の会話を開いていて、画面が低いとき（会話は 58vh まで）：輪を縦に詰め、説明の行を畳んで「この子に頼む」と「みんなに聞く」を1行に
+   （巣は 170px ほど。相棒の会話の下に収まるように。選んだ子の名前と役は、席の名前・ボタンの吹き出しで見られる） */
+@media (max-height: 1000px) {
+  .ai-dock:has(> .ai-chat:not([hidden])) .bot-nest {
+    --nest-face: 28px;
+    --nest-ry: 42px;
+    --nest-plate-h: 26px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .ai-dock:has(> .ai-chat:not([hidden])) :is(.bot-nest-ring, .bot-nest-merge) {
+    grid-column: 1 / -1;
+  }
+
+  .ai-dock:has(> .ai-chat:not([hidden])) .bot-nest-detail {
+    min-height: 0;
+    padding: 0;
+    border: none;
+    background: none;
+  }
+
+  .ai-dock:has(> .ai-chat:not([hidden])) :is(.bot-nest-detail-icon, .bot-nest-detail-text, .bot-nest-hint, .bot-nest-detail[data-chosen='false']) {
+    display: none;
+  }
+
+  .ai-dock:has(> .ai-chat:not([hidden])) .bot-nest-detail[data-chosen='false'] + .bot-nest-asks {
+    grid-column: 1 / -1;
+  }
+
+  .ai-dock:has(> .ai-chat:not([hidden])) .bot-nest-center-title {
+    font-size: 9.5px;
+  }
+
+  .ai-dock:has(> .ai-chat:not([hidden])) :is(.bot-nest-ask-one, .bot-nest-all, .bot-nest-team) {
+    padding: 0 7px;
+    font-size: 11px;
+  }
+}
+
+.bot-nest-ring {
+  position: relative;
+  container-type: inline-size; /* 合体 Grok で席を寄せる量を、輪の幅（cqw）から出す（S3.7） */
+  height: calc(2 * var(--nest-ry) + var(--nest-face) + var(--nest-label) + 4px);
+}
+
+/* 左上の見出し（外のアプリの印）。右上は ⚙（設定の欄。S3.3） */
+.bot-nest-head {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.bot-nest-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--bot);
+  border-radius: 3px;
+  background: var(--bot-soft);
+  color: var(--bot-ink);
+  font-size: 10px;
+  line-height: 1;
+}
+
+/* 右上の ⚙（巣の設定の欄を開く） */
+.bot-nest-gear {
+  position: absolute;
+  top: -2px;
+  right: 0;
+  width: 24px;
+  min-width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.bot-nest-gear:hover:not(:disabled),
+.bot-nest-gear[aria-expanded='true'] {
+  border-color: var(--bot);
+  background: var(--bot-soft);
+  color: var(--text);
+}
+
+.bot-nest-gear:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+/* 席をつなぐ点線の六角形 */
+.bot-nest-lines {
+  position: absolute;
+  top: calc(var(--nest-cy) - var(--nest-ry));
+  left: calc(50% - var(--nest-rx) * 0.866);
+  width: calc(var(--nest-rx) * 1.732);
+  height: calc(2 * var(--nest-ry));
+  overflow: visible;
+  pointer-events: none;
+}
+
+.bot-nest-lines polygon {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+/* 真ん中の札「Grok-Bot の巣 n体」 */
+.bot-nest-center {
+  position: absolute;
+  top: var(--nest-cy);
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 80px;
+  height: var(--nest-plate-h);
+  transform: translate(-50%, -50%);
+  line-height: 1.15;
+  text-align: center;
+}
+
+.bot-nest-center-plate {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.bot-nest-center-plate polygon {
+  fill: var(--bot-soft);
+  stroke: var(--bot);
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.bot-nest-center-title,
+.bot-nest-center-count {
+  position: relative;
+  white-space: nowrap;
+}
+
+.bot-nest-center-title {
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.bot-nest-center-count {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* 席（上から時計回りに 席1〜6。顔の真ん中を輪の頂点に置く） */
+.bot-nest-seat {
+  position: absolute;
+  top: calc(var(--nest-cy) + var(--dy) * var(--nest-ry));
+  left: calc(50% + var(--dx) * var(--nest-rx));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: var(--nest-label-w);
+  height: auto;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  transform: translate(-50%, calc(var(--nest-face) / -2));
+}
+
+.bot-nest-seat[data-seat='1'] { --dx: 0; --dy: -1; }
+.bot-nest-seat[data-seat='2'] { --dx: 0.866; --dy: -0.5; }
+.bot-nest-seat[data-seat='3'] { --dx: 0.866; --dy: 0.5; }
+.bot-nest-seat[data-seat='4'] { --dx: 0; --dy: 1; }
+.bot-nest-seat[data-seat='5'] { --dx: -0.866; --dy: 0.5; }
+.bot-nest-seat[data-seat='6'] { --dx: -0.866; --dy: -0.5; }
+
+.bot-nest-seat:hover:not(:disabled),
+.bot-nest-seat[aria-pressed] {
+  border-color: transparent;
+  background: none;
+}
+
+.bot-nest-seat:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+.bot-nest-facebox {
+  position: relative;
+  display: block;
+  flex: none;
+  width: var(--nest-face);
+  height: var(--nest-face);
+}
+
+/* button svg（細い線・14px）の決まりを、顔では使わない */
+.bot-nest-seat svg,
+.bot-nest-detail-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: currentColor;
+  stroke: none;
+  stroke-width: 1;
+  vertical-align: top;
+}
+
+.bot-nest-seat:hover .bot-face .bot-plate {
+  filter: drop-shadow(0 0 2.5px var(--bot));
+}
+
+/* 選んでいる席：太い縁と、まわりの点線の丸 */
+.bot-nest-seat[aria-pressed='true'] .bot-face .bot-plate {
+  stroke: var(--text);
+  stroke-width: 3;
+}
+
+.bot-nest-seat[aria-pressed='true'] .bot-nest-facebox::before {
+  position: absolute;
+  inset: -5px;
+  border: 1px dashed var(--accent);
+  border-radius: 50%;
+  content: '';
+}
+
+.bot-nest-seat[aria-pressed='true'] .bot-nest-name {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.bot-nest-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: var(--nest-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 同じ役の席が2つ以上：役の名前の後ろにボットの短い名前（狭ければ役の名前のほうを縮める） */
+.bot-nest-name[data-dup='true'] {
+  display: flex;
+  justify-content: center;
+}
+
+.bot-nest-name-role {
+  min-width: 2em; /* 長い役の名前でも頭の1字は残す */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bot-nest-name-bot {
+  flex: none;
+  font-weight: 400;
+}
+
+/* 役の形の顔：真ん中の G（板の色・状態の色は .bot-face .bot-plate の決まりのまま） */
+.bot-nest-g {
+  fill: var(--bot-ink);
+  stroke: none;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.bot-face.bot-off .bot-nest-g {
+  fill: var(--muted);
+}
+
+.bot-nest-inner {
+  fill: none;
+  stroke: var(--bot);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.bot-face.bot-off .bot-nest-inner {
+  stroke: var(--muted);
+  stroke-dasharray: 3 2;
+}
+
+/* 巣では点線の輪を回さない（作業中は点を細かくして分ける） */
+.bot-nest .bot-face.bot-working .bot-ring {
+  stroke-width: 1.4;
+  stroke-dasharray: 1 1.4;
+  animation: none;
+}
+
+/* 顔の札（HTML で重ねる。右上：まだ読んでいない数、左下：? × ! と待っている数） */
+.bot-nest-tag,
+.bot-nest-badge {
+  position: absolute;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border: 1px solid var(--bg);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.bot-nest-tag {
+  top: -4px;
+  right: -7px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.bot-nest-badge {
+  bottom: -1px;
+  left: -7px;
+  border-radius: 7px;
+  background: var(--muted);
+  color: var(--surface);
+}
+
+.bot-nest-badge[data-kind='wait'] {
+  background: var(--bot);
+  color: var(--bot-soft);
+}
+
+.bot-nest-badge[data-kind='late'] {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.bot-nest-badge[data-kind='alert'] {
+  background: var(--danger);
+  color: var(--on-danger);
+}
+
+/* 送ったあと（依頼の小窓 v2・R8・D17）：頼んでいる席の点線の輪は、知らせの期限を過ぎたら赤。返事が届いた席は光る（影だけ・動きなし） */
+.bot-nest-badge[data-kind='overdue'] {
+  background: var(--danger);
+  color: var(--on-danger);
+}
+
+.bot-nest-seat[data-overdue='true'] .bot-face .bot-ring {
+  stroke: var(--danger);
+  stroke-width: 1.6;
+}
+
+.bot-nest-seat[data-overdue='true'] .bot-face .bot-plate {
+  stroke: var(--danger);
+}
+
+.bot-nest-seat[data-glow='true'] svg {
+  filter: drop-shadow(0 0 3px var(--accent)) drop-shadow(0 0 7px var(--accent));
+}
+
+/* 空いた席：点線の六角形と ＋ */
+.bot-nest-empty-plate {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.bot-nest-plus {
+  fill: var(--muted);
+  font-size: 18px;
+  font-weight: 400;
+}
+
+.bot-nest-seat.empty .bot-nest-name {
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.bot-nest-seat.empty:hover:not(:disabled) .bot-nest-empty-plate {
+  fill: var(--bot-soft);
+  stroke: var(--bot);
+}
+
+.bot-nest-seat.empty:hover:not(:disabled) .bot-nest-plus {
+  fill: var(--text);
+}
+
+/* 輪の下：選んだ子の説明と「この子に頼む」（選んでいなければ使い方） */
+.bot-nest-detail {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  min-height: 38px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.bot-nest-detail[data-chosen='true'] {
+  border-color: var(--bot);
+}
+
+.bot-nest-detail-icon {
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+
+.bot-nest-detail-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.bot-nest-detail-name,
+.bot-nest-detail-blurb {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bot-nest-detail-name {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bot-nest-detail-blurb {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.bot-nest-hint {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.bot-nest-ask-one {
+  flex: none;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--bot);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.bot-nest-ask-one:hover:not(:disabled) {
+  background: var(--bot-soft);
+}
+
+/* ⬡ みんなに聞く と グループに頼む を横に並べる */
+.bot-nest-asks {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* ⬡ みんなに聞く（n体） */
+.bot-nest-all {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  height: 26px;
+  border: 1px solid var(--bot);
+  border-radius: 7px;
+  background: var(--bot-soft);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bot-nest-all-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bot-nest-all:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.bot-nest-team {
+  flex: none;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--bot);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bot-nest-team:hover:not(:disabled) {
+  background: var(--bot-soft);
+}
+
+/* 巣の下端の1行（S3.8）：「Grok Bot：待っている依頼 2 件（#0003 調査中）・受け取り口 ✓」。押すと受け取り箱へ。幅 296px では待っている依頼の部分を切る */
+.bot-nest-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  height: 22px;
+  padding: 0 4px;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bot-nest-foot:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.bot-nest-foot-g {
+  flex: none;
+  width: 12px;
+  height: 14px;
+  background: var(--bot-ink);
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  color: var(--surface);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+
+.bot-nest-foot-text {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bot-nest-foot-sep,
+.bot-nest-foot-inbox {
+  flex: none;
+  white-space: nowrap;
+}
+
+.bot-nest-foot-inbox.ok {
+  color: var(--bot-ink);
+  font-weight: 600;
+}
+
+/* ---------- 巣の設定の欄（⚙。第3段 S3.3・bot-nest-settings.ts） ----------
+   巣の上に重ねる（下の端を巣の下の端にそろえて上へ伸ばす。巣より低くはしない）。高さは JS（fit）で窓の中に収める。
+   文字の大きさ・入力欄は相棒の ⚙ の ai-settings にそろえる。色は CSS 変数だけ（明るい画面・暗い画面）。動き（アニメーション）は使わない */
+.bns {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  max-height: min(560px, calc(100vh - 16px));
+  border: 1px solid var(--bot);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px var(--shadow-pop);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.bns[hidden] {
+  display: none;
+}
+
+.bns :focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+.bns-head {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  align-items: flex-end;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.bns-title {
+  flex: none;
+  padding-bottom: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bns-tabs {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.bns-tab {
+  height: 26px;
+  margin-bottom: -1px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 7px 7px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.bns-tab[aria-selected='true'] {
+  border-color: var(--border);
+  border-bottom-color: var(--surface);
+  background: var(--surface);
+  box-shadow: inset 0 2px 0 var(--bot);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.bns-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 8px 10px 10px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.bns-foot,
+.bns-confirm {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+}
+
+.bns-foot[hidden],
+.bns-confirm[hidden] {
+  display: none;
+}
+
+.bns-confirm {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  border-radius: 0 0 9px 9px;
+  background: var(--accent-soft);
+}
+
+.bns-confirm-text {
+  flex: 1 1 100%;
+  font-weight: 700;
+}
+
+.bns-confirm .bns-button {
+  padding: 0 7px;
+}
+
+.bns-status {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bns-status[data-kind='dirty'] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.bns-button {
+  flex: none;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.bns-primary {
+  border-color: var(--bot);
+  background: var(--bot-soft);
+  font-weight: 700;
+}
+
+.bns-note,
+.bns-role-blurb {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.bns-empty {
+  margin: 0;
+  padding: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+/* 入力欄（ai-settings の select と同じ形） */
+.bns-select,
+.bns-input,
+.bns-textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  user-select: text;
+}
+
+.bns-select,
+.bns-input {
+  height: 26px;
+  padding: 0 6px;
+}
+
+.bns-select:disabled {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.bns-textarea {
+  min-height: 60px;
+  padding: 5px 7px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.bns-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* 送り方（R11）：宛先と鍵の「ある／ない」と、しまう・鍵を消す */
+.bns-hook-state {
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.bns-hook-state.on {
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.bns-hook-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.bns-field-label,
+.bns-opt-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* 送ったあと（R8）の見出しと、数の欄 */
+.bns-section-title {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bns-number {
+  width: 7em;
+}
+
+.bns-count {
+  align-self: flex-end;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.bns-count[data-full='true'] {
+  color: var(--danger);
+}
+
+.bns-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* 並び：席1〜6 の行（席の番号・小さな顔・ボットを選ぶ・↑ ↓ ×） */
+.bns-seats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bns-seat-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.bns-seat-no {
+  flex: none;
+  width: 28px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.bns-face {
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+
+.bns-seat-row .bns-select {
+  flex: 1;
+}
+
+.bns-mini {
+  flex: none;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* 札（見えない radio を重ねたラベル）。選んだものは石板の色 */
+.bns-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bns-chip {
+  position: relative;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.bns-chip input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.bns-chip:hover:not(:has(input:disabled)) {
+  background: var(--hover);
+}
+
+.bns-chip:has(input:checked) {
+  border-color: var(--bot);
+  background: var(--bot-soft);
+  box-shadow: inset 0 0 0 1px var(--bot);
+  font-weight: 700;
+}
+
+.bns-chip:has(input:focus-visible) {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+.bns-chip:has(input:disabled) {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.bns-chip .bns-icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+/* 小さな顔では G を描かない（読めないので） */
+.bns-chip .bot-nest-g {
+  display: none;
+}
+
+.bns-chip-none {
+  flex: none;
+  width: 15px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* 役：席を選ぶ（6つの小さな顔） */
+.bns-seatpick {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.bns-seatchip {
+  flex-direction: column;
+  gap: 1px;
+  justify-content: center;
+  height: auto;
+  padding: 3px 0 2px;
+  border-radius: 8px;
+}
+
+.bns-seatchip .bns-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.bns-seatchip-no {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.bns-who {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+  font-weight: 700;
+}
+
+.bns-who-seat {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--bot);
+  color: var(--bot-soft);
+  font-size: 10.5px;
+}
+
+.bns-who-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bns-rolepick {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bns-rolegroup-label {
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+/* 選んだ役の細かい設定 */
+.bns-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.bns-opt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bns-seg .bns-chip {
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+/* 役：「席の役」「グループ」の切り替え */
+.bns-viewswitch .bns-chip {
+  flex: 1;
+  justify-content: center;
+  height: 26px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 役：グループ（5つ。役ごとのボットとまとめ役） */
+.bns-team {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.bns-team-head {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  justify-content: space-between;
+  font-weight: 700;
+}
+
+.bns-team-count {
+  flex: none;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 400;
+}
+
+.bns-team-lead {
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+
+.bns-shapes .bns-shapechip {
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  padding: 0;
+  border-radius: 6px;
+}
+
+.bns-shapes .bns-shapechip .bns-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.bns-check {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.bns-check input {
+  flex: none;
+  margin: 1px 0 0;
+}
+
+/* 依頼に入る文のプレビュー（roleInstructions の結果そのもの） */
+.bns-preview {
+  margin: 0;
+  padding: 7px 9px;
+  border: 1px dashed var(--bot);
+  border-radius: 8px;
+  background: var(--bot-soft);
+  color: var(--text);
+  font-size: 11.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.bns-preview[data-empty='true'] {
+  color: var(--muted);
+}
+
+/* みんなに聞く：送り方（A・B）と合体 Grok */
+.bns-ways {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bns-way {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.bns-way:has(input:checked) {
+  border-color: var(--bot);
+  background: var(--bot-soft);
+}
+
+.bns-way input {
+  flex: none;
+  margin: 2px 0 0;
+}
+
+.bns-way-words,
+.bns-merge-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bns-way-title {
+  font-weight: 700;
+}
+
+.bns-way-text {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.bns-merge {
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.bns-merge:has(input:checked) {
+  border-color: var(--bot);
+}
+
+/* 定型のタブ（依頼の小窓 v2・R4b・D10）：声かけ・手元／棚／蔵の行・直す欄・棚卸し・拾う。灰色は蔵と、30 日使っていない手元。動きは使わない */
+.bns-pre-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  align-items: center;
+}
+
+.bns-pre-hint {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 400;
+}
+
+.bns-pre-sort {
+  width: auto;
+  height: 22px;
+  margin-left: auto;
+  font-size: 11px;
+}
+
+.bns-pre-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bns-pre-slot {
+  padding: 4px 8px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.bns-pre-item {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  box-sizing: border-box;
+  width: 100%;
+  height: auto; /* style.css の button の 28px より、中身（2 行の数字）に合わせる */
+  min-height: 28px;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  text-align: left;
+}
+
+.bns-pre-item:hover {
+  background: var(--hover);
+}
+
+.bns-pre-item[aria-expanded='true'] {
+  border-color: var(--bot);
+  background: var(--bot-soft);
+}
+
+.bns-pre-item[data-sleep='true'] {
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.bns-pre-key {
+  flex: none;
+  min-width: 14px;
+  padding: 0 3px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+.bns-pre-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bns-pre-hole {
+  color: var(--accent-ink);
+}
+
+.bns-pre-life {
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid var(--bot);
+  border-radius: 8px;
+  color: var(--bot);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.bns-pre-meta {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 45%;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.bns-pre-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 4px 10px;
+  padding: 7px 8px;
+  border: 1px solid var(--bot);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.bns-pre-edit-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+}
+
+.bns-pre-edit-row .bns-input {
+  flex: 1;
+}
+
+.bns-pre-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.bns-pre-btn {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.bns-body > .bns-pre-btn {
+  align-self: flex-start;
+}
+
+.bns-pre-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.bns-pre-ask {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  align-items: center;
+  padding: 7px 8px;
+  border: 1px solid var(--bot);
+  border-radius: 8px;
+  background: var(--bot-soft);
+}
+
+.bns-pre-ask-text {
+  flex: 1 1 100%;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.bns-pre-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 7px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+
+.bns-pre-group > .bns-pre-btn {
+  align-self: flex-start;
+}
+
+.bns-pre-group-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  align-items: center;
+  font-size: 11.5px;
+}
+
+.bns-pre-group-row .bns-pre-meta {
+  flex-direction: row;
+  max-width: none;
+}
+
+.bns-pre-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bns-pre-pick > .bns-pre-meta {
+  align-items: flex-start;
+  max-width: none;
+  text-align: left;
+}
+
+/* ---------- 見た目の欄（画像・コメント・見え方） ---------- */
+.face-editor {
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px var(--shadow-pop);
+  font-size: 12px;
+  scrollbar-width: thin;
+}
+
+.face-editor[hidden] {
+  display: none;
+}
+
+.face-editor:focus {
+  outline: none;
+}
+
+.face-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.face-head strong {
+  font-size: 12.5px;
+}
+
+.face-sub {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.face-top {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.face-preview {
+  display: grid;
+  place-items: center;
+}
+
+.face-preview-svg {
+  width: 60px;
+  height: 62px;
+}
+
+.face-image-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.face-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.face-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.face-row .preview-button {
+  height: 24px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
+.face-hint {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.face-comment-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.face-comment {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  user-select: text;
+}
+
+.face-comment:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.face-count {
+  flex: none;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.face-looks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.face-editor .face-look {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.face-editor .face-look[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.face-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.face-status {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.face-actions .primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+/* ---------- 右クリックのメニュー：切り替えのボタン（貼り方） ---------- */
+.cell-menu-toggle[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cell.loading .face-rim {
+    animation: none;
+  }
+}
+
+/* ---------- 裏で開いて足したセル（しばらく光る） ---------- */
+.cell.just-added .hex,
+.cell.just-added .face-rim {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.cell.just-added {
+  animation: just-added 0.9s ease-in-out 3;
+}
+
+@keyframes just-added {
+  0%,
+  100% {
+    filter: none;
+  }
+  50% {
+    filter: drop-shadow(0 0 5px var(--accent));
+  }
+}
+
+.tab-list .row.just-added {
+  outline: 2px solid var(--accent-line);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cell.just-added {
+    animation: none; /* 動きは止めて、太い枠だけ残す */
+  }
+}
+
+/* ---------- 依頼の小窓（第3段 S3.5・panels/bot-request-form.ts。見本 request-menu-popup.png の右の小窓） ----------
+   DOM だけの部品なので、置き場所は使う側が決める。右サイドバーでは巣の上に重ねる（.bot-nest > .brf。下の端を巣の下の端にそろえて上へ伸ばす。
+   高さは JS（fit）で窓の中に収める）。幅 296px でも崩れないよう、行はすべて折り返す。色は CSS 変数だけ（明るい画面・暗い画面）。動き（アニメーション）は使わない */
+.brf {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 0;
+  max-height: min(560px, calc(100vh - 16px));
+  border: 1px solid var(--bot);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px var(--shadow-pop);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.bot-nest > .brf {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 21;
+  min-height: 100%;
+}
+
+/* ページの上（読む画面の重ね窓）に出すとき（S3.11。reader/ask.ts）：撮ったページを暗くして敷き、真ん中に小窓。
+   六角で読んでいる上（data-over="reader"）では、読む画面を薄く暗くするだけ。動きは使わない */
+.reader-ask {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 16px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.reader-ask[hidden],
+.reader-ask-page[hidden] {
+  display: none;
+}
+
+.reader-ask[data-over='reader'] {
+  background: var(--scrim);
+}
+
+.reader-ask-page {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: left top;
+  filter: brightness(0.6);
+  pointer-events: none;
+}
+
+.reader-ask > .brf {
+  position: relative;
+  width: min(460px, 100%);
+}
+
+.brf[hidden] {
+  display: none;
+}
+
+.brf :focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+.brf-head {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  padding: 7px 10px 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.brf-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 20px;
+  background: var(--bot);
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  color: var(--surface);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.brf-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brf-via {
+  flex: none;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.brf-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 8px 10px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.brf-body[hidden],
+.brf-guide[hidden],
+.brf-button[hidden] {
+  display: none;
+}
+
+/* みんなに聞く A の案内（S3.6）：依頼文の見本・席ごとの「✓ コピーした／いま／まだ」・知らせ。案内のあいだは .brf-body の代わりに出す */
+.brf-guide {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 8px 10px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.brf-guide-ask {
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brf-guide-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.brf-guide-seat {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.brf-guide-seat[data-state='now'] {
+  border-color: var(--bot);
+  background: var(--bot-soft);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.brf-guide-seat[data-state='sent'] {
+  color: var(--text);
+}
+
+.brf-guide-n {
+  flex: none;
+  min-width: 26px;
+  font-variant-numeric: tabular-nums;
+}
+
+.brf-guide-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brf-guide-state {
+  flex: none;
+  font-size: 11px;
+}
+
+.brf-guide-msg {
+  margin: 0;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.brf-guide-msg:empty {
+  display: none;
+}
+
+.brf-label,
+.brf-legend {
+  padding: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.brf-text {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 64px;
+  max-height: 180px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.brf-text:focus {
+  border-color: var(--bot);
+}
+
+/* 定型（依頼の小窓 v2・R4a・D9）：組の行（◀ 名前 ▶・入口・その他 ▾）、棚の小さな一覧、6 つのボタン（数字の札。穴は --accent）、キーの案内。
+   ボタンは送るもののカード（.brf-attach > .brf-check）の見た目を借りる。押した定型は --bot の枠と地。巣の幅（296px）では 2 列、読む画面では 3 列。動きは使わない */
+.brf-pre {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.brf-pre[hidden],
+.brf-pre-shelf[hidden],
+.brf-pre-item[hidden],
+.brf-pre-cand[hidden],
+.brf-pre-empty[hidden] {
+  display: none;
+}
+
+.brf-pre-set {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+}
+
+.brf-pre-hint {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.brf-pre-name {
+  font-size: 12px;
+}
+
+.brf-pre-gap {
+  flex: 1;
+}
+
+.brf-pre-step {
+  height: 22px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
+.brf-pre-six {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 4px;
+}
+
+.brf-pre-item,
+.brf-pre-shelf-item {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.35;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.brf-pre-item[aria-pressed='true'],
+.brf-pre-shelf-item[aria-pressed='true'] {
+  border-color: var(--bot); /* style.css の button[aria-pressed] の色より先に */
+  background: var(--bot-soft);
+}
+
+.brf-pre-key {
+  flex: none;
+  min-width: 14px;
+  padding: 0 3px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+}
+
+.brf-pre-text {
+  min-width: 0;
+}
+
+.brf-pre-hole {
+  color: var(--accent-ink);
+}
+
+.brf-pre-keys {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+/* その他 ▾：小窓の中に開く小さな一覧（重ねずに、組の行の下に入る） */
+.brf-pre-shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.brf-pre-shelf-item {
+  flex-wrap: wrap;
+  border-color: transparent;
+  background: transparent;
+}
+
+/* その他 ▾ の足（R4b）：案内の 1 行と「棚を整える…」 */
+.brf-pre-shelf-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 2px 0;
+}
+
+.brf-pre-tidy {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+/* 打ちながら候補：依頼文のすぐ下。候補は点線の枠（押しても取り込める） */
+.brf-pre-cand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+}
+
+.brf-pre-cand-text {
+  min-width: 0;
+  max-width: 100%;
+  padding: 1px 6px;
+  border: 1px dashed var(--bot);
+  border-radius: 5px;
+  background: var(--bot-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+/* 続きとして（依頼の小窓 v2・R5・D11）：選び口と、要点の行（印つき。見本 ① の点線の枠）。印を外した行は薄く線を引く。動きは使わない */
+.brf-follow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.brf-follow[hidden],
+.brf-follow-lines[hidden] {
+  display: none;
+}
+
+.brf-follow-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 6px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.brf-follow-hint {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.brf-follow-line {
+  display: flex;
+  gap: 5px;
+  align-items: flex-start;
+  min-width: 0;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.brf-follow-line input {
+  flex: none;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.brf-follow-line input:not(:checked) + span {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* 朱書き（依頼の小窓 v2・R3）：朱の枠の札。押したものは朱で塗る（動きは付けない） */
+.brf-stamps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.brf-stamps-hint {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.brf-stamp {
+  height: 22px;
+  min-width: 0;
+  padding: 0 7px;
+  border: 1.5px solid var(--danger);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--danger);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.brf-stamp[aria-pressed='true'] {
+  border-color: var(--danger); /* style.css の button[aria-pressed] の枠の色より先に */
+  background: var(--danger);
+  color: var(--surface);
+}
+
+/* 役の文（R3）：鉛筆の印と欄。直したら「（今回だけ直してあります）」 */
+.brf-role {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.brf-role-edit {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.brf-role-edit[hidden],
+.brf-role-ops[hidden] {
+  display: none;
+}
+
+.brf-role-pen {
+  flex: none;
+  padding-top: 5px;
+  color: var(--muted);
+}
+
+.brf-role-text {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  min-height: 76px;
+  max-height: 160px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bot-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.brf-role-text:focus {
+  border-color: var(--bot);
+}
+
+.brf-role-ops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.brf-role-mark {
+  color: var(--accent-ink);
+  font-size: 10.5px;
+}
+
+.brf-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  margin: 2px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+/* 送るもの（依頼の小窓 v2・R1）：付けるものをカードで並べ、押して外す。外したカードは薄く */
+.brf-attach {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.brf-attach > .brf-check {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.brf-attach > .brf-check:has(input:checked) {
+  border-color: var(--bot);
+  background: var(--bot-soft);
+}
+
+.brf-attach > .brf-check:has(input:not(:checked)) {
+  opacity: 0.72;
+}
+
+/* クリップボードの画像の候補（依頼の小窓 v2・R7a）：縮小図つきのカード。印は外した状態で出る */
+.brf-cand-thumb {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  object-fit: contain;
+}
+
+.brf-check-sub.brf-cand-sub {
+  white-space: normal; /* 後ろの .brf-check-sub の 1 行切りより先に */
+}
+
+/* 書き足す →（R7b）：候補のカードの右。押してもカードの印は変わらない */
+.brf-cand-edit {
+  align-self: center;
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11.5px;
+}
+
+.brf-attach > .brf-note {
+  margin: 0;
+}
+
+.brf-check {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.brf-check input {
+  flex: none;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.brf-check-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.brf-check-label {
+  line-height: 1.4;
+}
+
+.brf-check input:not(:checked) + .brf-check-text .brf-check-label,
+.brf-check input:not(:checked) + .brf-check-text .brf-check-sub {
+  color: var(--muted);
+}
+
+.brf-check-sub {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brf-check-warn {
+  color: var(--accent-ink);
+  white-space: normal;
+}
+
+.brf-select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.brf-select option,
+.brf-select optgroup {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.brf-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.brf-line {
+  flex: none;
+  max-height: 168px;
+  padding: 5px 10px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  background: var(--bot-soft);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* 送る前の 1 行（依頼の小窓 v2・R1。send-preview.ts の renderBotLine）：区切りを横に並べ、変わった所だけ色 */
+.bot-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 0;
+  align-items: baseline;
+  max-height: none;
+  color: var(--muted);
+}
+
+.bot-line-seg {
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.bot-line-seg.changed {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.bot-line-seg.bad {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.bot-line-sep {
+  color: var(--cell-border);
+}
+
+.bot-line-block {
+  flex-basis: 100%;
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.send-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.send-preview-to,
+.send-preview-chars,
+.send-preview-cost,
+.send-preview-note {
+  overflow-wrap: anywhere;
+}
+
+.send-preview-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.send-preview-items li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: baseline;
+}
+
+.send-preview-mark {
+  flex: none;
+  font-weight: 700;
+}
+
+.send-preview-items li.off {
+  color: var(--muted);
+}
+
+.send-preview-detail {
+  min-width: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.send-preview-block {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.send-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--ai);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.send-sheet[hidden] {
+  display: none;
+}
+
+.send-sheet-foot {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.brf-status {
+  flex: none;
+  padding: 0 10px;
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.brf-status:empty {
+  display: none;
+}
+
+.brf-confirm,
+.brf-foot {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+}
+
+.brf-confirm {
+  background: var(--accent-soft);
+}
+
+.brf-confirm[hidden] {
+  display: none;
+}
+
+.brf-confirm-text {
+  flex: 1 1 100%;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* 鍵の見張りの帯（依頼の小窓 v2・R2）：1 行の上。出ているあいだは送れない。押して送れなかったときは枠を出すだけ（動きは付けない） */
+.brf-secret {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 8px;
+  border-top: 2px solid var(--danger);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.brf-secret[hidden] {
+  display: none;
+}
+
+.brf-secret.brf-secret-flash {
+  outline: 2px solid var(--danger);
+  outline-offset: -2px;
+}
+
+.brf-secret-mark {
+  flex: none;
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.brf-secret-text {
+  flex: 1 1 0;
+  min-width: 12em;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.brf-keys {
+  flex: none;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* 足の「履歴・同期には入れない印を付けてコピー」（R2・D6）：狭いときは切って、全文は title */
+.brf-clip {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brf-button {
+  flex: none;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.brf-primary {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border-color: var(--bot);
+  background: var(--bot-soft);
+  font-weight: 700;
+  text-overflow: ellipsis; /* 「1/6 統合と再構築：コピーしてアプリを開く」など長い案内（くわしくはマウスを乗せたときの説明） */
+}
+
+.brf-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* webhook「そのまま送る」（依頼の小窓 v2・R11）：足の控えめなボタン（地の色・点線）、押せないわけの小さな 1 行、送る前の 1 行の下の二段の確かめ */
+.brf-hook {
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+}
+
+.brf-hook-why {
+  flex: none;
+  padding: 2px 10px 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brf-hook-why[hidden] {
+  display: none;
+}
+
+.brf-hook-confirm {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 8px;
+  border-top: 1px dashed var(--accent);
+  background: var(--accent-soft);
+}
+
+.brf-hook-confirm[hidden],
+.brf-foot[hidden] {
+  display: none;
+}
+
+/* 六角スクショを Grok-Bot へ（第3段 S3.12・panels/bot-shot-steps.ts）：上にサムネイルと「画像は Grok Bot に送られます」、
+   依頼文などの下に「① 画像をコピーしてアプリを開く」と案内・「貼れなかったとき」（② は下の主のボタン）。動きは使わない */
+.brf-shot {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.brf-shot[hidden],
+.brf-shot-steps[hidden],
+.brf-shot-fill[hidden],
+.brf-link[hidden] {
+  display: none;
+}
+
+/* 透明な所が分かるよう、市松の地に置く */
+.brf-shot-thumb {
+  flex: none;
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  background: repeating-conic-gradient(var(--border) 0 25%, transparent 0 50%) 0 0 / 10px 10px;
+  object-fit: contain;
+}
+
+.brf-shot-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.brf-shot-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.brf-shot-warn {
+  margin: 0;
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.brf-shot-fill {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.brf-shot-select {
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.brf-shot-steps {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 40vh;
+  padding: 6px 10px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  scrollbar-width: thin;
+}
+
+.brf-shot-how {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.brf-shot-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.brf-shot-msg {
+  margin: 0;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.brf-shot-msg:empty {
+  display: none;
+}
+
+.brf-shot-summary {
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.brf-shot-fallback-box {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+  padding: 5px 0 2px 12px;
+}
+
+/* 小さな文字のボタン（「画像を貼らずに ② へ」「貼れない：次からはファイルで送る」「画像の貼り付けを試す」） */
+.brf-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.brf-link:hover {
+  color: var(--text);
+}
+
+.brf-shot-back {
+  align-self: flex-end;
+}
+
+/* 六角スクショの上のカードの「書き足す →」と、書き足したあとの「この画像で送るもの」の 1 行（R7b） */
+.brf-shot-edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: center;
+}
+
+.brf-shot-edit {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11.5px;
+}
+
+.brf-shot-edit-note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 画像に書き足す面（依頼の小窓 v2・R7b・panels/bot-image-edit.ts。見本 mock-ask-grok.html の ②） ----------
+   読む画面の重ね窓（.reader-ask）で、小窓の代わりに出す（小窓は隠すだけ）。左に道具の列と画像（2 つの canvas を重ねる）、
+   右に箱ごとに問い・指さした所・渡す画像・この画像で送るもの。狭いときは縦に並べる。動きは使わない。
+   --bie-* は画像に焼き込む色（送る画像の色なので、画面の明るさでは変えない。描くのは bot-image-edit.ts が読む） */
+.reader-ask[data-edit] > .brf {
+  display: none;
+}
+
+.bie {
+  /* theme: fixed begin：画像に書く色（書いた中身の色。テーマで替えない） */
+  --bie-ink: #d93a2f;
+  --bie-ink-on: #ffffff;
+  --bie-hide: #000000;
+  --bie-point: #d9891a;
+  --bie-label: #fff8e0;
+  --bie-label-text: #1f1e1b;
+  /* theme: fixed end */
+
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 8px 10px;
+  box-sizing: border-box;
+  width: min(1040px, 100%);
+  height: min(760px, 100%);
+  padding: 8px 10px 10px;
+  border: 1px solid var(--bot);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px var(--shadow-pop);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.bie[hidden],
+.bie-text-input[hidden],
+.bie .brf-note[hidden] {
+  display: none;
+}
+
+.bie :focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+.bie-head {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.bie-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.bie-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bie-tools {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.bie-tools-label {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.bie-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: var(--border);
+}
+
+.bie-spacer {
+  flex: 1;
+}
+
+.bie-tool {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.bie-tool[aria-pressed='true'] {
+  border-color: var(--bot);
+  background: var(--bot);
+  color: var(--surface);
+}
+
+.bie-tool-point[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.bie-tool:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* 画像の置き場：透明な所（六角スクショの外）が分かるよう、市松の地 */
+.bie-stage {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: repeating-conic-gradient(var(--border) 0 25%, transparent 0 50%) 0 0 / 14px 14px;
+}
+
+.bie-frame {
+  position: relative;
+}
+
+.bie-frame > canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.bie-ink {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.bie-ink.bie-ink-off {
+  cursor: default;
+}
+
+/* 隠す候補の枠の層（R7c）：枠は押せない（下の画像に描ける）。問いの小さな札だけ押せる */
+.bie-hints {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 隠す候補（R7c。見本 ② の点線の枠）：文字の読み取りで見つけた行。黒塗りで隠す・そのままで消える */
+.bie-hint {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px dashed var(--accent);
+  border-radius: 4px;
+  outline: 1px solid var(--surface); /* 暗い画像の上でも点線が見えるよう、外に細い縁 */
+  pointer-events: none;
+}
+
+.bie-hint-ask {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  width: max-content;
+  max-width: 280px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 3px 10px var(--shadow);
+  color: var(--text);
+  font-size: 11px;
+  pointer-events: auto;
+}
+
+.bie-hint-ask-up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+.bie-hint-ask-left {
+  right: auto;
+  left: 0;
+}
+
+.bie-hint-ask .brf-button {
+  height: 22px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
+.bie-hint-ask .bie-hint-hide:not(:disabled) {
+  border-color: var(--bot);
+  background: var(--bot-soft);
+  font-weight: 700;
+}
+
+/* この画像で送るものの、隠す候補の 1 行（読み取りが使えないときも、ここに小さく） */
+.bie-hint-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  align-items: baseline;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.bie-hint-line[hidden] {
+  display: none;
+}
+
+.bie-text-input {
+  position: absolute;
+  z-index: 1;
+  box-sizing: border-box;
+  width: min(220px, 90%);
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--bot);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  transform: translate(0, -100%);
+}
+
+.bie-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.bie-card {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.bie-card-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bie-boxes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bie-box {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  min-width: 0;
+}
+
+.bie-box-no {
+  flex: none;
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.bie-box-input {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.bie-crops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bie-crops:empty {
+  display: none;
+}
+
+.bie-crop {
+  width: 56px;
+  height: 56px;
+  border: 1.5px dashed var(--accent);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.bie-radios {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bie-radio-row {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.bie-sum {
+  margin: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.bie-status {
+  min-height: 1.4em;
+  margin: 0;
+  color: var(--accent-ink);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.bie-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (max-width: 720px) {
+  .bie {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bie-side {
+    max-height: 38vh;
+  }
+}
+
+/* ---------- 合体 Grok の演出と許可の確認（第3段 S3.7・panels/bot-nest-merge.ts・bot-nest.ts の merged） ----------
+   見本 nest-02-confirm.png（文言）・nest-04-analyzing.png（色味だけ：黒い円と琥珀色の光。ここでは --accent に合わせる）。
+   動きは CSS だけ：席が真ん中へ寄って薄くなる（0.4 秒）・黒い円がふわっと出る・光の輪の明るさがゆっくり変わる。
+   回転・粒が飛ぶ・カメラの動きは無し。prefers-reduced-motion: reduce では動かさず、色（薄さ・光）だけ変える。明るい画面・暗い画面とも CSS 変数から */
+
+/* 許可の確認：巣の上に重ねる小さな窓（依頼の小窓 .brf の上。下の端を巣の下の端の少し上にそろえて、上へ伸ばす） */
+.bnm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow:
+    0 6px 20px var(--shadow-pop),
+    0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  animation: bnm-in 0.2s ease-out;
+}
+
+.bot-nest > .bnm {
+  position: absolute;
+  right: 6px;
+  bottom: 8px;
+  left: 6px;
+  z-index: 22;
+}
+
+.bnm[hidden] {
+  display: none;
+}
+
+@keyframes bnm-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.bnm-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+/* 小さな黒い円と光の輪（巣の真ん中の円と同じ作り） */
+/* theme: fixed begin：巣の核（黒い穴と金の光。どのテーマでも同じ） */
+.bnm-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: radial-gradient(circle closest-side, #000 0 64%, color-mix(in srgb, var(--accent) 65%, #000) 80%, color-mix(in srgb, var(--accent) 30%, transparent) 100%);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 10px 2px color-mix(in srgb, var(--accent) 45%, transparent);
+  color: #f4ecdc;
+  font: italic 700 16px/1 Georgia, 'Times New Roman', serif;
+}
+/* theme: fixed end */
+
+.bnm-title {
+  min-width: 0;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.bnm-what,
+.bnm-note {
+  margin: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.bnm-note {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.bnm-foot {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.bnm-foot .brf-button {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bnm-foot .bnm-allow {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.bnm-foot .brf-button:focus-visible,
+.bot-nest-unmerge:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+/* 巣が「合体 Grok」になる：席の顔が真ん中へ寄って小さく・薄くなり（transform と opacity だけ）、名前と札は消える。真ん中の札と点線も薄く
+   寄せる量は輪の半径の半分（横の半径 --nest-rx の 50% は輪の幅なので、transform の中では 50cqw と書く） */
+.bot-nest-seat {
+  transition:
+    transform 0.4s ease,
+    opacity 0.4s ease;
+}
+
+.bot-nest[data-merge='on'] .bot-nest-seat {
+  opacity: 0.35;
+  transform: translate(calc(-50% - var(--dx) * min(96px, 50cqw - 40px) * 0.5), calc(var(--nest-face) / -2 - var(--dy) * var(--nest-ry) * 0.5)) scale(0.6);
+}
+
+:is(.bot-nest-name, .bot-nest-tag, .bot-nest-badge, .bot-nest-center, .bot-nest-lines) {
+  transition: opacity 0.4s ease;
+}
+
+.bot-nest[data-merge='on'] :is(.bot-nest-name, .bot-nest-tag, .bot-nest-badge, .bot-nest-center) {
+  opacity: 0;
+}
+
+.bot-nest[data-merge='on'] .bot-nest-lines {
+  opacity: 0.25;
+}
+
+/* 輪の地にうすい琥珀色の光（合体のあいだだけ） */
+.bot-nest-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: radial-gradient(ellipse 60% 55% at 50% var(--nest-cy), color-mix(in srgb, var(--accent) 16%, transparent), transparent);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.bot-nest[data-merge='on'] .bot-nest-ring::before {
+  opacity: 1;
+}
+
+/* 真ん中の黒い円と光の輪（radial-gradient の円＋box-shadow の輪）。ふわっと出て少し大きくなる */
+/* theme: fixed begin：巣の核（黒い穴と金の光。どのテーマでも同じ） */
+.bot-nest-core {
+  --nest-core: 60px;
+  position: absolute;
+  top: var(--nest-cy);
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: var(--nest-core);
+  height: var(--nest-core);
+  border-radius: 50%;
+  background: radial-gradient(circle closest-side, #000 0 68%, #120c04 74%, color-mix(in srgb, var(--accent) 70%, #000) 84%, color-mix(in srgb, var(--accent) 30%, transparent) 100%);
+  box-shadow:
+    0 0 0 1.5px color-mix(in srgb, var(--accent) 85%, transparent),
+    0 0 14px 3px color-mix(in srgb, var(--accent) 40%, transparent);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.8);
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+  pointer-events: none;
+}
+/* theme: fixed end */
+
+.bot-nest[data-merge='on'] .bot-nest-core {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* 外の光：明るさだけがゆっくり変わる（opacity の行き来。回さない） */
+.bot-nest-core::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  box-shadow: 0 0 18px 6px color-mix(in srgb, var(--accent) 55%, transparent);
+  opacity: 0.4;
+}
+
+.bot-nest[data-merge='on'] .bot-nest-core::before {
+  animation: bot-nest-glow 3.6s ease-in-out infinite alternate;
+}
+
+@keyframes bot-nest-glow {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* theme: fixed begin：巣の核の字 */
+.bot-nest-core-g {
+  position: relative;
+  color: #f4ecdc;
+  font: italic 700 24px/1 Georgia, 'Times New Roman', serif;
+}
+/* theme: fixed end */
+
+@media (max-height: 1000px) {
+  .ai-dock:has(> .ai-chat:not([hidden])) .bot-nest-core {
+    --nest-core: 48px;
+  }
+
+  .ai-dock:has(> .ai-chat:not([hidden])) .bot-nest-core-g {
+    font-size: 19px;
+  }
+}
+
+/* 合体のあいだの1行と「元に戻す」（輪の下） */
+.bot-nest-merge {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  padding: 3px 4px 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  font-size: 11.5px;
+}
+
+.bot-nest-merge[hidden] {
+  display: none;
+}
+
+.bot-nest-merge-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bot-nest-merge .bot-nest-unmerge {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+/* 動きを減らす設定：寄らない・縮まない・ふわっと出ない・光は止める（薄さと色だけ変わる） */
+@media (prefers-reduced-motion: reduce) {
+  .bnm {
+    animation: none;
+  }
+
+  .bot-nest-seat,
+  .bot-nest-core,
+  .bot-nest-ring::before,
+  :is(.bot-nest-name, .bot-nest-tag, .bot-nest-badge, .bot-nest-center, .bot-nest-lines) {
+    transition: none;
+  }
+
+  .bot-nest[data-merge='on'] .bot-nest-seat {
+    transform: translate(-50%, calc(var(--nest-face) / -2));
+  }
+
+  .bot-nest-core,
+  .bot-nest[data-merge='on'] .bot-nest-core {
+    transform: translate(-50%, -50%);
+  }
+
+  .bot-nest[data-merge='on'] .bot-nest-core::before {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* 試し：シートの入口の小窓（行き先のシートをのぞく。盤面の上に浮かぶ。大きさは変えられない） */
+.sheet-peek {
+  position: absolute;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  box-shadow: 0 6px 20px var(--shadow-pop);
+}
+
+.sheet-peek[hidden] {
+  display: none;
+}
+
+.sheet-peek-title {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  cursor: move;
+  font-size: 12px;
+  touch-action: none;
+  user-select: none;
+}
+
+.sheet-peek-label {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+.sheet-peek-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-peek-btn {
+  flex: none;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.sheet-peek-btn:hover {
+  border-color: var(--border);
+  background: var(--hover);
+}
+
+.sheet-peek-btn[hidden] {
+  display: none;
+}
+
+.sheet-peek-enter {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.sheet-peek-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}

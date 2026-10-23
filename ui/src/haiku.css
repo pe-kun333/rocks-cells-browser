@@ -1,0 +1,553 @@
+/* ハイク組（Claude Haiku 5.5 の3〜6体）の色と顔。style.css と分けておく（ほかの作業とぶつからないように） */
+
+:root {
+  /* それぞれの色：地の色・枠・薄い色・地の上の文字・頭の飾り */
+  --hk-tsukushi: #b08850;
+  --hk-tsukushi-border: #8a6a3a;
+  --hk-tsukushi-soft: #f5ecdf;
+  --hk-tsukushi-ink: #1f1e1b;
+  --hk-tsukushi-orn: #6f4f28;
+  --hk-hotaru: #9bb83a;
+  --hk-hotaru-border: #6f8a22;
+  --hk-hotaru-soft: #eff5dc;
+  --hk-hotaru-ink: #1f1e1b;
+  --hk-hotaru-orn: #fff27a;
+  --hk-momiji: #b83a4b;
+  --hk-momiji-border: #922c3a;
+  --hk-momiji-soft: #f8e3e6;
+  --hk-momiji-ink: #ffffff;
+  --hk-momiji-orn: #f07a2c;
+  --hk-yuki: #78b4d4;
+  --hk-yuki-border: #4f8eb0;
+  --hk-yuki-soft: #e5f2f9;
+  --hk-yuki-ink: #1f1e1b;
+  --hk-yuki-orn: #ffffff;
+  --hk-kaeru: #4f9a5e;
+  --hk-kaeru-border: #3a7a48;
+  --hk-kaeru-soft: #e2f1e5;
+  --hk-kaeru-ink: #1f1e1b;
+  --hk-kaeru-orn: #4f9a5e;
+  --hk-tombo: #4b5aa8;
+  --hk-tombo-border: #364385;
+  --hk-tombo-soft: #e5e8f6;
+  --hk-tombo-ink: #ffffff;
+  --hk-tombo-orn: #dfe7ff;
+}
+
+:root[data-kind='dark'] {
+  --hk-tsukushi: #c9a36b;
+  --hk-tsukushi-border: #e2c79b;
+  --hk-tsukushi-soft: #3a3022;
+  --hk-tsukushi-ink: #1c1b19;
+  --hk-tsukushi-orn: #7a5a32;
+  --hk-hotaru: #b3cf55;
+  --hk-hotaru-border: #d2e58e;
+  --hk-hotaru-soft: #2f3a1a;
+  --hk-hotaru-ink: #1c1b19;
+  --hk-hotaru-orn: #fff59a;
+  --hk-momiji: #d8606f;
+  --hk-momiji-border: #eea0aa;
+  --hk-momiji-soft: #3d2226;
+  --hk-momiji-ink: #1c1b19;
+  --hk-momiji-orn: #ff9a52;
+  --hk-yuki: #8fc6e3;
+  --hk-yuki-border: #bfe0f1;
+  --hk-yuki-soft: #1e3240;
+  --hk-yuki-ink: #1c1b19;
+  --hk-yuki-orn: #ffffff;
+  --hk-kaeru: #6db57b;
+  --hk-kaeru-border: #a3d6ad;
+  --hk-kaeru-soft: #1f3524;
+  --hk-kaeru-ink: #1c1b19;
+  --hk-kaeru-orn: #6db57b;
+  --hk-tombo: #7686d0;
+  --hk-tombo-border: #aab5ea;
+  --hk-tombo-soft: #23284a;
+  --hk-tombo-ink: #1c1b19;
+  --hk-tombo-orn: #e6ecff;
+}
+
+/* 一体ずつの色を、その要素の中の --hk たちにする（顔・話し手の札・返事の枠・メンバーの欄の印・スレッドの印） */
+.tsukushi {
+  --hk: var(--hk-tsukushi);
+  --hk-border: var(--hk-tsukushi-border);
+  --hk-soft: var(--hk-tsukushi-soft);
+  --hk-ink: var(--hk-tsukushi-ink);
+  --hk-orn: var(--hk-tsukushi-orn);
+}
+
+.hotaru {
+  --hk: var(--hk-hotaru);
+  --hk-border: var(--hk-hotaru-border);
+  --hk-soft: var(--hk-hotaru-soft);
+  --hk-ink: var(--hk-hotaru-ink);
+  --hk-orn: var(--hk-hotaru-orn);
+}
+
+.momiji {
+  --hk: var(--hk-momiji);
+  --hk-border: var(--hk-momiji-border);
+  --hk-soft: var(--hk-momiji-soft);
+  --hk-ink: var(--hk-momiji-ink);
+  --hk-orn: var(--hk-momiji-orn);
+}
+
+.yuki {
+  --hk: var(--hk-yuki);
+  --hk-border: var(--hk-yuki-border);
+  --hk-soft: var(--hk-yuki-soft);
+  --hk-ink: var(--hk-yuki-ink);
+  --hk-orn: var(--hk-yuki-orn);
+}
+
+.kaeru {
+  --hk: var(--hk-kaeru);
+  --hk-border: var(--hk-kaeru-border);
+  --hk-soft: var(--hk-kaeru-soft);
+  --hk-ink: var(--hk-kaeru-ink);
+  --hk-orn: var(--hk-kaeru-orn);
+}
+
+.tombo {
+  --hk: var(--hk-tombo);
+  --hk-border: var(--hk-tombo-border);
+  --hk-soft: var(--hk-tombo-soft);
+  --hk-ink: var(--hk-tombo-ink);
+  --hk-orn: var(--hk-tombo-orn);
+}
+
+/* ---------- 顔（右下のセル） ---------- */
+.ai-cell:is(.tsukushi, .hotaru, .momiji, .yuki, .kaeru, .tombo) .ai-hex {
+  fill: var(--hk);
+  stroke: var(--hk-border);
+}
+
+.ai-cell:is(.tsukushi, .hotaru, .momiji, .yuki, .kaeru, .tombo):hover .ai-hex,
+.ai-cell:is(.tsukushi, .hotaru, .momiji, .yuki, .kaeru, .tombo)[data-target='true'] .ai-hex {
+  stroke: var(--text);
+}
+
+/* うまくいかなかったときは、どのキャラの色でも赤い枠（style.css と同じ） */
+.ai-companion .ai-team .ai-cell.ai-cell[data-state='error'] .ai-hex {
+  stroke: var(--danger);
+}
+
+.hk-orn {
+  fill: var(--hk-orn);
+}
+
+.hk-orn-line {
+  fill: none;
+  stroke: var(--hk-orn);
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+/* theme: fixed begin：ハイク組の顔の飾り（どのテーマでも同じ） */
+.hk-orn-seg {
+  fill: none;
+  stroke: color-mix(in srgb, var(--hk-orn) 55%, #ffffff);
+  stroke-width: 1.4;
+}
+
+.hk-glow {
+  fill: var(--hk-orn);
+  opacity: 0.35;
+}
+
+.hk-flake {
+  fill: none;
+  stroke: var(--hk-orn);
+  stroke-linecap: round;
+  stroke-width: 2.1;
+}
+
+.hk-leaf-stem {
+  fill: none;
+  stroke: color-mix(in srgb, var(--hk-orn) 70%, #000000);
+  stroke-linecap: round;
+  stroke-width: 1.6;
+}
+
+.hk-frog-eye {
+  fill: var(--hk);
+  stroke: var(--hk-border);
+  stroke-width: 2.5;
+}
+
+.hk-wing {
+  fill: color-mix(in srgb, var(--hk-orn) 70%, transparent);
+  stroke: var(--hk-border);
+  stroke-width: 1;
+}
+
+.hk-tail {
+  stroke: var(--hk-border);
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+
+.hk-compound {
+  fill: var(--hk-border);
+  opacity: 0.35;
+}
+
+.hk-blush {
+  fill: #ffb3a7;
+  opacity: 0.55;
+}
+
+.hk-lash {
+  fill: none;
+  stroke: #fff4ee;
+  stroke-linecap: round;
+  stroke-width: 2.4;
+}
+
+.hk-tanzaku {
+  fill: #fffaf0;
+  stroke: var(--hk-border);
+  stroke-width: 1.2;
+}
+/* theme: fixed end */
+
+.hk-string {
+  stroke: var(--hk-border);
+  stroke-width: 1.2;
+}
+
+/* 相談しているとき（3段目から）・調べているときに、頭の飾りが光る */
+.ai-cell:is(.tsukushi, .hotaru, .momiji, .yuki, .kaeru, .tombo)[data-state='working'] :is(.hk-orn, .hk-flake, .hk-wing) {
+  filter: drop-shadow(0 0 3px var(--evo-gold));
+}
+
+/* ハイク組の顔を並べる小さな蜂の巣（位置と大きさは ai-panel.ts が人数から決める） */
+.ai-team {
+  position: relative;
+  flex: none;
+}
+
+.ai-team[hidden] {
+  display: none;
+}
+
+.ai-team .ai-cell {
+  position: absolute;
+}
+
+/* 4体から、モミジが代表のとき：モミジの六角形のまわりが金色に光る（札だと、蜂の巣の下の段に重なる。
+   枠の色にすると、話しかける相手の濃い枠・マウスを乗せたとき・うまくいかなかったときの赤い枠が見えなくなる） */
+.ai-team .ai-cell.momiji[data-lead='true'] .ai-hex {
+  filter: drop-shadow(0 0 1.5px var(--evo-gold)) drop-shadow(0 0 2.5px var(--evo-gold));
+}
+
+/* 確認を待っているとき、白目がその場で縦に広がるように（どの顔でも。前は白目だけが下にずれていた） */
+.ai-cell .ai-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* 宛先のボタンが5つになっても、1行のまま（はみ出す名前は「…」。全文は、ボタンの上の説明に） */
+.ai-target {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ハイク組がいて顔が多いときは、名前と状態の欄が細くなるので、縦に伸びすぎないように */
+.ai-companion:has(.ai-team:not([hidden])) .ai-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-companion:has(.ai-team:not([hidden])) .ai-status {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* ---------- 会話の中（話し手の札・返事の枠） ---------- */
+.ai-speaker:is(.tsukushi, .hotaru, .momiji, .yuki, .kaeru, .tombo) {
+  background: var(--hk);
+  color: var(--hk-ink);
+}
+
+.ai-msg.assistant:is(.tsukushi, .hotaru, .momiji, .yuki, .kaeru, .tombo) {
+  border-color: var(--hk);
+  background: var(--hk-soft);
+}
+
+/* ---------- メンバーの欄 ---------- */
+.ai-member-dot:is(.tsukushi, .hotaru, .momiji, .yuki, .kaeru, .tombo) {
+  background: var(--hk);
+}
+
+.ai-member-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-member-row .ai-member {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-member-size {
+  flex: none;
+  height: 24px;
+  font-size: 11px;
+}
+
+/* ---------- コメントのスレッド（相棒の返信の印・返信を頼むボタン） ---------- */
+.reply-avatar:is(.tsukushi, .hotaru, .momiji, .yuki, .kaeru, .tombo) {
+  background: var(--hk);
+}
+
+.reply-ai-choice:is(.tsukushi, .hotaru, .momiji, .yuki, .kaeru, .tombo) {
+  border-color: var(--hk);
+}
+
+/* ---------- 先生への相談（許可の欄・助言カード・「先生に聞く」） ---------- */
+.ai-consult.opus,
+.ai-advice.opus,
+.ai-advice-ask.opus {
+  --adv: var(--ai);
+  --adv-border: var(--ai-border);
+  --adv-soft: var(--ai-soft);
+}
+
+.ai-consult.fable,
+.ai-advice.fable,
+.ai-advice-ask.fable {
+  --adv: var(--ai3);
+  --adv-border: var(--ai3-border);
+  --adv-soft: var(--ai3-soft);
+}
+
+.ai-consult {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px dashed var(--adv);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.ai-consult-q {
+  font-weight: 600;
+}
+
+.ai-consult-line {
+  overflow-wrap: anywhere;
+}
+
+.ai-consult-sub {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* 押す・押したボタンは、薄い色の地に濃い枠と太字（白い字は、色によって読みにくい） */
+.ai-consult-yes {
+  border-color: var(--adv);
+  background: var(--adv-soft);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.ai-advice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 7px 9px;
+  border: 1px solid var(--adv-border);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: var(--adv-soft);
+  font-size: 12px;
+}
+
+.ai-advice-head {
+  font-weight: 700;
+}
+
+.ai-advice-q,
+.ai-advice-foot,
+.ai-advice-note {
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.ai-advice-note {
+  color: var(--danger);
+}
+
+.ai-advice-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.ai-advice-body.streaming::after {
+  content: '▍';
+  color: var(--adv);
+  animation: ai-caret 1s steps(2) infinite;
+}
+
+/* ボタンの文字は1行のまま。入りきらないときは、ボタンごと次の行へ */
+.ai-advice .ai-row {
+  flex-wrap: wrap;
+}
+
+.ai-advice .ai-row .ai-small {
+  flex: none;
+  white-space: nowrap;
+}
+
+.ai-advice [aria-pressed='true'] {
+  border-color: var(--adv);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--adv);
+}
+
+.ai-advice-letter {
+  max-height: 220px;
+  margin: 0;
+  padding: 6px 8px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.ai-advice-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ai-advice-label {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.ai-advice-left {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* ⚙ の「先生への相談の許可」：選ぶ欄は、名前の残りの幅いっぱい */
+.ai-settings .ai-limit select {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+
+.ai-advice-row[hidden],
+.ai-advice-ask[hidden] {
+  display: none;
+}
+
+.ai-advice-ask {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  overflow: hidden;
+  border: 1px solid var(--adv);
+  border-radius: 999px;
+  background: var(--adv-soft);
+  color: var(--text);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-advice-ask:disabled {
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-advice-body.streaming::after {
+    animation: none;
+  }
+}
+
+/* スレッドの「ハイク組」（組で1つのボタン） */
+.reply-ai-choice.team {
+  border-color: var(--hk-momiji);
+}
+
+/* 道すじ（段階8）。自分の発言の下 */
+.ai-route {
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.ai-route summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+}
+
+.ai-route summary::-webkit-details-marker {
+  display: none;
+}
+
+.ai-route summary::after {
+  content: '▾';
+  color: var(--muted);
+}
+
+.ai-route[open] summary::after {
+  content: '▴';
+}
+
+.ai-route-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.ai-route-foot {
+  color: var(--muted);
+  text-align: right;
+}
+
+.ai-route-actions {
+  margin-top: 4px;
+}

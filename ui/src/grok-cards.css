@@ -1,0 +1,479 @@
+/* Grok Cards（段 1〜4）。旗が空のときは、この見た目の要素を足さない */
+/* 殻の色。明るい画面は銀の線を濃く、暗い画面は板を銀・核を白金に。琥珀は使わない */
+
+:root {
+  --shell-plate: #3a4250;
+  --shell-plate-arrived: #f6e7c2;
+  --shell-plate-edge: #6b5a2e;
+  --shell-core-0: #f3dfa6;
+  --shell-core-1: #d4b56a;
+  --shell-core-edge: #6b5a2e;
+  --shell-focus: #3a4250;
+  --shell-badge: #c2c8d0;
+  --shell-badge-ink: #1d232c;
+}
+
+:root[data-kind='dark'] {
+  --shell-plate: #c2c8d0;
+  --shell-plate-arrived: #fff6df;
+  --shell-plate-edge: #eadcb4;
+  --shell-core-0: #fff4d6;
+  --shell-core-1: #eadcb4;
+  --shell-core-edge: #c2b48a;
+  --shell-focus: #e7e1d4;
+  --shell-badge: #c2c8d0;
+  --shell-badge-ink: #1d232c;
+}
+
+.bot-nest-center.nest-shell-slot {
+  width: auto;
+  height: auto;
+  overflow: visible;
+  background: none;
+  transition: none;
+}
+
+.bot-nest[data-merge='on'] .bot-nest-center.nest-shell-slot {
+  visibility: hidden;
+  opacity: 0;
+  transition: none;
+}
+
+.nest-shell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.nest-shell[data-size='60'] {
+  width: 60px;
+  height: 60px;
+}
+
+.nest-shell[data-size='40'] {
+  width: 48px;
+  height: 48px;
+}
+
+.nest-shell[data-size='40'] .nest-shell-svg {
+  width: 40px;
+  height: 40px;
+}
+
+.nest-shell[data-size='26'] {
+  width: 36px;
+  height: 36px;
+}
+
+.nest-shell[data-size='26'] .nest-shell-svg {
+  width: 26px;
+  height: 26px;
+}
+
+.nest-shell-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.nest-shell-plate,
+.nest-shell-dot {
+  fill: var(--shell-plate);
+  stroke: var(--shell-plate);
+  stroke-width: 1;
+}
+
+.nest-shell-plate[data-arrived='true'],
+.nest-shell-dot[data-arrived='true'] {
+  fill: var(--shell-plate-arrived);
+  stroke: var(--shell-plate-edge);
+}
+
+.nest-shell-plate[data-empty='true'],
+.nest-shell-dot[data-empty='true'] {
+  fill: none;
+  stroke: var(--shell-plate);
+  stroke-dasharray: 2 1.6;
+}
+
+.nest-shell-core {
+  fill: var(--shell-core-1);
+  stroke: var(--shell-core-edge);
+  stroke-width: 1;
+}
+
+.nest-shell-glow {
+  fill: var(--shell-core-0);
+  opacity: 0;
+}
+
+.nest-shell:hover .nest-shell-glow {
+  opacity: 0.95;
+}
+
+.nest-shell-focus {
+  fill: none;
+  stroke: var(--shell-focus);
+  stroke-width: 2;
+  opacity: 0;
+}
+
+.nest-shell:focus {
+  outline: none;
+}
+
+.nest-shell:focus-visible .nest-shell-focus {
+  opacity: 1;
+}
+
+.nest-shell-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--shell-badge);
+  color: var(--shell-badge-ink);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.nest-shell-caption {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 16px);
+  transform: translateX(-50%);
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.nest-shell[data-size='40'] ~ .nest-shell-caption {
+  top: calc(50% + 12px);
+  font-size: 8px;
+}
+
+.bot-nest-merge-toggle {
+  margin: 0;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bot-nest-merge-toggle:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: 2px;
+}
+
+.bot-strip {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.grok-cards-tab,
+.grok-cards-tab-count {
+  margin-left: 6px;
+  font-size: 12px;
+}
+
+.grok-cards-tab {
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.grok-cards-tab[aria-selected='true'] {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.grok-cards-tab:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: 2px;
+}
+
+.grok-cards-tab.is-upper {
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.grok-cards-place {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.grok-cards-place-label {
+  color: var(--muted);
+}
+
+.grok-cards-place-btn[aria-pressed='true'] {
+  border-color: var(--border);
+  background: var(--surface);
+  font-weight: 700;
+}
+
+.grok-cards-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.grok-cards-tab-count:empty {
+  display: none;
+}
+
+.grok-cards {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.grok-cards-note {
+  margin: 6px 8px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.grok-cards-cols {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 8px;
+  overflow: auto;
+  padding: 8px;
+}
+
+.grok-cards-col {
+  flex: 0 0 180px;
+  min-width: 113px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.grok-cards-col-head {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.grok-cards-add,
+.grok-cards-save,
+.grok-card-open {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.grok-cards-add:focus-visible,
+.grok-cards-save:focus-visible,
+.grok-card-open:focus-visible,
+.grok-card-edit:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: 2px;
+}
+
+.grok-card {
+  border: 1px solid var(--shell-plate);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: var(--surface);
+}
+
+.grok-card.queue {
+  border-style: dashed;
+}
+
+.grok-card.is-copied,
+.grok-card.is-expired,
+.grok-card.is-stopped {
+  border-color: var(--muted);
+}
+
+.grok-card.is-expired,
+.grok-card.is-stopped {
+  opacity: 0.85;
+}
+
+.grok-card.is-unpasted,
+.grok-card.is-late {
+  border: 2px solid var(--card-amber);
+}
+
+.grok-card.is-late {
+  border-style: dashed;
+}
+
+.grok-card.is-waiting {
+  border-style: dashed;
+  border-color: var(--muted);
+}
+
+.grok-card.is-replied {
+  border-color: var(--card-reply);
+}
+
+.grok-card.is-error {
+  border-color: var(--danger);
+}
+
+.grok-card.queue.is-soon {
+  border-color: var(--card-amber);
+}
+
+.grok-card-reply {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+
+.grok-cards {
+  --card-amber: #d9891a;
+  --card-reply: #6b5a2e;
+}
+
+:root[data-kind='dark'] .grok-cards {
+  --card-amber: #e9a53e;
+  --card-reply: #fff4d6;
+}
+
+.grok-card-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+
+.grok-card-meta {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.grok-card-edit,
+.grok-cards-compose textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 64px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.grok-cards-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.grok-cards-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (forced-colors: active) {
+  .nest-shell-plate,
+  .nest-shell-dot,
+  .nest-shell-core,
+  .nest-shell-focus {
+    stroke: CanvasText;
+  }
+
+  .nest-shell-plate,
+  .nest-shell-dot,
+  .nest-shell-core {
+    fill: Canvas;
+    stroke-width: 2;
+  }
+
+  .nest-shell-plate[data-arrived='true'],
+  .nest-shell-dot[data-arrived='true'] {
+    fill: Highlight;
+    stroke: Highlight;
+  }
+
+  .nest-shell-plate[data-empty='true'],
+  .nest-shell-dot[data-empty='true'] {
+    fill: none;
+    stroke: CanvasText;
+  }
+
+  .nest-shell-focus {
+    stroke-width: 3;
+  }
+
+  .nest-shell-badge,
+  .grok-card,
+  .grok-cards-tab[aria-selected='true'] {
+    background: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+  }
+
+  .grok-card.queue,
+  .grok-card.is-waiting,
+  .grok-card.is-late {
+    border-style: dashed;
+  }
+
+  .grok-card.is-unpasted,
+  .grok-card.is-late,
+  .grok-card.is-error,
+  .grok-card.is-replied {
+    border-color: CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nest-shell-slot,
+  .nest-shell,
+  .grok-cards-cols {
+    scroll-behavior: auto;
+  }
+}

@@ -1,0 +1,1999 @@
+/* ---------- ボットの欄（右サイドバーの下のパネルの欄の中、メモの区画の下・データ置き場のさらに下。第2段 S2.4） ----------
+   石板の色（--bot）で、相棒（ハイク組の6色・先生の色）と見分ける。灰色の返事は点線、エラーは赤、遅れは --accent */
+
+.bot-panel {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: 36px;
+  max-height: 46vh;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--bot);
+  border-left-width: 3px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.bot-panel.folded {
+  max-height: none;
+}
+
+.bot-panel-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.bot-panel-fold {
+  flex: none;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 4px;
+}
+
+.bot-panel-mark {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--bot);
+  border-radius: 4px;
+  background: var(--bot-soft);
+  color: var(--bot-ink);
+  font-size: 11px;
+  line-height: 14px;
+  text-align: center;
+}
+
+.bot-panel-title {
+  flex: none;
+  font-weight: 600;
+}
+
+.bot-panel-select {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  height: 24px;
+  font-size: 12px;
+}
+
+.bot-panel-unread {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 3px; /* 四角い札（セルの顔の札と同じ形） */
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.bot-panel-body {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  margin-top: 4px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.bot-panel.folded .bot-panel-body {
+  display: none;
+}
+
+.bot-panel-empty,
+.bot-log-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.bot-panel-banner {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px;
+  border: 1px dashed var(--muted);
+  border-radius: 8px;
+  background: var(--hover);
+  font-weight: 600;
+}
+
+.bot-panel-banner-note {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.bot-panel-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  font-size: 12px;
+}
+
+.bot-panel-name {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bot-panel-state {
+  padding: 0 6px;
+  border: 1px solid var(--bot);
+  border-radius: 3px;
+  background: var(--bot-soft);
+  color: var(--bot-ink);
+  line-height: 18px;
+}
+
+.bot-panel-state.state-replied {
+  border-color: var(--accent);
+}
+
+.bot-panel-state.state-late {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.bot-panel-state.state-botError {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.bot-panel-state.state-noLink,
+.bot-panel-state.state-noApp {
+  border-style: dashed;
+  border-color: var(--muted);
+  background: var(--hover);
+  color: var(--muted);
+}
+
+.bot-panel-counts {
+  color: var(--muted);
+}
+
+.bot-panel-copy {
+  margin-left: auto;
+  height: 24px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.bot-panel-subtitle {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.bot-panel-waiting {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bot-wait {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.bot-wait.late {
+  border-color: var(--accent);
+}
+
+.bot-wait-text {
+  color: var(--muted);
+}
+
+.bot-wait-stop {
+  margin-left: auto;
+  height: 22px;
+  font-size: 11px;
+}
+
+.bot-wait-stop.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* やり取り（role="log"。古いものから） */
+.bot-log {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bot-log-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.bot-log-line.muted {
+  color: var(--muted);
+}
+
+.bot-log-dir {
+  flex: none;
+  color: var(--bot);
+  font-weight: 700;
+}
+
+.bot-log-time {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.bot-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px 7px;
+  border: 1px solid var(--bot);
+  border-radius: 4px 10px 10px 10px; /* 相棒の吹き出しとは形を変える（四角寄り） */
+  background: var(--bot-soft);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.bot-msg.type-progress {
+  padding: 2px 7px;
+  border-style: dotted;
+  background: transparent;
+}
+
+.bot-msg.type-error {
+  border-color: var(--danger);
+  border-width: 2px;
+}
+
+.bot-msg.unread {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* 灰色の返事（check が合わない・知らない依頼・知らせ・知らない版）：点線の灰色。状態は変えていない */
+.bot-msg.grey {
+  border: 1px dashed var(--muted);
+  background: var(--hover);
+  color: var(--muted);
+}
+
+.bot-msg.faint {
+  opacity: 0.6;
+}
+
+.bot-msg-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 5px;
+}
+
+.bot-pill {
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.bot-pill.match {
+  border-color: var(--bot);
+  background: var(--surface);
+  color: var(--bot-ink);
+  cursor: help;
+}
+
+.bot-pill.grey {
+  border-style: dashed;
+  border-color: var(--muted);
+  color: var(--muted);
+  cursor: help;
+}
+
+.bot-pill.warn {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.bot-pill.new {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.bot-pill.unconfirmed {
+  border-style: dashed;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* 返し先「六角メモにも届く」の依頼（R10）。写す前は点線、写したら実線 */
+.bot-pill.hex {
+  border-style: dashed;
+  border-color: var(--accent);
+  color: var(--text);
+  cursor: help;
+}
+
+.bot-pill.hex.done {
+  border-style: solid;
+  background: var(--accent-soft);
+}
+
+/* 追跡票の「中継に届かない」の下の、同じ依頼をコピーに切り替える行（R11） */
+.inbox-track-hook {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+/* Grok Vision を残した返事の札（S3.7b。押すと題名と「消す」のメニュー） */
+.bot-pill.vision {
+  border-color: var(--evo-gold);
+  background: color-mix(in srgb, var(--evo-gold) 18%, var(--surface));
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.bot-pill.vision:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+/* 月の窓の「もとの返事へ」で見せた返事のカード（少しのあいだ縁を光らせる。動きを減らす設定では色だけ） */
+.bot-msg.bot-msg-target {
+  outline: 2px solid var(--evo-gold);
+  outline-offset: 2px;
+  transition: outline-color 0.3s;
+}
+
+.bot-msg-title {
+  font-weight: 600;
+}
+
+.bot-msg-error {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.bot-msg-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 返事の Markdown 表示（第3段 S3.9。bot-markdown.ts）：欄の幅に合わせた控えめな見た目。
+   表とコードブロックは折り返さずに横スクロール（欄の幅は広げない） */
+.bot-md {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.bot-md p,
+.bot-md ul,
+.bot-md ol,
+.bot-md blockquote,
+.bot-md h4,
+.bot-md h5,
+.bot-md h6 {
+  margin: 0;
+}
+
+.bot-md-h {
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.bot-md-h1 {
+  padding-bottom: 1px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.bot-md-h2 {
+  font-size: 13px;
+}
+
+.bot-md-h3 {
+  font-size: 12px;
+}
+
+.bot-md-list {
+  padding-left: 18px;
+}
+
+.bot-md-list > li + li,
+.bot-md-list .bot-md-list {
+  margin-top: 1px;
+}
+
+.bot-md li > .bot-md-p,
+.bot-md li > .bot-md-codeblock {
+  margin-top: 3px;
+}
+
+.bot-md-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 1px 0 1px 7px;
+  border-left: 3px solid color-mix(in srgb, var(--bot) 45%, transparent);
+  color: var(--muted);
+}
+
+.bot-md-hr {
+  width: 100%;
+  margin: 2px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.bot-md-code,
+.bot-md-pre {
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.bot-md-code {
+  padding: 0 3px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  font-size: 11px;
+}
+
+.bot-md-codeblock {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bot-md-lang {
+  align-self: flex-start;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.bot-md-pre {
+  max-width: 100%;
+  margin: 0;
+  padding: 4px 7px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 0 4px 4px 4px;
+  background: var(--surface);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre; /* 折り返さない（横スクロール） */
+  overflow-wrap: normal;
+  tab-size: 2;
+}
+
+.bot-md-codeblock:not(:has(.bot-md-lang)) .bot-md-pre {
+  border-radius: 4px;
+}
+
+.bot-md-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.bot-md-table table {
+  border-collapse: collapse;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: normal; /* 長い英単語は折らずに、表ごと横スクロール */
+}
+
+.bot-md-table th,
+.bot-md-table td {
+  min-width: 2.5em;
+  padding: 2px 5px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.bot-md-table th {
+  background: var(--surface);
+  font-weight: 700;
+}
+
+.bot-md-pre:focus-visible,
+.bot-md-table:focus-visible,
+.bot-md-link:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+/* リンク：押すとドメインを見せてから開く（href は持たない） */
+.bot-md-link {
+  border-radius: 2px;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.bot-md-link:hover {
+  background: var(--hover);
+}
+
+/* 画像は読み込まない（「画像：説明」の文字だけ） */
+.bot-md-img {
+  padding: 0 4px;
+  border: 1px dashed var(--border);
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* 「元の文」の切り替え（押してある＝届いたままの文を出している） */
+.bot-msg-raw {
+  height: 18px;
+  min-width: 0;
+  padding: 0 5px;
+  border-color: var(--border);
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.bot-msg-raw[aria-pressed='true'] {
+  color: var(--text);
+}
+
+.bot-msg-cut {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.bot-msg-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bot-msg-link {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  min-height: 22px;
+  padding: 1px 6px;
+  overflow: hidden;
+  font-size: 11px;
+  text-align: left;
+  text-overflow: ellipsis;
+}
+
+.bot-msg-host {
+  flex: none;
+  color: var(--muted);
+}
+
+.bot-msg-fold > summary {
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.bot-msg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bot-msg-actions button {
+  height: 22px;
+  font-size: 11px;
+}
+
+.bot-msg-memos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bot-msg-memos li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bot-msg-memos span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 受け取り箱の一覧（第3段 S3.8。見本 request-menu-popup.png の右の上半分・nest-01-ring.png の上の一覧） ----------
+   1件ずつ：G の印・#番号・宛て先（役）・状態のチップ・時刻／進み具合のバー／途中経過の title。組（みんなに聞く）は1枚で、席ごとの小さな点。
+   チップの色：送信済み＝石板の色・調査中＝琥珀・回答あり＝緑・遅れ＝--accent・エラー＝--danger。幅 296px でも1行目が収まるように、宛て先は切る */
+.bot-reqs {
+  /* 琥珀は金の字、緑は済みの色を字の色へ少し寄せたもの（どのテーマでも面とチップの上で 4.5:1） */
+  --req-work: var(--accent-ink);
+  --req-work-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --req-ok: color-mix(in srgb, var(--ok) 75%, var(--text)); /* チップの淡い緑の上でも 4.5:1 */
+  --req-ok-soft: color-mix(in srgb, var(--ok) 14%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bot-reqs-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.bot-reqs-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bot-reqs-title:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+.bot-reqs-waiting {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.bot-reqs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 糸（依頼の小窓 v2・R5・D11）：続きとして頼んだ依頼の束。見出し（糸：名前・#番号の並び）と、中は今までのカードを最初の問いから順に。
+   枠は点線（組のカードの実線と分ける）。動きは使わない */
+.bot-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px;
+  border: 1px dashed var(--bot);
+  border-radius: 9px;
+}
+
+.bot-thread-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  min-width: 0;
+  padding: 0 3px;
+  font-size: 12px;
+}
+
+.bot-thread-name {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bot-thread-chain {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.bot-thread-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bot-req {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.bot-req.state-working,
+.bot-req.group:not(.complete) {
+  border-color: var(--req-work);
+}
+
+.bot-req.state-late {
+  border-color: var(--accent);
+}
+
+.bot-req.state-error {
+  border-color: var(--danger);
+}
+
+.bot-req.unread {
+  box-shadow: inset 3px 0 0 var(--req-ok);
+}
+
+.bot-req.faint,
+.bot-req.state-stopped {
+  opacity: 0.7;
+}
+
+.bot-req-top {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+/* G の印（見本の六角形の G を、小さな六角形の札で） */
+.bot-req-g {
+  flex: none;
+  width: 16px;
+  height: 18px;
+  background: var(--bot-ink);
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  color: var(--surface);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.bot-req-open {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bot-req-open:hover .bot-req-to {
+  text-decoration: underline;
+}
+
+.bot-req-no {
+  flex: none;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.bot-req-to,
+.bot-req-group-name {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bot-req-group-name {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.bot-req-chip {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--bot);
+  border-radius: 9px;
+  background: var(--bot-soft);
+  color: var(--bot-ink);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+.bot-req-chip.chip-working {
+  border-color: var(--req-work);
+  background: var(--req-work-soft);
+  color: var(--req-work);
+}
+
+.bot-req-chip.chip-replied {
+  border-color: var(--req-ok);
+  background: var(--req-ok-soft);
+  color: var(--req-ok);
+}
+
+.bot-req-chip.chip-late {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.bot-req-chip.chip-error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.bot-req-chip.chip-stopped {
+  border-style: dashed;
+  border-color: var(--muted);
+  background: var(--hover);
+  color: var(--muted);
+}
+
+.bot-req .bot-log-time {
+  flex: none;
+  margin-left: 0;
+}
+
+.bot-req .bot-pill.vision {
+  flex: none;
+}
+
+/* 進み具合のバー（動かさない。幅が変わるだけ） */
+.bot-req-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 21px;
+}
+
+.bot-req-bar {
+  overflow: hidden;
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--hover);
+}
+
+.bot-req-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--req-work);
+}
+
+.bot-req-count {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bot-req-title,
+.bot-req-head,
+.bot-req-meta {
+  overflow: hidden;
+  padding-left: 21px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bot-req-title {
+  color: var(--text);
+}
+
+.bot-req-head,
+.bot-req-meta {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* 組のカードの席ごとの点 */
+.bot-req-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 4px;
+  padding-left: 21px;
+}
+
+.bot-req-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 84px;
+  height: 20px;
+  padding: 0 5px 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.bot-req-dot-mark {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+}
+
+.bot-req-dot-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bot-req-dot.dot-unsent .bot-req-dot-mark {
+  border-style: dashed; /* 送信前：中の空いた点線 */
+}
+
+.bot-req-dot.dot-unsent {
+  color: var(--muted);
+}
+
+.bot-req-dot.dot-sent .bot-req-dot-mark {
+  border-color: var(--bot);
+  background: var(--bot-soft);
+}
+
+.bot-req-dot.dot-working .bot-req-dot-mark {
+  border-color: var(--req-work);
+  background: linear-gradient(90deg, var(--req-work) 50%, transparent 50%); /* 調査中：半分 */
+}
+
+.bot-req-dot.dot-replied .bot-req-dot-mark {
+  border-color: var(--req-ok);
+  background: var(--req-ok);
+}
+
+.bot-req-dot.dot-late .bot-req-dot-mark {
+  border-color: var(--accent);
+  background: radial-gradient(circle, transparent 35%, var(--accent) 38%); /* 遅れ：太い輪（調査中の半分と形で分ける） */
+}
+
+.bot-req-dot.dot-late {
+  border-color: var(--accent);
+}
+
+.bot-req-dot.dot-error .bot-req-dot-mark {
+  border-color: var(--danger);
+  background: var(--danger);
+  border-radius: 1px; /* エラー：四角（色だけで分けない） */
+}
+
+.bot-req-dot.dot-stopped .bot-req-dot-mark {
+  border-color: var(--muted);
+  background: linear-gradient(135deg, transparent 42%, var(--muted) 42%, var(--muted) 58%, transparent 58%);
+}
+
+.bot-req-summary {
+  margin: 4px 0 4px 21px;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--bot) 55%, var(--border));
+  border-radius: 8px;
+  background: var(--bot-soft);
+}
+
+.bot-req-summary-text {
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.bot-req-read-toggle,
+.bot-reqs-more {
+  align-self: flex-start;
+  height: 22px;
+  margin-left: 21px;
+  font-size: 11px;
+}
+
+.bot-reqs-more {
+  margin-left: 0;
+}
+
+.bot-req-read {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 21px;
+}
+
+.bot-req-part {
+  padding: 4px 6px;
+  border-left: 3px solid var(--req-ok);
+  border-radius: 4px;
+  background: var(--hover);
+}
+
+.bot-req-part.error {
+  border-left-color: var(--danger);
+}
+
+.bot-req-part-head {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.bot-panel-section {
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+/* ---------- 回答カード（第3段 S3.10。見本 answer-card-cosmic.png・request-menu-popup.png の「Grok の回答」） ----------
+   確かめの済んだ reply だけ。要約（太字の1段落）・本文・⚠ 注意の囲み・出典のチップ（ドメイン名）・ボタン3つ・結果の1行。
+   灰色の返事・途中経過・エラー・知らせは今までの .bot-msg のまま。幅 296px（右サイドバーのいちばん狭いとき）でも折り返して収まる */
+.bot-msg.bot-card {
+  --card-warn: var(--accent-ink);
+  --card-warn-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  gap: 5px;
+  padding: 6px 8px 7px;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.bot-card-g {
+  display: inline-grid;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.bot-card-title {
+  font-size: 12.5px;
+}
+
+.bot-card-about,
+.bot-card-thread {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 回答カードの糸の 1 行（依頼の小窓 v2・R5）：見本の「糸：秋の星空（#0006 → #0009 → #0010）」。点線の上の線で分ける */
+.bot-card-thread {
+  padding-top: 2px;
+  border-top: 1px dashed var(--border);
+}
+
+.bot-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--bot-soft);
+}
+
+/* 要約：太字の1段落（「要約：」の札も同じ段落の頭に） */
+.bot-card-summary {
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.bot-card-label {
+  margin-right: 1px;
+}
+
+/* 注意：⚠ の囲み */
+.bot-card-caution {
+  display: flex;
+  gap: 5px;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid color-mix(in srgb, var(--card-warn) 55%, transparent);
+  border-radius: 6px;
+  background: var(--card-warn-soft);
+}
+
+.bot-card-caution-mark {
+  flex: none;
+  color: var(--card-warn);
+  font-weight: 700;
+}
+
+.bot-card-caution > .bot-md {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 出典のチップ（ドメイン名。押すとドメインを見せてから開く） */
+.bot-card-sources {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+}
+
+.bot-card-sources-label {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 20px;
+}
+
+.bot-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bot-card-chips > li {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bot-card-chip {
+  display: block;
+  max-width: 100%;
+  height: 20px;
+  min-width: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bot-card-chip.plain {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+button.bot-card-chip:hover:not(:disabled) {
+  border-color: var(--bot);
+}
+
+/* ボタン3つ（⬡ 六角メモで開く・タブに残す・続けて聞く） */
+.bot-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bot-card-next {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bot-card-dive,
+.bot-card-show,
+.bot-card-next .vocab-form,
+.bot-card-next .vocab-proposals,
+.bot-card-next .vocab-lesson {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bot-card-next .panel-note {
+  margin: 0;
+}
+
+.bot-card-button {
+  height: 24px;
+  min-width: 0;
+  padding: 0 6px;
+  border-color: var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.bot-card-button.primary:not(:disabled) {
+  border-color: var(--bot);
+  color: var(--bot-ink);
+  font-weight: 700;
+}
+
+.bot-card-note {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* メモのセル・右のメモへ（小さく残す） */
+.bot-card-more button {
+  height: 20px;
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+/* ---------- 回答カードの飾り（巣の設定「回答カードに『Grok!』の札と星空」。既定オフ。S3.10） ----------
+   星空：月の窓の宇宙（.moon-cosmos）と同じ色味の深い紺〜黒に、小さな星と、右上に小さく黒い円と薄い光の輪。CSS の radial-gradient だけ（画像なし）。
+   明るい画面でも暗い画面でも同じ星空。文字の後ろ（本文・出典・ボタン）には暗い下地を敷いて、星の上でも読める。動きは付けない */
+/* theme: fixed begin：星空の回答カード（どのテーマでも夜空） */
+.bot-msg.bot-card.cosmic {
+  --text: #eef0ff;
+  --muted: #b8bee2;
+  --border: rgba(214, 208, 255, 0.42);
+  --surface: rgba(8, 10, 32, 0.8);
+  --hover: rgba(214, 208, 255, 0.14);
+  --bot: #8f86ee;
+  --bot-ink: #d9d4ff;
+  --bot-soft: rgba(6, 8, 24, 0.8);
+  --accent: #e8c15a;
+  --card-warn: #f2b45a;
+  --card-warn-soft: rgba(60, 30, 10, 0.78);
+  border-color: #5f58b8;
+  background-color: #05060f;
+  background-image:
+    /* 右上の角に半分ほど隠れた小さなブラックホール（光の輪 → 黒い円）。見出しの1行目の右（題の反対側）に */
+    radial-gradient(circle at calc(100% - 2px) 14px, transparent 0 10px, rgba(255, 206, 160, 0.45) 11px, rgba(150, 120, 255, 0.14) 17px, transparent 26px),
+    radial-gradient(circle at calc(100% - 2px) 14px, #000 0 10px, transparent 10.5px),
+    /* 星（白・青白・薄い金。小さく淡く） */
+    radial-gradient(circle at 7% 12%, rgba(255, 255, 255, 0.8) 0 0.7px, transparent 1.3px),
+    radial-gradient(circle at 18% 58%, rgba(207, 220, 255, 0.8) 0 0.6px, transparent 1.2px),
+    radial-gradient(circle at 27% 88%, rgba(255, 233, 184, 0.8) 0 0.7px, transparent 1.3px),
+    radial-gradient(circle at 39% 30%, rgba(255, 255, 255, 0.8) 0 0.5px, transparent 1.1px),
+    radial-gradient(circle at 52% 74%, rgba(207, 220, 255, 0.8) 0 0.6px, transparent 1.2px),
+    radial-gradient(circle at 61% 6%, rgba(255, 255, 255, 0.8) 0 0.6px, transparent 1.2px),
+    radial-gradient(circle at 70% 48%, rgba(255, 233, 184, 0.8) 0 0.5px, transparent 1.1px),
+    radial-gradient(circle at 83% 94%, rgba(255, 255, 255, 0.8) 0 0.7px, transparent 1.3px),
+    radial-gradient(circle at 92% 66%, rgba(207, 220, 255, 0.8) 0 0.6px, transparent 1.2px),
+    radial-gradient(circle at 96% 22%, rgba(255, 255, 255, 0.8) 0 0.5px, transparent 1.1px),
+    /* 深い紺〜黒（左上が少し明るい紺） */
+    radial-gradient(130% 120% at 15% 0%, #1b1f50 0%, #0c0f2c 42%, #05060f 78%, #030308 100%);
+  color: var(--text);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.bot-card.cosmic .bot-card-body,
+.bot-card.cosmic .bot-card-caution {
+  border: 1px solid rgba(214, 208, 255, 0.22);
+}
+
+.bot-card.cosmic .bot-card-caution {
+  border-color: color-mix(in srgb, var(--card-warn) 55%, transparent);
+}
+
+/* 見出し・題・頼む文の頭・結果の1行：星の上の文字にも、うすい暗い下地 */
+.bot-card.cosmic :where(.bot-card-head, .bot-card-about, .bot-msg-title, .bot-card-note, .bot-msg-cut) {
+  border-radius: 4px;
+  background: rgba(5, 6, 15, 0.55);
+}
+
+.bot-card.cosmic :where(.bot-card-button, .bot-card-more button, .bot-msg-link, .bot-msg-memos button, .bot-msg-raw, .bot-pill:not(.vision)) {
+  border-color: rgba(214, 208, 255, 0.5);
+  background: rgba(8, 10, 32, 0.82);
+  color: var(--text);
+}
+
+.bot-card.cosmic .bot-card-button.primary:not(:disabled) {
+  border-color: #8f86ee;
+  color: #e3dfff;
+}
+
+.bot-card.cosmic .bot-md-link {
+  color: #d9e4ff;
+}
+/* theme: fixed end */
+
+/* 下書き（段階3）。コピーする前。待っている依頼のカードとは分ける */
+.bot-drafts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.bot-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 12px;
+}
+
+.bot-draft.next {
+  border-style: solid;
+  border-color: var(--bot);
+}
+
+.bot-draft-who {
+  font-weight: 700;
+}
+
+.bot-draft-text {
+  max-height: 7.5em;
+  margin: 0;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.bot-draft-meta {
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.bot-draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* 未送信の箱（R8・D18）：コピーできなかった依頼は赤い点線 */
+.bot-draft.failed {
+  border-color: var(--danger);
+}
+
+.bot-draft-why,
+.bot-draft-failed-count {
+  color: var(--danger);
+  font-size: 11px;
+}
+
+/* ---------- 送ったあと（依頼の小窓 v2・R8・D17・D18。見本 ③）：伝票レール・追跡票・中継の見張り・貼りましたか？・不在票 ----------
+   色は一覧（.bot-reqs）と同じ：待っている＝石板の色・途中経過＝琥珀・遅れ（15 分）＝--accent・期限超え＝--danger・届いた＝緑。動きは使わない */
+.inbox-after {
+  --req-work: var(--accent-ink);
+  --req-ok: color-mix(in srgb, var(--ok) 75%, var(--text)); /* チップの淡い緑の上でも 4.5:1 */
+  --req-ok-soft: color-mix(in srgb, var(--ok) 14%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.inbox-rail {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 1px 6px;
+}
+
+.inbox-ticket {
+  display: flex;
+  flex: 0 0 186px;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 5px 8px 6px;
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--bot);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 11.5px;
+}
+
+.inbox-ticket.kind-late {
+  border-top-color: var(--accent);
+}
+
+.inbox-ticket.kind-overdue,
+.inbox-ticket.kind-error {
+  border-top-color: var(--danger);
+}
+
+.inbox-ticket.kind-done {
+  border-top-color: var(--req-ok);
+}
+
+.inbox-ticket.chosen {
+  border-color: var(--bot);
+  box-shadow: 0 0 0 1px var(--bot);
+}
+
+.inbox-ticket-pick {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.inbox-ticket-pick:hover .inbox-ticket-label {
+  text-decoration: underline;
+}
+
+.inbox-ticket-no {
+  flex: none;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.inbox-ticket-label {
+  overflow: hidden;
+  min-width: 0;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-ticket.kind-overdue .inbox-ticket-label,
+.inbox-ticket.kind-error .inbox-ticket-label {
+  color: var(--danger);
+}
+
+.inbox-ticket.kind-done .inbox-ticket-label {
+  color: var(--req-ok);
+}
+
+.inbox-ticket-meta,
+.inbox-ticket-line {
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.inbox-elapsed {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.inbox-ticket-bar {
+  overflow: hidden;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--hover);
+}
+
+.inbox-ticket-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--req-work);
+}
+
+.inbox-ticket.kind-wait .inbox-ticket-bar i {
+  background: var(--bot);
+}
+
+.inbox-ticket.kind-overdue .inbox-ticket-bar i,
+.inbox-ticket.kind-error .inbox-ticket-bar i {
+  background: var(--danger);
+}
+
+.inbox-ticket.kind-done .inbox-ticket-bar i {
+  background: var(--req-ok);
+}
+
+.inbox-ticket-ops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+/* 追跡票：5 つの段の丸（済んだ段は緑で塗る・今の段は --accent の縁） */
+.inbox-track-box {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.inbox-track-title {
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.inbox-track {
+  display: flex;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inbox-step {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-align: center;
+}
+
+.inbox-step::before {
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin-bottom: 2px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  content: '';
+}
+
+.inbox-step.on::before {
+  border-color: var(--req-ok);
+  background: var(--req-ok);
+}
+
+.inbox-step.now {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.inbox-step.now::before {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.inbox-step.bad {
+  color: var(--danger);
+}
+
+.inbox-step.bad::before {
+  border-color: var(--danger);
+  border-style: dashed;
+}
+
+.inbox-step-label {
+  overflow-wrap: anywhere;
+}
+
+.inbox-step-hint {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+/* 中継の見張り（鍵や中継の場所は出さない。様子と時刻・ボタン・試し便の結果だけ） */
+.inbox-watch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.inbox-watch-text {
+  flex: 1 1 100%;
+}
+
+.inbox-watch-text.ok {
+  color: var(--text);
+}
+
+.inbox-watch-ping {
+  flex: 1 1 100%;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 貼りましたか？（1 枚だけ。区画のいちばん上） */
+.inbox-paste {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--accent);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  font-size: 12px;
+}
+
+.inbox-paste-text,
+.inbox-paste-hint {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.inbox-paste-hint {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.inbox-paste-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.inbox-paste-yes {
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+/* 画像と文を一つの貼り付けで送った依頼（R7d）：画像が落ちたときの手。札の中で点線で分ける */
+.inbox-paste-one {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 5px;
+  border-top: 1px dashed var(--border);
+}
+
+.inbox-paste-one .inbox-paste-actions {
+  align-items: center;
+}
+
+/* 不在票（閉じるまで 1 枚） */
+.inbox-absent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 5px 8px;
+  border: 1px dashed var(--bot);
+  border-radius: 8px;
+  background: var(--bot-soft);
+  font-size: 12px;
+}
+
+.inbox-absent-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 受け取り箱 v2（依頼の小窓 v2・R9・D19・D21。見本 ④）：まず 1 枚の表・軽い返事・もう一度 ▾・印・量の目安 ----------
+   色は CSS 変数だけ。動きは使わない */
+.inbox-first {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--bot);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.inbox-first-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+}
+
+.inbox-first-table th {
+  padding: 2px 3px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 400;
+  text-align: left;
+}
+
+/* 番号・宛て先は狭く、頼んだ一言・返事の一言に幅を回す */
+.inbox-first-table th:nth-child(1) {
+  width: 4.6em;
+}
+
+.inbox-first-table th:nth-child(2) {
+  width: 4.8em;
+}
+
+.inbox-first-table td {
+  padding: 3px 3px 1px;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.inbox-first-row > td {
+  border-top: 1px solid var(--border);
+}
+
+.inbox-first-row.error .inbox-first-line {
+  color: var(--danger);
+}
+
+.inbox-first-no {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--bot-ink, var(--text));
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+
+.inbox-first-no:focus-visible,
+.inbox-first .bot-reqs-title:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+.inbox-first-to,
+.inbox-first-asked {
+  color: var(--muted);
+}
+
+.inbox-first-ops > td {
+  padding: 1px 3px 4px;
+}
+
+.inbox-first-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* 合わない返事（預かり）の行：灰色の返事と同じ点線 */
+.inbox-first-row.held > td {
+  border-top: 1px dashed var(--border);
+  color: var(--muted);
+}
+
+.inbox-first-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* 回答カードの先頭の 3 つ（一行の答え・次の一手・どのくらい確か）。見出しと中身の 2 列 */
+.bot-card-light {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px 8px;
+  margin: 0;
+}
+
+/* 下に要約・本文・注意が続くときだけ、点線で分ける */
+.bot-card-light:not(:last-child) {
+  padding-bottom: 5px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.bot-card-light dt {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.bot-card-light dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.bot-card-light dd > .bot-md > :first-child {
+  margin-top: 0;
+}
+
+.bot-card-light dd > .bot-md > :last-child {
+  margin-bottom: 0;
+}
+
+/* 印（当たり／ずれ／宛て先違い）：押した印は石板の色で塗る */
+.bot-card-marks {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.bot-card-mark {
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.bot-card-mark[aria-pressed='true'] {
+  border-color: var(--bot);
+  background: var(--bot-soft);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.bot-card-mark.mark-miss[aria-pressed='true'],
+.bot-card-mark.mark-wrongTo[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.bot-req-mark.mark-hit {
+  border-color: var(--bot);
+}
+
+.bot-req-mark.mark-miss,
+.bot-req-mark.mark-wrongTo {
+  border-color: var(--accent);
+}
+
+/* 量の目安（受け取り箱の一覧の下の隅） */
+.bot-reqs-amount {
+  align-self: flex-end;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* 合図（段階4）。印は光る。詳しくを押すまでは、ここから先へ出ない */
+.cue-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.cue-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.cue-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cue-mode {
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.cue-scope,
+.cue-note,
+.cue-quiet,
+.cue-line {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.cue-scope {
+  font-weight: 700;
+}
+
+.cue-note,
+.cue-quiet {
+  color: var(--muted);
+}
+
+.cue-limit-label {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.cue-limit {
+  width: 52px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.cue-slot[hidden] {
+  display: none;
+}
+
+.cue-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cue-card {
+    animation: cue-glow 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes cue-glow {
+  50% {
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+}
+
+.cue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* 「Grok!」の札（銀の板に黒い斜めの字。飾りだけ） */
+/* theme: fixed begin：「Grok!」の銀の札（飾り） */
+.bot-card-badge {
+  padding: 0 6px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 3px;
+  background: linear-gradient(135deg, #fbfbfe 0%, #c9ccd8 55%, #9da1b3 100%);
+  color: #111;
+  font-size: 11px;
+  font-style: italic;
+  font-weight: 800;
+  line-height: 15px;
+  text-shadow: none;
+  transform: skewX(-8deg);
+}
+/* theme: fixed end */

@@ -1,0 +1,236 @@
+/* Grok の提案の一覧（panels/grok-patch-view.ts）。左サイドバーの上に重ねる。狭くても縦に流れる */
+.grok-patch {
+  position: fixed;
+  z-index: 60;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  flex-direction: column;
+  width: min(560px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 28px var(--shadow-pop);
+  color: var(--text);
+  font-size: 12px;
+}
+.grok-patch-head {
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.grok-patch-title {
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.grok-patch-meta,
+.grok-patch-why {
+  color: var(--muted);
+  font-size: 11px;
+}
+.grok-patch-note {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.grok-patch-warn {
+  margin: 4px 0 0;
+  color: var(--warn);
+  font-size: 11px;
+}
+.grok-patch-list {
+  flex: 1 1 auto;
+  min-height: 60px;
+  margin: 0;
+  padding: 4px 6px;
+  overflow-y: auto;
+  list-style: none;
+}
+.grok-patch-item {
+  border-bottom: 1px dashed var(--border);
+}
+.grok-patch-item:last-child {
+  border-bottom: none;
+}
+.grok-patch-row {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 5px 2px;
+  cursor: pointer;
+}
+.grok-patch-item:not(.is-ok) .grok-patch-row {
+  cursor: default;
+  opacity: 0.6;
+}
+.grok-patch-row input {
+  margin-top: 2px;
+  flex: none;
+}
+.grok-patch-body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.grok-patch-what {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.grok-patch-diff {
+  margin-top: 1px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.grok-patch-before {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.grok-patch-arrow {
+  color: var(--muted);
+}
+.grok-patch-after {
+  color: var(--text);
+}
+.grok-patch-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 6px 10px 8px;
+  border-top: 1px solid var(--border);
+}
+.grok-patch-count {
+  flex: 1 1 100%;
+  color: var(--muted);
+}
+.grok-patch-apply:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+/* 盤面の見本（sidebar.ts の patchPreviewLayer）：点線で、押せない */
+.patch-preview {
+  pointer-events: none;
+}
+.patch-preview-line {
+  stroke-dasharray: 5 4;
+  opacity: 0.85;
+  animation: patch-preview-dash 1.2s linear infinite;
+}
+@keyframes patch-preview-dash {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .patch-preview-line {
+    animation: none;
+  }
+}
+.grok-patch-empty {
+  color: var(--muted);
+}
+/* 盤面を見る：一覧を畳んで下に寄せる（点線の見本が見える） */
+.grok-patch.is-peek {
+  top: auto;
+  bottom: 8px;
+}
+.grok-patch.is-peek .grok-patch-list,
+.grok-patch.is-peek .grok-patch-note,
+.grok-patch.is-peek .grok-patch-head .grok-patch-warn {
+  display: none;
+}
+/* 取り込み（hcb-memo-interchange）の一覧：島ごとのまとまり・メモの行・ミニ盤面（panels/grok-patch-view.ts の openInterchange） */
+.ix-summary {
+  font-weight: 600;
+}
+.ix-request {
+  color: var(--muted);
+  max-height: 4.5em;
+  overflow-y: auto;
+}
+.ix-board {
+  margin-top: 6px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 2px;
+}
+.ix-mini-board {
+  display: block;
+  width: 100%;
+  height: 110px;
+}
+.grok-patch.is-big-board .ix-mini-board {
+  height: min(360px, 45vh);
+}
+.ix-mini-hex {
+  stroke: var(--surface);
+  stroke-width: 1;
+  opacity: 0.9;
+}
+.ix-mini-hex.is-off {
+  opacity: 0.2;
+}
+.ix-mini-bot {
+  fill: var(--on-data);
+  font-size: 9px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.ix-mini-link {
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+  opacity: 0.9;
+}
+.ix-mini-link.is-off {
+  opacity: 0.15;
+}
+.ix-group {
+  position: relative;
+}
+.ix-group-row .grok-patch-what {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.ix-dot {
+  display: inline-block;
+  background: var(--data); /* 島の色（grok-patch-view.ts が付ける） */
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.ix-skip {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+}
+.ix-skip[aria-pressed='true'] {
+  border-color: var(--accent);
+}
+.ix-memos {
+  margin: 0 0 4px 18px;
+  padding: 0;
+  list-style: none;
+}
+.ix-memo .grok-patch-row {
+  padding: 2px;
+}
+.ix-cards {
+  margin: 0 0 2px 22px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.ix-cards ul {
+  margin: 2px 0;
+  padding-left: 14px;
+}
+.patch-preview-cell-label {
+  fill: var(--text);
+  font-size: 10px;
+  pointer-events: none;
+}
+.grok-patch.is-interchange.is-peek .ix-board {
+  display: none;
+}

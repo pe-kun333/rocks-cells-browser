@@ -1,0 +1,660 @@
+/* タグのボタン（6つ・セット・その他・編集）と、右サイドバーの「タグごとの一覧」 */
+
+/* ---------- タグの欄（付いているタグ・＋タグ・タグのボタン） ---------- */
+.tag-area {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tag-pad {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 5px 6px 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+}
+
+.tag-pad.folded {
+  padding: 2px 6px;
+}
+
+.tag-pad-top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tag-pad-top button {
+  flex: none;
+  height: 22px;
+  min-width: 22px;
+  padding: 0 6px;
+  border-color: var(--border);
+  background: var(--surface);
+  font-size: 11px;
+}
+
+.tag-pad-top .tag-pad-fold {
+  width: 20px;
+  min-width: 20px;
+  padding: 0;
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+
+.tag-pad-label {
+  flex: 0 100 auto; /* 狭いときは、セットの名前より先に縮む */
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-pad:not(.folded) .tag-pad-label {
+  display: none;
+}
+
+.tag-pad-top .tag-pad-set {
+  display: inline-flex;
+  flex: 0 1 auto;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+  max-width: 55%;
+  color: var(--muted);
+}
+
+.tag-pad-set-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-pad-arrow {
+  flex: none;
+}
+
+.tag-pad-gap {
+  flex: 1;
+}
+
+.tag-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.tag-pad-button {
+  height: auto;
+  min-height: 26px;
+  padding: 2px 6px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--tag, var(--accent)) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tag, var(--accent)) 9%, var(--surface));
+  color: var(--text);
+  font-size: 11.5px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-pad-button::before {
+  color: color-mix(in srgb, var(--tag, var(--accent-ink)) 70%, var(--text)); /* 暗い色のタグでも読めるように */
+  content: '#';
+}
+
+/* 付いているタグ：濃い色の枠と地、# の代わりに ✓（幅が変わらないので、名前の見える長さも変わらない） */
+.tag-pad-button[aria-pressed='true'],
+.tag-pad-button[aria-pressed='true']:hover:not(:disabled) {
+  border-color: var(--tag, var(--accent));
+  background: color-mix(in srgb, var(--tag, var(--accent)) 36%, var(--surface));
+  box-shadow: inset 0 0 0 1px var(--tag, var(--accent));
+}
+
+.tag-pad-button[aria-pressed='true']::before {
+  color: var(--text); /* どんな色のタグでも見えるように */
+  font-weight: 700;
+  content: '✓';
+}
+
+.tag-pad-button.empty {
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--muted);
+}
+
+.tag-pad-button.empty::before {
+  content: none;
+}
+
+/* ---------- タグのボタンを編集する欄（✎） ---------- */
+.tag-pad-editor {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(300px, calc(100vw - 12px));
+  max-height: calc(100vh - 12px);
+  padding: 10px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px var(--shadow-pop);
+  font-size: 12px;
+  user-select: text;
+}
+
+.tag-pad-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.tag-pad-editor-title {
+  font-weight: 700;
+}
+
+.tag-pad-editor-x {
+  height: 24px;
+  min-width: 24px;
+  padding: 0;
+}
+
+.tag-pad-editor-name,
+.tag-pad-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tag-pad-editor-name > span {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tag-pad-editor input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.tag-pad-editor input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.tag-pad-editor-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tag-pad-editor-num {
+  flex: none;
+  width: 14px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.tag-pad-small {
+  flex: none;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 6px;
+  border-color: var(--border);
+  font-size: 11px;
+}
+
+.tag-pad-editor-note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.tag-pad-editor-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.tag-pad-editor-save {
+  height: 26px;
+  padding: 0 14px;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+/* ---------- 右の「メモ」の区画：コメントの一覧には付いたタグだけ、一覧のすぐ下に「選んだコメントのタグ」 ---------- */
+.memo-pad-post .tag-area {
+  margin-top: 2px;
+}
+
+.memo-pad-tagstrip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 2px 0;
+  border-top: 1px solid var(--border);
+}
+
+.memo-pad-tagstrip-head {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+  font-size: 11px;
+}
+
+.memo-pad-tagstrip-head b {
+  flex: none;
+  font-weight: 700;
+}
+
+.memo-pad-tagstrip-head span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 右サイドバー：タグごとの一覧 ---------- */
+.tag-index-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tag-index-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tag-index-sub {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tag-index-fold {
+  flex: none;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+.tag-index-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 6px;
+}
+
+.tag-index-body[hidden] {
+  display: none;
+}
+
+.tag-index-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.tag-index-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tag-index-select {
+  min-width: 0;
+  max-width: 100%;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.tag-index-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.tag-index-divider {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tag-index-group.open {
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+}
+
+.tag-index-ghead {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tag-index-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  text-align: left;
+}
+
+.tag-index-arrow {
+  flex: none;
+  width: 10px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.tag-index-toggle .tag-chip {
+  flex: 0 1 auto;
+  max-width: 62%;
+}
+
+.tag-index-group.button-tag .tag-index-toggle .tag-chip {
+  font-weight: 700;
+}
+
+.tag-index-none {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tag-index-count {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tag-index-hl {
+  flex: none;
+  height: 24px;
+  min-width: 24px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tag-index-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 4px 6px 16px;
+}
+
+.tag-index-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 6px;
+  align-items: center;
+  height: auto;
+  padding: 3px 6px;
+  font-size: 12px;
+  text-align: left;
+}
+
+.tag-index-icon {
+  display: flex;
+  grid-row: 1 / span 2;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.tag-index-icon img {
+  width: 16px;
+  height: 16px;
+}
+
+.tag-index-icon.memo {
+  color: var(--memo-border);
+  font-size: 12px;
+}
+
+.tag-index-row.ai .tag-index-icon.memo {
+  color: var(--ai3);
+}
+
+.tag-index-name,
+.tag-index-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-index-meta {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.tag-index-meta:empty {
+  display: none;
+}
+
+.tag-index-row.active .tag-index-name {
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.tag-index-row.asleep .tag-index-name {
+  color: var(--muted);
+}
+
+.tag-index-more {
+  align-self: flex-start;
+  height: 22px;
+  padding: 0 8px;
+  color: var(--accent-ink);
+  font-size: 11px;
+}
+
+.tag-index-empty {
+  padding: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.tag-index-empty.small {
+  padding: 2px 6px 4px;
+  font-size: 11px;
+  text-align: left;
+}
+
+.tag-index-note {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* ---------- 「＋タグ」の候補の欄（下の区画のカード） ---------- */
+.tag-candidates-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.tag-candidates-wrap > .preview-tag-input {
+  display: block; /* 包みの中で、下に隙間が出ないように */
+}
+
+.tag-candidates {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 2px);
+  z-index: 3; /* 下の「＋コメント」の欄（sticky・z-index 1）より上 */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: min(320px, 80vw);
+  max-height: 230px;
+  padding: 6px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px var(--shadow-pop);
+  color: var(--text);
+  font-size: 11px;
+  text-align: left;
+}
+
+.tag-candidates.up {
+  top: auto;
+  bottom: calc(100% + 2px);
+}
+
+.tag-candidates-head,
+.tag-candidates-note {
+  padding: 2px 4px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.tag-candidates-pinned {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 2px;
+}
+
+.tag-candidates-sep {
+  margin: 4px 0;
+  border-top: 1px solid var(--border);
+}
+
+.tag-candidates-rest {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* 行（その他）：一行。左の点は --tag の色 */
+.tag-candidate {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 22px;
+  padding: 0 6px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tag-candidate::before {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tag, var(--accent));
+  content: '';
+}
+
+/* 札（登録したタグ）：.tag-chip に似た丸い形。# は付けない */
+.tag-candidate.pinned {
+  flex: none;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--tag, var(--accent)) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tag, var(--accent)) 16%, transparent);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.tag-candidate.pinned::before {
+  content: none;
+}
+
+.tag-candidate:hover:not(:disabled),
+.tag-candidate.active {
+  background: var(--hover);
+}
+
+.tag-candidate.active {
+  outline: 1px solid var(--accent-line);
+}
+
+/* もう付いている札・上限のときの項目は、薄く（押せない）
+   押せない button には mousedown が届かず、書く欄の焦点が外れて欄が閉じるので、押しても後ろの欄（mousedown を止める）に届くようにする */
+.tag-candidate:disabled {
+  opacity: 0.55;
+  cursor: default;
+  pointer-events: none;
+}

@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "type": "patch",
+  "id": "sample-inbox-1",
+  "title": "受け取り口の試し（タグを足すだけ）",
+  "basedOn": null,
+  "ops": [
+    { "op": "tags.add", "target": { "url": "https://example.com/" }, "tags": ["grok-inbox"] }
+  ]
+}

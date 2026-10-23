@@ -1,0 +1,23 @@
+build/
+build-*/
+out/
+.vs/
+node_modules/
+ui/dist/
+/demo/
+tools/demo/site/
+tools/demo/media/
+tools/demo/frames/
+
+# release artifacts
+build/
+node_modules/
+dist/
+ui/dist/
+dist-web/
+release/
+*.zip
+*.bak
+.claude/
+CLAUDE.md
+HANDOFF.md

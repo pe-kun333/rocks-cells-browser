@@ -1,0 +1,24 @@
+{
+  "format": "hcb-memo-interchange",
+  "version": 1,
+  "generatedAt": "2026-10-17T12:00:00+09:00",
+  "sheet": { "id": "shsample01", "name": "取り込みの試し", "color": "#4a7cc4" },
+  "x_grokBot": { "botName": "Grok Bot", "requestNote": "取り込みの試し。新しいシートが 1 枚でき、メモ 2・カード 3・関連 1・盤面の線 1・島 1 が入ります。記録から 1 回で元に戻せます。" },
+  "islands": [{ "id": "isample", "name": "試しの島", "color": "#60a5fa" }],
+  "memos": [
+    {
+      "id": "msample1",
+      "pos": { "q": 0, "r": 0 },
+      "text": "試しのメモ 1\n本文です。",
+      "tags": ["試し"],
+      "island": "isample",
+      "replies": [
+        { "id": "rsample1", "parent": null, "text": "一番上のカード", "rank": 0, "tags": ["前提"], "links": [{ "to": "rsample2", "kind": "ground" }], "x_layout": { "x": 0, "y": 0 } },
+        { "id": "rsample2", "parent": null, "text": "根拠のカード", "rank": 1, "x_layout": { "x": 0, "y": 190 } },
+        { "id": "rsample3", "parent": null, "text": "Grok Bot の意見のカード", "rank": 2, "by": { "who": "bot", "name": "Grok Bot" }, "x_opinion": { "stance": "supplement", "confidence": 0.8, "targets": ["rsample1"] }, "x_layout": { "x": 320, "y": 0 } }
+      ]
+    },
+    { "id": "msample2", "pos": { "q": 1, "r": 0 }, "text": "試しのメモ 2", "island": "isample" }
+  ],
+  "boardLinks": [{ "id": "blsample1", "from": "m:msample2", "to": "m:msample1", "kind": "next" }]
+}

@@ -1,0 +1,1660 @@
+/* 下のメモの区画（?surface=memo）。左の盤面の画面は隠す */
+body.surface-memo > .toolbar,
+body.surface-memo > .viewbar,
+body.surface-memo > .board-wrap,
+body.surface-memo > .dock,
+body.surface-memo > .panels {
+  display: none;
+}
+
+.memo-pane {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.memo-pane [hidden] {
+  display: none;
+}
+
+.memo-pane-split {
+  flex: none;
+  height: 6px;
+  background: var(--border);
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.memo-pane-split:hover,
+.memo-pane-split:focus-visible {
+  background: var(--evo-gold);
+  outline: none;
+}
+
+/* 段 9。上半分のあいだだけ。クラスが無いときは、この規則は当たらない */
+.memo-pane.is-cards-upper > .grok-cards-upper,
+.memo-pane.is-cards-upper > .memo-pane-lower {
+  flex: 1 1 0;
+  min-height: min(120px, 50%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.memo-pane.is-cards-upper > .memo-pane-lower {
+  position: relative;
+}
+
+.grok-cards-upper-split {
+  flex: none;
+  height: 6px;
+  background: var(--border);
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.grok-cards-upper-split:hover,
+.grok-cards-upper-split:focus-visible {
+  background: var(--evo-gold);
+  outline: none;
+}
+
+.memo-pane.is-cards-upper .memo-pane-split {
+  display: none;
+}
+
+.memo-pane-band {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.memo-pane-band-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.memo-pane-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.memo-pane-tool {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-pane-title {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  cursor: pointer;
+}
+
+.memo-pane-title::after {
+  content: ' ▾';
+}
+
+.memo-pane-title:hover {
+  text-decoration: underline;
+}
+
+.memo-pane-title[aria-expanded='true']::after {
+  content: ' ▴';
+}
+
+.memo-pane-sheet {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+}
+
+.memo-pane-page {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-pane-close {
+  flex: none;
+}
+
+.memo-pane-status {
+  flex: none;
+  padding: 2px 12px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* 送った直後の知らせ（切れた関連の一行と、送り先を開く・元に戻す。右の × で両方消える） */
+.memo-pane-sentnotice {
+  position: relative;
+  flex: none;
+}
+
+.memo-pane-sentnotice[hidden] {
+  display: none;
+}
+
+.memo-pane-sentnotice-warn {
+  margin: 0;
+  padding: 2px 36px 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.memo-pane-sentnotice-warn[hidden] {
+  display: none;
+}
+
+.memo-pane-sentnotice-x {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 22px;
+  transform: translateY(-50%);
+}
+
+.memo-pane-sentnotice-x:hover {
+  color: var(--text);
+}
+
+.memo-pane-status:empty {
+  display: none;
+}
+
+.memo-pane-sentbar,
+.memo-pane-pickbar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  padding: 4px 12px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.memo-pane-sentnotice .memo-pane-sentbar {
+  padding-right: 36px;
+}
+
+.memo-pane-sentbar[hidden],
+.memo-pane-pickbar[hidden] {
+  display: none;
+}
+
+.memo-pane-sentbar-text,
+.memo-pane-pickbar-text {
+  min-width: 0;
+}
+
+.memo-pane-sentbar button,
+.memo-pane-pickbar button {
+  height: 22px;
+  font-size: 12px;
+}
+
+.memo-pane-menu-wrap {
+  position: relative;
+}
+
+.memo-pane-menu {
+  position: absolute;
+  z-index: 8; /* 浮いたカードの層（7）より上 */
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px var(--shadow-pop);
+}
+
+.memo-pane-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+}
+
+.memo-pane-menu-item:hover {
+  background: var(--hover);
+}
+
+.memo-pane-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.memo-pane-filter {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 12px;
+}
+
+/* 札：このシート n｜最近 n（見せている方が押された印）。窓の絞る欄の下に出る */
+.memo-pane-list-parts {
+  display: flex;
+  gap: 4px;
+}
+
+.memo-pane-list-part {
+  flex: 1;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.memo-pane-list-part[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.memo-pane-list-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.memo-pane-list-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 22px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+}
+
+.memo-pane-list-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-pane-list-mark,
+.memo-pane-list-by {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.memo-pane-list-by {
+  max-width: 6em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 書きかけがあって 1 回押した項目：題の代わりに、替わる前の注意を赤で出す */
+.memo-pane-list-item.armed .memo-pane-list-name {
+  color: var(--danger);
+  font-size: 11px;
+}
+
+.memo-pane-list-item:hover {
+  background: var(--hover);
+}
+
+.memo-pane-list-item[aria-current='true'] {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.memo-pane-list-item:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: -2px;
+}
+
+.memo-pane-list-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.memo-pane-list-item.drop-target {
+  outline: 2px solid var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.memo-pane-send-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.memo-pane-send-confirm-where,
+.memo-pane-send-confirm p {
+  margin: 0;
+}
+
+.memo-pane-send-confirm-where {
+  font-weight: 600;
+}
+
+.memo-pane-send-confirm-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 一覧の窓：帯の題名を押すと、本文の上に浮く（top と max-height は JS が入れる） */
+.memo-pane-list-window {
+  position: absolute;
+  z-index: 8; /* 浮いたカードの層（7）より上 */
+  left: 10px;
+  width: 300px;
+  max-width: calc(100% - 20px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px var(--shadow-pop);
+}
+
+@media (max-width: 560px) {
+  .memo-pane-list-window {
+    width: auto;
+    right: 10px;
+  }
+}
+
+/* 関連づけている間の帯（状態の行と件数の行の上に重ねる。区画の高さは取らない。位置と高さは JS が入れる） */
+.memo-pane-linkbar {
+  position: absolute;
+  z-index: 3;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 2px 12px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.memo-pane-linkbar[hidden] {
+  display: none;
+}
+
+.memo-pane-linkbar-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-pane-linkbar button {
+  height: 22px;
+  font-size: 12px;
+}
+
+/* 関連づけている間：相手のカードは点線の枠で押せると分かる。元のカードは実線の枠 */
+.memo-pane-cards.linking .memo-pane-card {
+  cursor: crosshair;
+}
+
+.memo-pane-cards.linking .memo-pane-card:not(.link-from):hover {
+  outline: 2px dashed var(--accent-line);
+  outline-offset: 2px;
+}
+
+.memo-pane-card.link-from {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+  cursor: default;
+}
+
+/* 選ぶモード：角のチェックと、選んでいるカードの枠 */
+.memo-pane-cards.picking .memo-pane-card {
+  cursor: pointer;
+}
+
+.memo-pane-card.picked {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+}
+
+.memo-pane-card-check {
+  flex: none;
+  width: 22px;
+  min-width: 22px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.memo-pane-card-head:has(.memo-pane-card-check) .memo-pane-card-grip {
+  margin-left: 0;
+}
+
+/* カードの頭の「関連 n（隠れ m）」 */
+.memo-pane-link-count {
+  height: 18px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+/* 相手の一覧の窓（関連づけている間。一覧の窓と同じ置き方・見た目。top と max-height は JS が入れる） */
+.memo-pane-link-picker {
+  position: absolute;
+  z-index: 8; /* 浮いたカードの層（7）より上 */
+  left: 10px;
+  width: 300px;
+  max-width: calc(100% - 20px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px var(--shadow-pop);
+}
+
+@media (max-width: 560px) {
+  .memo-pane-link-picker {
+    width: auto;
+    right: 10px;
+  }
+}
+
+.memo-pane-link-picker-filter {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 12px;
+}
+
+.memo-pane-link-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.memo-pane-link-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 22px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+}
+
+.memo-pane-link-picker-item:hover {
+  background: var(--hover);
+}
+
+.memo-pane-link-picker-item:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: -2px;
+}
+
+.memo-pane-link-picker-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-pane-link-picker-date,
+.memo-pane-link-picker-hidden {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.memo-pane-link-picker-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.memo-pane-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.memo-pane-by {
+  margin: 8px 14px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.memo-pane-body {
+  flex: none;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: 14px/1.7 inherit;
+  resize: none;
+  outline: none;
+  user-select: text;
+}
+
+.memo-pane-countline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 0 12px 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* 件数の行の文（残りの幅で切る）と道具（右端に寄せる。関連の見せ方 ▾・あふれたときの注記） */
+.memo-pane-count-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-pane-count-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.memo-pane-count-view {
+  height: 16px;
+  margin: -1px 0; /* 件数の行の高さを変えない（文の行 15px に収める） */
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+/* 件数の行の「並び｜マップ」（高さは「関連の見せ方 ▾」と同じにして、件数の行の高さを変えない） */
+.memo-pane-count-switch {
+  display: inline-flex;
+}
+
+.memo-pane-count-switch button {
+  height: 16px;
+  margin: -1px 0;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.memo-pane-count-note {
+  overflow: hidden;
+  color: var(--accent-ink);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-pane-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0 14px 8px;
+}
+
+.memo-pane-meta .tag-area {
+  flex: 1;
+  min-width: 0;
+}
+
+.memo-pane-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+  padding: 4px 14px 12px;
+}
+
+/* カードの並びと関連線の層の包み（L3）。線の層は並びの前にあり、関連があるときはカードを position: relative にして、DOM の順で線の上に重ねる
+   （isolation で重なりの文脈を作ると、カードの中の「＋タグ」の候補の欄が「＋コメント」の欄より下になるため使わない） */
+.memo-pane-cards-wrap {
+  position: relative;
+}
+
+.memo-pane-link-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* 関連があるとき：列の隙間と左右の余白は線路 5 本（24px）、行の隙間と下の余白は線路の数で 24〜48px（JS が --link-row-gap に入れる）。
+   上の余白は線が通らないので今のまま */
+.memo-pane-cards-wrap.has-links .memo-pane-cards {
+  /* 試し：関連があっても、関連の無いときと同じ幅で 3 列を保つ（線路の分だけ列の最小幅を 260 → 240px に。3×240＋24×2＋24×2＝816 ≦ 3×260＋8×2＋14×2＝824） */
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  column-gap: 24px;
+  row-gap: var(--link-row-gap, 24px);
+  padding: 4px 24px var(--link-row-gap, 24px);
+}
+
+.memo-pane-cards-wrap.has-links .memo-pane-card {
+  position: relative;
+}
+
+/* 試し：カードを升目の番地に置く（番地 = 行 × 3 ＋ 列。間を空けてよい）。広くても 3 列まで。カードの無い行も低く残す（置き場になる） */
+.memo-pane-cards-wrap .memo-pane-cards.slotted {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: minmax(72px, auto);
+}
+
+/* つまんでいる間の、空いた番地の点線の枠（乗せた所は濃く） */
+.memo-pane-slot-ghost {
+  min-height: 72px;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.memo-pane-slot-ghost.hot {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* 線：太い透明の当たり判定（隙間で押す・乗せる）と、見える線（色・矢じり・破線は JS が種類ごとに付ける） */
+.memo-pane-link-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 10;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.memo-pane-link-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.memo-pane-link:hover .memo-pane-link-line,
+.memo-pane-link.selected .memo-pane-link-line {
+  stroke-width: 3;
+}
+
+.memo-pane-card {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 13px;
+  line-height: 1.6;
+  scroll-margin-top: 32px;
+  scroll-margin-bottom: 140px;
+}
+
+.memo-pane-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* カードの頭の帯：左の組（種類・名前・日付・書き直し済み・関連 n）と、右端の並べ替えのつまみ（plan-memo-card-order の O2） */
+.memo-pane-card-head-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.memo-pane-card-grip {
+  position: relative;
+  flex: none;
+  width: 18px;
+  min-width: 18px; /* 全体の button の min-width: 28px を外す */
+  height: 18px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 16px;
+  text-align: center;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+/* 当たる所は 24px 角（見た目は 18px） */
+.memo-pane-card-grip::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+}
+
+.memo-pane-card-grip:hover,
+.memo-pane-card-grip:focus-visible {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.memo-pane-card-grip[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.memo-pane-cards.linking .memo-pane-card-grip {
+  cursor: crosshair;
+}
+
+/* ドラッグで並べ替える（plan-memo-card-order の O3）：つまんだカードは薄く、並びはつかんだ手。ドラッグの間は札の列と「＋コメント」の欄の貼りつきを外す
+   （外しても並びの位置は変わらない。見える高さが広がり、自動で送る端はスクロールの箱の端になる） */
+.memo-pane-card.dragging {
+  opacity: 0.45;
+}
+
+.memo-pane-cards.reordering,
+.memo-pane-cards.reordering .memo-pane-card-grip {
+  cursor: grabbing;
+}
+
+.memo-pane.grabbing .memo-pane-tagfilter,
+.memo-pane.grabbing .memo-pane-compose {
+  position: static;
+}
+
+/* 置き場の印：カードの隙間の縦の線（JS が left・top・height を入れる）。上下に丸を付けて、関連線より太く見せる */
+.memo-pane-drop-marker {
+  position: absolute;
+  z-index: 3;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.memo-pane-drop-marker::before,
+.memo-pane-drop-marker::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.memo-pane-drop-marker::before {
+  top: -4px;
+}
+
+.memo-pane-drop-marker::after {
+  bottom: -4px;
+}
+
+/* 1 列のとき：カードの上下の隙間の横の線（JS が left・top・width を入れる）。丸は左右 */
+.memo-pane-drop-marker.horizontal {
+  width: auto;
+  height: 2px;
+}
+
+.memo-pane-drop-marker.horizontal::before,
+.memo-pane-drop-marker.horizontal::after {
+  top: -3px;
+  bottom: auto;
+}
+
+.memo-pane-drop-marker.horizontal::before {
+  left: -4px;
+}
+
+.memo-pane-drop-marker.horizontal::after {
+  left: auto;
+  right: -4px;
+}
+
+/* 題の札：ポインターの右下（JS が画面の座標で left・top を入れる。区画の中に収める） */
+.memo-pane-drag-chip {
+  position: fixed;
+  z-index: 30;
+  max-width: 260px;
+  padding: 2px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.memo-pane-edited {
+  color: var(--accent-ink);
+}
+
+.memo-pane-card-body {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.memo-pane-quote {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 6px 0 0;
+  padding-left: 8px;
+  border-left: 3px solid var(--border);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.memo-pane-quote.open {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.memo-pane-source {
+  display: block;
+  max-width: 100%;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-ink);
+  font-size: 12px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-pane-thumb {
+  display: block;
+  margin-top: 6px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.memo-pane-thumb img {
+  display: block;
+  max-width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+}
+
+.memo-pane-shot-wait {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* theme: fixed begin：画像を大きく見る幕（どのテーマでも暗い） */
+.memo-pane-light {
+  position: absolute;
+  inset: 0;
+  z-index: 8; /* 浮いたカードの層（7）より上 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+}
+/* theme: fixed end */
+
+.memo-pane-light img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.memo-pane-light-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+/* 関連のマップの窓（区画いっぱいに重なる。位置と高さは区画の根の中）。同じ z-index 5 の大きく見た画像（.memo-pane-light）がマップより上に出るよう、DOM では画像より前に置く */
+.memo-pane-map {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.memo-pane-map[hidden] {
+  display: none;
+}
+
+.memo-pane-map-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.memo-pane-map-title {
+  font-weight: 700;
+  color: var(--accent-ink);
+}
+
+.memo-pane-map-note {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-pane-map-head button {
+  height: 22px;
+  font-size: 12px;
+}
+
+.memo-pane-map-svg {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: block;
+  touch-action: none;
+}
+
+.memo-pane-map-node {
+  cursor: grab;
+}
+
+.memo-pane-map-node rect {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.memo-pane-map-node:hover rect,
+.memo-pane-map-node:focus-visible rect {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.memo-pane-map-node.pinned rect {
+  stroke: var(--accent);
+  stroke-dasharray: 4 3;
+}
+
+.memo-pane-map-node:focus {
+  outline: none;
+}
+
+.memo-pane-map-node text {
+  fill: var(--text);
+  font-size: 12px;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 種類の印は、札の文字（.memo-pane-map-node text）より小さく。続けて書いて、文字の規則に勝たせる */
+.memo-pane-map-node .memo-pane-map-mark {
+  font-size: 11px;
+}
+
+/* 線の呼称（種類の名前）：色は JS が種類の色を fill に入れる。背景の色の縁取りで、線と重なっても読めるように */
+.memo-pane-map-edge-label {
+  font-size: 11px;
+  font-weight: 700;
+  stroke: var(--bg);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  paint-order: stroke;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 右クリックで元のカードを出している札 */
+.memo-pane-map-node.popped rect {
+  stroke: var(--accent);
+  stroke-width: 2;
+  fill: var(--hover);
+}
+
+/* 浮いたカードの層（区画いっぱい。マップ z-index 5 より上、大きく見た画像・一覧の窓 8 より下。押せるのはカードと関連の欄だけ）。
+   中の出したカードと「このカードの関連」の欄は、JS が押した順に z-index を入れる（同じ重なりの文脈の中で比べる）。ほかの小さな欄（body の 50）はいつも上 */
+.memo-pane-floats {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.memo-pane-floats > .cell-menu {
+  pointer-events: auto;
+}
+
+/* 元のカードが並びの外へ送られて見えないとき（最後の位置のまま）：少し薄く */
+.memo-pane-map-pop[data-away='true'] {
+  opacity: 0.92;
+}
+
+/* 右クリックで出した元のカードの層（窓いっぱい。押せるのはカードだけ） */
+.memo-pane-map-pops {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.memo-pane-map-pop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: min(300px, calc(100% - 8px));
+  overflow: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px var(--shadow-pop);
+  pointer-events: auto;
+}
+
+.memo-pane-map-pop:focus {
+  outline: none;
+}
+
+.memo-pane-map-card {
+  border-color: var(--accent);
+}
+
+/* 出したカードは、頭の帯をつまんで動かせる（離すと札の近い側に付く）。ボタンの上はふつうの手 */
+.memo-pane-map-pop .memo-pane-card-head {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.memo-pane-map-pop .memo-pane-card-head button {
+  cursor: pointer;
+}
+
+.memo-pane-map-pop.dragging {
+  opacity: 0.85;
+  box-shadow: 0 8px 24px var(--shadow-pop);
+}
+
+.memo-pane-map-pop.dragging .memo-pane-card-head {
+  cursor: grabbing;
+}
+
+/* つまんでいる間の、4 つの側の薄い枠（いちばん近い側を濃く） */
+.memo-pane-map-pop-ghost {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.memo-pane-map-pop-ghost.near {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  opacity: 1;
+}
+
+/* 「✕ 閉じる」：並べ替えのつまみの所（頭の帯の右端）。カードを消す × とは別 */
+.memo-pane-map-card-close {
+  flex: none;
+  min-width: 0;
+  height: 20px;
+  margin-left: auto;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.memo-pane-more {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-ink);
+  font-size: 12px;
+}
+
+.memo-pane-clip {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.memo-pane-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.memo-pane-compose {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.memo-pane-compose-label {
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.memo-pane-compose textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.6 inherit;
+  resize: none;
+}
+
+.memo-pane-compose-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.memo-pane-meter {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.memo-pane-meter.long,
+.memo-pane-longhint {
+  color: var(--accent-ink);
+}
+
+.memo-pane-meter.long {
+  font-weight: 700;
+}
+
+.memo-pane-longhint {
+  font-size: 11px;
+}
+
+.memo-pane-compose-row .preview-button {
+  margin-left: auto;
+}
+
+.memo-pane-empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* 見出しで絞る：入力できるあいだ、その下に出すワードのボタン（狭い一覧でも枠の中に収める） */
+.memo-filter-box {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.memo-filter-words {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  max-height: 220px;
+  margin-top: 4px;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.memo-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.memo-filter-words button {
+  box-sizing: border-box;
+  max-width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 26px;
+  overflow: hidden;
+  line-height: 1.3;
+  text-align: left;
+}
+
+.memo-filter-pill {
+  display: block;
+  flex: none;
+  width: fit-content;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 11px;
+}
+
+.memo-filter-pill.is-current {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.memo-filter-pill.is-current:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.memo-filter-pill-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-filter-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  width: 100%;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.memo-filter-label {
+  flex: 1 1 8em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.memo-filter-hint {
+  flex: 1 1 4em;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-filter-note,
+.memo-filter-section {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.memo-filter-note {
+  color: var(--muted);
+}
+
+.memo-filter-section {
+  font-weight: 600;
+}
+
+.memo-filter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.memo-filter-name {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  font-size: 12px;
+}
+
+.memo-filter-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.memo-filter-mini {
+  flex: none;
+  width: fit-content;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* 右の検索から移ってきたカード（少し光らせる） */
+.memo-pane-flash {
+  animation: memo-pane-flash 1.6s ease-out;
+}
+
+@keyframes memo-pane-flash {
+  from {
+    box-shadow: 0 0 0 3px var(--accent);
+    background-color: var(--accent-soft);
+  }
+
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .memo-pane-flash {
+    animation: none;
+    outline: 2px solid var(--accent-line);
+    outline-offset: 2px;
+  }
+}
+
+/* カードをタグで絞る札（スクロールで流れないよう、本文の下に貼りつける。一覧の検索窓 .memo-pane-filter とは別） */
+.memo-pane-tagfilter {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 4px 14px;
+  background: var(--bg);
+}
+
+.memo-pane-tagfilter[hidden] {
+  display: none;
+}
+
+.memo-card-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.memo-card-filter-chip {
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--tag, var(--border)) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tag, var(--border)) 12%, transparent);
+  font-size: 11px;
+}
+
+.memo-card-filter-more {
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.memo-pane-card-tags {
+  margin-top: 4px;
+}
+
+/* 下の区画のカード：ボタンの行（書き直す … ×）をカードの下端にそろえる。
+   並び（grid）は行の中で高さをそろえる（align-items の既定 stretch）ので、本文の長さが違っても同じ行のボタンが横に並ぶ。
+   返信の一覧（ボタンの行の下）は、ボタンの行と一緒に下へ寄る */
+.memo-pane-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.memo-pane-card > * {
+  flex: none;
+}
+
+/* 押すもの・画像は、横いっぱいに伸ばさない（block のときと同じ幅） */
+.memo-pane-card > .memo-pane-more,
+.memo-pane-card > .memo-pane-thumb,
+.memo-pane-card > button {
+  align-self: flex-start;
+}
+
+.memo-pane-card > .memo-pane-card-actions {
+  margin-top: auto;
+  padding-top: 6px; /* もとの margin-top: 6px の分（本文がいちばん長いカードでも隙間を残す） */
+}
+
+/* 下のボタンの行：1 行に収める（🔗 はアイコンだけ・× は 🔗・⋯ のすぐ右） */
+.memo-pane-card-actions .thread-action.reply-remove {
+  margin-left: 0;
+}
+
+.memo-pane-card-link,
+.memo-pane-card-more {
+  min-width: 0;
+  padding: 0 5px;
+}
+
+.memo-pane-card-link[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.memo-pane-card-more[aria-expanded='true'] {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* つながり順の見出し（行をまたぐ。position と背景で、線の層が字の上に出ないようにする。行の間は row-gap のまま） */
+.memo-pane-chain-head {
+  grid-column: 1 / -1;
+  position: relative;
+  margin: 0;
+  padding: 0 2px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-pane-filter-empty {
+  grid-column: 1 / -1;
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* カードのいつものタグ（6 つ）と「セット▾」「その他▾」：「＋タグ」の後ろに並べ、狭いときは折り返す */
+.memo-pane-card-tags .preview-tags {
+  flex-wrap: wrap;
+  row-gap: 3px;
+}
+
+.memo-pane-quick-tag,
+.memo-pane-tag-menu {
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+  max-width: 9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.memo-pane-quick-tag {
+  border: 1px dashed color-mix(in srgb, var(--tag) 70%, transparent);
+  background: transparent;
+  color: var(--tag);
+}
+
+.memo-pane-quick-tag[aria-pressed='true'] {
+  border-style: solid;
+  background: color-mix(in srgb, var(--tag) 22%, transparent);
+}
+
+.memo-pane-tag-menu {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted, inherit);
+}
+
+.memo-pane-tag-register {
+  min-width: 240px;
+}
+
+.memo-pane-tag-register-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.memo-pane-tag-register-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.memo-pane-link-set-form {
+  min-width: 220px;
+}
+
+.memo-pane-link-set-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.memo-pane-link-set-kind {
+  flex: 0 0 3em;
+  color: var(--rel); /* 関連の種類の色（memo-pane.ts が付ける） */
+  font-size: 12px;
+}
+
+.memo-pane-link-set-row input {
+  flex: 1;
+  min-width: 0;
+}

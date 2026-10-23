@@ -1,0 +1,230 @@
+/* データの色（タグ・シート・島・順路・関連の線。保存した値のまま）を、描くときだけテーマの明るさの帯に収める（計画書 docs/plan-themes.md の T5）。
+   帯はテーマの塊の --data-lmin・--data-lmax（印・枠・線：地に対して 3:1）と --data-ink-lmin・--data-ink-lmax（字と、字を載せる塗り：4.5:1）。
+   帯の上の字は --on-data。OKLCH の相対色が使えないときは、この上書きが効かず、元の CSS（保存した色のまま）で描く。
+   ここは、データの色を使う宣言から生成の道具で作った（道具はこのリポジトリに含めていない）。データの色を使う宣言を足したら、ここにも同じ選択子で足す */
+@supports (color: oklch(from red l c h)) {
+  /* style.css */
+  .tag-chip {
+    border: 1px solid color-mix(in srgb, oklch(from var(--tag, var(--accent)) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 55%, transparent);
+    background: color-mix(in srgb, oklch(from var(--tag, var(--accent)) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 16%, transparent);
+  }
+
+  .tag-chip::before {
+    color: oklch(from var(--tag, var(--accent-ink)) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+  }
+
+  .tag-button.selected {
+    background: oklch(from var(--tag, var(--accent)) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+  }
+
+  .pill-island {
+    border: 1px solid oklch(from var(--island) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+    background: color-mix(in srgb, oklch(from var(--island) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 18%, transparent);
+  }
+
+  .island-label {
+    fill: oklch(from var(--island) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+  }
+
+  .row.in-island {
+    box-shadow: inset 3px 0 0 oklch(from var(--island) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .route-line {
+    stroke: oklch(from var(--route) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .route-badge circle {
+    fill: oklch(from var(--route) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+  }
+
+  .route-card {
+    border-left: 3px solid oklch(from var(--route, var(--border)) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .route-color {
+    background: oklch(from var(--route) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .route-row.nested::before {
+    border-left: 2px dotted oklch(from var(--route) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .route-row.branch::after {
+    border-top: 2px dotted oklch(from var(--route) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .route-num {
+    background: oklch(from var(--route) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+  }
+
+  .route-row.open .route-num {
+    outline: 2px solid oklch(from var(--route) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .route-row.current {
+    box-shadow: inset 0 0 0 1.5px oklch(from var(--route) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .route-chip {
+    background: oklch(from var(--route) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+  }
+
+  .route-dot {
+    background: oklch(from var(--route) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .download-chip.shelf-sheet {
+    border-left: 4px solid oklch(from var(--sheet, var(--border)) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .memo-pad-tab-sw {
+    background: oklch(from var(--sheet, var(--accent)) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .memo-pad-set-chips i {
+    background: oklch(from var(--sheet, var(--accent)) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .board-link-line {
+    stroke: oklch(from var(--link) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .board-link-head {
+    stroke: oklch(from var(--link) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .board-link-head.filled {
+    fill: oklch(from var(--link) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .board-link-badge circle {
+    fill: oklch(from var(--link) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+  }
+
+  .board-link-rubber {
+    stroke: oklch(from var(--link) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .board-link-name-swatch {
+    border-top: 3px solid oklch(from var(--link) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  /* sheets.css */
+  .sheet-swatch {
+    background: oklch(from var(--sheet, var(--accent)) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .cell.portal .portal-door {
+    fill: oklch(from var(--sheet) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+    stroke: oklch(from var(--sheet) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .cell.portal:hover .portal-door {
+    filter: drop-shadow(0 0 3px oklch(from var(--sheet) clamp(var(--data-lmin), l, var(--data-lmax)) c h));
+  }
+
+  .cell.portal .portal-rim {
+    stroke: oklch(from var(--sheet) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .portal-count {
+    fill: oklch(from var(--sheet) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+  }
+
+  /* tagbuttons.css */
+  .tag-pad-button {
+    border: 1px solid color-mix(in srgb, oklch(from var(--tag, var(--accent)) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 55%, transparent);
+    background: color-mix(in srgb, oklch(from var(--tag, var(--accent)) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 9%, var(--surface));
+  }
+
+  .tag-pad-button::before {
+    color: oklch(from var(--tag, var(--accent-ink)) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+  }
+
+  .tag-pad-button[aria-pressed='true'],
+  .tag-pad-button[aria-pressed='true']:hover:not(:disabled) {
+    border-color: oklch(from var(--tag, var(--accent)) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+    background: color-mix(in srgb, oklch(from var(--tag, var(--accent)) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 36%, var(--surface));
+    box-shadow: inset 0 0 0 1px oklch(from var(--tag, var(--accent)) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .tag-candidate::before {
+    background: oklch(from var(--tag, var(--accent)) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .tag-candidate.pinned {
+    border: 1px solid color-mix(in srgb, oklch(from var(--tag, var(--accent)) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 55%, transparent);
+    background: color-mix(in srgb, oklch(from var(--tag, var(--accent)) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 16%, transparent);
+  }
+
+  /* memo-pane.css */
+  .memo-card-filter-chip {
+    border: 1px solid color-mix(in srgb, oklch(from var(--tag, var(--border)) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 55%, transparent);
+    background: color-mix(in srgb, oklch(from var(--tag, var(--border)) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 12%, transparent);
+  }
+
+  .memo-pane-quick-tag {
+    border: 1px dashed color-mix(in srgb, oklch(from var(--tag) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 70%, transparent);
+    color: oklch(from var(--tag) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+  }
+
+  .memo-pane-quick-tag[aria-pressed='true'] {
+    background: color-mix(in srgb, oklch(from var(--tag) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 22%, transparent);
+  }
+
+  /* vault.css */
+  .vault-filter-chip {
+    border: 1px solid color-mix(in srgb, oklch(from var(--tag, var(--border)) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 55%, transparent);
+    background: color-mix(in srgb, oklch(from var(--tag, var(--border)) clamp(var(--data-lmin), l, var(--data-lmax)) c h) 12%, transparent);
+  }
+
+  /* TS が変数で渡す所（関連の線・島・見本の点・小さな盤面。属性の色は帯の効かない所の代わり） */
+  .memo-pane-link-line {
+    stroke: oklch(from var(--rel) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .memo-pane-link-head.is-fill {
+    fill: oklch(from var(--rel) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .memo-pane-link-head.is-stroke {
+    stroke: oklch(from var(--rel) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .memo-pane-map-edge {
+    stroke: oklch(from var(--rel) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .memo-pane-map-edge-label {
+    fill: oklch(from var(--rel) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+  }
+
+  .memo-pane-map-dot {
+    fill: oklch(from var(--data) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .memo-pane-link-set-kind {
+    color: oklch(from var(--rel) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+  }
+
+  .island-fill {
+    fill: oklch(from var(--island) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .island-edge {
+    stroke: oklch(from var(--island) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .island-swatch {
+    background: oklch(from var(--data) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .ix-dot {
+    background: oklch(from var(--data) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .ix-mini-hex[style*='--data'] {
+    fill: oklch(from var(--data) clamp(var(--data-ink-lmin), l, var(--data-ink-lmax)) c h);
+  }
+}
