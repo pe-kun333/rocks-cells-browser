@@ -1,4 +1,4 @@
-# Rocks-cells Browser Ver0.04β
+﻿# Rocks-cells Browser Ver0.04β
 
 > バージョン / Version: **Ver0.04β** (0.0.4, beta / プレリリース). 版の情報は `version.json` 1か所で管理しています / single source: `version.json`.
 
@@ -10,10 +10,24 @@ A Windows browser that arranges tabs on a hexagonal honeycomb, with memos, sheet
 
 詳しい機能メモ（日本語・開発時のもの）: [docs/FEATURES.ja.md](docs/FEATURES.ja.md)
 
-## 動かす / Run
+## 動かす / Run（はじめての方へ）
 
-- ポータブル版: `RocksCellsBrowser-Ver0.04beta-portable.zip` を展開し `RocksCellsBrowser.exe` を実行（インストール不要）。
-- 必要なもの: Windows 10/11 (x64)、Microsoft Edge WebView2 ランタイム（Windows 11 には標準で入っています）。
+1. GitHub の Releases から `RocksCellsBrowser-Ver0.04beta-portable.zip` をダウンロードします。
+2. zip を**右クリック →「すべて展開」**で、好きなフォルダに展開します（zip を開いたままの中からは起動しないでください）。
+3. 展開したフォルダの **`RocksCellsBrowser.exe` をダブルクリック**します（`Rocks-cells Browser.bat` でも同じです）。インストールは不要で、Node.js やサーバーも要りません（六角メモも中に入っています）。
+4. 初回だけ青い「Windows によって PC が保護されました」が出たら、「詳細情報」→「実行」を押します（下の SmartScreen について）。
+5. よく使うなら、`RocksCellsBrowser.exe` を右クリック →「スタートにピン留めする」か「ショートカットの作成」で、デスクトップやタスクバーに置けます。
+
+`ui\` と `hexmemo\` のフォルダは exe と同じ場所に置いたままにしてください（exe だけを別の場所に移すと画面が出ません）。
+
+**必要なもの / Requirements**
+
+- Windows 10 / 11（64 ビット）
+- **Microsoft Edge WebView2 ランタイム**：Windows 11 と、更新済みの Windows 10 には入っています。無いと「WebView2 の起動 に失敗しました」と出ます → [WebView2 ランタイム（Microsoft）](https://developer.microsoft.com/microsoft-edge/webview2/) の「Evergreen Bootstrapper」を入れてください。
+- **Visual C++ 再頒布可能パッケージ（x64）**：多くの PC には入っていますが、無いと「MSVCP140.dll が見つからない」などと出ます → [vc_redist.x64.exe（Microsoft）](https://aka.ms/vs/17/release/vc_redist.x64.exe) を入れてください。
+
+Quick start: download the portable zip from Releases, **extract it** (right-click → Extract All), then **double-click `RocksCellsBrowser.exe`**. Keep the `ui\` and `hexmemo\` folders next to the exe. Requires Windows 10/11 x64, the Microsoft Edge WebView2 Runtime (preinstalled on Windows 11) and the Visual C++ Redistributable x64 (https://aka.ms/vs/17/release/vc_redist.x64.exe) if it is not already installed.
+
 - 内蔵の六角メモ: 左サイドバーのシートのメニュー →「六角メモを開く」、またはアドレス欄に `https://hexmemo.local/`。exe の横の `hexmemo\` フォルダを WebView2 が仮想ホストとして見せるので、Node.js やサーバーは不要です。
 
 **SmartScreen について / Unsigned build:** この exe はコード署名されていません。初回起動時に Windows SmartScreen が「Windows によって PC が保護されました」と表示することがあります。「詳細情報」→「実行」で起動できます。気になる場合はソースから自分でビルドしてください。
