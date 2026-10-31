@@ -396,7 +396,26 @@ Browser::Browser(HWND hwnd) : hwnd_(hwnd) {
 
 // ---------- 起動 ----------
 
+// 公開版（rebuild-public.ps1）：WebView2 ランタイムが無いときは、入手先（Microsoft のページ）を開くか聞いて終わる
+static void PromptWebView2Runtime(HWND hwnd) {
+    const int answer = MessageBoxW(hwnd,
+        L"WebView2 ランタイムが必要です。入手先を開きますか？\n\n"
+        L"「はい」で Microsoft の WebView2 のページを開きます。「Evergreen Bootstrapper」をダウンロードして入れてから、もう一度起動してください。",
+        kAppName, MB_YESNO | MB_ICONINFORMATION);
+    if (answer == IDYES) ShellExecuteW(nullptr, L"open", L"https://developer.microsoft.com/microsoft-edge/webview2/", nullptr, nullptr, SW_SHOWNORMAL);
+    PostQuitMessage(0);
+}
+
+static bool EnsureWebView2Runtime(HWND hwnd) {
+    LPWSTR version = nullptr;
+    const HRESULT hr = GetAvailableCoreWebView2BrowserVersionString(nullptr, &version);
+    const bool ok = SUCCEEDED(hr) && version != nullptr;
+    if (version) CoTaskMemFree(version);
+    if (!ok) PromptWebView2Runtime(hwnd);
+    return ok;
+}
 void Browser::Start() {
+    if (!EnsureWebView2Runtime(hwnd_)) return;  // 公開版（rebuild-public.ps1）
     // 見た目のテーマ（前回の色）。面を作るときの地の色と、ページの明暗に使う。自動なら今の Windows の明暗で組を選ぶ
     theme_ = theme::Load();
     if (theme_) themeSlot_ = theme::Pick(*theme_, theme::SystemPrefersDark());
@@ -417,7 +436,8 @@ void Browser::Start() {
                 return S_OK;
             })
             .Get());
-    if (FAILED(hr)) ShowError(hwnd_, L"WebView2 の起動", hr);
+    if (hr == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND)) PromptWebView2Runtime(hwnd_);  // 公開版（rebuild-public.ps1）
+    else if (FAILED(hr)) ShowError(hwnd_, L"WebView2 の起動", hr);
 }
 
 // サイドバーを1つ作る。中身は同じ UI で、URL の ?surface=left / right で役割が変わる

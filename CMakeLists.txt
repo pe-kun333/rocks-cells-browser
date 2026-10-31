@@ -4,6 +4,8 @@ file(READ "${CMAKE_SOURCE_DIR}/version.json" _rc_version_json)
 string(JSON RC_VERSION GET "${_rc_version_json}" version)
 string(JSON RC_VERSION_LABEL GET "${_rc_version_json}" label)
 project(RocksCellsBrowser VERSION ${RC_VERSION} LANGUAGES CXX RC)
+# 公開版（rebuild-public.ps1）：VC++ ランタイムを exe に組み込む（/MT。vc_redist が要らない）
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

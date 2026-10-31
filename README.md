@@ -1,6 +1,6 @@
-﻿# Rocks-cells Browser Ver0.04β
+﻿# Rocks-cells Browser Ver0.031β
 
-> バージョン / Version: **Ver0.04β** (0.0.4, beta / プレリリース). 版の情報は `version.json` 1か所で管理しています / single source: `version.json`.
+> バージョン / Version: **Ver0.031β** (0.0.31, beta / プレリリース). 版の情報は `version.json` 1か所で管理しています / single source: `version.json`.
 
 > 変更点 / Changes: [CHANGELOG.md](CHANGELOG.md)
 
@@ -12,7 +12,7 @@ A Windows browser that arranges tabs on a hexagonal honeycomb, with memos, sheet
 
 ## 動かす / Run（はじめての方へ）
 
-1. GitHub の Releases から `RocksCellsBrowser-Ver0.04beta-portable.zip` をダウンロードします。
+1. GitHub の Releases から `RocksCellsBrowser-Ver0.031beta-portable.zip` をダウンロードします。
 2. zip を**右クリック →「すべて展開」**で、好きなフォルダに展開します（zip を開いたままの中からは起動しないでください）。
 3. 展開したフォルダの **`RocksCellsBrowser.exe` をダブルクリック**します（`Rocks-cells Browser.bat` でも同じです）。インストールは不要で、Node.js やサーバーも要りません（六角メモも中に入っています）。
 4. 初回だけ青い「Windows によって PC が保護されました」が出たら、「詳細情報」→「実行」を押します（下の SmartScreen について）。
