@@ -1,6 +1,8 @@
-# Rocks-cells Browser Ver0.03β
+# Rocks-cells Browser Ver0.04β
 
-> バージョン / Version: **Ver0.03β** (0.0.3, beta / プレリリース). 版の情報は `version.json` 1か所で管理しています / single source: `version.json`.
+> バージョン / Version: **Ver0.04β** (0.0.4, beta / プレリリース). 版の情報は `version.json` 1か所で管理しています / single source: `version.json`.
+
+> 変更点 / Changes: [CHANGELOG.md](CHANGELOG.md)
 
 タブを六角形のハニカム（蜂の巣）に並べる Windows 用ブラウザです。メモ・シート・キャプチャ・単語帳・AI の相棒（Anthropic Claude、任意）などを備え、六角メモ（hex-memo）の Web 版を内蔵しています。
 
@@ -10,7 +12,7 @@ A Windows browser that arranges tabs on a hexagonal honeycomb, with memos, sheet
 
 ## 動かす / Run
 
-- ポータブル版: `RocksCellsBrowser-Ver0.03beta-portable.zip` を展開し `RocksCellsBrowser.exe` を実行（インストール不要）。
+- ポータブル版: `RocksCellsBrowser-Ver0.04beta-portable.zip` を展開し `RocksCellsBrowser.exe` を実行（インストール不要）。
 - 必要なもの: Windows 10/11 (x64)、Microsoft Edge WebView2 ランタイム（Windows 11 には標準で入っています）。
 - 内蔵の六角メモ: 左サイドバーのシートのメニュー →「六角メモを開く」、またはアドレス欄に `https://hexmemo.local/`。exe の横の `hexmemo\` フォルダを WebView2 が仮想ホストとして見せるので、Node.js やサーバーは不要です。
 

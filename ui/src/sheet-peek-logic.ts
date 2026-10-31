@@ -2,6 +2,7 @@
 //   ・2回押しを自分で数える（dblclick は待たない。描き直しで的が変わっても数えられるように）
 //   ・小窓の中の盤面の、はじめの位置（シートのセルを囲む四角のまん中を、小窓のまん中に）
 //   ・小窓の置き場所（押した入口のすぐ下。入らなければすぐ上。盤面の中に収める）
+//   ・小窓の空いたセルを右クリックしたときのメニューの中身と、メモを作れなかったときの一言（入口先のシートに作る）
 
 export const PEEK_DOUBLE_MS = 400; // これより短い間に2回押したらダブルクリック（盤面と同じ）
 export const PEEK_ZOOM = 0.75; // 小窓のはじめの拡大率
@@ -80,4 +81,28 @@ export function clampBox(box: Box, area: Box): Box {
 
 function clampNum(v: number, lo: number, hi: number) {
   return hi < lo ? lo : Math.min(hi, Math.max(lo, v));
+}
+
+// ---------- 小窓の空いたセルの右クリック（メモを書く） ----------
+export const PEEK_EMPTY_WRITE_LABEL = 'メモを書く';
+const PEEK_NAME_MAX = 20; // 見出しに入れるシート名の長さ（これより長いときは … で切る）
+
+export interface PeekEmptyMenuPlan {
+  heading: string; // 例：シート「入口先」のこのセルに
+  write: { id: 'write-memo'; label: string };
+}
+
+// 小窓が見ているシート（名前。消えていたら null）から、メニューの中身を決める。シートが無いときはメニューを出さない（null）
+export function peekEmptyMenuPlan(sheetName: string | null): PeekEmptyMenuPlan | null {
+  if (sheetName === null) return null;
+  const name = [...sheetName].length > PEEK_NAME_MAX ? `${[...sheetName].slice(0, PEEK_NAME_MAX).join('')}…` : sheetName;
+  return { heading: `シート「${name}」のこのセルに`, write: { id: 'write-memo', label: PEEK_EMPTY_WRITE_LABEL } };
+}
+
+// 保存したあとの一言。作れたときは空（小窓の中にメモが出るので、知らせない）
+//   sheetName が null：書いているあいだに入口先のシートが消えた（メモは作らない）。created が false：メモのセルが上限などで作れなかった
+export function peekMemoNote(o: { sheetName: string | null; created: boolean }): string {
+  if (o.sheetName === null) return '入口先のシートが見つかりません（消されたようです）。メモは作りませんでした';
+  if (!o.created) return 'メモのセルが多すぎて、新しいメモを置けませんでした';
+  return '';
 }

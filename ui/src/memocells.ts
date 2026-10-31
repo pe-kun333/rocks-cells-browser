@@ -18,6 +18,7 @@ import { type LikeLevel, likeLevel } from './likes';
 import { parseLinkSetId } from './link-name-sets';
 import { changeLinkList, type LinkKindNames, parseLinkKindNames } from './memo-card-links';
 import { sendCards, type SendMode } from './memo-card-send';
+import { buildPasteDraft, type PasteIdsProblem, pasteIdsProblem, parseTemplate } from './memo-card-templates';
 import { isSheetId, MAIN_SHEET } from './sheets';
 import { visibleTags } from './grok-cards-tags';
 import { changeTagList, normalizeTags } from './tags';
@@ -128,22 +129,43 @@ export type MemoDraft = Pick<MemoCell, 'pos' | 'text'> &
 // カードを別のメモへ送った直後に、元へ戻すための控え（メモリーだけ。台帳には書かない）
 interface SendUndo {
   token: string;
-  fromId: string;
+  fromId: string | null; // 型の貼り付けは、元のメモが無い（null。元は触らない）
   toId: string;
   created: boolean;
-  fromReplies: Reply[];
+  fromReplies: Reply[] | null;
   toReplies: Reply[];
   fromUpdated: number;
   toUpdated: number;
-  fromAfter: string;
+  fromAfter: string | null;
   toAfter: string;
 }
 
 export type SendRepliesResult =
-  | { ok: true; toId: string; created: boolean; token: string; tops: number; cut: number; kept: number; added: number }
-  | { ok: false; why: 'ledger' | 'from' | 'to' | 'same' | 'place' | 'full-memos' | 'empty' | 'missing' | 'full'; room?: number; need?: number };
+  | { ok: true; toId: string; created: boolean; token: string; tops: number; cut: number; kept: number; added: number; name?: string } // name：型を貼ったときの型の名前
+  | { ok: false; why: 'ledger' | 'from' | 'to' | 'same' | 'place' | 'full-memos' | 'empty' | 'missing' | 'full' | 'invalid' | 'ids'; room?: number; need?: number; idsWhy?: PasteIdsProblem }; // ids：呼び出し側が決めた id が使えない（型を貼るときだけ。B3-2a）
+
+// 送る入力：別のメモのカード（from・replyIds）か、型（template。貼り先 toId は今開いているメモ。元のメモは無い）
+export type SendRepliesInput =
+  | { fromId: string; replyIds: readonly string[]; toId: string | null; mode: SendMode; create?: MemoDraft }
+  | { template: unknown; toId: string; ids?: readonly string[] }; // ids：貼る新しいカードの id を呼び出し側が決めたいとき（B3-2a。型のカードと同じ順・同じ数。省略すると今までどおり）
 
 const replyFingerprint = (replies: readonly Reply[] | undefined) => JSON.stringify(replies ?? []);
+
+// 削除の取り消し（B3-3a。restoreReplies）：removeReply に undoToken が付いたとき、消す直前の返信全体を控える（メモリだけ。ファイルには書かない）
+export const RESTORE_TOKEN_RE = /^u[A-Za-z0-9_-]{0,63}$/; // u で始まる 64 字以内。区画から来るので形を検査する
+export const RESTORE_MAX_ENTRIES = 50; // 控えは 50 件まで（古い順に捨てる）
+export const RESTORE_MAX_CHARS = 4_000_000; // 控えの文字数（返信全体の JSON の長さの合計）の上限。超えたら古い順に捨てる
+export const isRestoreToken = (token: unknown): token is string => typeof token === 'string' && RESTORE_TOKEN_RE.test(token);
+
+interface RestoreEntry {
+  token: string;
+  memoId: string;
+  before: string; // 消す直前の返信全体の JSON（replyFingerprint と同じ書き方。戻すときに読み直す）
+  after: string; // 消した直後の返信全体の指紋
+  size: number; // before と after の文字数の合計
+}
+
+export type RestoreRepliesResult = { ok: true; count: number } | { ok: false; why: 'ledger' | 'none' | 'stale' }; // count：戻したあとの返信の数
 
 const FILE = 'memocells.json';
 const BACKUP = 'memocells-before-memo-split.json'; // 書き直す・引用・画像を初めて書く前の写し（1回だけ）。前の名前 memocells.before-memo-split.json は C++ の名前の検査に通らず、書けていなかった
@@ -167,6 +189,7 @@ export class MemoStore {
   private loadState: 'ok' | 'missing' | 'unreadable' = 'unreadable'; // 読めた／ファイルが無い（初めて）／あるのに読めない・返事が無い・知らない版
   private readonly backupTasks = new Map<string, Promise<void>>(); // 写しの名前 → 書き終えるまで（もうあれば書かない）
   private sendUndo: SendUndo | null = null; // 直前に送ったカードを元へ戻すための、送る前の返信（1 件だけ）
+  private restoreLog: RestoreEntry[] = []; // 削除の取り消しの控え（古い順。50 件・約 400 万字まで。メモリだけ。B3-3a）
   private readonly images = new Map<string, string>(); // 画像の ID → data URL（読み込んだもの）
   private readonly loading = new Set<string>();
   // 今見ているシート（左サイドバーが決める）
@@ -328,10 +351,11 @@ export class MemoStore {
 
   // コメントのスレッドに返信を足す（足した返信を返す。足せなければ null）
   //   extra：引用・画像・書き出したファイル（付けるのは M3・M4。形が合うものだけ残る）
-  addReply(id: string, parent: string | null, text: string, by?: ReplyAuthor, extra?: ReplyExtra): Reply | null {
+  //   replyId：id を決めたいとき（B2-3a。省略すると今までどおり）。形が合わない・このメモにもう同じ id があるときは足さない（null）
+  addReply(id: string, parent: string | null, text: string, by?: ReplyAuthor, extra?: ReplyExtra, replyId?: string): Reply | null {
     const memo = this.memos.get(id);
     if (!memo || memo.bot || memo.app || memo.capture) return null; // ボット・アプリ・撮ったものは返信を持たない
-    const next = withReply(memo.replies ?? [], parent, text, by, extra);
+    const next = withReply(memo.replies ?? [], parent, text, by, extra, replyId);
     if (!next) return null;
     // 引用・画像を初めて書く前に、今の中身を1回だけ写す（第5.4節）
     if (next.reply.quote || next.reply.image) this.backupOnce(BACKUP);
@@ -512,7 +536,8 @@ export class MemoStore {
   // 一番上のカードを、別のメモへ移す・写す（下の返信も一緒。保存は 1 回。初めて送る前に 1 回だけ写す）
   //   toId が null のときは create の場所に空のメモを作り、そこへ入れる（作れなければ、元のメモは変えない）
   //   断ったときは何も書かない。成功したら、直前の送りを 1 件だけ覚えて undoSend で戻せる
-  sendReplies(input: { fromId: string; replyIds: readonly string[]; toId: string | null; mode: SendMode; create?: MemoDraft }): SendRepliesResult {
+  sendReplies(input: SendRepliesInput): SendRepliesResult {
+    if ('template' in input) return this.pasteTemplate(input.template, input.toId, input.ids);
     if (!this.loaded || this.loadState === 'unreadable') return { ok: false, why: 'ledger' };
     const from = this.memos.get(input.fromId);
     if (!from || isSpecialCell(from)) return { ok: false, why: 'from' };
@@ -575,18 +600,68 @@ export class MemoStore {
     return { ok: true, toId: to.id, created, token, tops: done.tops, cut: done.cut, kept: done.kept, added: done.added };
   }
 
+  // 型を、メモの返信の最後に貼る（docs/plan-card-templates.md の Phase 1c）。sendReplies の copy と同じ道：
+  //   下書きは buildPasteDraft（新しい id・時刻は今の最新より後・rank なし・型の中の関連だけ）→ sendCards（copy）で足す。
+  //   rank を持たないカードは、最後に置いてある番地の次に並ぶので、ほかのカードの rank は変えない。
+  //   貼ると 300 枚を超えるときは全体を断る（何も書かない）。元のメモは無いので、元に戻すのは貼り先の返信だけ
+  //   ids（B3-2a）：あれば、貼ったカードの id をその順に使う（型のカードと 1 対 1）。使えない指定は全体を断る（何も書かない）。省略したときは今までと同じ
+  private pasteTemplate(raw: unknown, toId: string, ids?: readonly string[]): SendRepliesResult {
+    if (!this.loaded || this.loadState === 'unreadable') return { ok: false, why: 'ledger' };
+    const checked = parseTemplate(raw); // 区画から来たものを信用しない（形・上限・機械のタグ・関連を確かめ直す）
+    if (!checked.ok) return { ok: false, why: 'invalid' };
+    const to = this.memos.get(toId);
+    if (!to || isSpecialCell(to)) return { ok: false, why: 'to' };
+    const existing = to.replies ?? [];
+    if (ids !== undefined) {
+      const bad = pasteIdsProblem(existing, ids, checked.template.cards.length);
+      if (bad !== null) return { ok: false, why: 'ids', idsWhy: bad };
+    }
+    // 指定のとき：下書きの仮の id は REPLY_ID_RE に合わない形にして、指定の id と重ならないようにする。sendCards が新しい id を振るので、そこで指定の id を順に渡す
+    let draftSeq = 0;
+    const draft = buildPasteDraft(checked.template, { existing, ...(ids !== undefined ? { newId: () => `@draft:${draftSeq++}` } : {}) });
+    if (!draft.ok) return draft.why === 'full' ? { ok: false, why: 'full', room: draft.room, need: draft.need } : { ok: false, why: 'invalid' };
+    const queue = ids === undefined ? null : [...ids];
+    const done = sendCards({ from: draft.replies, to: existing, ids: draft.newTopIds, mode: 'copy', ...(queue ? { newId: () => queue.shift() ?? '' } : {}) });
+    if (!done.ok) return done;
+    // 念のため：指定のとおりの id で、指定の順に入ったことを書く前に確かめる（食い違えば何も書かない）
+    if (ids !== undefined && (done.newTopIds.length !== ids.length || done.newTopIds.some((id, i) => id !== ids[i]))) return { ok: false, why: 'ids', idsWhy: 'count' };
+    const toBefore = structuredClone(existing) as Reply[];
+    const toUpdated = to.updatedAt;
+    this.backupOnce(CARD_SEND_BACKUP);
+    const now = Date.now();
+    to.replies = done.to;
+    to.updatedAt = now;
+    const token = `u${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    this.sendUndo = {
+      token,
+      fromId: null,
+      toId: to.id,
+      created: false,
+      fromReplies: null,
+      toReplies: toBefore,
+      fromUpdated: 0,
+      toUpdated,
+      fromAfter: null,
+      toAfter: replyFingerprint(to.replies),
+    };
+    this.changed();
+    return { ok: true, toId: to.id, created: false, token, tops: done.tops, cut: 0, kept: done.kept, added: done.added, name: checked.template.name };
+  }
+
   // 直前の送りを元に戻す（送ったあとに返信が変わっていれば断る。新しく作ったメモは、空のままなら消す）
   undoSend(token: string): { ok: true } | { ok: false; why: 'ledger' | 'none' | 'stale' } {
     if (!this.loaded || this.loadState === 'unreadable') return { ok: false, why: 'ledger' };
     const undo = this.sendUndo;
     if (!undo || undo.token !== token) return { ok: false, why: 'none' };
-    const from = this.memos.get(undo.fromId);
+    const from = undo.fromId === null ? null : this.memos.get(undo.fromId);
     const to = this.memos.get(undo.toId);
-    if (!from || !to) return { ok: false, why: 'stale' };
-    if (replyFingerprint(from.replies) !== undo.fromAfter || replyFingerprint(to.replies) !== undo.toAfter) return { ok: false, why: 'stale' };
+    if (!to || (undo.fromId !== null && !from)) return { ok: false, why: 'stale' };
+    if ((from && replyFingerprint(from.replies) !== undo.fromAfter) || replyFingerprint(to.replies) !== undo.toAfter) return { ok: false, why: 'stale' };
     if (undo.created && to.text.trim()) return { ok: false, why: 'stale' };
-    from.replies = undo.fromReplies;
-    from.updatedAt = undo.fromUpdated;
+    if (from && undo.fromReplies) {
+      from.replies = undo.fromReplies;
+      from.updatedAt = undo.fromUpdated;
+    }
     if (undo.created) this.memos.delete(to.id);
     else {
       to.replies = undo.toReplies;
@@ -616,11 +691,48 @@ export class MemoStore {
   }
 
   // 返信を消す（その下の返信も一緒に）
-  removeReply(id: string, replyId: string) {
+  //   undoToken（B3-3a。形は呼ぶ側が検査済み）があり、実際に返信が変わるときだけ、消す直前の返信全体を控える（restoreReplies で戻せる）。なければ今までどおり
+  removeReply(id: string, replyId: string, undoToken?: string) {
     const memo = this.memos.get(id);
     if (!memo?.replies) return;
+    const before = undoToken !== undefined && isRestoreToken(undoToken) && this.loaded && this.loadState !== 'unreadable' ? replyFingerprint(memo.replies) : null;
     memo.replies = withoutReply(memo.replies, replyId);
+    if (before !== null && undoToken !== undefined) this.recordRestore(id, undoToken, before, replyFingerprint(memo.replies));
     this.changed();
+  }
+
+  // 消す直前の返信全体を控える。変わっていなければ控えない。50 件・約 400 万字を超えたら古い順に捨てる（1 件だけで超えるなら、それも捨てる）
+  //   同じ token で続けて消したとき（B3-3b：ボードで何枚かを一度に消す。1 枚ずつ removeReply が届く）：前の控えの「消した直後」が今回の「消す直前」と同じなら、
+  //   控えを 1 件にまとめる（最初の消す前〜最後の消した後）。そうでなければ（間に別の変更が入った）置き換える
+  private recordRestore(memoId: string, token: string, before: string, after: string) {
+    if (before === after) return;
+    const prev = this.restoreLog.find((e) => e.token === token && e.memoId === memoId);
+    this.restoreLog = this.restoreLog.filter((e) => e.token !== token);
+    if (prev && prev.after === before) this.restoreLog.push({ token, memoId, before: prev.before, after, size: prev.before.length + after.length });
+    else this.restoreLog.push({ token, memoId, before, after, size: before.length + after.length });
+    let total = this.restoreLog.reduce((sum, e) => sum + e.size, 0);
+    while (this.restoreLog.length > RESTORE_MAX_ENTRIES || (total > RESTORE_MAX_CHARS && this.restoreLog.length > 0)) {
+      const dropped = this.restoreLog.shift();
+      total -= dropped?.size ?? 0;
+    }
+  }
+
+  // 削除の取り消し：token の控えがあり、そのメモの今の返信全体の指紋が「消した直後」と完全に同じときだけ、返信を消す前へ戻して保存する（changed 1 回）
+  //   合わない（そのあとメモが変わった）ときは何も変えずに stale。控えが無い・別のメモの token・2 回目は none。読めなかった起動は ledger。メモの updatedAt は変えない（removeReply も変えない）
+  //   戻したら、その控えは捨てる（同じメモのもっと古い控えは残す。新しい順に戻せば指紋が合う）
+  restoreReplies(id: string, token: string): RestoreRepliesResult {
+    if (!this.loaded || this.loadState === 'unreadable') return { ok: false, why: 'ledger' };
+    if (!isRestoreToken(token)) return { ok: false, why: 'none' };
+    const entry = this.restoreLog.find((e) => e.token === token && e.memoId === id);
+    if (!entry) return { ok: false, why: 'none' };
+    const memo = this.memos.get(id);
+    if (!memo || isSpecialCell(memo)) return { ok: false, why: 'stale' };
+    if (replyFingerprint(memo.replies) !== entry.after) return { ok: false, why: 'stale' };
+    const restored = JSON.parse(entry.before) as Reply[];
+    memo.replies = restored;
+    this.restoreLog = this.restoreLog.filter((e) => e !== entry);
+    this.changed();
+    return { ok: true, count: restored.length };
   }
 
   setIsland(ids: string[], island: string | null) {

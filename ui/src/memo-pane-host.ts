@@ -8,37 +8,33 @@ import type { TabStore } from './tabs';
 import type { MemoPaneView } from './types';
 
 const KEY = 'honeycomb.memoPane';
-export const MEMO_PANE_MIN = 120;
-export const MEMO_PANE_MAX = 1600;
-export const MEMO_PANE_DEFAULT = 300;
+import { clampMemoPaneHeight, MEMO_PANE_DEFAULT } from './memo-pane-limits';
+export { clampMemoPaneHeight, MEMO_PANE_DEFAULT, MEMO_PANE_MAX, MEMO_PANE_MIN } from './memo-pane-limits';
 
 export interface MemoPanePrefs {
   height: number;
   lastMemo: string | null;
   listOpen: boolean;
   recent: string[]; // 最近開いたメモ（新しい順・10件まで）
+  boardMemo: string | null; // ボードが見るメモ（下の区画とは別に選ぶ。M1：左が写しを送るだけ。無い・古い設定は null）
 }
 
 const RECENT_MEMOS = 10;
 const LIST_LIMIT = 200;
 
-export function clampMemoPaneHeight(n: number) {
-  if (!Number.isFinite(n)) return MEMO_PANE_DEFAULT;
-  return Math.max(MEMO_PANE_MIN, Math.min(MEMO_PANE_MAX, Math.round(n)));
-}
-
 export function readMemoPanePrefs(): MemoPanePrefs {
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null') as { height?: unknown; lastMemo?: unknown; listOpen?: unknown; recent?: unknown } | null;
+    const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null') as { height?: unknown; lastMemo?: unknown; listOpen?: unknown; recent?: unknown; boardMemo?: unknown } | null;
     const recent = Array.isArray(raw?.recent) ? raw.recent.filter((id): id is string => typeof id === 'string' && id.length > 0).slice(0, RECENT_MEMOS) : [];
     return {
       height: clampMemoPaneHeight(typeof raw?.height === 'number' ? raw.height : MEMO_PANE_DEFAULT),
       lastMemo: typeof raw?.lastMemo === 'string' && raw.lastMemo ? raw.lastMemo : null,
       listOpen: raw?.listOpen === true,
       recent,
+      boardMemo: typeof raw?.boardMemo === 'string' && raw.boardMemo ? raw.boardMemo : null,
     };
   } catch {
-    return { height: MEMO_PANE_DEFAULT, lastMemo: null, listOpen: false, recent: [] };
+    return { height: MEMO_PANE_DEFAULT, lastMemo: null, listOpen: false, recent: [], boardMemo: null };
   }
 }
 
@@ -49,6 +45,7 @@ export function writeMemoPanePrefs(patch: Partial<MemoPanePrefs>) {
     lastMemo: patch.lastMemo !== undefined ? patch.lastMemo : current.lastMemo,
     listOpen: patch.listOpen !== undefined ? patch.listOpen : current.listOpen,
     recent: patch.recent !== undefined ? patch.recent.slice(0, RECENT_MEMOS) : current.recent,
+    boardMemo: patch.boardMemo !== undefined ? patch.boardMemo : current.boardMemo,
   };
   localStorage.setItem(KEY, JSON.stringify(next));
 }
@@ -60,6 +57,10 @@ export class MemoPaneHost {
   private lastPage = '';
   private pendingFocus: { memoId: string; replyId: string; n: number } | null = null;
   private focusN = 0;
+  // ボードが見るメモ（M1：写しを memoBoardView で送るだけ。下の区画の current とは独立。使っていない間は何も送らず、今までと同じ）
+  private boardMemo: string | null = null;
+  private boardSent = false; // memoBoardView で、null でない写しを送った（あとで null を一度だけ送って片づけるため）
+  private boardRestore: string | null = readMemoPanePrefs().boardMemo; // 前に選んだメモ。起動直後は台帳をまだ読めていないことがあるので、見つかったときに戻す
 
   constructor(
     private readonly o: {
@@ -74,13 +75,30 @@ export class MemoPaneHost {
     send({ type: 'setSidebar', side: 'memo', visible: false });
     o.memos.onChange(() => this.onMemos());
     o.sheets.onChange(() => {
-      if (this.current) this.pushSoon();
+      if (this.current || this.boardMemo) this.pushSoon();
     });
     o.store.onChange(() => this.onPage());
   }
 
   get openId() {
     return this.current;
+  }
+
+  get boardMemoId() {
+    return this.boardMemo;
+  }
+
+  // ボードが見るメモを選ぶ（null で選びを外す＝下の区画と同じ見方に戻る）。選べないメモ（無い・特別なセル）は断って false
+  setBoardMemo(id: string | null): boolean {
+    if (id !== null) {
+      const memo = this.o.memos.get(id);
+      if (!memo || isSpecialCell(memo)) return false;
+    }
+    this.boardRestore = null;
+    this.boardMemo = id;
+    writeMemoPanePrefs({ boardMemo: id });
+    this.pushBoard();
+    return true;
   }
 
   isOpen(id?: string) {
@@ -137,6 +155,7 @@ export class MemoPaneHost {
   }
 
   ready() {
+    this.restoreBoardMemo();
     this.pushNow();
   }
 
@@ -153,7 +172,12 @@ export class MemoPaneHost {
   }
 
   private onMemos() {
-    if (!this.current) return;
+    this.restoreBoardMemo();
+    if (this.boardMemo && !this.o.memos.get(this.boardMemo)) this.dropBoardMemo();
+    if (!this.current) {
+      if (this.boardMemo) this.pushSoon(); // ボードが見ているメモが変わったかもしれない
+      return;
+    }
     if (!this.o.memos.get(this.current)) {
       this.close();
       // 消した直後の「消しました」より後に出す（同じ場所のお知らせは、あとから来た方が残る）
@@ -190,6 +214,39 @@ export class MemoPaneHost {
     this.lastPage = this.pageKey();
     send({ type: 'relay', to: 'memo', payload: { kind: 'memoPane', view: this.view() } });
     send({ type: 'relay', to: 'memo', payload: this.listPayload() });
+    this.pushBoard();
+  }
+
+  // ボードが見るメモの写し。選んでいない間は何も送らない（選びを外した・消えたときだけ、null を一度送る）
+  private pushBoard() {
+    const view = this.boardView();
+    if (view === null && !this.boardSent) return;
+    this.boardSent = view !== null;
+    send({ type: 'relay', to: 'memo', payload: { kind: 'memoBoardView', view } });
+  }
+
+  private boardView(): MemoPaneView | null {
+    if (!this.boardMemo) return null;
+    const memo = this.o.memos.get(this.boardMemo);
+    if (!memo || isSpecialCell(memo)) return null;
+    return viewOf(memo, this.o.sheets, this.o.store);
+  }
+
+  // 前に選んだメモが見つかったら戻す（送るのは呼んだ側）。見つからない間は何も変えない（設定は消さない）
+  private restoreBoardMemo() {
+    if (!this.boardRestore) return;
+    const memo = this.o.memos.get(this.boardRestore);
+    if (!memo || isSpecialCell(memo)) return;
+    this.boardMemo = this.boardRestore;
+    this.boardRestore = null;
+  }
+
+  // ボードが見ていたメモが消された：選びを外して（下の区画と同じ見方に戻る）、null を送って知らせる
+  private dropBoardMemo() {
+    this.boardMemo = null;
+    writeMemoPanePrefs({ boardMemo: null });
+    this.pushBoard();
+    window.setTimeout(() => this.o.toast('ボードで見ていたメモが消されたので、下の区画と同じ見方に戻しました'), 0);
   }
 
   private listPayload() {

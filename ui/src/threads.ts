@@ -104,14 +104,25 @@ export function pathTo(replies: readonly Reply[], id: string | null): Reply[] {
   return path;
 }
 
-// 返信を足す（返信先が無い・文が空で引用も画像も無い・数の上限なら null）
+// 呼び出し側が決めてよい返信の id の形（newReplyId の形も入る。ボードの ref・メモの id と同じ字種・字数）
+export const REPLY_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+// 呼び出し側が決めた id が使えない理由。使える（このメモの台帳にまだ無い）なら null。ほかのメモとは重なってよい（id はメモの中だけで決まる）
+export function replyIdProblem(replies: readonly Reply[], id: unknown): 'form' | 'taken' | null {
+  if (typeof id !== 'string' || !REPLY_ID_RE.test(id)) return 'form';
+  return replies.some((r) => r.id === id) ? 'taken' : null;
+}
+
+// 返信を足す（返信先が無い・文が空で引用も画像も無い・数の上限・決めた id が使えないなら null）
 //   extra の形が合わない項目は、その項目だけ付けない
+//   replyId：呼び出し側が id を決めたいとき（B2-3a。省略すると今までどおり newReplyId）。形が合わない・このメモにもう同じ id があるときは、付け替えずに足さない（null）
 export function withReply(
   replies: readonly Reply[],
   parent: string | null,
   text: string,
   by?: ReplyAuthor,
   extra?: ReplyExtra,
+  replyId?: string,
 ): { replies: Reply[]; reply: Reply } | null {
   const clean = cleanReplyText(text);
   const quote = extra?.quote ? parseQuote(extra.quote) : undefined;
@@ -119,10 +130,11 @@ export function withReply(
   const file = parseFileName(extra?.file);
   if ((!clean && !quote && !image) || replies.length >= MAX_REPLIES) return null;
   if (parent !== null && !replies.some((r) => r.id === parent)) return null;
+  if (replyId !== undefined && replyIdProblem(replies, replyId) !== null) return null;
   // 同じミリ秒に続けて足しても並びが崩れないように、いちばん新しい返信より後の時刻にする
   const latest = replies.reduce((max, r) => Math.max(max, r.createdAt), 0);
   const reply: Reply = {
-    id: newReplyId(),
+    id: replyId ?? newReplyId(),
     parent,
     text: clean,
     createdAt: Math.max(Date.now(), latest + 1),

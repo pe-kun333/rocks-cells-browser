@@ -1,9 +1,10 @@
+import { BOT_FEATURES } from '../features';
 // 下のメモの区画（ページの下の面）。写しを見て、変えてほしいときは左に頼む
 //   本文の下に、コメントのカードと「＋コメント」。帯から引用と画像を足す（M3）
 import { armConfirm } from '../confirm-arm';
 import { requestPageText } from '../ai/page';
 import { type HostMessage, onMessage, request, send } from '../bridge';
-import { readData, writeData } from '../data';
+import { readData, readDataChecked, writeData } from '../data';
 import { loadTagRegistry } from '../integrations/hexmemo';
 import { MAX_MEMO_TEXT, type MemoIndexItem, memoTitle } from '../memocells';
 import { cardFilterRow, cardTagCandidates, cardTagCounts, chainOrder, visibleTops } from '../memo-card-filter';
@@ -11,7 +12,14 @@ import { LinkLayer, linkLayoutKey, measureLinkLayout } from '../memo-card-link-l
 import { chosenLinkNameSet, LINK_NAME_SET_NAME_MAX, type LinkNameSet, LinkNameSetStore, MAX_LINK_NAME_SETS, resolvedLinkKindNames } from '../link-name-sets';
 import { cardLabel, type DrawLink, LINK_KIND_DEFAULT_NAMES, LINK_KIND_NAME_MAX, LINK_KINDS, type LinkKind, type LinkKindNames, linkKindInfo, applyLinkKindNames, parseLinkKindNames, withLinkKindName, linkSentence, routeCardLinks, ROW_GAP_MIN, visibleLinks } from '../memo-card-links';
 import { linkedClosure, linkTravel, rangeIds, type SendMode, sendWarning } from '../memo-card-send';
+import { ASK_LIMITS, ASK_NOTE, buildTemplateRequest, type MaterialPick, pickMaterials, pickNames } from '../memo-card-template-ask';
+import { fillFailText, fillPlanText, findFailText, findFillTemplate, isFillText, parseFillText, planFill } from '../memo-card-template-fill';
+import { buildExport, exportFileName as templateExportName, exportFitsImportLimit, importFailText, type ImportParse, importSummaryText, mergeImported, parseImportText, skipReasonText } from '../memo-card-template-io';
+import { deleteStoredTemplate, describeTemplateReport, importStoredTemplates, loadTemplates, pasteBlocked, renameStoredTemplate, restoreSampleTemplates, saveNewTemplate, TEMPLATE_EMPTY_HINT, TEMPLATE_UNTITLED, templateNameTaken, type TemplateIo, templateMenuGroups, templateMenuLabel, templateModeNote, templatePickState, templateSaveMessage } from '../memo-card-template-store';
+import { dragNote, dropAction, ghostSlots, ghostSummary, isPaletteKey, keepSelection, moveSelection, paletteMeta, paletteOrder, searchTemplates, thumbLayout } from '../memo-card-template-palette';
+import { buildTemplateFromCards, type CardTemplate, cleanTemplateName, extractHoles, fillTemplate, MODE_LABELS, TEMPLATE_FOLDERS, TEMPLATE_LIMITS, TEMPLATE_MODES, type TemplateFolder, type TemplateMode } from '../memo-card-templates';
 import { CardDrag } from '../memo-card-drag';
+import { type Grab, grabPointer } from '../pointer-grab';
 import { MemoCardMap } from '../memo-card-map-view';
 import { CardPops, FrontStack, type PopControl } from '../memo-card-pops';
 import type { MapBox } from '../memo-card-map';
@@ -19,7 +27,9 @@ import type { MapSide } from '../memo-card-map';
 import { beforeFor, type PendingOrder, settledCount, withPending } from '../memo-card-order';
 import { mountMemoFilterWords } from '../memo-filter-words';
 import { mountGrokCards } from './grok-cards';
+import { readBoardUpperRatio, writeBoardUpperRatio } from '../card-board-stages';
 import { readUpperRatio, writeUpperRatio } from '../cards-stages';
+import { SPLIT_LABEL } from '../memo-card-board-place';
 import { clampUpperRatio, nudgeUpperRatio, UPPER_SPLIT_DEFAULT, UPPER_SPLIT_MIN, UPPER_SPLIT_STEP, upperRatioFromOffset } from '../grok-cards-place';
 import { isMachineTag } from '../grok-cards-tags';
 import { clampMemoPaneHeight, MEMO_PANE_DEFAULT, readMemoPanePrefs, writeMemoPanePrefs } from '../memo-pane-host';
@@ -46,6 +56,8 @@ import type { MemoPaneView, RelayCommand } from '../types';
 import { CARD_COLUMNS, countUnder, createdTops, hasSlotGaps, MAX_REPLIES, MAX_REPLY_TEXT, orderedTops, parseQuote, pathTo, type PendingReply, quoteFragmentUrl, quoteSourceLabel, REPLY_FOLD, type Reply, type ReplyQuote, topSlots, withPlacedTop } from '../threads';
 import { el } from '../util';
 import { IMPORT_FILE_BYTES, IMPORT_FILE_LABEL } from '../import-limits';
+import { boardSnapshot, templateSource } from '../memo-board-source';
+import { boardMemoInfo, noticeTarget, skipLowerSentBar } from '../memo-board-pick';
 
 const SAVE_MS = 500;
 const FLASH_MS = 1600; // 右の検索から移ったカードを光らせる長さ
@@ -110,6 +122,17 @@ export function startMemoPane() {
   const newBtn = el('button', 'memo-pane-tool', '＋ 新しいメモ');
   newBtn.type = 'button';
   newBtn.title = '表示中のタブの近くに、空のメモのセルを置いて、ここで開きます';
+  // 型を貼る ▾：保存してある型の一覧（docs/plan-card-templates.md の Phase 1c）。選ぶと、このメモの最後のカードの次に貼る
+  const tplPasteWrap = el('span', 'memo-pane-menu-wrap');
+  const tplPasteBtn = el('button', 'memo-pane-tool', '型を貼る ▾');
+  tplPasteBtn.type = 'button';
+  tplPasteBtn.title = '登録した型のカードを、このメモの最後に貼ります（貼ったあと「元に戻す」で消せます）';
+  tplPasteBtn.setAttribute('aria-haspopup', 'menu');
+  tplPasteBtn.setAttribute('aria-expanded', 'false');
+  const tplMenu = el('div', 'memo-pane-menu memo-pane-tplmenu');
+  tplMenu.hidden = true;
+  tplMenu.setAttribute('role', 'menu');
+  tplPasteWrap.append(tplPasteBtn, tplMenu);
   const menuWrap = el('span', 'memo-pane-menu-wrap');
   const menuBtn = el('button', 'memo-pane-tool', '☰');
   menuBtn.type = 'button';
@@ -129,7 +152,7 @@ export function startMemoPane() {
   linkItem.title = '今の上のページを、リンクのカードにします（文は空）';
   menu.append(listItem, linkItem);
   menuWrap.append(menuBtn, menu);
-  tools.append(gotoBtn, quoteBtn, shotBtn, pageBtn, pickBtn, copyBtn, newBtn, menuWrap, fileInput);
+  tools.append(gotoBtn, quoteBtn, shotBtn, pageBtn, pickBtn, copyBtn, newBtn, tplPasteWrap, menuWrap, fileInput);
   band.append(bandRow, tools);
 
   const status = el('div', 'memo-pane-status', '自動で保存します');
@@ -162,16 +185,19 @@ export function startMemoPane() {
   pickCopy.type = 'button';
   const pickNew = el('button', 'memo-pane-pickbar-btn', '新しいメモにする');
   pickNew.type = 'button';
+  const pickTemplate = el('button', 'memo-pane-pickbar-btn', '型にする…');
+  pickTemplate.type = 'button';
   const pickAll = el('button', 'memo-pane-pickbar-btn', '全部選ぶ');
   pickAll.type = 'button';
   const pickLinked = el('button', 'memo-pane-pickbar-btn', 'つながっているカードも選ぶ');
   pickLinked.type = 'button';
   const pickStop = el('button', 'memo-pane-pickbar-btn', '選ぶのをやめる');
   pickStop.type = 'button';
-  pickBar.append(pickText, pickMove, pickCopy, pickNew, pickAll, pickLinked, pickStop);
+  pickBar.append(pickText, pickMove, pickCopy, pickNew, pickTemplate, pickAll, pickLinked, pickStop);
   pickMove.addEventListener('click', () => beginSend('move', selectedIds()));
   pickCopy.addEventListener('click', () => beginSend('copy', selectedIds()));
   pickNew.addEventListener('click', () => queueSend('move', selectedIds(), null));
+  pickTemplate.addEventListener('click', () => openTplDialog());
   pickAll.addEventListener('click', () => {
     if (!view) return;
     for (const id of shownIds()) picked.add(id);
@@ -358,10 +384,203 @@ export function startMemoPane() {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     if (movePickerFocus(e.key === 'ArrowDown')) e.preventDefault();
   });
+  // 型にする小窓（選ぶ帯の「型にする…」。名前とフォルダを決めて、型として登録する。計画書 docs/plan-card-templates.md の Phase 1b）
+  const tplDialog = el('div', 'memo-pane-tpl-dialog');
+  tplDialog.setAttribute('role', 'dialog');
+  tplDialog.setAttribute('aria-label', '型として登録');
+  tplDialog.hidden = true;
+  const tplHead = el('div', 'memo-pane-tpl-head', '選んだカードを型として登録');
+  const tplCounts = el('div', 'memo-pane-tpl-counts');
+  const tplExcluded = el('div', 'memo-pane-tpl-excluded');
+  const tplNameLabel = el('label', 'memo-pane-tpl-label', '名前');
+  const tplName = el('input', 'memo-pane-tpl-name');
+  tplName.type = 'text';
+  tplName.maxLength = TEMPLATE_LIMITS.name;
+  tplName.placeholder = '例：賛成・反対・結論';
+  tplName.setAttribute('aria-label', '型の名前');
+  tplNameLabel.append(tplName);
+  const tplFolders = el('div', 'memo-pane-tpl-folders');
+  tplFolders.setAttribute('role', 'group');
+  tplFolders.setAttribute('aria-label', 'フォルダ');
+  const tplFolderBtns = TEMPLATE_FOLDERS.map((folder) => {
+    const btn = el('button', 'memo-pane-tpl-folder', folder);
+    btn.type = 'button';
+    btn.addEventListener('click', () => {
+      tplFolder = folder;
+      paintTplFolders();
+    });
+    return btn;
+  });
+  tplFolders.append(...tplFolderBtns);
+  // モード：そのまま／骨組み／穴あき（Phase 3）
+  const tplModes = el('div', 'memo-pane-tpl-folders');
+  tplModes.setAttribute('role', 'group');
+  tplModes.setAttribute('aria-label', 'モード');
+  const tplModeBtns = TEMPLATE_MODES.map((mode) => {
+    const btn = el('button', 'memo-pane-tpl-folder', MODE_LABELS[mode]);
+    btn.type = 'button';
+    btn.addEventListener('click', () => {
+      tplMode = mode;
+      paintTplModes();
+      refreshTplPreview();
+    });
+    return btn;
+  });
+  tplModes.append(...tplModeBtns);
+  const tplModeNote = el('div', 'memo-pane-tpl-excluded');
+  const tplMsg = el('div', 'memo-pane-tpl-msg');
+  tplMsg.setAttribute('role', 'status');
+  const tplSave = el('button', 'memo-pane-tpl-btn', '登録');
+  tplSave.type = 'button';
+  const tplCancel = el('button', 'memo-pane-tpl-btn', 'やめる');
+  tplCancel.type = 'button';
+  const tplButtons = el('div', 'memo-pane-tpl-buttons');
+  tplButtons.append(tplCancel, tplSave);
+  tplDialog.append(tplHead, tplCounts, tplExcluded, tplNameLabel, tplFolders, tplModes, tplModeNote, tplMsg, tplButtons);
+  // 空欄を入れて貼る小窓（穴あきの型を貼る前。空のままの欄は {{…}} のまま貼る）
+  const tplFill = el('div', 'memo-pane-tpl-dialog');
+  tplFill.setAttribute('role', 'dialog');
+  tplFill.setAttribute('aria-label', '空欄を入れて貼る');
+  tplFill.hidden = true;
+  const tplFillHead = el('div', 'memo-pane-tpl-head', '空欄を入れて貼る');
+  const tplFillName = el('div', 'memo-pane-tpl-counts');
+  const tplFillFields = el('div', 'memo-pane-tpl-fillfields');
+  const FILL_NOTE = '空のままの欄は {{…}} のまま貼ります';
+  const tplFillNote = el('div', 'memo-pane-tpl-excluded', FILL_NOTE);
+  const tplFillMsg = el('div', 'memo-pane-tpl-msg');
+  tplFillMsg.setAttribute('role', 'status');
+  const tplFillPaste = el('button', 'memo-pane-tpl-btn', '貼る');
+  tplFillPaste.type = 'button';
+  const tplFillCancel = el('button', 'memo-pane-tpl-btn', 'やめる');
+  tplFillCancel.type = 'button';
+  const tplFillButtons = el('div', 'memo-pane-tpl-buttons');
+  const tplFillLoad = el('button', 'memo-pane-tpl-btn memo-pane-tpl-btn-left', '穴埋めファイルを読み込む…');
+  tplFillLoad.type = 'button';
+  tplFillLoad.title = 'Grok Bot が返した穴埋めのファイル（honeycomb-cardtpl-fill）を選んで、空欄に先に入れます（入れるだけ。貼るのは「貼る」を押したとき）';
+  tplFillButtons.append(tplFillLoad, tplFillCancel, tplFillPaste);
+  tplFill.append(tplFillHead, tplFillName, tplFillFields, tplFillNote, tplFillMsg, tplFillButtons);
+  // 型の窓（パレット）：「型を貼る ▾」の「型の窓を開く」か `/` キーで開く、重なる窓（Phase 2）。検索・フォルダ・サムネイル・矢印で選ぶ・選ぶと並びに「入る番地」の点線（ゴースト）
+  const tplPalette = el('div', 'memo-pane-tplpal');
+  tplPalette.setAttribute('role', 'dialog');
+  tplPalette.setAttribute('aria-label', '型の窓');
+  tplPalette.hidden = true;
+  const tplPalFilter = el('input', 'memo-pane-tplpal-filter');
+  tplPalFilter.type = 'text';
+  tplPalFilter.placeholder = '名前・カードの文で絞る（↑↓で選び、Enter で貼る）';
+  tplPalFilter.setAttribute('role', 'combobox');
+  tplPalFilter.setAttribute('aria-label', '型を絞る');
+  tplPalFilter.setAttribute('aria-controls', 'memo-pane-tplpal-list');
+  tplPalFilter.setAttribute('aria-expanded', 'true');
+  tplPalFilter.setAttribute('aria-autocomplete', 'list');
+  const tplPalFolders = el('div', 'memo-pane-tplpal-folders');
+  tplPalFolders.setAttribute('role', 'group');
+  tplPalFolders.setAttribute('aria-label', 'フォルダで絞る');
+  for (const folder of [null, ...TEMPLATE_FOLDERS]) {
+    const chip = el('button', 'memo-pane-tplpal-chip', folder ?? '全部');
+    chip.type = 'button';
+    chip.addEventListener('click', () => {
+      palFolder = folder;
+      renderPalette();
+      selectTemplate(palSel, true);
+      tplPalFilter.focus();
+    });
+    tplPalFolders.append(chip);
+  }
+  const tplPalNote = el('div', 'memo-pane-tplpal-note');
+  tplPalNote.setAttribute('role', 'status');
+  const tplPalList = el('div', 'memo-pane-tplpal-list');
+  tplPalList.id = 'memo-pane-tplpal-list';
+  tplPalList.setAttribute('role', 'listbox');
+  tplPalList.setAttribute('aria-label', '型の一覧');
+  const tplPalInfo = el('div', 'memo-pane-tplpal-info');
+  tplPalInfo.setAttribute('aria-live', 'polite');
+  const tplPalHint = el('div', 'memo-pane-tplpal-hint', '↑↓ で選ぶ・Enter かクリックで貼る・Esc で閉じる');
+  const tplPalRestore = el('button', 'memo-pane-tplpal-restore', '初期サンプルを復元');
+  tplPalRestore.type = 'button';
+  tplPalRestore.title = '足りない内蔵サンプルの型だけを足します（今ある型は変えません）';
+  const tplPalExport = el('button', 'memo-pane-tplpal-restore', '書き出す');
+  tplPalExport.type = 'button';
+  tplPalExport.title = '型を ui-data\\exports にファイルとして書き出します（全部。1 件だけは、その行の「書出」）';
+  const tplPalImport = el('button', 'memo-pane-tplpal-restore', '読み込む…');
+  tplPalImport.type = 'button';
+  tplPalImport.title = '書き出した型のファイル（JSON）を選んで、足します（今ある型は消しません）。Grok Bot の穴埋めのファイルなら、空欄を入れた小窓が開きます（貼るのは「貼る」を押したとき）';
+  const tplPalAsk = el('button', 'memo-pane-tplpal-restore', 'Grok に頼む…');
+  if (!BOT_FEATURES) tplPalAsk.style.display = 'none'; // 公開版（rebuild-public.ps1）：Grok 機能が既定オフ
+  tplPalAsk.type = 'button';
+  tplPalAsk.title = 'Grok Bot に型の下書きを頼む文を作って、コピーします（アプリは何も送りません。貼って送るのはあなたです）';
+  const tplPalTools = el('div', 'memo-pane-tplpal-tools');
+  tplPalTools.append(tplPalAsk, tplPalExport, tplPalImport, tplPalRestore);
+  const tplPalFoot = el('div', 'memo-pane-tplpal-foot');
+  tplPalFoot.append(tplPalHint, tplPalTools);
+  tplPalette.append(tplPalFilter, tplPalFolders, tplPalNote, tplPalList, tplPalInfo, tplPalFoot);
+
+// 型の窓からカードの区画へドラッグしている間の札（ポインターの右下。題の並べ替えの札と同じ見た目）
+const tplDragChip = el('div', 'memo-pane-drag-chip');
+tplDragChip.hidden = true;
+tplDragChip.setAttribute('aria-hidden', 'true');
+
+// 型の読み込みの確かめの小窓（Phase 4）：選んだファイルの中身を見せて、「足す」で初めて保存する
+const tplImport = el('div', 'memo-pane-tpl-dialog');
+tplImport.setAttribute('role', 'dialog');
+tplImport.setAttribute('aria-label', '型の読み込み');
+tplImport.hidden = true;
+const tplImportHead = el('div', 'memo-pane-tpl-head', '型の読み込み');
+const tplImportName = el('div', 'memo-pane-tpl-counts');
+const tplImportList = el('div', 'memo-pane-tpl-importlist');
+const tplImportNote = el('div', 'memo-pane-tpl-excluded');
+const tplImportMsg = el('div', 'memo-pane-tpl-msg');
+tplImportMsg.setAttribute('role', 'status');
+const tplImportOk = el('button', 'memo-pane-tpl-btn', '足す');
+tplImportOk.type = 'button';
+const tplImportCancel = el('button', 'memo-pane-tpl-btn', 'やめる');
+tplImportCancel.type = 'button';
+const tplImportButtons = el('div', 'memo-pane-tpl-buttons');
+tplImportButtons.append(tplImportCancel, tplImportOk);
+tplImport.append(tplImportHead, tplImportName, tplImportList, tplImportNote, tplImportMsg, tplImportButtons);
+
+// Grok Bot に型の下書きを頼む小窓（Phase 5c）：目的・今ある型の名前・材料のカードの文を選び、送る文をそのまま見せて、「コピーする」でクリップボードへ（自動送信はしない）
+const tplAsk = el('div', 'memo-pane-tpl-dialog');
+tplAsk.setAttribute('role', 'dialog');
+tplAsk.setAttribute('aria-label', 'Grok Bot に型の下書きを頼む');
+tplAsk.hidden = true;
+const tplAskHead = el('div', 'memo-pane-tpl-head', 'Grok Bot に型の下書きを頼む');
+const tplAskLead = el('div', 'memo-pane-tpl-excluded', `頼む文を作ってコピーします。${ASK_NOTE}`);
+const tplAskPurposeLabel = el('label', 'memo-pane-tpl-label');
+const tplAskPurpose = el('textarea', 'memo-pane-tpl-name');
+tplAskPurpose.rows = 3;
+tplAskPurpose.maxLength = ASK_LIMITS.purpose;
+tplAskPurpose.placeholder = '例）読書会の準備に使う、5 枚くらいの型。本の要点と話したい問いを書き込める穴あきの型';
+tplAskPurposeLabel.append(el('span', '', 'どんな型がほしいですか（必須）'), tplAskPurpose);
+const tplAskNamesChk = el('input');
+tplAskNamesChk.type = 'checkbox';
+const tplAskNamesText = el('span');
+const tplAskNamesRow = el('label', 'memo-pane-tpl-checkrow');
+tplAskNamesRow.append(tplAskNamesChk, tplAskNamesText);
+const tplAskMatChk = el('input');
+tplAskMatChk.type = 'checkbox';
+const tplAskMatText = el('span');
+const tplAskMatRow = el('label', 'memo-pane-tpl-checkrow');
+tplAskMatRow.append(tplAskMatChk, tplAskMatText);
+const tplAskMatNote = el('div', 'memo-pane-tpl-excluded');
+const tplAskPreviewLabel = el('label', 'memo-pane-tpl-label');
+const tplAskPreview = el('textarea', 'memo-pane-tpl-name');
+tplAskPreview.rows = 8;
+tplAskPreview.readOnly = true;
+tplAskPreviewLabel.append(el('span', '', 'コピーする文（このとおりに入ります）'), tplAskPreview);
+const tplAskCount = el('div', 'memo-pane-tpl-excluded');
+const tplAskMsg = el('div', 'memo-pane-tpl-msg');
+tplAskMsg.setAttribute('role', 'status');
+const tplAskCopy = el('button', 'memo-pane-tpl-btn', 'コピーする');
+tplAskCopy.type = 'button';
+const tplAskCancel = el('button', 'memo-pane-tpl-btn', 'やめる');
+tplAskCancel.type = 'button';
+const tplAskButtons = el('div', 'memo-pane-tpl-buttons');
+tplAskButtons.append(tplAskCancel, tplAskCopy);
+tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAskMatRow, tplAskMatNote, tplAskPreviewLabel, tplAskCount, tplAskMsg, tplAskButtons);
   // 読み上げだけの欄（並べ替えの結果など。状態の行は保存のたびに文が入るので live にしない。plan-memo-card-order の O2）
   const announcer = el('div', 'sr-only');
   announcer.setAttribute('role', 'status');
-  root.append(handle, band, status, sentNotice, countline, main, pickBar, listWindow, linkBar, linkPicker, empty, light, announcer);
+  root.append(handle, band, status, sentNotice, countline, main, pickBar, listWindow, linkBar, linkPicker, tplDialog, tplPalette, tplFill, tplImport, tplAsk, tplDragChip, empty, light, announcer);
   document.body.append(root);
 
   // 段 9 の上半分のときだけ、下の包みの中を基準にする。包みが無いときは、今までどおり区画そのもの
@@ -372,7 +591,10 @@ export function startMemoPane() {
 
   // 上半分の境目。下の帯の高さとは別。旗が無いときは setCardsUpper(true) が来ない
   let upperRatio = UPPER_SPLIT_DEFAULT;
+  let upperOwner: 'cards' | 'board' = 'cards'; // 上の入れ物の持ち主（割合の鍵が持ち主ごとに別。案 C・C3）
   let upperSplitObserver: ResizeObserver | null = null;
+  const readOwnerRatio = () => (upperOwner === 'board' ? readBoardUpperRatio() : readUpperRatio());
+  const writeOwnerRatio = (ratio: number) => void (upperOwner === 'board' ? writeBoardUpperRatio(ratio) : writeUpperRatio(ratio));
 
   function splittableHeight(): number {
     const handle = root.querySelector(':scope > .grok-cards-upper-split');
@@ -400,7 +622,7 @@ export function startMemoPane() {
   function setUpperRatio(next: number, persist: boolean) {
     upperRatio = clampUpperRatio(splittableHeight(), next);
     layoutUpperSplit();
-    if (persist) writeUpperRatio(upperRatio);
+    if (persist) writeOwnerRatio(upperRatio);
   }
 
   function wireUpperSplit(handle: HTMLElement) {
@@ -424,7 +646,7 @@ export function startMemoPane() {
     const end = (e: PointerEvent) => {
       if (e.pointerId !== pointerId) return;
       pointerId = null;
-      writeUpperRatio(upperRatio);
+      writeOwnerRatio(upperRatio);
     };
     handle.addEventListener('pointerup', end);
     handle.addEventListener('pointercancel', end);
@@ -453,8 +675,16 @@ export function startMemoPane() {
   }
 
   // 上半分のあいだだけ子を二つに分ける。旗が無いときは呼ばれない（呼ばれても、戻すと元の並び）
-  function setCardsUpper(on: boolean) {
+  //   owner：上の入れ物に入れるもの（'cards' ＝ Grok Cards、'board' ＝ ボード。既定は今までどおり Grok Cards）。上のまま持ち主だけが替わるときは、境目の割合と名前だけ替える
+  function setCardsUpper(on: boolean, owner: 'cards' | 'board' = 'cards') {
     const onNow = root.classList.contains('is-cards-upper');
+    if (on && onNow && owner !== upperOwner) {
+      upperOwner = owner;
+      root.querySelector(':scope > .grok-cards-upper-split')?.setAttribute('aria-label', SPLIT_LABEL[owner]);
+      upperRatio = readOwnerRatio();
+      layoutUpperSplit();
+      return;
+    }
     if (on === onNow) return;
     if (on) {
       const upper = el('div', 'grok-cards-upper');
@@ -462,14 +692,15 @@ export function startMemoPane() {
       split.tabIndex = 0;
       split.setAttribute('role', 'separator');
       split.setAttribute('aria-orientation', 'horizontal');
-      split.setAttribute('aria-label', 'Grok Cards とメモの境目。上下の矢印キーで変わり、ダブルクリックで半分に戻します');
+      upperOwner = owner;
+      split.setAttribute('aria-label', SPLIT_LABEL[owner]);
       split.title = 'ドラッグで上下の高さを変える。ダブルクリックで半分に戻します';
       wireUpperSplit(split);
       const lower = el('div', 'memo-pane-lower');
       while (root.firstChild) lower.append(root.firstChild);
       root.append(upper, split, lower);
       root.classList.add('is-cards-upper');
-      upperRatio = readUpperRatio();
+      upperRatio = readOwnerRatio();
       layoutUpperSplit();
       watchUpperSplit();
       return;
@@ -477,9 +708,10 @@ export function startMemoPane() {
     unwatchUpperSplit();
     const upper = root.querySelector(':scope > .grok-cards-upper');
     if (upper) {
-      const cards = upper.querySelector(':scope > .grok-cards');
-      if (cards) main.append(cards);
+      // 持ち主（Grok Cards の根・ボードの面）を下の枠へ戻す。通常は呼ぶ側が先に戻してある
+      for (const owned of upper.querySelectorAll(':scope > .grok-cards, :scope > .memo-board')) main.append(owned);
     }
+    upperOwner = 'cards';
     const lower = root.querySelector(':scope > .memo-pane-lower');
     if (lower) while (lower.firstChild) root.append(lower.firstChild);
     upper?.remove();
@@ -489,6 +721,9 @@ export function startMemoPane() {
   }
 
   let view: MemoPaneView | null = null;
+  // ボードが見るメモの写し（左の memoBoardView。選んでいる間だけ届く。plan-board-memo-switch の M2）。null＝選んでいない＝ボードは下の区画の view を見る（今までどおり）
+  let boardSentAt: number | null = null; // ボードが最後に型の貼り付け（sendReplies）を送った時刻（M3）
+  let boardMemoView: MemoPaneView | null = null;
   const imageMenu = new CellMenu(); // カードの画像の右クリック（menu は ☰ のメニュー）
   const linkMenu = new CellMenu(); // 関連の小さな欄（種類を選ぶ・この関連を外す）
   // 浮いたカードの層：並びの「見る」・マップの右クリックで出したカードと、「このカードの関連」の欄（relMenu）を、同じ層・同じ前後の順に入れる。
@@ -681,6 +916,36 @@ export function startMemoPane() {
   let flashTimer = 0;
   let filterTag: string | null = null; // タグの札で絞っているタグ（覚えない。メモを替えると外す）
   let pickingCards = false; // ☐ 選ぶ（覚えない。メモを替えるとやめる）
+  let tplIds: string[] = []; // 型にする小窓を開いたときに選んでいたカード（並び順）
+  let tplFolder: TemplateFolder = TEMPLATE_FOLDERS[0]; // 型にする小窓で選んでいるフォルダ
+  let tplMode: TemplateMode = 'snapshot'; // 型にする小窓で選んでいるモード
+  let fillTpl: CardTemplate | null = null; // 空欄を入れて貼る小窓の型
+  // ボードの「型を貼る ▾」から開いた空欄の小窓（B3-2b。anchor＝ボードの道具の列。埋めた型はボードへ返し、貼るのはボード側。下の区画の貼り方は変えない）
+  let fillFromBoard: { anchor: HTMLElement; done: (filled: CardTemplate, notes: string[]) => void } | null = null;
+  let fillInputs: { name: string; input: HTMLInputElement }[] = [];
+let importIncoming: CardTemplate[] = []; // 読み込みの確かめ中の型（「足す」まで保存しない）
+let importBusy = false; // ファイルを選んでいる・書き出している最中
+let askBusy = false; // 頼む文をコピーしている最中
+let askPurposeKeep = ''; // 頼む小窓の目的（このウィンドウを開いている間だけ覚える。保存しない）
+let askNames: string[] = []; // 頼む小窓を開いたときの、今ある型の名前
+let askPick: MaterialPick = { cards: [], dropped: 0, empty: 0, cut: 0 }; // 頼む小窓を開いたときに選んでいたカードの文
+let palGrab: Grab | null = null; // 型の窓の行を押している・つまんでいる間のつまみ
+let palDragOver: boolean | null = null; // つまんでいる間、ポインターがカードの区画の上か（変わったときだけゴーストを描き直す）
+  let tplFromBoard = false; // 型にする小窓を、ボードの「型にする…」から開いている（B3-1。選ぶ帯からのときは false）
+  let tplAnchor: HTMLElement | null = null; // ボードから開いたとき、小窓を出す位置の目印（ボードの道具の列）
+  let tplOffsets: Record<string, { dx: number; dy: number }> | null = null; // ボードから開いたとき、選んだカードの配置（ボードの座標の差）
+  const tplDoneListeners: Array<(text: string, ok: boolean) => void> = []; // ボードへ、登録の結果の一言を返す先
+  let tplSaving = false; // 型を保存している間（二重に押させない）
+  let palAll: CardTemplate[] = []; // 型の窓：読み込んだ型
+  let palState: 'loading' | 'ok' | 'unreadable' = 'loading';
+  let palSkipped = 0; // 読めなかった型の数
+  let palQuery = '';
+  let palFolder: TemplateFolder | null = null;
+  let palSel: string | null = null; // 選んでいる型の id（ゴーストを出している型）
+  let palSeq = 0; // 型の窓の読み込みの通し番号
+  let ghostTpl: CardTemplate | null = null; // 並びに「入る番地」を点線で出している型（窓で選んでいる間だけ）
+  let tplMenuSeq = 0; // 型を貼るメニューの読み込みの通し番号（閉じたあとに届いた読み込みは捨てる）
+  const templateIo: TemplateIo = { read: (name) => readDataChecked<unknown>(name), write: (name, value) => writeData(name, value) };
   const picked = new Set<string>(); // 選んでいる一番上のカード
   let pickAnchor: string | null = null; // Shift＋クリックの端
   let sendPick: { mode: SendMode; ids: string[]; confirm: { to: string | null; cut: number; kept: number; ids: string[] } | null } | null = null;
@@ -961,6 +1226,7 @@ export function startMemoPane() {
       }
     }
     cards.replaceChildren(...nodes);
+    paintGhost(); // 型の窓で選んでいる型の「入る番地」（描き直しても残す）
     scroll.scrollTop = top;
     restore(kept);
     refocus(cards, cardKey);
@@ -1403,6 +1669,7 @@ export function startMemoPane() {
 
   // 名前が替わったときだけ、カードと線を描き直す
   function refreshLinkNames() {
+    boardListeners.forEach((fn) => fn()); // ボードが別のメモを見ているときの呼び名も、呼称セットの変更で替わる（M4）
     const before = shownLinkNamesKey();
     applyCurrentLinkNames();
     if (!view || shownLinkNamesKey() === before) return;
@@ -1883,6 +2150,7 @@ export function startMemoPane() {
     pickBtn.disabled = next;
     copyBtn.disabled = next;
     newBtn.disabled = next;
+    tplPasteBtn.disabled = next;
     menuBtn.disabled = next;
   }
 
@@ -2128,8 +2396,901 @@ export function startMemoPane() {
   }
 
   function openMenu() {
+    closeTplMenu();
     menu.hidden = false;
     menuBtn.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeTplMenu() {
+    tplMenuSeq += 1;
+    tplMenu.hidden = true;
+    tplPasteBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  // 型の一覧を、保存ファイルから読み直して出す（開くたびに読む。読めなければ理由を出し、ファイルは変えない）
+  async function openTplMenu() {
+    closeMenu();
+    tplMenu.hidden = false;
+    tplPasteBtn.setAttribute('aria-expanded', 'true');
+    const seq = ++tplMenuSeq;
+    tplMenu.replaceChildren(el('div', 'memo-pane-tplmenu-note', '読み込んでいます…'));
+    const loaded = await loadTemplates(templateIo).catch(() => null);
+    if (seq !== tplMenuSeq || tplMenu.hidden) return;
+    if (!loaded || loaded.state === 'unreadable') {
+      tplMenu.replaceChildren(el('div', 'memo-pane-tplmenu-note error', '型の保存ファイルを読めませんでした（ファイルは変えていません）'));
+      return;
+    }
+    const nodes: HTMLElement[] = [];
+    const winItem = el('button', 'memo-pane-menu-item', '型の窓を開く…（/ キー）');
+    winItem.type = 'button';
+    winItem.setAttribute('role', 'menuitem');
+    winItem.title = '型を検索し、サムネイルで見て、貼る位置を確かめてから貼ります';
+    winItem.addEventListener('click', () => {
+      closeTplMenu();
+      openTplPalette();
+    });
+    nodes.push(winItem);
+    if (loaded.templates.length === 0) nodes.push(el('div', 'memo-pane-tplmenu-note', loaded.skipped > 0 ? `読める型がありません（読めない型が ${loaded.skipped} 件あります）` : TEMPLATE_EMPTY_HINT));
+    for (const group of templateMenuGroups(loaded.templates)) {
+      nodes.push(el('div', 'memo-pane-tplmenu-folder', group.folder));
+      for (const t of group.items) {
+        const item = el('button', 'memo-pane-menu-item', templateMenuLabel(t));
+        item.type = 'button';
+        item.setAttribute('role', 'menuitem');
+        item.title = `「${t.name}」を、このメモの最後に貼ります`;
+        item.addEventListener('click', () => {
+          closeTplMenu();
+          tplPasteBtn.focus();
+          pasteTemplate(t);
+        });
+        nodes.push(item);
+      }
+    }
+    if (loaded.templates.length > 0 && loaded.skipped > 0) nodes.push(el('div', 'memo-pane-tplmenu-note', `読めない型が ${loaded.skipped} 件あります（出していません）`));
+    tplMenu.replaceChildren(...nodes);
+  }
+
+  // 型を貼る：入りきらなければここで断る（左の台帳も同じ上限で断る）。貼れたら、下の区画に「元に戻す」の帯が出る
+  function pasteTemplate(t: CardTemplate, prefill?: FillPrefill) {
+    if (!view) return;
+    const blocked = pasteBlocked(view.replies.length, t.cards.length);
+    if (blocked) {
+      status.textContent = blocked;
+      return;
+    }
+    if (t.mode === 'hole' && extractHoles(t).length > 0) {
+      openTplFill(t, prefill); // 穴あき：空欄を入れてから貼る（prefill：穴埋めファイルの値を先に入れる）
+      return;
+    }
+    ask({ command: 'sendReplies', from: '', replyIds: [], to: view.id, mode: 'copy', template: t });
+  }
+
+  // ---------- 空欄を入れて貼る小窓（Phase 3）：純粋な部分は memo-card-templates.ts の extractHoles・fillTemplate ----------
+
+  function placeTplFill() {
+    const rootBox = flowFrame().getBoundingClientRect();
+    const boardAnchor = fillFromBoard?.anchor.isConnected ? fillFromBoard.anchor : null; // ボードから開いたときは、ボードの道具の列の下
+    let top = Math.round((boardAnchor ?? band).getBoundingClientRect().bottom - rootBox.top) + 2;
+    if (!boardAnchor && rootBox.height - top - 8 < 120) top = Math.round(handle.getBoundingClientRect().bottom - rootBox.top) + 2;
+    tplFill.style.top = `${top}px`;
+    tplFill.style.maxHeight = `${Math.max(60, Math.round(rootBox.height - top - 6))}px`;
+  }
+
+  // 穴埋めファイル（Phase 5d）から先に入れる値と、その知らせ（入れるだけ。貼るのは小窓の「貼る」）
+  type FillPrefill = { values: Record<string, string>; text: string; note: string };
+
+  function openTplFill(t: CardTemplate, prefill?: FillPrefill, board?: NonNullable<typeof fillFromBoard>) {
+    const names = extractHoles(t);
+    fillTpl = t;
+    fillFromBoard = board ?? null;
+    fillInputs = [];
+    tplFillName.textContent = `型「${t.name}」（${t.cards.length}枚・${MODE_LABELS[t.mode]}）`;
+    const rows: HTMLElement[] = [];
+    for (const name of names.slice(0, 40)) {
+      const row = el('label', 'memo-pane-tpl-fillrow');
+      row.append(el('span', '', name));
+      const input = el('input', 'memo-pane-tpl-name');
+      input.type = 'text';
+      input.maxLength = MAX_REPLY_TEXT;
+      input.placeholder = `{{${name}}}`;
+      const first = prefill?.values[name];
+      if (first !== undefined) input.value = first;
+      input.setAttribute('aria-label', `空欄「${name}」`);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.isComposing) {
+          e.preventDefault();
+          submitTplFill();
+        }
+      });
+      row.append(input);
+      rows.push(row);
+      fillInputs.push({ name, input });
+    }
+    tplFillFields.replaceChildren(...rows);
+    const many = names.length > 40 ? '空欄が多いので、最初の 40 個だけ入れられます（残りは {{…}} のまま貼ります）' : '';
+    tplFillMsg.textContent = prefill ? [prefill.text, many].filter(Boolean).join('。') : many;
+    tplFillMsg.classList.remove('error');
+    tplFillNote.textContent = prefill?.note ? `${FILL_NOTE}。Grok のメモ：${prefill.note}` : FILL_NOTE;
+    tplFill.hidden = false;
+    placeTplFill();
+    fillInputs[0]?.input.focus();
+  }
+
+  function closeTplFill(returnFocus: boolean) {
+    if (tplFill.hidden) return;
+    const boardOpened = fillFromBoard !== null;
+    const inside = tplFill.contains(document.activeElement);
+    tplFill.hidden = true;
+    fillTpl = null;
+    fillFromBoard = null;
+    fillInputs = [];
+    if (returnFocus && inside && !boardOpened) tplPasteBtn.focus();
+  }
+
+  // 空欄を埋めて貼る：入りきらなければ小窓を開けたまま理由を出す。貼れるなら 1c と同じ道（sendReplies の copy ＋ 元に戻す）で貼る
+  function submitTplFill() {
+    const src = tplSource(fillFromBoard !== null); // ボードから開いた小窓は、ボードが見ているメモの枚数で数える
+    if (!src || !fillTpl) return;
+    const values: Record<string, string> = {};
+    for (const f of fillInputs) values[f.name] = f.input.value;
+    const done = fillTemplate(fillTpl, values);
+    const blocked = pasteBlocked(src.replies.length, done.template.cards.length);
+    if (blocked) {
+      tplFillMsg.textContent = blocked;
+      tplFillMsg.classList.add('error');
+      return;
+    }
+    const board = fillFromBoard; // 閉じると消えるので、先に取っておく
+    closeTplFill(false);
+    if (!board) tplPasteBtn.focus();
+    const notes: string[] = [];
+    if (done.empty > 0) notes.push(`空欄 ${done.empty} 個は {{…}} のまま貼りました`);
+    if (done.truncated > 0) notes.push(`${MAX_REPLY_TEXT} 字を超えた ${done.truncated} 枚は、切って貼りました`);
+    if (board) {
+      board.done(done.template, notes); // ボードから開いた小窓：貼るのはボード（見ている場所の真ん中へ。ids を付けて）
+      return;
+    }
+    if (notes.length > 0) {
+      pendingCutNote = notes.join('。');
+      status.textContent = pendingCutNote; // 結果の知らせ（元に戻す の帯）が引き取る
+    }
+    ask({ command: 'sendReplies', from: '', replyIds: [], to: src.id, mode: 'copy', template: done.template }); // ここは選ぶ帯からの貼り付け（src は下の区画の view と同じ）
+  }
+
+  // ---------- 型の窓（パレット。計画書 Phase 2）：純粋な部分は memo-card-template-palette.ts ----------
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  // サムネイル：カードの位置（dx・dy）の四角と、関連の線（種類の色・「疑問」は破線）。innerHTML は使わず createElementNS で組む
+  function thumbSvg(t: CardTemplate): SVGSVGElement {
+    const lay = thumbLayout(t, { w: 96, h: 56 });
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'memo-pane-tpl-thumb');
+    svg.setAttribute('viewBox', `0 0 ${lay.w} ${lay.h}`);
+    svg.setAttribute('width', String(lay.w));
+    svg.setAttribute('height', String(lay.h));
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    for (const c of lay.cards) {
+      const rect = document.createElementNS(SVG_NS, 'rect');
+      rect.setAttribute('class', 'memo-pane-tpl-thumb-card');
+      rect.setAttribute('x', String(c.x));
+      rect.setAttribute('y', String(c.y));
+      rect.setAttribute('width', String(c.w));
+      rect.setAttribute('height', String(c.h));
+      rect.setAttribute('rx', '1.5');
+      svg.append(rect);
+    }
+    for (const link of lay.links) {
+      const color = linkKindInfo(link.kind).color;
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('class', 'memo-pane-tpl-thumb-link');
+      line.setAttribute('x1', String(link.x1));
+      line.setAttribute('y1', String(link.y1));
+      line.setAttribute('x2', String(link.x2));
+      line.setAttribute('y2', String(link.y2));
+      if (link.dashed) line.setAttribute('stroke-dasharray', '3 2');
+      line.style.setProperty('--rel', color);
+      const head = document.createElementNS(SVG_NS, 'circle');
+      head.setAttribute('class', 'memo-pane-tpl-thumb-head');
+      head.setAttribute('cx', String(link.x2));
+      head.setAttribute('cy', String(link.y2));
+      head.setAttribute('r', '1.8');
+      head.style.setProperty('--rel', color);
+      svg.append(line, head);
+    }
+    return svg;
+  }
+
+  // ゴースト：palSel の型が貼られたときに入る番地へ、点線のカードを出す（renderCards の最後にも呼ぶので、描き直しで消えない）。
+  //   升目に置いている間は番地（行・列）に、詰めて並べている間（絞り込み・つながり順・狭い幅）は並びの最後に出す
+  function paintGhost() {
+    for (const node of [...cards.querySelectorAll('.memo-pane-tpl-ghost')]) node.remove();
+    if (!ghostTpl || !view) return null;
+    const result = ghostSlots(ghostTpl, orderedReplies(view));
+    if (!result.ok) return result;
+    ghostTpl.cards.forEach((c, i) => {
+      const node = el('div', 'memo-pane-tpl-ghost', `＋ ${c.title || '（空のカード）'}`);
+      node.setAttribute('aria-hidden', 'true');
+      if (slotMode) {
+        const slot = result.slots[i];
+        node.style.gridRow = String(Math.floor(slot / CARD_COLUMNS) + 1);
+        node.style.gridColumn = String((slot % CARD_COLUMNS) + 1);
+      }
+      cards.append(node);
+    });
+    return result;
+  }
+
+  function placeTplPalette() {
+    const rootBox = flowFrame().getBoundingClientRect();
+    let top = Math.round(band.getBoundingClientRect().bottom - rootBox.top) + 2;
+    if (rootBox.height - top - 8 < 160) top = Math.round(handle.getBoundingClientRect().bottom - rootBox.top) + 2;
+    tplPalette.style.top = `${top}px`;
+    tplPalette.style.maxHeight = `${Math.max(80, Math.round(rootBox.height - top - 6))}px`;
+  }
+
+  function paletteOrderNow(): CardTemplate[] {
+    return paletteOrder(searchTemplates(palAll, palQuery, palFolder));
+  }
+
+  // 一覧を描き直す（読み込み・検索・フォルダの絞りを替えたとき）。選びが絞りで消えたら先頭へ
+  function renderPalette() {
+    palGrab?.cancel(); // つまんでいる行が作り直されるので、やめる
+    const order = paletteOrderNow();
+    palSel = keepSelection(
+      order.map((t) => t.id),
+      palSel,
+    );
+    const nodes: HTMLElement[] = [];
+    let note = '';
+    let bad = false;
+    if (palState === 'loading') note = '読み込んでいます…';
+    else if (palState === 'unreadable') {
+      note = '型の保存ファイルを読めませんでした（ファイルは変えていません）';
+      bad = true;
+    } else if (palAll.length === 0) note = palSkipped > 0 ? `読める型がありません（読めない型が ${palSkipped} 件あります）` : `${TEMPLATE_EMPTY_HINT}。見本が欲しいときは、下の「初期サンプルを復元」を押してください`;
+    else if (order.length === 0) note = '当てはまる型がありません';
+    tplPalNote.textContent = note;
+    tplPalNote.classList.toggle('error', bad);
+    let folder = '';
+    for (const t of order) {
+      if (t.folder !== folder) {
+        folder = t.folder;
+        nodes.push(el('div', 'memo-pane-tplpal-folder', folder));
+      }
+      const item = el('div', 'memo-pane-tplpal-item');
+      item.id = `memo-pane-tplpal-${t.id}`;
+      item.dataset.tplId = t.id;
+      item.setAttribute('role', 'option');
+      const text = el('div', 'memo-pane-tplpal-text');
+      const nameEl = el('div', 'memo-pane-tplpal-name', t.name);
+      text.append(nameEl, el('div', 'memo-pane-tplpal-meta', paletteMeta(t)));
+      const acts = el('div', 'memo-pane-tplpal-acts');
+      const rename = el('button', 'memo-pane-tplpal-act', '✎');
+      rename.type = 'button';
+      rename.title = '名前を変える';
+      rename.setAttribute('aria-label', `「${t.name}」の名前を変える`);
+      const out = el('button', 'memo-pane-tplpal-act', '書出');
+      out.type = 'button';
+      out.title = 'この型だけをファイルに書き出します';
+      out.setAttribute('aria-label', `「${t.name}」だけを書き出す`);
+      out.addEventListener('click', (e) => {
+        e.stopPropagation();
+        void exportTemplates(t);
+      });
+      const del = el('button', 'memo-pane-tplpal-act', '削除');
+      del.type = 'button';
+      del.title = 'この型を消します（もう一度押すと消えます）';
+      del.setAttribute('aria-label', `「${t.name}」を削除`);
+      rename.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startPaletteRename(t, nameEl);
+      });
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onPaletteDelete(t, del);
+      });
+      acts.append(rename, out, del);
+      item.append(thumbSvg(t), text, acts);
+      item.addEventListener('pointerenter', () => selectTemplate(t.id, false));
+      attachPaletteDrag(item, t);
+      item.addEventListener('click', () => pasteFromPalette(t));
+      nodes.push(item);
+    }
+    if (palState === 'ok' && palAll.length > 0 && palSkipped > 0) nodes.push(el('div', 'memo-pane-tplpal-note', `読めない型が ${palSkipped} 件あります（出していません）`));
+    tplPalList.replaceChildren(...nodes);
+    for (const [i, btn] of [...tplPalFolders.children].entries()) {
+      (btn as HTMLElement).setAttribute('aria-pressed', String(i === 0 ? palFolder === null : TEMPLATE_FOLDERS[i - 1] === palFolder));
+    }
+    selectTemplate(palSel, false);
+  }
+
+  // 名前の変更・削除・サンプルの復元の結果を、一覧に反映して、窓の下の行に知らせる（書くのは検査つきの保存の道だけ。失敗なら一覧はそのまま）
+  function paletteResult(done: Awaited<ReturnType<typeof renameStoredTemplate>>, okText: string) {
+    if (tplPalette.hidden) return;
+    if (!done.ok) {
+      tplPalInfo.textContent = templateSaveMessage(done.why);
+      tplPalInfo.classList.add('error');
+      return;
+    }
+    palState = 'ok';
+    palAll = done.templates;
+    renderPalette();
+    tplPalInfo.textContent = okText;
+    tplPalInfo.classList.remove('error');
+  }
+
+  // 名前を変える：その場で書き換える欄。Enter で保存・Esc かほかを押すとやめる（窓は閉じない）
+  function startPaletteRename(t: CardTemplate, nameEl: HTMLElement) {
+    const input = el('input', 'memo-pane-tplpal-rename');
+    input.type = 'text';
+    input.value = t.name;
+    input.maxLength = TEMPLATE_LIMITS.name;
+    input.setAttribute('aria-label', `「${t.name}」の新しい名前`);
+    nameEl.replaceChildren(input);
+    input.focus();
+    input.select();
+    let finished = false;
+    const cancel = () => {
+      if (finished) return;
+      finished = true;
+      nameEl.textContent = t.name;
+    };
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('blur', cancel);
+    input.addEventListener('keydown', (e) => {
+      if (e.isComposing) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        cancel();
+        tplPalFilter.focus();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (finished) return;
+        finished = true;
+        void renameStoredTemplate(templateIo, t.id, input.value).then((done) => {
+          if (!done.ok) nameEl.textContent = t.name;
+          paletteResult(done, '名前を変えました');
+          tplPalFilter.focus();
+        });
+      }
+    });
+  }
+
+  // 削除：1 回目は「もう一度押すと削除」に変えるだけ（別の所を押す・Esc でやめる。confirm-arm.ts）。2 回目で消す
+  function onPaletteDelete(t: CardTemplate, del: HTMLButtonElement) {
+    if (!del.hasAttribute('data-armed-confirm')) {
+      armConfirm(del, () => {
+        del.textContent = '削除';
+        del.classList.remove('danger');
+        tplPalInfo.textContent = '';
+      });
+      del.textContent = 'もう一度押すと削除';
+      del.classList.add('danger');
+      tplPalInfo.textContent = `「${t.name}」を消します。もう一度「削除」を押すと消えます（別の所を押すか Esc でやめます）`;
+      tplPalInfo.classList.remove('error');
+      return;
+    }
+    void deleteStoredTemplate(templateIo, t.id).then((done) => paletteResult(done, `「${t.name}」を消しました`));
+  }
+
+  // ---------- 型の書き出し・読み込み（Phase 4）：純粋な部分は memo-card-template-io.ts ----------
+  //   書き出し：Grok の書き出しと同じく ui-data\exports\ にファイルを書き（writeData）、場所の名前をコピーする
+  //   読み込み：「提案・取り込みファイルを開く…」と同じファイルの窓（openJsonFile）→ 検査 → 確かめの小窓 →「足す」で保存（保存は検査つきの道だけ）
+
+  function ioSay(text: string, bad: boolean) {
+    tplPalInfo.textContent = text;
+    tplPalInfo.classList.toggle('error', bad);
+    if (text) status.textContent = text;
+  }
+
+  async function exportTemplates(only: CardTemplate | null) {
+    if (importBusy) return;
+    importBusy = true;
+    try {
+      const loaded = await loadTemplates(templateIo).catch(() => null);
+      if (!loaded || loaded.state === 'unreadable') {
+        ioSay('型の保存ファイルを読めないので、書き出せません（ファイルは変えていません）', true);
+        return;
+      }
+      const list = only ? loaded.templates.filter((t) => t.id === only.id) : loaded.templates;
+      if (list.length === 0) {
+        ioSay(only ? 'その型はもうありません' : '書き出す型がありません', true);
+        return;
+      }
+      const data = buildExport(list);
+      if (!exportFitsImportLimit(data)) {
+        ioSay(`大きすぎて書き出せません（読み込める大きさは ${IMPORT_FILE_LABEL} まで）。「書出」で 1 件ずつ書き出してください`, true);
+        return;
+      }
+      const name = templateExportName();
+      if (!(await writeData(name, data))) {
+        ioSay('書き出せませんでした（ui-data に書けません）', true);
+        return;
+      }
+      const path = `ui-data\\${name.replace(/\//g, '\\')}`;
+      const copied = await request((requestId) => ({ type: 'clipboardWrite', requestId, text: path, html: '' }), 8_000).catch(() => null);
+      const skipped = !only && loaded.skipped > 0 ? `。読めない型 ${loaded.skipped} 件は含めていません` : '';
+      ioSay(`書き出しました：${path}（${list.length} 件${skipped}）${copied?.type === 'clipboardWritten' && copied.ok ? '。場所の名前をコピーしました' : ''}`, false);
+    } finally {
+      importBusy = false;
+    }
+  }
+
+  async function openTemplateImport() {
+    if (importBusy) return;
+    importBusy = true;
+    try {
+      const reply = await request((requestId) => ({ type: 'openJsonFile', requestId }), 10 * 60_000);
+      if (!reply || reply.type !== 'jsonFile') {
+        ioSay('ファイルを選ぶ窓から返事がありません。何も変えていません', true);
+        return;
+      }
+      if (!reply.ok) {
+        if (reply.error === 'cancel') return;
+        ioSay(reply.error === 'big' ? `ファイルが大きすぎます（${IMPORT_FILE_LABEL} まで）。何も変えていません` : 'ファイルを読めませんでした。何も変えていません', true);
+        return;
+      }
+      if (isFillText(reply.text ?? '')) {
+        await openFillFromFile(reply.text ?? '');
+        return;
+      }
+      const parsed = parseImportText(reply.text ?? '');
+      if (!parsed.ok) {
+        ioSay(importFailText(parsed.why), true);
+        return;
+      }
+      const loaded = await loadTemplates(templateIo).catch(() => null);
+      if (!loaded || loaded.state === 'unreadable') {
+        ioSay(templateSaveMessage('unreadable'), true);
+        return;
+      }
+      if (loaded.skipped > 0) {
+        ioSay(templateSaveMessage('partial'), true);
+        return;
+      }
+      openTplImport(reply.name ?? 'ファイル', parsed, loaded.templates);
+    } finally {
+      importBusy = false;
+    }
+  }
+
+  // ---------- 穴埋めファイルの読み込み（Phase 5d）：検査と値づくりは memo-card-template-fill.ts（純粋な部分） ----------
+  //   入れるだけで貼らない。型の窓の「読み込む…」で選ぶと、ファイルの template（id か name）の穴あきの型の空欄の小窓を、値を入れた状態で開く。
+  //   空欄の小窓の「穴埋めファイルを読み込む…」は、今開いている型の空欄に値を入れる。貼るのは、どちらも使う人が「貼る」を押したときだけ
+
+  async function openFillFromFile(text: string) {
+    const fill = parseFillText(text);
+    if (!fill.ok) {
+      ioSay(fillFailText(fill.why), true);
+      return;
+    }
+    const loaded = await loadTemplates(templateIo).catch(() => null);
+    if (!loaded || loaded.state === 'unreadable') {
+      ioSay(templateSaveMessage('unreadable'), true);
+      return;
+    }
+    const found = findFillTemplate(loaded.templates, fill.template);
+    if (!found.ok) {
+      ioSay(findFailText(found.why, fill.template), true);
+      return;
+    }
+    if (!view) return;
+    const plan = planFill(found.template, fill);
+    if (plan.used === 0) {
+      ioSay(`「${found.template.name}」の空欄に当たる値がありません（空欄名が合いません）。何も開いていません`, true);
+      return;
+    }
+    const blocked = pasteBlocked(view.replies.length, found.template.cards.length);
+    if (blocked) {
+      ioSay(blocked, true);
+      return;
+    }
+    closeTplPalette(false);
+    openTplFill(found.template, { values: plan.values, text: fillPlanText(plan, fill.ignored), note: fill.note });
+    status.textContent = `「${found.template.name}」の空欄に値を ${plan.used} 個入れました。確かめて「貼る」を押してください（まだ貼っていません）`;
+  }
+
+  // 空欄の小窓の「穴埋めファイルを読み込む…」：今開いている型用のファイルの値を、空欄に入れる（ほかの空欄・型は変えない）
+  async function loadFillIntoDialog() {
+    if (importBusy || !fillTpl) return;
+    const tpl = fillTpl;
+    const say = (text: string, bad: boolean) => {
+      tplFillMsg.textContent = text;
+      tplFillMsg.classList.toggle('error', bad);
+    };
+    importBusy = true;
+    try {
+      const reply = await request((requestId) => ({ type: 'openJsonFile', requestId }), 10 * 60_000);
+      if (!reply || reply.type !== 'jsonFile') {
+        say('ファイルを選ぶ窓から返事がありません。何も入れていません', true);
+        return;
+      }
+      if (!reply.ok) {
+        if (reply.error === 'cancel') return;
+        say(reply.error === 'big' ? `ファイルが大きすぎます（${IMPORT_FILE_LABEL} まで）。何も入れていません` : 'ファイルを読めませんでした。何も入れていません', true);
+        return;
+      }
+      if (fillTpl !== tpl) return; // 選んでいる間に、小窓が閉じた・別の型になった
+      const text = reply.text ?? '';
+      if (parseImportText(text).ok) {
+        say('これは型のファイルです。穴埋めのファイル（honeycomb-cardtpl-fill）を選んでください。何も入れていません', true);
+        return;
+      }
+      const fill = parseFillText(text);
+      if (!fill.ok) {
+        say(fillFailText(fill.why), true);
+        return;
+      }
+      const same = (fill.template.id !== '' && fill.template.id === tpl.id) || (fill.template.name !== '' && fill.template.name === tpl.name);
+      if (!same) {
+        say(`このファイルは「${fill.template.name || fill.template.id}」用です。今開いている型「${tpl.name}」には入れていません`, true);
+        return;
+      }
+      const plan = planFill(tpl, fill);
+      if (plan.used === 0) {
+        say('この型の空欄に当たる値がありません（空欄名が合いません）。何も入れていません', true);
+        return;
+      }
+      for (const f of fillInputs) {
+        const v = plan.values[f.name];
+        if (v !== undefined) f.input.value = v;
+      }
+      tplFillNote.textContent = fill.note ? `${FILL_NOTE}。Grok のメモ：${fill.note}` : FILL_NOTE;
+      say(fillPlanText(plan, fill.ignored), false);
+    } finally {
+      importBusy = false;
+    }
+  }
+  function placeTplImport() {
+    const rootBox = flowFrame().getBoundingClientRect();
+    let top = Math.round(band.getBoundingClientRect().bottom - rootBox.top) + 2;
+    if (rootBox.height - top - 8 < 120) top = Math.round(handle.getBoundingClientRect().bottom - rootBox.top) + 2;
+    tplImport.style.top = `${top}px`;
+    tplImport.style.maxHeight = `${Math.max(60, Math.round(rootBox.height - top - 6))}px`;
+  }
+
+  // 確かめの小窓：足す型の名前・フォルダ・モード・枚数（名前が重なれば付け替え後の名前）と、読めなかった型の理由
+  function openTplImport(fileName: string, parsed: Extract<ImportParse, { ok: true }>, existing: readonly CardTemplate[]) {
+    const merged = mergeImported(existing, parsed.templates);
+    importIncoming = parsed.templates;
+    tplImportName.textContent = `${fileName}：${parsed.total} 件のうち、足せる型 ${merged.items.length} 件${parsed.skipped.length > 0 ? `・読めない型 ${parsed.skipped.length} 件` : ''}`;
+    const rows: HTMLElement[] = [];
+    const SHOW = 40;
+    for (const item of merged.items.slice(0, SHOW)) {
+      const t = item.template;
+      const row = el('div', 'memo-pane-tpl-importrow');
+      row.append(el('div', 'memo-pane-tpl-importname', t.name), el('div', 'memo-pane-tpl-importmeta', `${t.folder}・${t.cards.length}枚・${MODE_LABELS[t.mode]}${item.nameChanged ? `（もとの名前「${item.fromName}」は、同じ名前があるので変えます）` : ''}`));
+      rows.push(row);
+    }
+    if (merged.items.length > SHOW) rows.push(el('div', 'memo-pane-tpl-importmeta', `ほか ${merged.items.length - SHOW} 件`));
+    for (const s of parsed.skipped.slice(0, SHOW)) {
+      const row = el('div', 'memo-pane-tpl-importrow skip');
+      row.append(el('div', 'memo-pane-tpl-importname', `${s.index + 1} 番目の型は読めません`), el('div', 'memo-pane-tpl-importmeta', skipReasonText(s.why)));
+      rows.push(row);
+    }
+    if (parsed.skipped.length > SHOW) rows.push(el('div', 'memo-pane-tpl-importmeta', `読めない型は、ほか ${parsed.skipped.length - SHOW} 件`));
+    if (rows.length === 0) rows.push(el('div', 'memo-pane-tpl-importmeta', '足せる型がありません'));
+    tplImportList.replaceChildren(...rows);
+    tplImportNote.textContent = merged.summary.dropped > 0 ? `${TEMPLATE_LIMITS.templates} 件まで置けるので、入らない ${merged.summary.dropped} 件は足しません（今 ${existing.length} 件）` : `今 ${existing.length} 件。足しても今ある型は変わりません（${TEMPLATE_LIMITS.templates} 件まで）`;
+    tplImportMsg.textContent = merged.items.length === 0 ? '足せる型がないので、何も変えません' : '';
+    tplImportMsg.classList.remove('error');
+    tplImportOk.disabled = merged.items.length === 0;
+    tplImportOk.textContent = merged.items.length > 0 ? `${merged.items.length} 件を足す` : '足す';
+    tplImport.hidden = false;
+    placeTplImport();
+    (merged.items.length > 0 ? tplImportOk : tplImportCancel).focus();
+  }
+
+  function closeTplImport(returnFocus: boolean) {
+    if (tplImport.hidden) return;
+    const inside = tplImport.contains(document.activeElement);
+    tplImport.hidden = true;
+    importIncoming = [];
+    if (returnFocus && inside) (tplPalette.hidden ? tplPasteBtn : tplPalImport).focus();
+  }
+
+  // ---------- Grok Bot に型の下書きを頼む（Phase 5c）：文面の組み立ては memo-card-template-ask.ts（純粋な部分） ----------
+  //   頼む文を作ってクリップボードへ入れるだけ。自動送信も AI の呼び出しもしない（貼って送るのは使う人）
+  //   今ある型の名前・選んでいるカードの文は、使う人がチェックを入れたときだけ入れる（初めは何も入れない。Q19）
+
+  function placeTplAsk() {
+    const rootBox = flowFrame().getBoundingClientRect();
+    let top = Math.round(band.getBoundingClientRect().bottom - rootBox.top) + 2;
+    if (rootBox.height - top - 8 < 120) top = Math.round(handle.getBoundingClientRect().bottom - rootBox.top) + 2;
+    tplAsk.style.top = `${top}px`;
+    tplAsk.style.maxHeight = `${Math.max(60, Math.round(rootBox.height - top - 6))}px`;
+  }
+
+  function askRequest() {
+    return buildTemplateRequest({
+      purpose: tplAskPurpose.value,
+      ...(tplAskNamesChk.checked && !tplAskNamesChk.disabled ? { names: askNames } : {}),
+      ...(tplAskMatChk.checked && !tplAskMatChk.disabled ? { materials: askPick.cards } : {}),
+    });
+  }
+
+  // コピーする文（そのまま見せる）と数の行を、いまの選びで作り直す
+  function refreshTplAsk() {
+    const r = askRequest();
+    tplAskMsg.textContent = '';
+    tplAskMsg.classList.remove('error');
+    if (!r.ok) {
+      tplAskPreview.value = '';
+      tplAskCount.textContent = '目的を書くと、ここにコピーする文が出ます';
+      tplAskCopy.disabled = true;
+      return;
+    }
+    tplAskPreview.value = r.text;
+    const notes = [`${r.chars.toLocaleString('ja-JP')} 字`];
+    if (r.names > 0) notes.push(`今ある型の名前 ${r.names} 件`);
+    if (r.materials > 0) notes.push(`カードの文 ${r.materials} 枚`);
+    if (tplAskMatChk.checked && !tplAskMatChk.disabled) {
+      if (askPick.dropped > 0) notes.push(`入りきらない ${askPick.dropped} 枚は入れません（${ASK_LIMITS.materialCards} 枚・${ASK_LIMITS.materialChars.toLocaleString('ja-JP')} 字まで）`);
+      if (askPick.cut > 0) notes.push(`${MAX_REPLY_TEXT} 字を超えた ${askPick.cut} 枚は切って入れます`);
+      if (askPick.empty > 0) notes.push(`文のない ${askPick.empty} 枚（画像だけなど）は入れません`);
+    }
+    tplAskCount.textContent = notes.join('・');
+    tplAskCopy.disabled = false;
+  }
+
+  async function openTplAsk() {
+    if (!view || askBusy) return;
+    closeTplFill(false);
+    closeTplImport(false);
+    const loaded = await loadTemplates(templateIo).catch(() => null);
+    if (!view) return;
+    askNames = loaded && loaded.state !== 'unreadable' ? pickNames(loaded.templates.map((t) => t.name)).names : [];
+    askPick = pickMaterials(view.replies, pickingCards ? selectedIds() : []);
+    tplAskPurpose.value = askPurposeKeep;
+    tplAskNamesChk.checked = false;
+    tplAskNamesChk.disabled = askNames.length === 0;
+    tplAskNamesText.textContent = askNames.length > 0 ? `今ある型の名前も入れる（${askNames.length} 件。同じ名前にならないよう頼みます）` : '今ある型の名前も入れる（今は型がありません）';
+    tplAskMatChk.checked = false;
+    tplAskMatChk.disabled = askPick.cards.length === 0;
+    tplAskMatText.textContent = askPick.cards.length > 0 ? `選んでいるカードの文も入れる（${askPick.cards.length} 枚）` : '選んでいるカードの文も入れる（今は選んでいません）';
+    tplAskMatNote.textContent =
+      askPick.cards.length > 0
+        ? 'カードの文は、チェックを入れたときだけ入ります。名前・連絡先・パスワードなどが入っていないか、下の「コピーする文」で確かめてください'
+        : 'カードの文を入れたいときは、先に「☐ 選ぶ」で材料にするカードを選んでから、この窓を開いてください（選ばなければ、カードの文は入りません）';
+    tplAsk.hidden = false;
+    placeTplAsk();
+    refreshTplAsk();
+    tplAskPurpose.focus();
+  }
+
+  function closeTplAsk(returnFocus: boolean) {
+    if (tplAsk.hidden) return;
+    const inside = tplAsk.contains(document.activeElement);
+    askPurposeKeep = tplAskPurpose.value;
+    tplAsk.hidden = true;
+    if (returnFocus && inside) (tplPalette.hidden ? tplPasteBtn : tplPalAsk).focus();
+  }
+
+  // 「コピーする」：見えている文をそのままクリップボードへ（型の保存・台帳は変えない）。書けなければ小窓を開けたまま理由を出す
+  async function copyTplAsk() {
+    if (askBusy) return;
+    const r = askRequest();
+    if (!r.ok) {
+      tplAskMsg.textContent = 'どんな型がほしいかを書いてください';
+      tplAskMsg.classList.add('error');
+      tplAskPurpose.focus();
+      return;
+    }
+    askBusy = true;
+    tplAskCopy.disabled = true;
+    try {
+      const reply = await request((requestId) => ({ type: 'clipboardWrite', requestId, text: r.text, html: '' }), 8_000).catch(() => null);
+      if (reply?.type !== 'clipboardWritten' || !reply.ok) {
+        tplAskMsg.textContent = reply?.type === 'clipboardWritten' ? 'コピーできませんでした（コピー：書けない）' : 'コピーできませんでした（コピー：返事なし）';
+        tplAskMsg.classList.add('error');
+        return;
+      }
+      closeTplAsk(true);
+      const parts = [`${r.chars.toLocaleString('ja-JP')} 字`];
+      if (r.names > 0) parts.push(`型の名前 ${r.names} 件`);
+      if (r.materials > 0) parts.push(`カードの文 ${r.materials} 枚`);
+      ioSay(`Grok Bot に頼む文をコピーしました（${parts.join('・')}）。Grok Bot を開いて貼って送ってください。返ってきた JSON は、ファイルに保存して「読み込む…」で読めます`, false);
+    } finally {
+      askBusy = false;
+      if (!tplAsk.hidden) tplAskCopy.disabled = false;
+    }
+  }
+  // 「足す」：今のファイルを読み直して足す（保存は検査・バックアップつきの importStoredTemplates だけ）。失敗なら小窓を開けたまま理由を出す
+  async function submitTplImport() {
+    if (importBusy || importIncoming.length === 0) return;
+    importBusy = true;
+    tplImportOk.disabled = true;
+    try {
+      const done = await importStoredTemplates(templateIo, importIncoming).catch(() => ({ ok: false as const, why: 'write' as const }));
+      if (!done.ok) {
+        tplImportMsg.textContent = templateSaveMessage(done.why);
+        tplImportMsg.classList.add('error');
+        tplImportOk.disabled = false;
+        return;
+      }
+      const text = done.summary ? importSummaryText(done.summary) : '読み込みました';
+      closeTplImport(false);
+      status.textContent = text;
+      if (!tplPalette.hidden) {
+        paletteResult(done, text);
+        tplPalImport.focus();
+      }
+    } finally {
+      importBusy = false;
+    }
+  }
+
+  function restoreSamples() {
+    void restoreSampleTemplates(templateIo).then((done) =>
+      paletteResult(done, done.ok && (done.added ?? 0) > 0 ? `内蔵サンプルを ${done.added} 件足しました` : '内蔵サンプルは、すべてそろっています'),
+    );
+  }
+
+  // 選びを替える（ゴーストを出す・読み上げの文を替える）。reveal：ゴーストと選んだ行を見える所へ
+  function selectTemplate(id: string | null, reveal: boolean) {
+    palSel = id;
+    ghostTpl = id === null ? null : (palAll.find((t) => t.id === id) ?? null);
+    let selected: HTMLElement | null = null;
+    for (const node of tplPalList.querySelectorAll<HTMLElement>('[role="option"]')) {
+      const on = node.dataset.tplId === id;
+      node.classList.toggle('sel', on);
+      node.setAttribute('aria-selected', String(on));
+      if (on) selected = node;
+    }
+    if (selected) tplPalFilter.setAttribute('aria-activedescendant', selected.id);
+    else tplPalFilter.removeAttribute('aria-activedescendant');
+    const result = paintGhost();
+    tplPalInfo.textContent = result ? ghostSummary(result) : '';
+    tplPalInfo.classList.toggle('error', !!result && !result.ok);
+    if (reveal) {
+      selected?.scrollIntoView({ block: 'nearest' });
+      cards.querySelector('.memo-pane-tpl-ghost')?.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  async function openTplPalette() {
+    if (!view) return;
+    closeMenu();
+    closeTplMenu();
+    closeListWindow(false);
+    closeTplDialog(false);
+    tplPalette.hidden = false;
+    placeTplPalette();
+    palQuery = '';
+    palFolder = null;
+    palSel = null;
+    tplPalFilter.value = '';
+    palState = 'loading';
+    palAll = [];
+    palSkipped = 0;
+    const seq = ++palSeq;
+    renderPalette();
+    tplPalFilter.focus();
+    const loaded = await loadTemplates(templateIo).catch(() => null);
+    if (seq !== palSeq || tplPalette.hidden) return;
+    if (!loaded || loaded.state === 'unreadable') palState = 'unreadable';
+    else {
+      palState = 'ok';
+      palAll = loaded.templates;
+      palSkipped = loaded.skipped;
+    }
+    renderPalette();
+    selectTemplate(palSel, true);
+  }
+
+  // returnFocus：窓の中に焦点があったときだけ「型を貼る ▾」へ戻す。ゴーストは消す
+  function closeTplPalette(returnFocus: boolean) {
+    palGrab?.cancel();
+    if (tplPalette.hidden) return;
+    const inside = tplPalette.contains(document.activeElement);
+    palSeq += 1;
+    tplPalette.hidden = true;
+    ghostTpl = null;
+    palSel = null;
+    paintGhost();
+    if (returnFocus && inside) tplPasteBtn.focus();
+  }
+
+  // 窓から貼る：入りきらないときは窓を開けたまま理由を出す。貼れるなら、窓を閉じて 1c と同じ道（sendReplies の copy ＋ 元に戻す）で貼る
+  function pasteFromPalette(t: CardTemplate) {
+    if (!view) return;
+    const blocked = pasteBlocked(view.replies.length, t.cards.length);
+    if (blocked) {
+      tplPalInfo.textContent = blocked;
+      tplPalInfo.classList.add('error');
+      return;
+    }
+    closeTplPalette(false);
+    tplPasteBtn.focus();
+    pasteTemplate(t);
+  }
+
+  // ---------- 型の窓の行を、カードの区画へドラッグして貼る（Phase 2 の残り）----------
+  //   つまみは pointer-grab.ts の grabPointer（行ごとに付ける。押しただけ・動きが小さいときは、今までどおり click で貼る）
+  //   つまんでいる間：区画の上ならゴースト（入る番地）と札「離すと貼る」・外なら札だけ。離す：区画の上なら貼る道（pasteFromPalette＝sendReplies の copy ＋ 元に戻す・穴あきは空欄の小窓・300 枚は断る）・外なら何もしない。Esc でやめる
+  //   Grok Cards の区画は貼り先にしない
+
+  function overCardArea(x: number, y: number): boolean {
+    const node = document.elementFromPoint(x, y);
+    return !!node && scroll.contains(node) && !tplPalette.contains(node) && !node.closest('.grok-cards-upper');
+  }
+
+  function placeTplDragChip(e: PointerEvent) {
+    const box = root.getBoundingClientRect();
+    const cw = tplDragChip.offsetWidth;
+    const ch = tplDragChip.offsetHeight;
+    tplDragChip.style.left = `${Math.max(box.left + 4, Math.min(e.clientX + 12, box.right - cw - 4))}px`;
+    tplDragChip.style.top = `${Math.max(box.top + 4, Math.min(e.clientY + 14, box.bottom - ch - 4))}px`;
+  }
+
+  function paintPaletteDrag(t: CardTemplate, e: PointerEvent) {
+    const over = overCardArea(e.clientX, e.clientY);
+    const blocked = view ? pasteBlocked(view.replies.length, t.cards.length) : null;
+    const note = dragNote(t, over, blocked);
+    tplDragChip.textContent = note.chip;
+    tplPalInfo.textContent = note.info;
+    tplPalInfo.classList.toggle('error', note.error);
+    if (over !== palDragOver) {
+      palDragOver = over;
+      cardsWrap.classList.toggle('tpl-drop-over', over);
+      ghostTpl = over ? t : null;
+      paintGhost();
+    }
+    placeTplDragChip(e);
+  }
+
+  // つまみの終わり（離した・やめた）：札・印を消し、ゴーストは窓で選んでいる型に戻す
+  function endPaletteDrag() {
+    palGrab = null;
+    palDragOver = null;
+    tplDragChip.hidden = true;
+    root.classList.remove('tpl-dragging');
+    cardsWrap.classList.remove('tpl-drop-over');
+    selectTemplate(palSel, false);
+  }
+
+  function attachPaletteDrag(item: HTMLElement, t: CardTemplate) {
+    const grab: Grab = grabPointer(item, {
+      onPress: (e) => {
+        if (!view || palGrab || !tplFill.hidden || !tplImport.hidden || !tplAsk.hidden) return false;
+        if (e.target instanceof Element && e.target.closest('.memo-pane-tplpal-acts, input, button')) return false; // 名前を変える・書出・削除の押しは、つまみにしない
+        palGrab = grab;
+        return true;
+      },
+      onStart: (e) => {
+        selectTemplate(t.id, false);
+        palDragOver = null;
+        root.classList.add('tpl-dragging');
+        tplDragChip.hidden = false;
+        paintPaletteDrag(t, e);
+      },
+      onMove: (e) => paintPaletteDrag(t, e),
+      onEnd: (e, moved) => {
+        if (!moved) {
+          palGrab = null;
+          return;
+        }
+        const action = dropAction(overCardArea(e.clientX, e.clientY), view ? pasteBlocked(view.replies.length, t.cards.length) : null);
+        endPaletteDrag();
+        if (action === 'none') {
+          tplPalInfo.textContent = '貼っていません（カードの区画の上で離すと貼れます）';
+          tplPalInfo.classList.remove('error');
+          return;
+        }
+        pasteFromPalette(t); // 'refuse' も同じ道で理由を出す（窓は開けたまま）
+      },
+      onCancel: (moved) => {
+        endPaletteDrag();
+        if (moved) {
+          tplPalInfo.textContent = 'やめました（貼っていません）';
+          tplPalInfo.classList.remove('error');
+        }
+      },
+    });
   }
 
   // 一覧の窓：帯の題名と☰の「一覧を出す」から開く。本文の欄の高さは変えず、区画の上に浮かせる
@@ -2442,6 +3603,7 @@ export function startMemoPane() {
 
   function showSent(text: string, openId: string, token: string) {
     sentOffer = { openId, token };
+    sentOpen.hidden = view?.id === openId; // 今開いているメモへ貼った（型）ときは、「送り先を開く」は要らない
     sentText.textContent = text;
     const note = pendingCutNote;
     pendingCutNote = null;
@@ -2484,6 +3646,7 @@ export function startMemoPane() {
     picked.clear();
     pickAnchor = null;
     pickBar.hidden = true;
+    closeTplDialog(false);
     renderCountTools();
     if (view) renderCards(view, undefined, true);
   }
@@ -2514,7 +3677,161 @@ export function startMemoPane() {
     pickMove.disabled = n === 0;
     pickCopy.disabled = n === 0;
     pickNew.disabled = n === 0;
+    const tplState = templatePickState(n);
+    pickTemplate.disabled = !tplState.enabled;
+    pickTemplate.title = tplState.hint;
+    if (!tplDialog.hidden && !tplSaving && !tplFromBoard && !sameIds(selectedIds(), tplIds)) closeTplDialog(false); // 選び直したら、小窓は閉じる（数が変わるため）
     pickAll.textContent = filterTag !== null ? '絞り込み中を全部選ぶ' : '全部選ぶ';
+  }
+
+  // ---------- 型にする（選んだカードを型として登録。計画書 docs/plan-card-templates.md の Phase 1b） ----------
+
+  function sameIds(a: readonly string[], b: readonly string[]): boolean {
+    return a.length === b.length && a.every((id) => b.includes(id));
+  }
+
+  function paintTplModes() {
+    for (const [i, btn] of tplModeBtns.entries()) btn.setAttribute('aria-pressed', String(TEMPLATE_MODES[i] === tplMode));
+    tplModeNote.textContent = templateModeNote(tplMode);
+  }
+
+  // 型にする・空欄を入れて貼るの元になるカードの写し。ボードから開いたときはボードが見ているメモ（選んだメモか、下の区画と同じメモ）、選ぶ帯からのときは下の区画のメモ
+  function tplSource(fromBoard: boolean): MemoPaneView | null {
+    return templateSource(fromBoard, boardMemoView, view);
+  }
+
+  // 数の 2 行を、いまのモードで数え直す（穴あきは空欄の数も出る）
+  function refreshTplPreview() {
+    const src = tplSource(tplFromBoard);
+    if (!src) return;
+    const preview = buildTemplateFromCards(src.replies, tplIds, { name: '型', mode: tplMode, offsets: tplOffsets ?? undefined });
+    if (!preview.ok) return;
+    const text = describeTemplateReport(preview.report);
+    tplCounts.textContent = text.counts;
+    tplExcluded.textContent = text.excluded;
+  }
+
+  function paintTplFolders() {
+    for (const [i, btn] of tplFolderBtns.entries()) btn.setAttribute('aria-pressed', String(TEMPLATE_FOLDERS[i] === tplFolder));
+  }
+
+  function tplSay(text: string, error = false) {
+    tplMsg.textContent = text;
+    tplMsg.classList.toggle('error', error);
+  }
+
+  function placeTplDialog() {
+    const rootBox = flowFrame().getBoundingClientRect();
+    const anchor = tplFromBoard && tplAnchor?.isConnected ? tplAnchor : pickBar; // ボードから開いたときは、ボードの道具の列の下
+    const top = Math.round(anchor.getBoundingClientRect().bottom - rootBox.top) + 2;
+    tplDialog.style.top = `${top}px`;
+    tplDialog.style.maxHeight = `${Math.max(40, Math.round(rootBox.height - top - 6))}px`;
+  }
+
+  // 選ぶ帯の「型にする…」（from 無し）と、ボードの「型にする…」（from：選んだカードの id・ボードの座標の差・小窓を出す目印。B3-1）の両方がここから開く
+  function openTplDialog(from?: { ids: string[]; offsets: Record<string, { dx: number; dy: number }>; anchor: HTMLElement }) {
+    const src = tplSource(from !== undefined);
+    if (!src || (!from && !pickingCards)) return;
+    const ids = from ? from.ids : selectedIds();
+    const state = templatePickState(ids.length);
+    if (!state.enabled) {
+      status.textContent = state.hint;
+      return;
+    }
+    // 数だけ先に見せる（名前は仮。ほんとうの登録は「登録」を押したとき）
+    const preview = buildTemplateFromCards(src.replies, ids, { name: '型', offsets: from?.offsets });
+    if (!preview.ok) {
+      const note = preview.why === 'missing' ? '選んだカードが見つかりません。選び直してください' : '型にできませんでした';
+      status.textContent = note;
+      if (from) tplDoneListeners.forEach((fn) => fn(note, false));
+      return;
+    }
+    closeTplDialog(false);
+    tplFromBoard = from !== undefined;
+    tplAnchor = from?.anchor ?? null;
+    tplOffsets = from?.offsets ?? null;
+    tplIds = ids;
+    tplFolder = TEMPLATE_FOLDERS[0];
+    tplMode = 'snapshot';
+    paintTplModes();
+    refreshTplPreview();
+    tplName.value = '';
+    tplSay('');
+    paintTplFolders();
+    tplSave.disabled = false;
+    tplDialog.hidden = false;
+    placeTplDialog();
+    tplName.focus();
+  }
+
+  // returnFocus：小窓の中に焦点があったときだけ、選ぶ帯の「型にする…」へ戻す
+  function closeTplDialog(returnFocus: boolean) {
+    if (tplDialog.hidden) return;
+    const inside = tplDialog.contains(document.activeElement);
+    tplDialog.hidden = true;
+    tplIds = [];
+    tplFromBoard = false;
+    tplAnchor = null;
+    tplOffsets = null;
+    if (returnFocus && inside && !pickBar.hidden) pickTemplate.focus();
+  }
+
+  async function saveTplDialog() {
+    if (tplSaving || tplDialog.hidden) return;
+    const fromBoard = tplFromBoard; // 保存の間に小窓が閉じても、どちらから開いたかを覚えておく
+    const src = tplSource(fromBoard);
+    if (!src) return;
+    // ボードから開いたときだけ：名前が空なら「無題の型」にする（選ぶ帯からのときは今までどおり、名前を求める）
+    const name = fromBoard && cleanTemplateName(tplName.value) === '' ? TEMPLATE_UNTITLED : tplName.value;
+    const built = buildTemplateFromCards(src.replies, tplIds, { name, folder: tplFolder, mode: tplMode, offsets: tplOffsets ?? undefined });
+    if (!built.ok) {
+      const messages = {
+        empty: '選んだカードがありません',
+        missing: '選んだカードが見つかりません。選び直してください',
+        'too-many': `型にできるのは ${TEMPLATE_LIMITS.cards} 枚までです`,
+        name: '名前を入れてください',
+        text: `カードの文が長すぎます（${TEMPLATE_LIMITS.text}文字まで）`,
+      } as const;
+      tplSay(messages[built.why], true);
+      if (built.why === 'name') tplName.focus();
+      return;
+    }
+    tplSaving = true;
+    tplSave.disabled = true;
+    tplSay('保存しています…');
+    // ボードから開いたときだけ：同じ名前の型がすでにあれば断る（選ぶ帯からのときは、今までどおり同じ名前も登録できる）
+    if (fromBoard) {
+      const existing = await loadTemplates(templateIo).catch(() => null);
+      if (existing && existing.state !== 'unreadable' && templateNameTaken(existing.templates, built.template.name)) {
+        tplSaving = false;
+        tplSave.disabled = false;
+        tplSay(`「${built.template.name}」という名前の型がすでにあります。別の名前にしてください`, true);
+        tplName.focus();
+        return;
+      }
+    }
+    const done = await saveNewTemplate(templateIo, built.template).catch(() => ({ ok: false as const, why: 'write' as const }));
+    tplSaving = false;
+    if (tplDialog.hidden) {
+      // 保存の間に、小窓が閉じた（Esc・メモを替えた など）。保存できたことだけは知らせる
+      if (done.ok) {
+        const text = `型「${built.template.name}」を登録しました（${done.count}件）`;
+        say(text);
+        if (fromBoard) tplDoneListeners.forEach((fn) => fn(text, true));
+      }
+      return;
+    }
+    tplSave.disabled = false;
+    if (!done.ok) {
+      tplSay(templateSaveMessage(done.why), true); // 小窓は開けたまま（名前は残す。やり直せる）
+      return;
+    }
+    const savedName = built.template.name;
+    closeTplDialog(false);
+    if (!fromBoard) stopPicking(); // ボードから開いたときは、選びをそのまま残す
+    const text = `型「${savedName}」を登録しました（${done.count}件）`;
+    say(text);
+    if (fromBoard) tplDoneListeners.forEach((fn) => fn(text, true));
   }
 
   function openExported(name: string) {
@@ -3358,6 +4675,12 @@ export function startMemoPane() {
     return added;
   }
 
+  // ボードが見るメモの写しを受ける（null：選びが外れた・メモが消えた＝ボードは下の区画のメモに戻る）。下の区画の view には触らない
+  function paintBoardMemo(next: MemoPaneView | null) {
+    boardMemoView = next;
+    boardListeners.forEach((fn) => fn()); // ボードは refresh で、メモが替わったか（別のメモとして読み直すか）を見る
+  }
+
   function paint(next: MemoPaneView | null) {
     const previous = view?.id ?? null;
     const nextId = next?.id ?? null;
@@ -3365,6 +4688,7 @@ export function startMemoPane() {
     const switched = previous !== nextId;
     view = next;
     applyCurrentLinkNames(); // 試し：セットを選んでいればその名前、選んでいなければこのメモの名前
+    boardListeners.forEach((fn) => fn());
     const open = next !== null;
     band.hidden = !open;
     status.hidden = !open;
@@ -3393,6 +4717,12 @@ export function startMemoPane() {
       picked.clear();
       pickAnchor = null;
       pickBar.hidden = true;
+      closeTplDialog(false);
+      closeTplMenu();
+      closeTplPalette(false);
+      closeTplFill(false);
+      closeTplImport(false);
+      closeTplAsk(false);
       hideSentNotice();
       body.value = '';
       lastSent = '';
@@ -3431,6 +4761,11 @@ export function startMemoPane() {
       picked.clear();
       pickAnchor = null;
       pickBar.hidden = true;
+      closeTplDialog(false);
+      closeTplPalette(false);
+      closeTplFill(false);
+      closeTplImport(false);
+      closeTplAsk(false);
       cardsDirty = false;
       armEdit = false;
       commentDraft = '';
@@ -3524,10 +4859,18 @@ export function startMemoPane() {
     reportDraft();
   }
 
+  // 高さが変わったときに知らせる先（「ボード」タブの［拡大］［縮小］の見た目）。つまみ・左からの知らせ・［拡大］のどれでも呼ぶ
+  const heightListeners: Array<() => void> = [];
+  const notifyHeight = () => heightListeners.forEach((fn) => fn());
+  const boardListeners: Array<() => void> = []; // 開いているメモの写しが替わったときに知らせる先（「ボード」）
+  const boardNoticeListeners: Array<(text: string) => void> = []; // 左の知らせ（断られた理由など）を受ける先（「ボード」）
+  const boardUndoSendListeners: Array<(token: string, openMemo: string) => void> = []; // 型の貼り付けの「元に戻す」の印を受ける先（「ボード」。B3-3b）
+
   function sendHeight(next: number) {
     height = clampMemoPaneHeight(next);
     handle.setAttribute('aria-valuenow', String(height));
     send({ type: 'setSidebar', side: 'memo', height });
+    notifyHeight();
   }
 
   function endDrag(e: PointerEvent) {
@@ -3617,6 +4960,10 @@ export function startMemoPane() {
   pickBtn.addEventListener('click', () => fileInput.click());
   copyBtn.addEventListener('click', () => void copyMarkdown());
   newBtn.addEventListener('click', () => ask({ command: 'newMemoForPane' }));
+  tplPasteBtn.addEventListener('click', () => {
+    if (tplMenu.hidden) void openTplMenu();
+    else closeTplMenu();
+  });
   menuBtn.addEventListener('click', () => {
     if (menu.hidden) openMenu();
     else closeMenu();
@@ -3640,6 +4987,77 @@ export function startMemoPane() {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     if (moveListFocus(e.key === 'ArrowDown')) e.preventDefault();
   });
+  // 型の窓：絞る欄に打つと絞る。↑↓・Home・End で選び（選ぶとゴースト）、Enter で貼り、Esc で閉じる（窓の中の Esc は、ここで受ける）
+  tplPalRestore.addEventListener('click', () => restoreSamples());
+  tplPalExport.addEventListener('click', () => void exportTemplates(null));
+  tplPalImport.addEventListener('click', () => void openTemplateImport());
+  tplPalAsk.addEventListener('click', () => void openTplAsk());
+  tplAskCopy.addEventListener('click', () => void copyTplAsk());
+  tplAskCancel.addEventListener('click', () => closeTplAsk(true));
+  tplAskPurpose.addEventListener('input', () => refreshTplAsk());
+  tplAskPurpose.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) {
+      e.preventDefault();
+      void copyTplAsk();
+    }
+  });
+  tplAskNamesChk.addEventListener('change', () => refreshTplAsk());
+  tplAskMatChk.addEventListener('change', () => refreshTplAsk());
+  tplImportOk.addEventListener('click', () => void submitTplImport());
+  tplImportCancel.addEventListener('click', () => closeTplImport(true));
+  tplPalFilter.addEventListener('input', () => {
+    palQuery = tplPalFilter.value;
+    renderPalette();
+    selectTemplate(palSel, true);
+  });
+  tplPalette.addEventListener('keydown', (e) => {
+    if (e.isComposing) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeTplPalette(true);
+      return;
+    }
+    const inInput = e.target === tplPalFilter;
+    if (isPaletteKey(e.key) && (inInput || e.target === tplPalette || (e.target instanceof HTMLElement && e.target.getAttribute('role') === 'option'))) {
+      if ((e.key === 'Home' || e.key === 'End') && inInput && !e.ctrlKey) return; // 欄の中の Home・End は、字の位置を動かす（Ctrl＋で一覧）
+      e.preventDefault();
+      const next = moveSelection(
+        paletteOrderNow().map((t) => t.id),
+        palSel,
+        e.key,
+      );
+      selectTemplate(next, true);
+      return;
+    }
+    if (e.key === 'Enter' && (inInput || (e.target instanceof HTMLElement && e.target.getAttribute('role') === 'option'))) {
+      e.preventDefault();
+      const t = palSel === null ? null : (palAll.find((x) => x.id === palSel) ?? null);
+      if (t) pasteFromPalette(t);
+    }
+  });
+  // `/` で型の窓を開く（文字を打っている欄・Grok Cards の中・選ぶ／関連づけの最中は開かない）
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== '/' || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+    const target = e.target;
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
+    if (target instanceof HTMLElement && (target.isContentEditable || target.closest('.grok-cards-upper'))) return;
+    if (!view || !tplPalette.hidden || pickingCards || linking !== null || !tplDialog.hidden || !tplFill.hidden || !tplImport.hidden || !tplAsk.hidden) return;
+    e.preventDefault();
+    void openTplPalette();
+  });
+  tplFillPaste.addEventListener('click', () => submitTplFill());
+  tplFillLoad.addEventListener('click', () => void loadFillIntoDialog());
+  tplFillCancel.addEventListener('click', () => closeTplFill(true));
+  // 型にする小窓：登録・やめる・Enter で登録・Esc で閉じる（小窓の中の Esc は、ここで受ける）
+  tplSave.addEventListener('click', () => void saveTplDialog());
+  tplCancel.addEventListener('click', () => closeTplDialog(true));
+  tplName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      void saveTplDialog();
+    }
+  });
   linkItem.addEventListener('click', () => {
     closeMenu();
     addPageLink();
@@ -3648,6 +5066,16 @@ export function startMemoPane() {
     armedItem = null; // 字を書いたら、書きかけの印は外す
     listQuery = filter.value;
     renderList();
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (tplPalette.hidden) return;
+    if (e.target instanceof Node && (tplPalette.contains(e.target) || tplPasteWrap.contains(e.target) || tplImport.contains(e.target) || tplAsk.contains(e.target))) return;
+    closeTplPalette(false);
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (tplMenu.hidden) return;
+    if (e.target instanceof Node && tplPasteWrap.contains(e.target)) return;
+    closeTplMenu();
   });
   document.addEventListener('pointerdown', (e) => {
     if (menu.hidden) return;
@@ -3675,6 +5103,11 @@ export function startMemoPane() {
     if (!listWindow.hidden) placeListWindow();
     if (!linkBar.hidden) placeLinkBar();
     if (!linkPicker.hidden) placeLinkPicker();
+    if (!tplDialog.hidden) placeTplDialog();
+    if (!tplPalette.hidden) placeTplPalette();
+    if (!tplFill.hidden) placeTplFill();
+    if (!tplImport.hidden) placeTplImport();
+    if (!tplAsk.hidden) placeTplAsk();
     listPops.place();
   });
   // 関連づけている間：相手のカードを押したら、種類の小さな欄を出す（元のカードとカードの外は、ふつうに動く）
@@ -3785,6 +5218,46 @@ export function startMemoPane() {
     closeLists: () => closeListWindow(false),
     pane: root,
     setCardsUpper,
+    // つまみと同じ道（sendHeight → setSidebar、writeMemoPanePrefs）で高さを変える。保存されるので、開き直しても保たれる
+    // いま開いているメモのカードの写し（読むだけ。ボードに描く）
+    boardSource: {
+      get: () => boardSnapshot(boardMemoView, view), // 選んだメモがあればそれ、無ければ下の区画のメモ（今までどおり）
+      onChange: (fn) => void boardListeners.push(fn),
+      info: () => boardMemoInfo(boardMemoView, view), // 名札の元（M3）
+      linkNames: () => resolvedLinkKindNames(boardMemoView ?? view, linkNameSets.book), // 見ているメモの関連の呼び名（M4。別のメモを見ているときだけボードが一時的に使う）
+    },
+    // ボードの見るメモの選び口（M3）。一覧は下の面がすでに持っているもの（sheetItems・recentItems）。選ぶと左へ setBoardMemo（null＝下の区画と同じに戻す）
+    boardPick: {
+      list: () => ({ items: sheetItems, recent: recentItems, sheetName: listSheetName }),
+      pick: (id) => ask({ command: 'setBoardMemo', id }),
+    },
+    // ボードが送る命令（編集・貼り付けなど）。型の貼り付け（sendReplies）を送った時刻を覚える（そのあとの「元に戻す」の帯を、下の区画に出さないかの判断に使う）
+    boardAsk: (action) => {
+      if (action.command === 'sendReplies') boardSentAt = Date.now();
+      ask(action);
+    },
+    boardNotices: { onNotice: (fn) => void boardNoticeListeners.push(fn), onUndoSend: (fn) => void boardUndoSendListeners.push(fn) },
+    boardTemplate: {
+      open: (ids, offsets, anchor) => openTplDialog({ ids, offsets, anchor }),
+      close: () => {
+        if (tplFromBoard) closeTplDialog(false);
+        if (fillFromBoard) closeTplFill(false);
+      },
+      list: () => loadTemplates(templateIo).catch(() => null),
+      fill: (t, anchor, done) => {
+        closeTplDialog(false);
+        openTplFill(t, undefined, { anchor, done });
+      },
+      onDone: (fn) => void tplDoneListeners.push(fn),
+    },
+    paneHeight: {
+      get: () => height,
+      set: (next) => {
+        sendHeight(next);
+        writeMemoPanePrefs({ height });
+      },
+      onChange: (fn) => void heightListeners.push(fn),
+    },
   });
   close.addEventListener('click', () => {
     flush();
@@ -3798,6 +5271,17 @@ export function startMemoPane() {
       e.preventDefault();
       e.stopPropagation();
       closeLight();
+    },
+    true,
+  );
+  // Esc の捕まえる段（型の窓の行をつまんでいるとき）：ドラッグをやめる（貼らない。窓は閉じない）
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      if (e.key !== 'Escape' || e.isComposing || !palGrab?.active) return;
+      e.preventDefault();
+      e.stopPropagation();
+      palGrab.cancel();
     },
     true,
   );
@@ -3859,8 +5343,45 @@ export function startMemoPane() {
   );
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || e.isComposing) return;
+    if (tplFromBoard && !tplDialog.hidden) {
+      // ボードから開いた型の小窓：Esc はこの小窓だけを閉じる（ボードの選びは外さない）
+      e.preventDefault();
+      closeTplDialog(true);
+      return;
+    }
+    if (fillFromBoard && !tplFill.hidden) {
+      // ボードから開いた空欄の小窓：Esc はこの小窓だけを閉じる（貼らない。ボードの選びは外さない）
+      e.preventDefault();
+      closeTplFill(false);
+      return;
+    }
     if (grokCardsUi.consumeEsc(e)) return;
     if (!view) return;
+    if (!tplAsk.hidden) {
+      e.preventDefault();
+      closeTplAsk(true);
+      return;
+    }
+    if (!tplImport.hidden) {
+      e.preventDefault();
+      closeTplImport(true);
+      return;
+    }
+    if (!tplFill.hidden) {
+      e.preventDefault();
+      closeTplFill(true);
+      return;
+    }
+    if (!tplDialog.hidden) {
+      e.preventDefault();
+      closeTplDialog(true);
+      return;
+    }
+    if (!tplPalette.hidden) {
+      e.preventDefault();
+      closeTplPalette(true);
+      return;
+    }
     if (!listWindow.hidden) {
       e.preventDefault();
       closeListWindow(true);
@@ -3875,6 +5396,12 @@ export function startMemoPane() {
       // 相手の一覧の窓が開いていて、焦点が窓の外にあるとき（窓の中の Esc は窓の受け口が止める）。区画は閉じない
       e.preventDefault();
       closeLinkPicker(true);
+      return;
+    }
+    if (!tplMenu.hidden) {
+      e.preventDefault();
+      closeTplMenu();
+      tplPasteBtn.focus();
       return;
     }
     if (!menu.hidden) {
@@ -3901,6 +5428,7 @@ export function startMemoPane() {
 
   onMessage((msg) => {
     if (msg.type === 'relayed' && msg.payload.kind === 'memoPane') paint(msg.payload.view);
+    else if (msg.type === 'relayed' && msg.payload.kind === 'memoBoardView') paintBoardMemo(msg.payload.view);
     else if (msg.type === 'relayed' && msg.payload.kind === 'grokCards') grokCardsUi.onOpen(msg.payload.open);
     else if (msg.type === 'relayed' && msg.payload.kind === 'grokCardsData') grokCardsUi.onData(msg.payload);
     else if (msg.type === 'relayed' && msg.payload.kind === 'grokCardsNotice') grokCardsUi.onNotice(msg.payload);
@@ -3913,11 +5441,22 @@ export function startMemoPane() {
       renderList();
     } else if (msg.type === 'relayed' && msg.payload.kind === 'memoPaneNotice') {
       // 並べ替えを断られた：待ちを全部捨てる（左は知らせのあとに写しを送り直すので、写しの並びで描き直る）。読み上げにも出す
-      if (msg.payload.undoSend && msg.payload.openMemo) showSent(msg.payload.text, msg.payload.openMemo, msg.payload.undoSend);
-      else if (msg.payload.text.startsWith('並べ替えられませんでした')) {
+      if (msg.payload.undoSend && msg.payload.openMemo) {
+        // ボードが、下の区画とは別のメモへ貼った：下の区画には「元に戻す」「送り先を開く」の帯を出さない（ボードの Undo に渡すだけ）
+        const boardOwn = skipLowerSentBar({ openMemo: msg.payload.openMemo, lowerId: view?.id ?? null, chosenId: boardMemoView?.id ?? null, boardSentAt, now: Date.now() });
+        if (!boardOwn) showSent(msg.payload.text, msg.payload.openMemo, msg.payload.undoSend);
+        const sent = { token: msg.payload.undoSend, memo: msg.payload.openMemo };
+        boardUndoSendListeners.forEach((fn) => fn(sent.token, sent.memo)); // ボードの「元に戻す」にも渡す（貼り付けの Undo）
+      } else if (msg.payload.text.startsWith('並べ替えられませんでした')) {
         clearPending();
         say(msg.payload.text);
-      } else status.textContent = msg.payload.text;
+      } else {
+        const noticeText = msg.payload.text;
+        // メモ id つきの知らせは、ボードが別のメモを選んでいるとき、そのメモを見ているほうだけに出す（M4。id が無ければ今までどおり両方）
+        const to = noticeTarget({ memo: msg.payload.memo, lowerId: view?.id ?? null, chosenId: boardMemoView?.id ?? null });
+        if (to !== 'board') status.textContent = noticeText;
+        if (to !== 'lower') boardNoticeListeners.forEach((fn) => fn(noticeText));
+      }
     }
     else if (msg.type === 'relayed' && msg.payload.kind === 'threadPending') {
       pending.splice(0, pending.length, ...msg.payload.pending);
@@ -3925,6 +5464,7 @@ export function startMemoPane() {
     } else if (msg.type === 'sidebars' && !drag && typeof msg.state.memo?.height === 'number') {
       height = clampMemoPaneHeight(msg.state.memo.height);
       handle.setAttribute('aria-valuenow', String(height));
+      notifyHeight();
       grokCardsUi.setVisible(msg.state.memo.visible !== false);
     }
   });

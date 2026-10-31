@@ -12,6 +12,7 @@ import type { LikeLevel } from './likes';
 import type { CaptureBlur, CaptureFromKind, CaptureMark, CaptureStroke, HideRect } from './captures';
 import type { HideMode } from './capture-hide';
 import type { ReplyLink } from './memo-card-links';
+import type { CardTemplate } from './memo-card-templates';
 import type { MemoIndexItem, RightMemo } from './memocells';
 import type { RouteJournal, RoutesState, TabTrail } from './routes';
 import type { SearchItem, SearchSort } from './search';
@@ -301,7 +302,8 @@ export type RelayCommand =
   | { command: 'dropEmptySheet'; id: string } // 右で作ったシートが、何も書かずにタブから外れた（空なら片づける）
   | { command: 'removeMemo'; id: string } // メモのセルを消す（右の「メモ」の区画から）
   | { command: 'copyMemoCell'; text: string; by?: ReplyAuthor; label?: string } // メモのセル1つとしてコピーする（フェイブルレター）
-  | { command: 'removeReply'; ref: ThreadRef; replyId: string }
+  | { command: 'removeReply'; ref: ThreadRef; replyId: string; undoToken?: string } // undoToken（B3-3a。省略できる）：u で始まる 64 字以内の [A-Za-z0-9_-]。付けると、左は消す直前の返信全体をメモリに控え、restoreReplies で戻せる。形が悪ければ何も消さずに断る。省略すると今までどおり
+  | { command: 'restoreReplies'; id: string; token: string } // 削除の取り消し（B3-3a。id はメモ）。removeReply に付けた undoToken で、消す直前の返信全体へ戻す。そのあとメモが変わっていれば（指紋が合わなければ）何もしない
   | { command: 'copyComment'; ref: ThreadRef; replyId: string | null } // null は元のポスト
   | { command: 'aiReply'; ref: ThreadRef; parent: string | null; who: string } // who は相棒のキャラ（all はメンバーみんな）
   // タブの見た目（右サイドバーのカードの「見た目」：左の盤面で、画像とコメントの欄を開く）
@@ -423,7 +425,9 @@ export type RelayCommand =
   | { command: 'focusMemoPaneCell'; id: string } // 下の区画から、左の盤面のそのメモのセルへ移る（別シートなら切り替え、見える所まで動かし、少し光らせる）
   | { command: 'setMemoText'; id: string; text: string } // 本文を変える
   // 下の区画でコメントのカードを足す（parent は null。引用・画像は M3 で付ける。形は左が確かめる）
-  | { command: 'addMemoComment'; id: string; text: string; quote?: ReplyQuote; image?: string; file?: string }
+  //   replyId：新しいカードの id を呼び出し側が決めたいとき（B2-3a。ボードがカードを足す位置を、足す前に保存するため）。省略すると左が決める（今までどおり）。
+  //   形は [A-Za-z0-9_-]{1,64}。形が違う・そのメモにもう同じ id があるときは、付け替えずにこの命令を断る（知らせを出す）
+  | { command: 'addMemoComment'; id: string; text: string; quote?: ReplyQuote; image?: string; file?: string; replyId?: string }
   | { command: 'changeReplyTags'; id: string; replyId: string; add: string[]; remove: string[] } // 下の区画のカードのタグを足す・外す（一番上のカードだけ。足し引きの差分。左が断ることもある。依頼② T1。画面は T2）
   // 下の区画のカードの関連を足す・外す（replyId が元の一番上のカード。差分。外すのは同じ相手・同じ種類だけ。同じ相手に別の種類を足すと置き換え。
   //   左が断ることもある：台帳を読めていない・相手が一番上のカードに無い・逆向きの「同じ」がある・10 本を超える。計画 docs/plan-memo-card-links.md の L1）
@@ -445,8 +449,9 @@ export type RelayCommand =
   | { command: 'openMemoPane'; id: string; replyId?: string; from?: 'search' }
   | { command: 'searchMemos'; seq: number; query: string; sort: SearchSort; limit: number } // 右の「検索」の区画：メモとコメントを探して（左が台帳を読むだけで探し、searchResults で返す）
   | { command: 'newMemoForPane' } // 新しいメモを作って、下で開く（M5）
+  | { command: 'setBoardMemo'; id: string | null } // ボードが見るメモを、下の区画とは別に選ぶ（null で外す＝下と同じ）。左が memoBoardView で写しを送る。選べない（無い・特別なセル）ときは断る（plan-board-memo-switch の M1。画面からはまだ送らない）
   // 下の区画のカードを、別のメモへ移す・写す（to が null なら新しいメモを作って入れる。左が一度に確かめて、台帳へは 1 回だけ書く）
-  | { command: 'sendReplies'; from: string; replyIds: string[]; to: string | null; mode: 'move' | 'copy' }
+  | { command: 'sendReplies'; from: string; replyIds: string[]; to: string | null; mode: 'move' | 'copy'; template?: CardTemplate; ids?: string[] } // template があるときは型を貼る（from は空・replyIds は空・to は貼り先のメモ・mode は copy）。ids（B3-2a。型を貼るときだけ）：貼る新しいカードの id を呼び出し側が決める（型のカードと同じ順・同じ数・30 枚まで・[A-Za-z0-9_-]{1,64}・指定の中でも台帳にも重ならない）。使えなければ全体を断る。省略すると左が決める（今までどおり）
   | { command: 'undoSendReplies'; token: string } // 直前の送りを元に戻す（知らせの「元に戻す」）
   // Grok Cards（段 1〜4。旗が空のときは左は何もしない。C++ はコマンド名を見ない）
   | { command: 'openGrokCards' }
@@ -611,7 +616,9 @@ export type RelayPayload =
   // Grok Visions（S3.7b）の写し（新しい順・全部。bytes：おおよその使っている大きさ　ready：ui-data\visions\ を読み終えた）
   | { kind: 'visions'; visions: Vision[]; bytes: number; ready: boolean }
   | { kind: 'memoPane'; view: MemoPaneView | null } // 下のメモの区画へ、開いているメモの写し（閉じていれば null）
-  | { kind: 'memoPaneNotice'; text: string; openMemo?: string; undoSend?: string } // 下の区画に出してほしい短いお知らせ（openMemo・undoSend は、送ったあとの「送り先を開く」「元に戻す」）
+  // ボードが見るメモの写し（下の区画の memoPane とは別。setBoardMemo で選んだメモ。選んでいる間だけ送り、外した・消えたときは null を一度だけ送る。M1：送るだけ・受け口は M2）
+  | { kind: 'memoBoardView'; view: MemoPaneView | null }
+  | { kind: 'memoPaneNotice'; text: string; openMemo?: string; undoSend?: string; memo?: string } // 下の区画に出してほしい短いお知らせ（openMemo・undoSend は、送ったあとの「送り先を開く」「元に戻す」）
   // 下の区画のカードから、右のタグのボタン（セット）を変えてと頼む・右が変えたあとの台帳を返す
   | { kind: 'tagButtonsOp'; op: TagButtonsOp; seq: number }
   | { kind: 'tagButtonsDone'; seq: number; book: TagButtonBook }

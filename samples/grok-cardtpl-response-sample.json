@@ -1,0 +1,65 @@
+{
+  "format": "honeycomb-cardtpl",
+  "version": 1,
+  "note": "見本の返答です（note は読み込みでは無視されます）。読書会の準備（穴あき）・意見の整理（骨組み）・会議メモ（そのまま）の 3 件",
+  "templates": [
+    {
+      "version": 1,
+      "id": "grok-reading-club",
+      "name": "読書会の準備",
+      "folder": "調査",
+      "mode": "hole",
+      "cards": [
+        { "key": "k0", "title": "本", "body": "\n{{書名}}（{{著者}}）", "tags": ["調査"], "dx": 0, "dy": 0 },
+        { "key": "k1", "title": "要点", "body": "\n{{要点}}", "tags": ["要点"], "dx": 240, "dy": 0 },
+        { "key": "k2", "title": "話したい問い", "body": "\n{{問い}}", "tags": ["疑問"], "dx": 480, "dy": 0 },
+        { "key": "k3", "title": "当日の進め方", "body": "\n{{進め方}}", "tags": ["計画"], "dx": 240, "dy": 150 }
+      ],
+      "links": [
+        { "from": "k1", "to": "k0", "kind": "ground" },
+        { "from": "k2", "to": "k1", "kind": "ask" },
+        { "from": "k3", "to": "k2", "kind": "next" }
+      ]
+    },
+    {
+      "version": 1,
+      "id": "grok-opinion-map",
+      "name": "意見の整理（6種の線）",
+      "folder": "議論",
+      "mode": "skeleton",
+      "cards": [
+        { "key": "k0", "title": "主張", "body": "", "tags": ["論点"], "dx": 240, "dy": 0 },
+        { "key": "k1", "title": "根拠", "body": "", "tags": ["根拠"], "dx": 0, "dy": 150 },
+        { "key": "k2", "title": "反論", "body": "", "tags": ["反対"], "dx": 480, "dy": 150 },
+        { "key": "k3", "title": "補足", "body": "", "tags": [], "dx": 0, "dy": 300 },
+        { "key": "k4", "title": "言い換え", "body": "", "tags": [], "dx": 240, "dy": 300 },
+        { "key": "k5", "title": "残る疑問", "body": "", "tags": ["疑問"], "dx": 480, "dy": 300 },
+        { "key": "k6", "title": "次にやること", "body": "", "tags": ["計画"], "dx": 480, "dy": 450 }
+      ],
+      "links": [
+        { "from": "k1", "to": "k0", "kind": "ground" },
+        { "from": "k2", "to": "k0", "kind": "counter" },
+        { "from": "k3", "to": "k1", "kind": "supplement" },
+        { "from": "k4", "to": "k0", "kind": "same" },
+        { "from": "k5", "to": "k0", "kind": "ask" },
+        { "from": "k6", "to": "k2", "kind": "next" }
+      ]
+    },
+    {
+      "version": 1,
+      "id": "grok-meeting-note",
+      "name": "会議メモ",
+      "folder": "計画",
+      "mode": "snapshot",
+      "cards": [
+        { "key": "k0", "title": "会議の目的", "body": "\n何を決める会議かを 1 行で", "tags": ["計画"], "dx": 0, "dy": 0 },
+        { "key": "k1", "title": "決まったこと", "body": "\n・\n・", "tags": ["結論"], "dx": 240, "dy": 0 },
+        { "key": "k2", "title": "宿題", "body": "\n誰が・いつまでに・何を", "tags": ["計画"], "dx": 480, "dy": 0 }
+      ],
+      "links": [
+        { "from": "k1", "to": "k0", "kind": "ground" },
+        { "from": "k2", "to": "k1", "kind": "next" }
+      ]
+    }
+  ]
+}

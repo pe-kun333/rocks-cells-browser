@@ -57,6 +57,18 @@ export function parseLinkKindNames(raw: unknown): LinkKindNames | undefined {
 export function applyLinkKindNames(names: LinkKindNames | undefined) {
   for (const k of LINK_KINDS as LinkKindInfo[]) k.name = names?.[k.kind] ?? LINK_KIND_DEFAULT_NAMES[k.kind];
 }
+// 呼び名を一時的に差し替えて fn を動かし、必ず元に戻す（同期の処理だけ。非同期の中身には使わない）。
+//   ボードが下の区画とは別のメモを見ているとき、そのメモの呼び名でボードを描く・メニューを組むために使う（plan-board-memo-switch の M4）
+export function withLinkKindNames<T>(names: LinkKindNames | undefined, fn: () => T): T {
+  const infos = LINK_KINDS as LinkKindInfo[];
+  const saved = infos.map((k) => k.name);
+  applyLinkKindNames(names);
+  try {
+    return fn();
+  } finally {
+    infos.forEach((k, i) => void (k.name = saved[i]));
+  }
+}
 // 一つの種類の名前を変えた、新しい名前の組（null か空・元と同じなら元に戻す）
 export function withLinkKindName(names: LinkKindNames | undefined, kind: LinkKind, name: string | null): LinkKindNames | undefined {
   return parseLinkKindNames({ ...(names ?? {}), [kind]: name ?? '' });

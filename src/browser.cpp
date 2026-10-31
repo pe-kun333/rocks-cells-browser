@@ -812,8 +812,8 @@ void Browser::HandleUiMessage(const std::string& from, const json& msg) {
         const std::wstring path = media::OpenDialog(hwnd_);
         SendToSurface(from, {{"type", "mediaFile"}, {"requestId", msg.value("requestId", json())}, {"path", path.empty() ? json(nullptr) : json(ToUtf8(path))}});
     } else if (type == "openJsonFile") {
-        // 「提案・取り込みファイルを開く…」：選んだ JSON を文字で返す（kMaxImportFileBytes＝1 MB まで。中身を確かめるのは UI）。左からだけ
-        if (from != "left") return;
+        // 「提案・取り込みファイルを開く…」：選んだ JSON を文字で返す（kMaxImportFileBytes＝1 MB まで。中身を確かめるのは UI）。左と下の区画（型の窓の「読み込む…」）からだけ
+        if (from != "left" && from != "memo") return;
         const std::wstring path = media::OpenJsonDialog(hwnd_);
         json reply = {{"type", "jsonFile"}, {"requestId", msg.value("requestId", json())}};
         if (path.empty()) {

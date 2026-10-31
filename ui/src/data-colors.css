@@ -184,6 +184,14 @@
     stroke: oklch(from var(--rel) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
   }
 
+  .memo-pane-tpl-thumb-link {
+    stroke: oklch(from var(--rel) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
+  .memo-pane-tpl-thumb-head {
+    fill: oklch(from var(--rel) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
+  }
+
   .memo-pane-link-head.is-fill {
     fill: oklch(from var(--rel) clamp(var(--data-lmin), l, var(--data-lmax)) c h);
   }

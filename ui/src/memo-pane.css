@@ -1658,3 +1658,400 @@ body.surface-memo > .panels {
   flex: 1;
   min-width: 0;
 }
+
+/* 型にする小窓：選ぶ帯の「型にする…」で開く（top と max-height は JS が入れる。一覧の窓と同じ置き方・見た目） */
+.memo-pane-tpl-dialog {
+  position: absolute;
+  z-index: 8; /* 浮いたカードの層（7）より上 */
+  left: 10px;
+  width: 300px;
+  max-width: calc(100% - 20px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 24px var(--shadow-pop);
+  font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .memo-pane-tpl-dialog {
+    width: auto;
+    right: 10px;
+  }
+}
+
+.memo-pane-tpl-head {
+  font-weight: 600;
+}
+
+.memo-pane-tpl-excluded {
+  color: var(--muted);
+}
+
+.memo-pane-tpl-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.memo-pane-tpl-name {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 12px;
+}
+
+.memo-pane-tpl-folders,
+.memo-pane-tpl-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.memo-pane-tpl-buttons {
+  justify-content: flex-end;
+}
+
+.memo-pane-tpl-folder,
+.memo-pane-tpl-btn {
+  height: 22px;
+  font-size: 12px;
+}
+
+.memo-pane-tpl-folder[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+
+.memo-pane-tpl-msg:empty {
+  display: none;
+}
+
+.memo-pane-tpl-msg.error {
+  color: var(--danger);
+}
+
+/* 型を貼る ▾ のメニュー：型が多いときは中でスクロールする */
+.memo-pane-tplmenu {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.memo-pane-tplmenu-folder {
+  padding: 4px 8px 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.memo-pane-tplmenu-note {
+  padding: 6px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.memo-pane-tplmenu-note.error {
+  color: var(--danger);
+}
+
+/* 型の窓（パレット）：一覧の窓と同じ置き方・見た目（top と max-height は JS が入れる） */
+.memo-pane-tplpal {
+  position: absolute;
+  z-index: 8; /* 浮いたカードの層（7）より上 */
+  left: 10px;
+  width: 340px;
+  max-width: calc(100% - 20px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 24px var(--shadow-pop);
+  font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .memo-pane-tplpal {
+    width: auto;
+    right: 10px;
+  }
+}
+
+.memo-pane-tplpal-filter {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 12px;
+}
+
+.memo-pane-tplpal-folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.memo-pane-tplpal-chip {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.memo-pane-tplpal-chip[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.memo-pane-tplpal-note:empty,
+.memo-pane-tplpal-info:empty {
+  display: none;
+}
+
+.memo-pane-tplpal-note,
+.memo-pane-tplpal-info,
+.memo-pane-tplpal-hint {
+  color: var(--muted);
+}
+
+.memo-pane-tplpal-note.error,
+.memo-pane-tplpal-info.error {
+  color: var(--danger);
+}
+
+.memo-pane-tplpal-hint {
+  font-size: 11px;
+}
+
+.memo-pane-tplpal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.memo-pane-tplpal-folder {
+  padding: 4px 4px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.memo-pane-tplpal-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.memo-pane-tplpal-item.sel {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.memo-pane-tplpal-text {
+  min-width: 0;
+}
+
+.memo-pane-tplpal-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.memo-pane-tplpal-meta {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* サムネイル：カードの位置と関連の線（線の色は種類の色。data-colors.css でテーマの明るさの帯へ） */
+.memo-pane-tpl-thumb {
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+}
+
+.memo-pane-tpl-thumb-card {
+  fill: var(--surface);
+  stroke: var(--muted);
+  stroke-width: 0.8;
+}
+
+.memo-pane-tpl-thumb-link {
+  fill: none;
+  stroke: var(--rel);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.memo-pane-tpl-thumb-head {
+  fill: var(--rel);
+}
+
+/* ゴースト：型を選んでいる間、貼ると入る番地に出す点線のカード（置くのではなく予告。押せない） */
+.memo-pane-tpl-ghost {
+  box-sizing: border-box;
+  min-height: 72px;
+  padding: 6px 8px;
+  overflow: hidden;
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--muted);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+/* 型の窓：名前の変更・削除・サンプルの復元 */
+.memo-pane-tplpal-acts {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.memo-pane-tplpal-act {
+  height: 22px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+
+.memo-pane-tplpal-act.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.memo-pane-tplpal-rename {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 12px;
+}
+
+.memo-pane-tplpal-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.memo-pane-tplpal-restore {
+  height: 22px;
+  font-size: 11px;
+}
+
+/* 空欄を入れて貼る小窓：空欄ごとの入力欄（登録の小窓と同じ見た目） */
+.memo-pane-tpl-fillfields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.memo-pane-tpl-fillrow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* 型の窓の下の道具（書き出す・読み込む・サンプル復元） */
+.memo-pane-tplpal-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* 型の読み込みの確かめの小窓：足す型・読めない型の一覧 */
+.memo-pane-tpl-importlist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.memo-pane-tpl-importrow {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 4px;
+  border-left: 2px solid var(--accent-line);
+}
+
+.memo-pane-tpl-importrow.skip {
+  border-left-color: var(--danger);
+}
+
+.memo-pane-tpl-importrow.skip .memo-pane-tpl-importname {
+  color: var(--danger);
+}
+
+.memo-pane-tpl-importname {
+  overflow-wrap: anywhere;
+}
+
+.memo-pane-tpl-importmeta {
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+/* 型の窓の行をドラッグして貼る：つまんでいる間は手の形・字は選ばせない。貼り先（カードの区画）は輪郭で示す */
+.memo-pane-tplpal-item {
+  user-select: none;
+}
+
+.memo-pane.tpl-dragging,
+.memo-pane.tpl-dragging * {
+  cursor: grabbing !important;
+}
+
+.memo-pane-cards-wrap.tpl-drop-over {
+  outline: 2px dashed var(--accent-line);
+  outline-offset: 2px;
+}
+
+/* Grok Bot に型の下書きを頼む小窓（Phase 5c）：チェックの行と、コピーする文の見える欄 */
+.memo-pane-tpl-checkrow {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.memo-pane-tpl-checkrow input[type='checkbox'] {
+  margin: 2px 0 0;
+}
+
+.memo-pane-tpl-dialog textarea.memo-pane-tpl-name {
+  min-height: 2.6em;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+/* 空欄の小窓の「穴埋めファイルを読み込む…」（Phase 5d）：ボタンの列の左端 */
+.memo-pane-tpl-btn-left {
+  margin-right: auto;
+}
+/* B4-2：型の小窓（型にする・穴埋め）の入力欄の見本の字。ブラウザ標準の灰色は暗いテーマで読めないので、既存の変数にする */
+.memo-pane-tpl-dialog .memo-pane-tpl-name::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}

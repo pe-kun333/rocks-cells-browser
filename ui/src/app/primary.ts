@@ -87,7 +87,7 @@ import { type AppliedStep, applyItem, type GrokPatch, type ImportSheetUndo, isBa
 import { GrokPatchView } from '../panels/grok-patch-view';
 import { BoardLinkStore, boardLinkSentence, type CellRef, findDuplicate, memoRef, tabRef } from '../board-links';
 import { MemoPaneHost, readMemoPanePrefs } from '../memo-pane-host';
-import { isSpecialCell, MAX_MEMO_TEXT, type MemoCell, type MemoDraft, memoTitle, MemoStore, newMemoId, toMemoIndexItem, toRightMemo, type SendRepliesResult } from '../memocells';
+import { isRestoreToken, isSpecialCell, MAX_MEMO_TEXT, type MemoCell, type MemoDraft, memoTitle, MemoStore, newMemoId, toMemoIndexItem, toRightMemo, type SendRepliesResult } from '../memocells';
 import { searchMemos } from '../memo-search';
 import { CellMenu, type MenuButton, type MenuEntry, showToast } from '../panels/cell-menu';
 import { FaceEditor, type FaceResult, shrinkImage } from '../panels/face-editor';
@@ -114,6 +114,7 @@ import { buildArchive, deleteArchive, isArchiveId, listArchives, markRestored, n
 import { sheetSetsIn } from '../rightsheets';
 import { BoardSheetSlots, SHEET_SLOT_COUNT } from '../sheet-shortcuts';
 import { CAPTURE_SHEET, isSheetId, MAIN_SHEET, MAX_SHEETS, RIGHT_MEMO_SHEET, SheetStore } from '../sheets';
+import { peekEmptyMenuPlan, peekMemoNote } from '../sheet-peek-logic';
 import { Sidebar, type SidebarDeps } from '../sidebar';
 import { SheetPeek } from '../panels/sheet-peek';
 import { activationMovesBoard } from '../popup-gesture';
@@ -131,7 +132,7 @@ import type { ShelfView } from '../prefs';
 import { IMPORT_FILE_BYTES, IMPORT_FILE_LABEL, withinImportBytes } from '../import-limits';
 import { detectJsonKind, parseInterchange, readJson } from '../memo-interchange';
 import { type ArchiveResult, createInterchangeFlow } from './interchange-flow';
-import { newReplyId } from '../threads';
+import { newReplyId, replyIdProblem } from '../threads';
 import { newSheetId } from '../sheets';
 
 export function startPrimary() {
@@ -526,6 +527,7 @@ export function startPrimary() {
   let peekBoard: Sidebar | null = null;
   islands.onChange(() => peekBoard?.setIslands(islands.list()));
   boardLinks.onChange(() => peekBoard?.setBoardLinks(boardLinks.list()));
+  let peekEditing = false; // 小窓の空いたセル用の書き込み欄が開いている（小窓を閉じる・中のシートが変わると、欄もしまう）
   const sheetPeek = new SheetPeek({
     host: board,
     sheets,
@@ -553,6 +555,7 @@ export function startPrimary() {
           openMemo: (id) => preview.showMemo(id),
           openMemoPane: (id) => memoPane.open(id),
           editMemo: (id) => editMemo(id),
+          peekEmptyMenu: (hex, x, y) => openPeekEmptyMenu(hex, x, y), // 空いたセルの右クリック：入口先のシートに「メモを書く」だけ
           openPortal: noop, // 入口は小窓の進み方（1回で窓の中、2回で移る）。盤面の openPortal は使わない
           dropOnPortal: noop,
           openBot: (id) => openBot(id),
@@ -580,7 +583,11 @@ export function startPrimary() {
       return true;
     },
     escBlocked: () => cellMenu.isOpen || memoEditor.isOpen || faceEditor.isOpen,
-    dismissTabDetail: () => preview.releasePeekPin(),
+    dismissTabDetail: () => {
+      preview.releasePeekPin();
+      if (peekEditing && memoEditor.isOpen) memoEditor.close(); // 小窓を閉じた・中のシートが変わった：小窓の中のセル用に開いた書き込み欄もしまう（書きかけは捨てる）
+      peekEditing = false;
+    },
     moved: () => preview.reposition(),
   });
 
@@ -1784,19 +1791,43 @@ export function startPrimary() {
   const memoEditor = new MemoEditor(board);
 
   // 新しいメモのセルを書く（残すとできる。空のままならできない。書き始めたときのシートに置く）
-  function writeNewMemo(at: Hex, initial = '') {
-    const sheet = sheets.current;
-    memoEditor.open(sidebar.anchorOfHex(at), '新しいメモ', initial, (text) => {
+  //   sheet・board：ふだんは今のシートと本盤面。小窓の空いたセルからは、入口先のシートと小窓の盤面を渡す（inPeek）。
+  //   小窓では、保存のときにそのシートがまだあるか確かめ（消えていたら作らず知らせる）、作ったあと下のメモ区画・拡大表示は開かない
+  function writeNewMemo(at: Hex, initial = '', sheet = sheets.current, board: Sidebar = sidebar, inPeek = false) {
+    const heading = inPeek ? `新しいメモ（シート「${sheets.get(sheet)?.name ?? ''}」）` : '新しいメモ';
+    peekEditing = inPeek;
+    memoEditor.open(board.anchorOfHex(at), heading, initial, (text) => {
+      peekEditing = false;
       if (!text.trim()) return;
+      if (inPeek) {
+        const name = sheets.get(sheet)?.name ?? null;
+        const pos = name === null ? undefined : isTaken(at, sheet) ? placeCluster(allCells(sheet), 1, at)[0] : at;
+        const made = name !== null && pos ? memos.add({ sheet, pos, text }) : null;
+        const note = peekMemoNote({ sheetName: name, created: !!made });
+        if (note) toast(note);
+        return;
+      }
       const memo = memos.add({ sheet, pos: isTaken(at, sheet) ? placeCluster(allCells(sheet), 1, at)[0] : at, text });
       if (memo) preview.showMemo(memo.id);
-    });
+    }, () => void (peekEditing = false));
+  }
+
+  // 小窓の空いたセルを右クリック：見ている入口先のシートに「メモを書く」だけのメニュー。開いた時点のシート id を覚える（今のシートには作らない）
+  function openPeekEmptyMenu(hex: Hex, x: number, y: number) {
+    const sheet = sheetPeek.sheetId;
+    const board = peekBoard;
+    const plan = peekEmptyMenuPlan(sheet ? (sheets.get(sheet)?.name ?? null) : null);
+    if (!sheet || !board || !plan) return;
+    preview.releasePeekPin(); // 固定していたタブの詳しいカードはしまう
+    menuPick = null;
+    cellMenu.open(x, y, [{ section: plan.heading }, { label: plan.write.label, run: () => writeNewMemo(hex, '', sheet, board, true) }]);
   }
 
   function editMemo(id: string) {
     const memo = memos.get(id);
     if (!memo || memo.bot || memo.app) return; // ボットのセル・アプリのセルのコメントは、見た目の欄では書かない
     const anchor = anchorNearMemo(id, memo.pos);
+    peekEditing = false;
     memoEditor.open(anchor, 'メモを書き直す', memo.text, (text) => memos.update(id, { text }));
   }
 
@@ -2104,6 +2135,7 @@ export function startPrimary() {
       return;
     }
     const anchor = sidebar.anchorOfMemo(memoId) ?? sidebar.anchorOfHex(memo.pos);
+    peekEditing = false;
     memoEditor.open(
       anchor,
       `「${bot.name}」に頼む文（コピーしてから、Grok Bot アプリを開きます）`,
@@ -6201,7 +6233,8 @@ export function startPrimary() {
       });
     });
   }
-  function tellMemo(text: string, extra?: { openMemo?: string; undoSend?: string }) {
+  // memo：知らせが、どのメモのことか（省略できる。下の面が、ボードと下の区画が別のメモを見ているときの出し先を決める。M4）
+  function tellMemo(text: string, extra?: { openMemo?: string; undoSend?: string; memo?: string }) {
     send({
       type: 'relay',
       to: 'memo',
@@ -6210,6 +6243,7 @@ export function startPrimary() {
         text,
         ...(extra?.openMemo ? { openMemo: extra.openMemo } : {}),
         ...(extra?.undoSend ? { undoSend: extra.undoSend } : {}),
+        ...(extra?.memo ? { memo: extra.memo } : {}),
       },
     });
   }
@@ -6233,10 +6267,28 @@ export function startPrimary() {
     }
     return { sheet, pos, ...(source ? { source } : {}) };
   }
+  // 型を貼るときの id の指定（B3-2a）が使えなかった理由。断るときは何も書かない
+  function pastedIdsText(why: Extract<SendRepliesResult, { ok: false }>['idsWhy']): string {
+    const head = '型を貼れませんでした（カードの id の指定が使えません：';
+    switch (why) {
+      case 'limit':
+        return `${head}30 枚までです）`;
+      case 'count':
+        return `${head}貼る枚数と数が合いません）`;
+      case 'dup':
+        return `${head}指定の中で重なっています）`;
+      case 'taken':
+        return `${head}このメモにもう同じ id があります）`;
+      default:
+        return `${head}形が正しくありません）`;
+    }
+  }
   function sendRefusalText(done: Extract<SendRepliesResult, { ok: false }>): string {
     switch (done.why) {
       case 'ledger':
         return '送れませんでした（メモの台帳を読めていません）';
+      case 'invalid':
+        return '送れませんでした（中身を読めません）';
       case 'from':
         return 'このカードは送れませんでした（メモがもうありません）';
       case 'to':
@@ -6746,7 +6798,12 @@ export function startPrimary() {
         if (typeof action.text !== 'string') break;
         const memo = memos.get(action.id);
         if (!memo || isSpecialCell(memo)) break;
-        if (!memos.addReply(action.id, null, action.text, undefined, { quote: action.quote, image: action.image, file: action.file })) {
+        // 呼び出し側が id を決めたとき（B2-3a）：形が違う・このメモにもう同じ id があるなら、付け替えずに断る。省略したときは今までと同じ
+        if (action.replyId !== undefined && replyIdProblem(memo.replies ?? [], action.replyId) !== null) {
+          toast('コメントを足せませんでした（カードの id が正しくないか、すでに使われています）');
+          break;
+        }
+        if (!memos.addReply(action.id, null, action.text, undefined, { quote: action.quote, image: action.image, file: action.file }, action.replyId)) {
           toast('コメントを足せませんでした（返信が多すぎます）');
         }
         break;
@@ -6757,8 +6814,8 @@ export function startPrimary() {
         const add = Array.isArray(action.add) ? action.add : [];
         const remove = Array.isArray(action.remove) ? action.remove : [];
         const done = memos.changeReplyTags(action.id, action.replyId, add, remove);
-        if (done.result === 'refused') tellMemo('このカードのタグは変えられませんでした（メモの台帳を読めていないか、カードがもうありません）');
-        else if (done.over) tellMemo(`タグは1つに ${MAX_TAGS_PER_TAB} 個までです（ほかのタグを外してから付けてください）`);
+        if (done.result === 'refused') tellMemo('このカードのタグは変えられませんでした（メモの台帳を読めていないか、カードがもうありません）', { memo: action.id });
+        else if (done.over) tellMemo(`タグは1つに ${MAX_TAGS_PER_TAB} 個までです（ほかのタグを外してから付けてください）`, { memo: action.id });
         break;
       }
       case 'changeReplyLinks': {
@@ -6767,9 +6824,9 @@ export function startPrimary() {
         const add = Array.isArray(action.add) ? action.add : [];
         const remove = Array.isArray(action.remove) ? action.remove : [];
         const done = memos.changeReplyLinks(action.id, action.replyId, add, remove);
-        if (done.result === 'refused') tellMemo('このカードの関連は変えられませんでした（メモの台帳を読めていないか、カードがもうありません）');
-        else if (done.over) tellMemo(`関連は 1 枚のカードから ${MAX_LINKS_PER_CARD} 本までです（ほかの関連を外してから付けてください）`);
-        else if (done.refusedLinks > 0) tellMemo('その相手とは結べませんでした（相手のカードがもう無いか、もう「同じ」でつながっています）');
+        if (done.result === 'refused') tellMemo('このカードの関連は変えられませんでした（メモの台帳を読めていないか、カードがもうありません）', { memo: action.id });
+        else if (done.over) tellMemo(`関連は 1 枚のカードから ${MAX_LINKS_PER_CARD} 本までです（ほかの関連を外してから付けてください）`, { memo: action.id });
+        else if (done.refusedLinks > 0) tellMemo('その相手とは結べませんでした（相手のカードがもう無いか、もう「同じ」でつながっています）', { memo: action.id });
         break;
       }
       case 'moveReply':
@@ -6853,6 +6910,12 @@ export function startPrimary() {
         if (asked && !replyId) tellMemo('そのコメントは、もうありません（メモだけ開きました）');
         break;
       }
+      case 'setBoardMemo': {
+        // ボードが見るメモ（M1：左が写しを送るだけ。画面からはまだ送らない）。id は信用せず形を確かめる
+        if (action.id !== null && typeof action.id !== 'string') break;
+        if (!memoPane.setBoardMemo(action.id)) tellMemo('そのメモは、もうありません（ボードのメモ：見つからない）');
+        break;
+      }
       case 'newMemoForPane': {
         try {
           const spot = spotForNewMemo();
@@ -6873,7 +6936,34 @@ export function startPrimary() {
         break;
       }
       case 'sendReplies': {
+        if (action.template !== undefined) {
+          // 型を貼る（元のメモは無い。貼り先は区画が今開いているメモ）。断るときは何も書かない
+          if (typeof action.to !== 'string' || action.to.length === 0 || action.to.length > 64) break;
+          const pasted = memos.sendReplies({ template: action.template, toId: action.to, ...(action.ids !== undefined ? { ids: action.ids } : {}) });
+          if (!pasted.ok) {
+            tellMemo(
+              pasted.why === 'ids'
+                ? pastedIdsText(pasted.idsWhy)
+                : pasted.why === 'full'
+                ? `型を貼れませんでした（このメモに入りきりません。あと ${pasted.room ?? 0} 枚まで、型は ${pasted.need ?? 0} 枚です。上限は ${MAX_REPLIES} 枚）`
+                : pasted.why === 'invalid'
+                  ? '型を貼れませんでした（型の中身を読めません）'
+                  : pasted.why === 'to'
+                    ? '型を貼れませんでした（このメモには貼れません）'
+                    : sendRefusalText(pasted),
+              { memo: action.to },
+            );
+            break;
+          }
+          tellMemo(`型「${pasted.name ?? ''}」を貼りました（${pasted.tops} 枚）`, { openMemo: pasted.toId, undoSend: pasted.token });
+          break;
+        }
         if (typeof action.from !== 'string' || !Array.isArray(action.replyIds)) break;
+        // ids は型を貼るときだけ。型のないカードの送りに付いていたら、何も送らずに断る（B3-2a）
+        if (action.ids !== undefined) {
+          tellMemo('送れませんでした（カードの id を決められるのは、型を貼るときだけです）');
+          break;
+        }
         const mode = action.mode === 'move' || action.mode === 'copy' ? action.mode : null;
         if (!mode) break;
         const replyIds = action.replyIds.filter((id): id is string => typeof id === 'string' && id.length > 0 && id.length <= 64).slice(0, MAX_REPLIES);
@@ -6918,9 +7008,27 @@ export function startPrimary() {
       case 'copyMemoCell':
         void copyMemoCell(action.text, action.by, action.label);
         break;
-      case 'removeReply':
-        threadActions.remove(action.ref, action.replyId);
+      case 'removeReply': {
+        // undoToken（B3-3a。省略できる）：形が悪ければ何も消さずに断る。メモのカードだけに効く（タブのメモへの返信は台帳の外なので控えない）
+        if (action.undoToken !== undefined && !isRestoreToken(action.undoToken)) {
+          tellMemo('削除できませんでした（元に戻す印の形が正しくありません）');
+          break;
+        }
+        if (action.undoToken !== undefined && action.ref.kind === 'memo') memos.removeReply(action.ref.id, action.replyId, action.undoToken);
+        else threadActions.remove(action.ref, action.replyId);
         break;
+      }
+      case 'restoreReplies': {
+        // 削除の取り消し（B3-3a。画面からはまだ送らない。ボードの Undo が使う＝B3-3b）。id・token は信用せず形を検査する
+        if (typeof action.id !== 'string' || !isRestoreToken(action.token)) {
+          tellMemo('元に戻せませんでした');
+          break;
+        }
+        const restored = memos.restoreReplies(action.id, action.token);
+        if (!restored.ok) tellMemo(restored.why === 'stale' ? '元に戻せませんでした（そのあとにメモが変わっています）' : '元に戻せませんでした', { memo: action.id });
+        else tellMemo('削除を元に戻しました', { memo: action.id });
+        break;
+      }
       case 'copyComment':
         threadActions.copy(action.ref, action.replyId);
         break;

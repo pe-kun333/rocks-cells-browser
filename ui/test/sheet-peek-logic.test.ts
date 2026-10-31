@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { centerPan, clampBox, ClickCounter, peekBox } from '../src/sheet-peek-logic';
+import { centerPan, clampBox, ClickCounter, PEEK_EMPTY_WRITE_LABEL, peekBox, peekEmptyMenuPlan, peekMemoNote } from '../src/sheet-peek-logic';
 
 describe('ClickCounter', () => {
   it('同じものを 400ms 以内に2回 → 1回目の key', () => {
@@ -80,5 +80,34 @@ describe('peekBox', () => {
   });
   it('clampBox：盤面の外へは出ない', () => {
     expect(clampBox({ left: -50, top: 900, width: 100, height: 100 }, area)).toEqual({ left: 0, top: 500, width: 100, height: 100 });
+  });
+});
+
+describe('peekEmptyMenuPlan：小窓の空いたセルの右クリックメニュー', () => {
+  it('見出しにシート名、項目は「メモを書く」だけ', () => {
+    const plan = peekEmptyMenuPlan('入口先');
+    expect(plan).toEqual({ heading: 'シート「入口先」のこのセルに', write: { id: 'write-memo', label: 'メモを書く' } });
+    expect(PEEK_EMPTY_WRITE_LABEL).toBe('メモを書く');
+  });
+  it('長いシート名は 20 文字で切る（…）。短いものはそのまま', () => {
+    const long = 'あ'.repeat(30);
+    expect(peekEmptyMenuPlan(long)?.heading).toBe(`シート「${'あ'.repeat(20)}…」のこのセルに`);
+    expect(peekEmptyMenuPlan('あ'.repeat(20))?.heading).toBe(`シート「${'あ'.repeat(20)}」のこのセルに`);
+  });
+  it('シートが消えている（null）ときはメニューを出さない', () => {
+    expect(peekEmptyMenuPlan(null)).toBeNull();
+  });
+});
+
+describe('peekMemoNote：保存したあとの一言', () => {
+  it('作れたときは空（小窓の中にメモが出るので知らせない）', () => {
+    expect(peekMemoNote({ sheetName: '入口先', created: true })).toBe('');
+  });
+  it('入口先のシートが消えていたら、作らず知らせる（作れたかどうかより先）', () => {
+    expect(peekMemoNote({ sheetName: null, created: false })).toContain('入口先のシートが見つかりません');
+    expect(peekMemoNote({ sheetName: null, created: true })).toContain('メモは作りませんでした');
+  });
+  it('上限などで作れなかったときも一言', () => {
+    expect(peekMemoNote({ sheetName: '入口先', created: false })).toContain('多すぎて');
   });
 });

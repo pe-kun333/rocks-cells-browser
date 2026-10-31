@@ -1,4 +1,8 @@
-// Grok Cards の段の旗（localStorage honeycomb.cardsStages。例 ["1","2","3","4"]）
+import { BOT_FEATURES } from './features';
+// Grok Cards の段の旗（localStorage honeycomb.cardsStages。例 ["1","2","4"]）
+//   【段 "3" は常にオン（2026-10-25・利用者の指示「旗を本体に反映」）】段 "3"（Grok Cards の枠・タブ・パネル・中継・保存。ボードもこの枠の中に入る）は、旗を読まず**常にオン**。鍵に "3" が入っていなくても・鍵が [] でも、オン。
+//     **ほかの段（1・2・4〜9）は今までどおり旗のまま**：鍵が無い・壊れている・その段が入っていなければオフ（段 "3" がオンでも、ほかの段はオンにならない）。値は書き換えない
+//     元に戻す（旗の版へ）：この変更のコミットを `git revert`（docs/plan-board-memo-switch.md §7）
 //   空なら、殻も帯も札も出さない。新しい鍵も書かない
 //   数の写し（下書きのタグ・順番待ちの id・返事の数）は、段 2 以降がオンのときだけ書く
 //   届いた k/n の写しは、段 8 がオンのときだけ書く。段 8 が無いときは、残っていても読まない
@@ -47,9 +51,24 @@ function readRaw(key: string): unknown {
   }
 }
 
+// 保存されている文字列（無ければ null）から、旗として入っている段を読む（壊れた値・配列以外・鍵が無いときは空）。段 "3" はここには関係なく、cardsStageOn が常にオンにする
+export function cardsStagesFromStorage(raw: string | null): readonly unknown[] {
+  if (raw === null) return [];
+  try {
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
 export function cardsStageOn(stage: string): boolean {
-  const raw = readRaw(CARDS_STAGES_KEY);
-  return Array.isArray(raw) && raw.some((item) => item === stage);
+  if (stage === '3') return BOT_FEATURES; // 公開版（rebuild-public.ps1）：Grok 機能が既定オフなので、段 3 の枠も BOT_FEATURES のときだけ // 常にオン（旗は読まない）。ほかの段は下で旗を読む
+  try {
+    return cardsStagesFromStorage(localStorage.getItem(CARDS_STAGES_KEY)).some((item) => item === stage);
+  } catch {
+    return false;
+  }
 }
 
 function countingOn(): boolean {

@@ -53,6 +53,8 @@ export interface SidebarActions {
   contextMenu(info: { id: number | null; memo: string | null; hex: Hex | null; x: number; y: number }): void;
   // 小窓の右クリック：今見ているシートのセルなら、メニューの前に盤面の選択を合わせる（ほかのシートのセルは選択に入れられない）
   prepareContextSelection?(id: number | null, memo: string | null): void;
+  // 小窓の空いたセルの右クリック（hex は押したセル）。無ければ今までどおり何も出さない。本盤面の右クリックは使わない（contextMenu のまま）
+  peekEmptyMenu?(hex: Hex, x: number, y: number): void;
   hoverMemo(id: string | null): void; // マウスが乗っているメモのセル
   openMemo(id: string): void; // メモのセルを押した（拡大表示にそのメモ）
   openMemoPane(id: string): void; // メモのセルをダブルクリックした（下の区画で開く）
@@ -1560,7 +1562,12 @@ export class Sidebar {
       this.hideBalloon();
       const id = idAt(e.target);
       const memo = memoAt(e.target);
-      if (id === null && memo === null) return; // 空いた所：今のシート向けのメニューは出さない
+      if (id === null && memo === null) {
+        // 空いた所：今のシート向けのメニューは出さない。小窓用の peekEmptyMenu があるときだけ、入口先のシート向けの小さなメニュー
+        const at = this.toWorld(this.local(e));
+        this.actions.peekEmptyMenu?.(pixelToHex(at.x, at.y, CELL), e.clientX, e.clientY);
+        return;
+      }
       const w = this.toWorld(this.local(e));
       this.actions.prepareContextSelection?.(id, memo);
       this.actions.contextMenu({ id, memo, hex: pixelToHex(w.x, w.y, CELL), x: e.clientX, y: e.clientY });

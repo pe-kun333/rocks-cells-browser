@@ -292,7 +292,7 @@ export type UiMessage =
   | { type: 'openMediaFile'; requestId: number }
   // 画像ファイルを選んでもらう（左の盤面）。返事は imageFile。縮図も付く
   | { type: 'openImageFile'; requestId: number }
-  // Grok の提案ファイル（JSON）を選んでもらう（左だけ）。返事は jsonFile
+  // JSON ファイル（Grok の提案・型の書き出し）を選んでもらう（左と下の区画だけ）。返事は jsonFile
   | { type: 'openJsonFile'; requestId: number }
   // クリップボードの JPEG（data URL か Base64）をピクチャ\Rocks-cells Browser\ に書く。返事は imageSaved。左からだけ
   | { type: 'saveClipboardImage'; requestId: number; data: string }

@@ -1,0 +1,61 @@
+{
+  "format": "honeycomb-cardtpl",
+  "version": 1,
+  "templates": [
+    {
+      "version": 1,
+      "id": "sample-proscons",
+      "name": "賛成・反対・結論",
+      "folder": "議論",
+      "mode": "skeleton",
+      "cards": [
+        { "key": "k0", "title": "論点", "body": "", "tags": ["論点"], "dx": 240, "dy": 0 },
+        { "key": "k1", "title": "賛成", "body": "", "tags": ["賛成"], "dx": 0, "dy": 150 },
+        { "key": "k2", "title": "反対", "body": "", "tags": ["反対"], "dx": 480, "dy": 150 },
+        { "key": "k3", "title": "結論", "body": "", "tags": ["結論"], "dx": 240, "dy": 300 }
+      ],
+      "links": [
+        { "from": "k1", "to": "k0", "kind": "next" },
+        { "from": "k2", "to": "k0", "kind": "next" },
+        { "from": "k1", "to": "k3", "kind": "ground" }
+      ]
+    },
+    {
+      "version": 1,
+      "id": "shared-week-review",
+      "name": "週の振り返り（共有の例）",
+      "folder": "計画",
+      "mode": "hole",
+      "cards": [
+        { "key": "k0", "title": "今週のテーマ", "body": "\n{{テーマ}}", "tags": ["計画"], "dx": 0, "dy": 0 },
+        { "key": "k1", "title": "できたこと", "body": "\n{{できたこと}}", "tags": ["振り返り"], "dx": 240, "dy": 0 },
+        { "key": "k2", "title": "来週やること", "body": "\n{{来週}}", "tags": ["計画"], "dx": 480, "dy": 0 }
+      ],
+      "links": [
+        { "from": "k1", "to": "k0", "kind": "ground" },
+        { "from": "k2", "to": "k1", "kind": "next" }
+      ]
+    },
+    {
+      "version": 1,
+      "id": "shared-reading-note",
+      "name": "読書メモ（共有の例）",
+      "folder": "調査",
+      "mode": "snapshot",
+      "cards": [
+        { "key": "k0", "title": "本の題名", "body": "\n著者・出版年をここに", "tags": ["調査"], "dx": 0, "dy": 0 },
+        { "key": "k1", "title": "要点", "body": "\n3 行でまとめる", "tags": ["要点"], "dx": 240, "dy": 0 }
+      ],
+      "links": [{ "from": "k1", "to": "k0", "kind": "ground" }]
+    },
+    {
+      "version": 1,
+      "id": "broken-example",
+      "name": "壊れた型の例（読み込みでは飛ばされます）",
+      "folder": "その他",
+      "mode": "snapshot",
+      "cards": [],
+      "links": []
+    }
+  ]
+}

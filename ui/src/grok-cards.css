@@ -477,3 +477,519 @@
     scroll-behavior: auto;
   }
 }
+
+/* ボード（B1-3 タブと［拡大］、B1-4 読むだけの面）。データの色は、既存の線・名札・札の列の部品（data-colors.css に宣言がある）を使い回す */
+.grok-cards-tab.board-tab {
+  margin-left: 2px;
+}
+
+.memo-board {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.memo-board-bar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.memo-board-title {
+  font-weight: 700;
+}
+
+.memo-board-count {
+  margin-left: 6px;
+  color: var(--muted);
+}
+
+.memo-board-orphan {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.memo-board-bar-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.memo-board-search {
+  width: 110px;
+  box-sizing: border-box;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.memo-board-zoom {
+  min-width: 34px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.memo-board-expand,
+.memo-board-place,
+.memo-board-fit {
+  padding: 1px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.memo-board-expand:focus-visible,
+.memo-board-place:focus-visible,
+.memo-board-fit:focus-visible,
+.memo-board-search:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: 2px;
+}
+
+.memo-board-tools {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.memo-board-tool {
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.memo-board-tool:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.memo-board-tool:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+.memo-board-tool.is-primary {
+  border-color: var(--accent-line);
+}
+
+.memo-board-tool.is-danger:not(:disabled) {
+  border-color: var(--accent-line);
+}
+
+/* 選んだカードのタグ（既存のタグの欄をそのまま入れる） */
+.memo-board-tagrow {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.memo-board-tagrow-label {
+  color: var(--muted);
+}
+
+/* カードを足す・書き直す小窓 */
+.memo-board-compose {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.memo-board-compose-text {
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.memo-board-compose-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.memo-board-compose-hint {
+  color: var(--muted);
+}
+
+/* 線を引く途中：相手のカードを押すのを待つ */
+.memo-board-linkbar,
+.memo-board-tidybar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.memo-board-stage.is-linking,
+.memo-board-stage.is-linking .memo-board-card,
+.memo-board-stage.is-linking[data-movable='true'] .memo-board-card {
+  cursor: crosshair;
+}
+
+.memo-board-card.is-link-source {
+  outline: 2px dashed var(--accent-line);
+  outline-offset: 3px;
+}
+
+.memo-board-filter {
+  flex: none;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.memo-board-note {
+  flex: none;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.memo-board-note[data-tone='warn'] {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.memo-board-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background-image: radial-gradient(var(--grid) 1px, transparent 1px);
+  background-size: 20px 20px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+/* カードは左ボタンのドラッグで動かせる（読めない・読み込み中は動かせないので矢印のまま）。スペース押下中・空きは「つかんで動かす」＝見ている位置の移動 */
+.memo-board-stage[data-movable='true'] .memo-board-card {
+  cursor: grab;
+}
+
+.memo-board-stage.is-space,
+.memo-board-stage.is-space .memo-board-card,
+.memo-board-stage.is-space[data-movable='true'] .memo-board-card {
+  cursor: grab;
+}
+
+.memo-board-stage.is-panning,
+.memo-board-stage.is-panning .memo-board-card,
+.memo-board-stage.is-dragging,
+.memo-board-stage.is-dragging .memo-board-card,
+.memo-board-stage[data-movable='true'].is-dragging .memo-board-card {
+  cursor: grabbing;
+}
+
+.memo-board-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+/* 保存した・できなかった、の一言 */
+.memo-board-status {
+  flex: none;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.memo-board-status[data-tone='warn'] {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.memo-board-links {
+  z-index: 1;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.memo-board-link-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.memo-board-link-label {
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.memo-board-link.is-dim {
+  opacity: 0.2;
+}
+
+.memo-board-card {
+  position: absolute;
+  width: 190px;
+  height: 96px;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  overflow: hidden;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 14%, transparent);
+  cursor: default;
+}
+
+/* 選んでいるカード：太い縁と、まわりの輪（色だけに頼らず、線の太さでも分かる） */
+.memo-board-card.is-selected {
+  border-color: var(--accent-line);
+  border-width: 2.5px;
+  padding: 5px 7px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-line) 35%, transparent);
+}
+
+.memo-board-card.is-selected.is-dragging {
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--text) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--accent-line) 35%, transparent);
+}
+
+/* Shift＋空きのドラッグ：範囲選択の四角（面の上に重ねる） */
+.memo-board-marquee {
+  position: absolute;
+  z-index: 3;
+  box-sizing: border-box;
+  border: 1px dashed var(--accent-line);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  pointer-events: none;
+}
+
+.memo-board-marquee[hidden] {
+  display: none;
+}
+
+/* つまんでいる間：影つきで浮かせる（線は追従する。カードが線の層の上に来る） */
+.memo-board-card.is-dragging {
+  z-index: 2;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--text) 30%, transparent);
+}
+
+.memo-board-card.is-provisional {
+  border-style: dashed;
+}
+
+.memo-board-card.is-dim {
+  opacity: 0.28;
+}
+
+.memo-board-card-title {
+  max-height: 34px;
+  overflow: hidden;
+  padding-right: 22px;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.memo-board-card-body {
+  max-height: 30px;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.memo-board-card-tags {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 5px;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.memo-board-chip {
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.memo-board-chip.is-more {
+  background: none;
+  color: var(--muted);
+}
+
+.memo-board-card-mark {
+  position: absolute;
+  right: 6px;
+  top: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.memo-board-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.memo-board-empty[hidden] {
+  display: none;
+}
+
+.memo-board-hint {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 11px;
+  opacity: 0.9;
+  pointer-events: none;
+}
+/* B4-2：狭い幅でボタンの字が割れない・上の件数と道具の列が重ならない・切れない。色は既存のテーマ変数だけ（新しい色は作らない） */
+.memo-board-tool,
+.memo-board-expand,
+.memo-board-fit {
+  white-space: nowrap;
+}
+
+/* C3：上に出す／下に戻すボタン（字が割れない） */
+.memo-board-place {
+  white-space: nowrap;
+}
+
+.memo-board-linkbar,
+.memo-board-tidybar {
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.memo-board-linkbar-text,
+.memo-board-tidybar-text {
+  flex: 1 1 14em;
+  min-width: 0;
+}
+
+.memo-board-search {
+  max-width: 100%;
+}
+
+.memo-board-hint {
+  max-width: calc(100% - 16px);
+  box-sizing: border-box;
+  text-align: right;
+  line-height: 1.4;
+}
+
+/* 入力欄の見本の字：ブラウザ標準の灰色は暗いテーマで読めないので、地の上で読める既存の変数にする */
+.memo-board-search::placeholder,
+.memo-board-compose-text::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+/* 選んだカードのタグの「×」：明るい 2 つのテーマで 4.5:1 にわずかに届かなかったので、字の色にする */
+.memo-board-tagrow .tag-remove {
+  color: var(--text);
+}
+
+/* M3：ボードが見ているメモの名札。別のメモを見ているとき（is-other）は色つき・太字で、帯の左にも色を付ける。下と同じメモのときは控えめ。色は既存のテーマ変数だけ */
+.memo-board-memotag {
+  max-width: 14em;
+  overflow: hidden;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.memo-board-memotag:disabled {
+  cursor: default;
+}
+
+.memo-board-memotag.is-other {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.memo-board-memotag:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: 2px;
+}
+
+.memo-board.is-other-memo .memo-board-bar {
+  box-shadow: inset 4px 0 0 var(--accent-line);
+  background: var(--accent-soft);
+}

@@ -1,15 +1,19 @@
 // 下の区画の「メモ｜Grok Cards」（段 3・4）
-//   旗 "3" が無いときは、札も列も足さない。メモの升目・ドラッグ・詰めは、このタブを出していないあいだ今までどおり
+//   段 "3" は常にオン（旗は廃止）なので、この「無いとき」の道は今は通らない。旗 "3" が無いときは、札も列も足さない。メモの升目・ドラッグ・詰めは、このタブを出していないあいだ今までどおり
 import { cardsStageOn, onCardsStore, readCardsDevState, readCardsPlace, readColumnPrefs, readQueue, shownCountLine, writeCardsOpen, writeCardsPlace, writeColumnPrefs } from '../cards-stages';
 import { columnKey, orderColumns, withAddedColumn } from '../grok-cards-columns';
 import { cardArrivedLabel, requestArrivedLabel } from '../grok-cards-arrived';
 import { cardFace, heldGroups, queueNote } from '../grok-cards-face';
-import { cardsTabLabel, hostPlaceCommand, type CardsPlace } from '../grok-cards-place';
+import { cardsTabLabel, type CardsPlace } from '../grok-cards-place';
 import { send } from '../bridge';
 import { DRAFT_DAYS, peekDrafts, type BotDraft } from '../drafts';
 import { CHAT_SENT, EVERYONE_ADDRESS, parseAddress, parseSent } from '../grok-cards-tags';
 import type { RelayCommand } from '../types';
 import { el } from '../util';
+import { boardUpperEnabled, onBoardPlace, readBoardPlace, requestPlace, settleBoardPlace } from '../card-board-stages';
+import { BOARD_TAB_TITLE_UPPER, boardTabClickFor, boardTabLabel, boardTabShownFor, chromeForPlaces, escActionFor, hostCommandFor, type UpperOwner } from '../memo-card-board-place';
+import { boardTabClick, cardsTabClick, type Chrome, chromeFor, escAction, titleClick, type PaneTab } from '../grok-cards-tabs';
+import { type BoardMemoPick, type BoardPlaceHook, type BoardSource, type BoardTemplateHook, MemoBoardPanel, type PaneHeightApi } from './memo-board-tab';
 
 export interface GrokRequestSnap {
   requestId: string;
@@ -64,7 +68,13 @@ interface MountOpts {
   ask(action: RelayCommand): void;
   closeLists(): void;
   pane: HTMLElement;
-  setCardsUpper(on: boolean): void;
+  setCardsUpper(on: boolean, owner?: 'cards' | 'board'): void; // 上の入れ物（段 9・案 C）。owner は上に入れるもの（既定は Grok Cards）
+  paneHeight?: PaneHeightApi; // 区画の高さの道（つまみと同じ）。「ボード」の［拡大］で使う
+  boardSource?: BoardSource; // いま開いているメモのカードの写し（読むだけ）。「ボード」に描く
+  boardPick?: BoardMemoPick; // ボードの見るメモの名札・選び口（M3）
+  boardAsk?: (action: RelayCommand) => void; // ボードが左へ送る命令（無ければ ask と同じ）。下の面が、ボードの型の貼り付けを見分けるため
+  boardTemplate?: BoardTemplateHook; // ボードの「型にする…」が借りる、下の区画の登録の小窓
+  boardNotices?: { onNotice(fn: (text: string) => void): void; onUndoSend?(fn: (token: string, openMemo: string) => void): void }; // 左の知らせ（断られた理由など）。「ボード」の一言に出す。onUndoSend：型の貼り付けの「元に戻す」の印（B3-3b。ボードの Undo が使う）
 }
 
 export function mountGrokCards(o: MountOpts): GrokCardsMount {
@@ -85,8 +95,10 @@ export function mountGrokCards(o: MountOpts): GrokCardsMount {
   return new GrokCardsView(o);
 }
 
+const BOARD_TAB_TITLE = 'ボード（メモのカードを自由に置く面。今は準備中）';
+
 class GrokCardsView {
-  private tab: 'memo' | 'cards' = 'memo';
+  private tab: PaneTab = 'memo';
   private memoOpen = false;
   private data: GrokCardsData = { cards: [], bots: [], dock: [], refused: false };
   private requests: GrokRequestSnap[] = [];
@@ -106,6 +118,11 @@ class GrokCardsView {
   private body: HTMLElement | null = null;
   private placeBar: HTMLElement | null = null;
   private sentUpper = false;
+  private board: MemoBoardPanel | null = null;
+  private boardBtn: HTMLButtonElement | null = null;
+  private placing = false; // 置き場を書いている最中（途中の状態で面を組み替えない。書き終えてから 1 回だけ組み替える）
+  private boardUp = false; // いま、ボードの面を上の入れ物に入れている（案 C）
+  private placeUi = false; // ボードに「上に出す」ボタンを出している（外れたら 1 回だけ戻す）
 
   constructor(private readonly o: MountOpts) {
     this.tab = 'memo';
@@ -118,8 +135,8 @@ class GrokCardsView {
     this.tabBtn.setAttribute('aria-selected', 'false');
     this.tabBtn.title = 'Grok Cards（ボットへの下書き）';
     this.tabBtn.addEventListener('click', () => {
-      if (readCardsPlace() === 'upper') {
-        writeCardsPlace('bottom');
+      if (cardsTabClick(this.isUpper()) === 'place-bottom') {
+        this.setCardsPlace('bottom');
         return;
       }
       this.showCards();
@@ -131,7 +148,7 @@ class GrokCardsView {
     this.o.title.addEventListener(
       'click',
       (e) => {
-        if (this.tab !== 'cards') return;
+        if (titleClick(this.tab) !== 'show-memo') return;
         e.preventDefault();
         e.stopPropagation();
         this.showMemo();
@@ -144,7 +161,14 @@ class GrokCardsView {
       if (this.showingCards()) void this.loadQueue();
     });
     writeCardsOpen(false);
+    // 起動時に、Grok Cards とボードが両方「上」と残っていたら、ボードを下に戻す（鍵も書き戻す）。一言は上に残る Grok Cards の状態欄に出す（段 "2" が無ければ何もしない）
+    if (boardUpperEnabled()) this.notice = settleBoardPlace();
     this.applyPlace();
+    this.ensureBoard();
+    onBoardPlace(() => {
+      if (this.placing || !(boardUpperEnabled() || this.boardUp)) return; // 段 "2" が無い人には、今までのまま何もしない
+      this.applyPlace();
+    });
   }
 
   sync(memoOpen: boolean) {
@@ -153,24 +177,69 @@ class GrokCardsView {
   }
 
   consumeEsc(e: KeyboardEvent): boolean {
-    if (this.tab !== 'cards') return false;
+    if (this.tab === 'memo') return this.consumeBoardUpperEsc(e);
     const target = e.target;
-    if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) return false;
-    if (this.picker) {
-      e.preventDefault();
+    const inField = target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement;
+    const action = escAction(this.tab, { inField, picker: this.picker, boardExpanded: this.board?.expanded, boardDragging: this.board?.dragging, boardSelected: this.board?.hasSelection });
+    if (action === 'ignore') return false;
+    e.preventDefault();
+    if (action === 'close-picker') {
       this.picker = false;
       this.render();
       return true;
     }
-    e.preventDefault();
-    if (this.root.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
+    if (action === 'cancel-drag') {
+      this.board?.cancelDrag();
+      return true;
+    }
+    if (action === 'clear-selection') {
+      this.board?.clearSelection();
+      return true;
+    }
+    if (action === 'shrink-board') {
+      this.board?.shrink();
+      return true;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && (this.root.contains(active) || this.board?.root.contains(active))) active.blur();
     this.showMemo();
     return true;
   }
 
+  // ボードを上に出しているあいだの Esc（C4）。つまむのを取り消す→選びを外す、まで。縮めない・メモのタブへ戻さない・下へ戻さない（戻すのは［下に戻す］だけ。U9）
+  //   下の帯のメモ側（フォーカスが下の帯・境目）の Esc は、メモの今までの Esc に任せる。上に出していないとき（段 "2" 無しも含む）は、今までどおり何もしない
+  private consumeBoardUpperEsc(e: KeyboardEvent): boolean {
+    const board = this.board;
+    if (!board || !this.isBoardUpper()) return false;
+    if (board.ownsMenu(e)) {
+      e.preventDefault(); // ボードのメニューの Esc は、メニューを閉じるだけ（メニュー自身が閉じる）。メモの帯は閉じない・選びも外さない（M3）
+      return true;
+    }
+    if (!board.keysAllowed(e.target)) return false;
+    const target = e.target;
+    const inField = target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement;
+    const action = escActionFor('memo', { inField, picker: false, boardDragging: board.dragging, boardSelected: board.hasSelection }, true);
+    if (action === 'cancel-drag') {
+      e.preventDefault();
+      board.cancelDrag();
+      return true;
+    }
+    if (action === 'clear-selection') {
+      e.preventDefault();
+      board.clearSelection();
+      return true;
+    }
+    // 取り消すものが無いとき：ボードの面の中（ボタンなど。欄は除く）にフォーカスがあるなら、何もしない（メモの帯を閉じない）。どこにも無いときは、メモの今までの Esc に任せる
+    if (!inField && board.hasFocusInside(target)) {
+      e.preventDefault();
+      return true;
+    }
+    return false;
+  }
+
   onOpen(open: boolean) {
     if (open) this.applyOpen();
-    else this.applyClosed();
+    else if (this.tab !== 'board') this.applyClosed(); // ボードを見ているときは、左の「閉じた」知らせでボードから追い出さない
   }
 
   onData(data: GrokCardsData) {
@@ -224,7 +293,19 @@ class GrokCardsView {
     if (was) this.o.ask({ command: 'closeGrokCards' });
   }
 
+  // ボードは左の台帳に関わらない面。Grok Cards を見ていたなら、左へ「閉じた」と伝える（札の旗も下ろす）
+  private showBoard() {
+    if (boardTabClick(this.tab) === 'stay' || !this.board) return;
+    const was = this.tab === 'cards';
+    this.tab = 'board';
+    writeCardsOpen(false);
+    this.o.closeLists();
+    this.applyChrome();
+    if (was) this.o.ask({ command: 'closeGrokCards' });
+  }
+
   private applyOpen() {
+    this.leaveBoard();
     this.tab = 'cards';
     writeCardsOpen(true);
     this.o.closeLists();
@@ -233,6 +314,7 @@ class GrokCardsView {
   }
 
   private applyClosed() {
+    this.leaveBoard();
     this.tab = 'memo';
     writeCardsOpen(false);
     this.applyChrome();
@@ -240,40 +322,69 @@ class GrokCardsView {
 
   private applyChrome() {
     const upper = this.isUpper();
-    const show = this.tab === 'cards' && !upper;
-    this.root.hidden = upper ? false : !show;
-    this.tabBtn.setAttribute('aria-selected', String(show));
-    this.o.title.setAttribute('aria-selected', String(upper || !show));
+    const bu = this.isBoardUpper();
+    const base = { tab: this.tab, upper, memoOpen: this.memoOpen, sheetEmpty: this.o.sheet.textContent?.trim() === '' };
+    const c: Chrome = bu ? chromeForPlaces({ ...base, boardUpper: true }) : chromeFor(base);
+    this.root.hidden = c.cardsRootHidden;
+    this.tabBtn.setAttribute('aria-selected', String(c.cardsSelected));
+    this.o.title.setAttribute('aria-selected', String(c.memoSelected));
+    this.paintBoardTab(c.boardSelected);
     this.paintCount();
-    if (show) {
-      this.o.band.hidden = false;
-      this.o.main.hidden = false;
-      this.o.scroll.hidden = true;
-      this.o.tools.hidden = true;
-      this.o.countline.hidden = true;
-      this.o.status.hidden = true;
-      this.o.empty.hidden = true;
-      this.o.sheet.hidden = true;
-      this.o.page.hidden = true;
-      return;
-    }
-    this.o.tools.hidden = !this.memoOpen;
-    this.o.main.hidden = !this.memoOpen;
-    this.o.scroll.hidden = !this.memoOpen;
-    this.o.countline.hidden = !this.memoOpen;
-    this.o.status.hidden = !this.memoOpen;
-    this.o.empty.hidden = this.memoOpen;
-    // メモが無くても札は出す（この面から Grok Cards を開ける。旗が無いときは、この関数自体が呼ばれない）
-    this.o.band.hidden = false;
-    if (this.memoOpen) {
-      this.o.page.hidden = false;
-      this.o.sheet.hidden = this.o.sheet.textContent?.trim() === '';
-    } else {
-      this.o.sheet.hidden = true;
-      this.o.page.hidden = true;
+    // メモが無くても帯は出す（この面から Grok Cards を開ける。旗が無いときは、この関数自体が呼ばれない）
+    this.o.band.hidden = c.band;
+    this.o.main.hidden = c.main;
+    this.o.scroll.hidden = c.scroll;
+    this.o.tools.hidden = c.tools;
+    this.o.countline.hidden = c.countline;
+    this.o.status.hidden = c.status;
+    this.o.empty.hidden = c.empty;
+    this.o.sheet.hidden = c.sheet;
+    this.o.page.hidden = c.page;
+    // ボードの面は、主の枠を出したあとで見せる（面の大きさを測るため）
+    this.board?.setHidden(c.boardRootHidden);
+    // ボタンと［拡大］の出し分け。段 "2" が一度も入っていない人には触らない（外れたときは 1 回だけ元に戻す）
+    const placeOn = boardUpperEnabled();
+    if (this.board && (placeOn || this.placeUi)) {
+      this.board.setPlace(placeOn, bu);
+      this.placeUi = placeOn || bu;
     }
   }
 
+  // ボードのタブと面を作る（旗は廃止したので常に作る。2026-10-25）
+  private ensureBoard() {
+    if (!this.board) {
+      const place: BoardPlaceHook = { request: (to) => this.placeBoard(to) };
+      const panel = new MemoBoardPanel(this.o.paneHeight, this.o.boardSource, { ask: (action) => (this.o.boardAsk ?? this.o.ask)(action), pick: this.o.boardPick, onNotice: this.o.boardNotices?.onNotice, onUndoSend: this.o.boardNotices?.onUndoSend, template: this.o.boardTemplate, place });
+      const btn = el('button', 'grok-cards-tab board-tab', 'ボード');
+      btn.type = 'button';
+      btn.dataset.key = 'board-tab';
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', 'false');
+      btn.title = BOARD_TAB_TITLE;
+      btn.addEventListener('click', () => (boardTabClickFor(this.tab, this.isBoardUpper()) === 'place-bottom' ? this.placeBoard('bottom') : this.showBoard()));
+      this.tabCount.after(btn);
+      this.o.main.append(panel.root);
+      this.board = panel;
+      this.boardBtn = btn;
+    }
+    if (boardUpperEnabled() || this.boardUp) this.applyPlace(); // 置き場も組み替える
+    else this.applyChrome();
+  }
+
+  private paintBoardTab(selected: boolean) {
+    if (!this.boardBtn) return;
+    const bu = this.isBoardUpper();
+    this.boardBtn.hidden = !boardTabShownFor(true, this.tab, this.isUpper(), bu);
+    this.boardBtn.setAttribute('aria-selected', String(selected));
+    this.boardBtn.textContent = boardTabLabel(bu ? 'upper' : 'bottom');
+    this.boardBtn.classList.toggle('is-upper', bu);
+    this.boardBtn.title = bu ? BOARD_TAB_TITLE_UPPER : BOARD_TAB_TITLE;
+  }
+
+  // ボードを離れるとき、このタブで広げた高さを元へ戻す
+  private leaveBoard() {
+    if (this.tab === 'board') this.board?.leave();
+  }
   private paintCount() {
     const upper = this.isUpper();
     const line = shownCountLine();
@@ -287,17 +398,31 @@ class GrokCardsView {
     return readCardsPlace() === 'upper';
   }
 
+  // ボードを上の入れ物に入れているか（段 "1" と "2" があり、ボードの面があり、置き場が上で、Grok Cards が上を持っていないとき）
+  private isBoardUpper(): boolean {
+    return !!this.board && boardUpperEnabled() && !this.isUpper() && readBoardPlace() === 'upper';
+  }
+
   // 段 9 が無いときは、札の根の子は今までどおり（帯も包みも足さない）。上半分のときだけ札の根を上の枠へ移す
   private applyPlace() {
+    if (this.placing) return;
     const stage9 = cardsStageOn('9');
     const place = readCardsPlace();
     const upper = place === 'upper';
+    const bu = this.isBoardUpper();
     if (!stage9 && this.body) {
       this.dropStage9Chrome();
       if (this.tab === 'cards') this.render();
     }
-    this.syncUpperDom(upper);
-    this.pushHost(stage9, place);
+    // ボードが上に出るとき、下の帯でボードを見ていたなら、下のタブはメモへ（上のボードは下の帯のタブにならない）。広げていた高さは戻す
+    if (bu && this.tab === 'board') {
+      this.leaveBoard();
+      this.tab = 'memo';
+    }
+    this.boardUp = bu;
+    const owner: UpperOwner = upper ? 'cards' : bu ? 'board' : 'none';
+    this.syncUpperDom(owner);
+    this.pushHost(owner);
     if (stage9 && !this.body && (upper || this.tab === 'cards')) {
       if (this.root.querySelector('.grok-cards-cols')) this.render();
       else void this.loadQueue();
@@ -306,31 +431,71 @@ class GrokCardsView {
     this.applyChrome();
   }
 
-  private syncUpperDom(upper: boolean) {
-    if (upper) {
-      this.o.setCardsUpper(true);
+  // owner：上の入れ物に入れるもの。入れないほう（と、誰も持たないとき）は下の主の枠へ戻す。戻すのは setCardsUpper(false) の前（先に子を出しておく）
+  private syncUpperDom(owner: UpperOwner) {
+    const down = (node: HTMLElement | undefined) => {
+      if (!node || node.parentElement === this.o.main) return;
+      const mark = fieldMark(node);
+      this.o.main.append(node);
+      restoreField(node, mark);
+    };
+    if (owner !== 'none') {
+      const mine = owner === 'cards' ? this.root : this.board?.root;
+      down(owner === 'cards' ? this.board?.root : this.root); // 持たないほうは下へ
+      this.o.setCardsUpper(true, owner);
       const slot = this.o.pane.querySelector(':scope > .grok-cards-upper');
-      if (slot && this.root.parentElement !== slot) {
-        const mark = fieldMark(this.root);
-        slot.append(this.root);
-        restoreField(this.root, mark);
+      if (mine && slot && mine.parentElement !== slot) {
+        const mark = fieldMark(mine);
+        slot.append(mine);
+        restoreField(mine, mark);
       }
       return;
     }
-    if (this.root.parentElement !== this.o.main) {
-      const mark = fieldMark(this.root);
-      this.o.main.append(this.root);
-      restoreField(this.root, mark);
-    }
+    down(this.root);
+    down(this.board?.root);
     this.o.setCardsUpper(false);
   }
 
-  private pushHost(stage9: boolean, place: CardsPlace) {
-    const cmd = hostPlaceCommand(stage9, place, this.sentUpper);
+  private pushHost(owner: UpperOwner) {
+    const cmd = hostCommandFor(owner, this.sentUpper);
     if (cmd === null || (cmd === 'upper') === this.sentUpper) return;
     this.sentUpper = cmd === 'upper';
     if (cmd === 'upper') send({ type: 'setSidebar', side: 'memo', place: 'upper', visible: true });
     else send({ type: 'setSidebar', side: 'memo', place: '' });
+  }
+
+  // Grok Cards の「上の半分」「下の面」を押した。ボードを上に出せる（段 "2"）ときは、取り合い（あとから出したほうが上）も一緒に決める。一言は Grok Cards の状態欄へ
+  private setCardsPlace(place: CardsPlace) {
+    if (!this.board || !boardUpperEnabled()) {
+      writeCardsPlace(place);
+      return;
+    }
+    const note = this.requestPlaced({ who: 'cards', to: place });
+    if (note) {
+      this.notice = note;
+      if (this.showingCards()) this.render();
+    }
+  }
+
+  // ボードの「上に出す／下に戻す」（ボタン・ボードのタブ）。取り合いの一言はボードの一言欄へ。下に戻したら、そのままボードを下の帯で見せる
+  private placeBoard(to: 'upper' | 'bottom') {
+    if (!this.board || !boardUpperEnabled()) return;
+    const note = this.requestPlaced({ who: 'board', to });
+    if (to === 'bottom') this.showBoard();
+    if (note) this.board.notify(note);
+  }
+
+  // 置き場の鍵を書く（途中の状態で面を組み替えない）→ 1 回だけ組み替える。取り合いの一言を返す（無ければ空）
+  private requestPlaced(req: Parameters<typeof requestPlace>[0]): string {
+    let note = '';
+    this.placing = true;
+    try {
+      note = requestPlace(req).note;
+    } finally {
+      this.placing = false;
+    }
+    this.applyPlace();
+    return note;
   }
 
   private renderHost(): HTMLElement {
@@ -372,7 +537,7 @@ class GrokCardsView {
       button.type = 'button';
       button.dataset.place = place;
       if (place === 'upper') button.title = 'メモと一緒に見ます。下のタブから戻れます';
-      button.addEventListener('click', () => writeCardsPlace(place));
+      button.addEventListener('click', () => this.setCardsPlace(place));
       bar.append(button);
     }
     return bar;
