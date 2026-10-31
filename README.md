@@ -23,10 +23,10 @@ A Windows browser that arranges tabs on a hexagonal honeycomb, with memos, sheet
 **必要なもの / Requirements**
 
 - Windows 10 / 11（64 ビット）
-- **Microsoft Edge WebView2 ランタイム**：Windows 11 と、更新済みの Windows 10 には入っています。無いと「WebView2 の起動 に失敗しました」と出ます → [WebView2 ランタイム（Microsoft）](https://developer.microsoft.com/microsoft-edge/webview2/) の「Evergreen Bootstrapper」を入れてください。
-- **Visual C++ 再頒布可能パッケージ（x64）**：多くの PC には入っていますが、無いと「MSVCP140.dll が見つからない」などと出ます → [vc_redist.x64.exe（Microsoft）](https://aka.ms/vs/17/release/vc_redist.x64.exe) を入れてください。
+- **Microsoft Edge WebView2 ランタイム**：Windows 11 と、更新済みの Windows 10 には入っています。無いときは起動時に「WebView2 ランタイムが必要です。入手先を開きますか？」と聞かれます →「はい」で開く [WebView2 ランタイム（Microsoft）](https://developer.microsoft.com/microsoft-edge/webview2/) の「Evergreen Bootstrapper」を入れて、もう一度起動してください。
+- Visual C++ ランタイム：exe に組み込んであるので、別に入れる必要はありません（Ver0.031β から）。
 
-Quick start: download the portable zip from Releases, **extract it** (right-click → Extract All), then **double-click `RocksCellsBrowser.exe`**. Keep the `ui\` and `hexmemo\` folders next to the exe. Requires Windows 10/11 x64, the Microsoft Edge WebView2 Runtime (preinstalled on Windows 11) and the Visual C++ Redistributable x64 (https://aka.ms/vs/17/release/vc_redist.x64.exe) if it is not already installed.
+Quick start: download the portable zip from Releases, **extract it** (right-click → Extract All), then **double-click `RocksCellsBrowser.exe`**. Keep the `ui\` and `hexmemo\` folders next to the exe. Requires Windows 10/11 x64 and the Microsoft Edge WebView2 Runtime (preinstalled on Windows 11; if it is missing, the app offers to open the download page). The Visual C++ runtime is built into the exe.
 
 - 内蔵の六角メモ: 左サイドバーのシートのメニュー →「六角メモを開く」、またはアドレス欄に `https://hexmemo.local/`。exe の横の `hexmemo\` フォルダを WebView2 が仮想ホストとして見せるので、Node.js やサーバーは不要です。
 
