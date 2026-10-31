@@ -2,6 +2,7 @@
 //   ここで決めること：カードの顔（題・本文の頭・印・タグ）、線（曲線）の形、絞り込みで薄くするカード、読み込み状態の文、初めの見ている位置、ホイールの拡大率
 //   描くのは app/memo-board-tab.ts（カードは DOM、線は SVG）。位置の計算・座標の変換は memo-card-board.ts
 //   機械タグ（宛て:・送った:・貼った:）はここで落とす（顔にも絞り込みの札・検索にも出さない）
+import { t } from './i18n';
 import { BOARD_CARD, type Board, cleanCoord, DEFAULT_VIEW, fitView, layoutCards, liveRefs, moveNodes, type NodeMove, placementBounds, screenDeltaToBoard, setView, type BoardView } from './memo-card-board';
 import { boardSaveMessage, boardUnreadableNote, type LoadBoardResult, type SaveBoardResult } from './memo-card-board-store';
 import { BOARD_EMPTY_TEXT, BOARD_LOADING_NOTE, loadingNote, unreadableBlockNote } from './memo-card-board-texts';
@@ -212,8 +213,8 @@ export function pastThreshold(delta: { dx: number; dy: number }, threshold = DRA
 
 // 動かせないとき（読み込み中・読めないボード）の文。動かせるなら null。動かせないときは書かない
 export function moveBlockedNote(load: LoadBoardResult | null): string | null {
-  if (load === null) return loadingNote('動かして');
-  if (load.state === 'unreadable') return unreadableBlockNote('カードは動かせません', load.why);
+  if (load === null) return loadingNote(t('動かして'));
+  if (load.state === 'unreadable') return unreadableBlockNote(t('カードは動かせません'), load.why);
   return null;
 }
 
@@ -246,7 +247,7 @@ export function withPending(faces: readonly CardFace[], pending: ReadonlyMap<str
 
 // 保存の結果の文（成功は短く。初めての保存で控えを取ったときは、そのことも）
 export function moveResultNote(result: SaveBoardResult): { text: string; tone: 'info' | 'warn' } {
-  if (result.ok) return { text: result.backedUp ? '位置を保存しました（もとのボードの写しも取りました）' : '位置を保存しました', tone: 'info' };
+  if (result.ok) return { text: result.backedUp ? t('位置を保存しました（もとのボードの写しも取りました）') : t('位置を保存しました'), tone: 'info' };
   return { text: boardSaveMessage(result.why), tone: 'warn' };
 }
 // ---------- 見ている位置の保存（B2-2） ----------
@@ -271,7 +272,7 @@ export function planView(load: LoadBoardResult | null, view: BoardView, now: num
 // 見ている位置の保存の結果の文。うまくいったときは静か（パンのたびに出さない）。控えを取ったときと、できなかったときだけ出す
 export function viewResultNote(result: SaveBoardResult): { text: string; tone: 'info' | 'warn' } | null {
   if (!result.ok) return { text: boardSaveMessage(result.why), tone: 'warn' };
-  return result.backedUp ? { text: '見ている位置を保存しました（もとのボードの写しも取りました）', tone: 'info' } : null;
+  return result.backedUp ? { text: t('見ている位置を保存しました（もとのボードの写しも取りました）'), tone: 'info' } : null;
 }
 
 // ---------- 面の上に出す文 ----------
@@ -285,7 +286,7 @@ export interface BoardNote {
 export function boardNote(load: LoadBoardResult | null, provisional: number): BoardNote {
   if (load === null) return { text: BOARD_LOADING_NOTE, tone: 'info' };
   if (load.state === 'unreadable') return { text: boardUnreadableNote(load.why), tone: 'warn' };
-  if (provisional > 0) return { text: '仮の並びで見せています（位置はまだ保存されません）', tone: 'info' };
+  if (provisional > 0) return { text: t('仮の並びで見せています（位置はまだ保存されません）'), tone: 'info' };
   return { text: '', tone: '' };
 }
 

@@ -4,6 +4,7 @@
 //   ・右クリックは盤面と同じメニュー。ほかのセルは盤面と同じ左クリック。4px 以上動かすと盤面の移動で、セルは開かない。タブ自体はドラッグで動かさない
 //   ・中の入口だけ別：1回押す → 窓がそのシートに変わる（← で戻る）。2回押す → そのシートへ移る（窓は閉じる）
 //   ・窓は1つだけ。ほかの入口を押すと置き換わる。✕・Esc・移った・シートを変えた で閉じる。盤面のほかの所を押しても閉じない
+import { t as tr } from '../i18n';
 import { grabPointer } from '../pointer-grab';
 import type { Hex } from '../hex';
 import type { SheetStore } from '../sheets';
@@ -52,10 +53,10 @@ export class SheetPeek {
     this.title.append(
       this.backButton,
       label,
-      button('＋', '拡大', 'sheet-peek-zoom-in', () => this.board?.zoomBy(1.25)),
-      button('−', '縮小', 'sheet-peek-zoom-out', () => this.board?.zoomBy(0.8)),
-      button('入る', 'このシートへ移る', 'sheet-peek-enter', () => this.enterCurrent()),
-      button('✕', '閉じる（Esc）', 'sheet-peek-close', () => this.close()),
+      button('＋', tr('拡大'), 'sheet-peek-zoom-in', () => this.board?.zoomBy(1.25)),
+      button('−', tr('縮小'), 'sheet-peek-zoom-out', () => this.board?.zoomBy(0.8)),
+      button(tr('入る'), tr('このシートへ移る'), 'sheet-peek-enter', () => this.enterCurrent()),
+      button('✕', tr('閉じる（Esc）'), 'sheet-peek-close', () => this.close()),
     );
     this.body.className = 'sheet-peek-body';
     node.append(this.title, this.body);
@@ -188,11 +189,11 @@ export class SheetPeek {
     this.name.textContent = sheet.name;
     this.swatch.style.setProperty('--sheet', sheet.color);
     this.node.setAttribute('aria-label', `シート「${sheet.name}」の小窓`);
-    this.title.title = `シート「${sheet.name}」をのぞいています（見出しを引くと動かせます。タブは1回で詳しいカード、もう一度ですぐ開きます。盤面は移りません。入口は1回でこの窓が進み、2回で移ります）`;
+    this.title.title = tr('シート「{0}」をのぞいています（見出しを引くと動かせます。タブは1回で詳しいカード、もう一度ですぐ開きます。盤面は移りません。入口は1回でこの窓が進み、2回で移ります）', { 0: sheet.name });
     const prev = this.deps.sheets.get(this.history.at(-1));
     this.backButton.hidden = !prev;
-    this.backButton.title = prev ? `「${prev.name}」に戻る` : '';
-    this.backButton.setAttribute('aria-label', this.backButton.title || '戻る');
+    this.backButton.title = prev ? tr('「{0}」に戻る', { 0: prev.name }) : '';
+    this.backButton.setAttribute('aria-label', this.backButton.title || tr('戻る'));
   }
 
   // 入口のすぐ下（入らなければすぐ上）に置く

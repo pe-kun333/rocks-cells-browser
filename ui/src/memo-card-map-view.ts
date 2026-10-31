@@ -7,6 +7,7 @@
 //   ・出したカードは、頭の帯をつまんで動かすと、札の右・左・上・下のいちばん近い側に付く（⋯ の欄からも選べる）。
 //     選んだ側はカードごとに覚え、最後に選んだ側は、この窓を開いている間の新しいカードの初めの側にもなる（覚えるのは窓を開いている間だけ）
 //   ・画面の文字は textContent だけ（SVG の要素も）。乱数を使わない。localStorage を使わない（位置と止めは窓を開いている間だけ覚える）
+import { t } from './i18n';
 import { type DrawLink, linkKindInfo } from './memo-card-links';
 import { linkMarkerDefs } from './memo-card-link-layer';
 import {
@@ -136,11 +137,11 @@ export class MemoCardMap {
     const head = el('div', 'memo-pane-map-head');
     this.title = el('span', 'memo-pane-map-title');
     this.note = el('span', 'memo-pane-map-note');
-    const reset = el('button', 'memo-pane-map-reset', '置き直す');
+    const reset = el('button', 'memo-pane-map-reset', t('置き直す'));
     reset.type = 'button';
-    reset.title = '止めと位置を捨てて、最初から動かす';
+    reset.title = t('止めと位置を捨てて、最初から動かす');
     reset.addEventListener('click', () => this.reset());
-    const close = el('button', 'memo-pane-map-close', '× 並びに戻る（Esc）');
+    const close = el('button', 'memo-pane-map-close', t('× 並びに戻る（Esc）'));
     close.type = 'button';
     close.addEventListener('click', () => this.host.close());
     head.append(this.title, this.note, reset, close);
@@ -509,8 +510,8 @@ export class MemoCardMap {
   // 文（上の行・題・印・点・乗せたときの文・線の文）を、今の節と辺で書き直す（位置は動かさない）
   private paintText(): void {
     const n = this.graph.ids.length;
-    this.title.textContent = n > 0 ? `マップ：関連のあるカード ${n} 枚` : 'マップ：関連のあるカードはありません';
-    this.note.textContent = `関連の無いカード ${this.graph.loose} 枚（並びにだけ出ます）`;
+    this.title.textContent = n > 0 ? t('マップ：関連のあるカード {0} 枚', { 0: n }) : t('マップ：関連のあるカードはありません');
+    this.note.textContent = t('関連の無いカード {0} 枚（並びにだけ出ます）', { 0: this.graph.loose });
     this.note.hidden = this.graph.loose === 0;
     for (const [id, ref] of this.nodes) {
       const label = this.host.label(id);

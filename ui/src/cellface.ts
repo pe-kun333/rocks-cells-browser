@@ -2,6 +2,7 @@
 //   タブ：見え方（おまかせ・アイコン・画像・コメント・ページの画面）に合わせて、アイコン・画像・文字のどれか
 //   シートへの入口：シートの色でぬった六角形に、白い内枠と名前（案A「扉」）。画像を付けたら画像に色の縁
 //   ボットのセル：石板の色（--bot）の六角形に四角い頭の顔、左上に「外へ出る矢印」、右上に四角い札（ボット専用の顔）
+import { t as tr } from './i18n';
 import type { BotFullState } from './bots';
 import { hexCornerPoints, hexCorners } from './hex';
 import type { Tab, TabLook } from './tabs';
@@ -56,7 +57,7 @@ export function resolveFace(tab: Tab, globalLook: TabLook, src: FaceSources): Sh
     case 'image':
       return image ? { mode: 'image', href: image } : { mode: 'icon' };
     case 'comment':
-      return tab.comment ? { mode: 'text', text: tab.comment, dim: false } : { mode: 'text', text: tab.title || tab.url || '新しいタブ', dim: true };
+      return tab.comment ? { mode: 'text', text: tab.comment, dim: false } : { mode: 'text', text: tab.title || tab.url || tr('新しいタブ'), dim: true };
     case 'page': {
       const thumb = src.thumb(tab.id);
       return thumb ? { mode: 'image', href: thumb } : { mode: 'icon' };

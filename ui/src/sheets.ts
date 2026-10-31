@@ -2,14 +2,15 @@
 //   ・いつもある「メイン」（id は main）と、作ったシート。どのセルがどのシートにあるかは、セルの sheet に持つ
 //   ・シートへの入口は、メモのセルの一種（memo.portal に行き先のシート）。押すと盤面がそのシートに変わる
 //   ・台帳と「今見ているシート」は session.json に保存する（タブ・島と同じ所）
+import { t as tr } from './i18n';
 export const MAIN_SHEET = 'main';
-export const MAIN_SHEET_NAME = 'メイン';
+export const MAIN_SHEET_NAME = tr('メイン');
 // 右サイドバーの「メモ」の区画のシート（書いたコメントが、ここのメモのセルになる）。左のシートの一覧にも出る
 export const RIGHT_MEMO_SHEET = 'shrightmemo';
-export const RIGHT_MEMO_NAME = '右のメモ';
+export const RIGHT_MEMO_NAME = tr('右のメモ');
 // 撮影を見返すシート（C9）。セルはメモの capture。撮るボタンは置かない
 export const CAPTURE_SHEET = 'shcaptures';
-export const CAPTURE_SHEET_NAME = '撮ったもの';
+export const CAPTURE_SHEET_NAME = tr('撮ったもの');
 export const MAX_SHEETS = 100;
 const MAX_HISTORY = 30;
 // シートの色（入口の六角形をぬる。白い文字が読める濃さ）
@@ -92,7 +93,7 @@ export class SheetStore {
 
   add(name: string, color?: string): Sheet | null {
     if (this.items.length >= MAX_SHEETS) return null;
-    const sheet: Sheet = { id: newSheetId(), name: normalizeSheetName(name) || 'シート', color: color || this.nextColor(), createdAt: Date.now() };
+    const sheet: Sheet = { id: newSheetId(), name: normalizeSheetName(name) || tr('シート'), color: color || this.nextColor(), createdAt: Date.now() };
     this.items = [...this.items, sheet];
     this.emit();
     return sheet;
@@ -103,7 +104,7 @@ export class SheetStore {
   restore(sheet: Sheet, isEmpty: boolean): 'added' | 'replaced' | 'kept' | null {
     if (!isSheetId(sheet.id) || sheet.id === MAIN_SHEET || sheet.id === CAPTURE_SHEET || sheet.id === RIGHT_MEMO_SHEET) return null;
     const have = this.get(sheet.id);
-    const clean: Sheet = { id: sheet.id, name: normalizeSheetName(sheet.name) || 'シート', color: /^#[0-9a-f]{6}$/i.test(sheet.color) ? sheet.color : this.nextColor(), createdAt: Number.isFinite(sheet.createdAt) ? sheet.createdAt : Date.now() };
+    const clean: Sheet = { id: sheet.id, name: normalizeSheetName(sheet.name) || tr('シート'), color: /^#[0-9a-f]{6}$/i.test(sheet.color) ? sheet.color : this.nextColor(), createdAt: Number.isFinite(sheet.createdAt) ? sheet.createdAt : Date.now() };
     if (have) {
       if (!isEmpty) return 'kept';
       have.name = clean.name;
@@ -159,7 +160,7 @@ export class SheetStore {
 
   // セルが指しているのに台帳に無いシート（保存の途中で終わったときなど）を、名前だけの仮のシートとして足す
   //   name：決まった名前で足すとき（右のメモ）
-  ensure(ids: Iterable<string>, name = 'シート') {
+  ensure(ids: Iterable<string>, name = tr('シート')) {
     let added = false;
     for (const id of ids) {
       if (!id || this.get(id)) continue;
@@ -170,7 +171,7 @@ export class SheetStore {
       }
       if (this.items.length >= MAX_SHEETS) continue;
       const fixed = id === RIGHT_MEMO_SHEET ? RIGHT_MEMO_NAME : name;
-      this.items.push({ id, name: normalizeSheetName(fixed) || 'シート', color: this.nextColor(), createdAt: Date.now() });
+      this.items.push({ id, name: normalizeSheetName(fixed) || tr('シート'), color: this.nextColor(), createdAt: Date.now() });
       added = true;
     }
     if (added) this.emit();
@@ -217,7 +218,7 @@ export function parseSheets(raw: unknown): Sheet[] {
     if (typeof x.id !== 'string' || !/^(main|sh[0-9a-z]+)$/.test(x.id) || sheets.some((t) => t.id === x.id)) continue;
     sheets.push({
       id: x.id,
-      name: (typeof x.name === 'string' && normalizeSheetName(x.name)) || (x.id === MAIN_SHEET ? MAIN_SHEET_NAME : x.id === CAPTURE_SHEET ? CAPTURE_SHEET_NAME : 'シート'),
+      name: (typeof x.name === 'string' && normalizeSheetName(x.name)) || (x.id === MAIN_SHEET ? MAIN_SHEET_NAME : x.id === CAPTURE_SHEET ? CAPTURE_SHEET_NAME : tr('シート')),
       // theme: fixed begin：データの色（保存する値。描くときは data-colors.css でテーマの明るさの帯へ）
       color: typeof x.color === 'string' && /^#[0-9a-f]{6}$/i.test(x.color) ? x.color : '#2a9d8f',
       // theme: fixed end

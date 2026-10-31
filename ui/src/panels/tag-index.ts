@@ -4,6 +4,7 @@
 //   ・まとまりの中の並べ方：盤面の番号順／最近使った順／名前順（タブが先、メモのセルが後）
 //   ・タブを押すと、そのページを表示（左の盤面も、そのタブのシートへ）。メモを押すと、左でそのメモを開く
 //   ・見出しの ◎：そのタグのタブだけを、左の盤面で目立たせる（もう一度押すと戻る）
+import { t as tr } from '../i18n';
 import type { MemoIndexItem } from '../memocells';
 import { MAIN_SHEET, type Sheet } from '../sheets';
 import type { Tab } from '../tabs';
@@ -51,7 +52,7 @@ const PREFS_KEY = 'honeycomb.tagIndex';
 const NONE = '#none'; // 「タグなし」のまとまり（normalizeTag は # を取り除くので、本当のタグとは重ならない）
 const ROWS = 12; // まとまりに最初に出す行の数（「ほか n 件」で全部）
 const MAX_OPEN_PREFS = 200;
-const ORDER_LABELS: Record<TagSort, string> = { order: '盤面の番号順', recent: '最近使った順', name: '名前順' };
+const ORDER_LABELS: Record<TagSort, string> = { order: tr('盤面の番号順'), recent: tr('最近使った順'), name: tr('名前順') };
 
 export class TagIndex {
   readonly element = el('section', 'panel-section tag-index');
@@ -69,7 +70,7 @@ export class TagIndex {
 
   constructor(private readonly deps: TagIndexDeps) {
     this.element.setAttribute('aria-label', 'タグごとの一覧');
-    this.head.append(el('h2', 'tag-index-title', 'タグごとの一覧'), this.sub, this.fold);
+    this.head.append(el('h2', 'tag-index-title', tr('タグごとの一覧')), this.sub, this.fold);
     this.fold.type = 'button';
     this.fold.addEventListener('click', () => {
       this.prefs.collapsed = !this.prefs.collapsed;
@@ -86,7 +87,7 @@ export class TagIndex {
       this.savePrefs();
       this.render(true);
     });
-    groupLabel.append(el('span', '', 'まとまり'), this.groupSelect);
+    groupLabel.append(el('span', '', tr('まとまり')), this.groupSelect);
     const sortLabel = el('label', 'tag-index-control');
     this.sortSelect.setAttribute('aria-label', 'まとまりの中の並べ方');
     for (const sort of ['order', 'recent', 'name'] as TagSort[]) {
@@ -100,7 +101,7 @@ export class TagIndex {
       this.savePrefs();
       this.render(true);
     });
-    sortLabel.append(el('span', '', '並べ方'), this.sortSelect);
+    sortLabel.append(el('span', '', tr('並べ方')), this.sortSelect);
     controls.append(groupLabel, sortLabel);
 
     this.groups.setAttribute('role', 'region');
@@ -117,13 +118,13 @@ export class TagIndex {
     this.lastKey = key;
     const collapsed = this.prefs.collapsed;
     this.fold.textContent = collapsed ? '▸' : '▾';
-    this.fold.title = collapsed ? 'タグごとの一覧を開く' : 'タグごとの一覧をたたむ';
+    this.fold.title = collapsed ? tr('タグごとの一覧を開く') : tr('タグごとの一覧をたたむ');
     this.fold.setAttribute('aria-label', this.fold.title);
     this.fold.setAttribute('aria-expanded', String(!collapsed));
     this.body.hidden = collapsed;
     const groups = this.build();
     const tagged = groups.filter((g) => g.tag !== null && g.tabs.length + g.memos.length > 0).length;
-    this.sub.textContent = tagged > 0 ? `タグ ${tagged} 個` : '';
+    this.sub.textContent = tagged > 0 ? tr('タグ {0} 個', { 0: tagged }) : '';
     if (collapsed) return;
     this.renderSelects();
     // 押したボタンに、描き直した後もキーボードの位置を残す
@@ -138,9 +139,9 @@ export class TagIndex {
     const right = this.deps.rightButtons();
     const left = this.deps.leftButtons();
     const options: [TagGroupOrder, string][] = [
-      ['right', `右のタグのボタンの順（${right.name}）`],
-      ['left', left ? `左のタグのボタンの順（${left.name}）` : '左のタグのボタンの順'],
-      ['count', '数の多い順'],
+      ['right', tr('右のタグのボタンの順（{0}）', { 0: right.name })],
+      ['left', left ? tr('左のタグのボタンの順（{0}）', { 0: left.name }) : tr('左のタグのボタンの順')],
+      ['count', tr('数の多い順')],
     ];
     const signature = options.map((o) => o.join(':')).join('|');
     if (this.groupSelect.dataset.options !== signature) {
@@ -223,21 +224,21 @@ export class TagIndex {
   private groupNodes(groups: Group[]): HTMLElement[] {
     const nodes: HTMLElement[] = [];
     if (this.deps.memos() === null && this.deps.tabs().length === 0) {
-      nodes.push(el('div', 'tag-index-empty', '読み込んでいます…'));
+      nodes.push(el('div', 'tag-index-empty', tr('読み込んでいます…')));
       return nodes;
     }
     if (!groups.some((g) => g.tag !== null)) {
-      nodes.push(el('div', 'tag-index-empty', 'タグはまだありません。カードやコメントの「＋タグ」・タグのボタンで付けると、ここにタグごとに並びます'));
+      nodes.push(el('div', 'tag-index-empty', tr('タグはまだありません。カードやコメントの「＋タグ」・タグのボタンで付けると、ここにタグごとに並びます')));
     }
     if (this.prefs.order === 'left' && !this.deps.leftButtons()) {
-      nodes.push(el('div', 'tag-index-note', '左のタグのボタンが届くまで、数の多い順に並べています'));
+      nodes.push(el('div', 'tag-index-note', tr('左のタグのボタンが届くまで、数の多い順に並べています')));
     }
     let dividerShown = false;
     const anyButton = groups.some((g) => g.button);
     groups.forEach((group, i) => {
       if (anyButton && !group.button && !dividerShown) {
         dividerShown = true;
-        nodes.push(el('div', 'tag-index-divider', group.tag === null ? 'タグの付いていないもの' : 'その他のタグ'));
+        nodes.push(el('div', 'tag-index-divider', group.tag === null ? tr('タグの付いていないもの') : tr('その他のタグ')));
       }
       // はじめから開いておくもの：ボタンのタグ（ボタンのタグが無ければ、上から3つのタグ）
       const opened = group.button || (!anyButton && group.tag !== null && i < 3);
@@ -253,11 +254,11 @@ export class TagIndex {
     toggle.type = 'button';
     toggle.dataset.focusKey = `g:${group.key}`;
     toggle.setAttribute('aria-expanded', String(open));
-    const name = group.tag === null ? el('span', 'tag-index-none', 'タグなし') : el('span', 'tag-chip', group.tag);
+    const name = group.tag === null ? el('span', 'tag-index-none', tr('タグなし')) : el('span', 'tag-chip', group.tag);
     if (group.tag !== null) name.style.setProperty('--tag', tagColor(group.tag));
     const count = el('span', 'tag-index-count', countLabel(group));
     toggle.append(el('span', 'tag-index-arrow', open ? '▾' : '▸'), name, count);
-    toggle.title = open ? 'このまとまりを閉じる' : 'このまとまりを開く';
+    toggle.title = open ? tr('このまとまりを閉じる') : tr('このまとまりを開く');
     toggle.addEventListener('click', () => {
       this.prefs.open[group.key] = !open;
       const keys = Object.keys(this.prefs.open);
@@ -273,7 +274,7 @@ export class TagIndex {
       hl.type = 'button';
       hl.dataset.focusKey = `h:${group.key}`;
       hl.setAttribute('aria-pressed', String(on));
-      hl.title = on ? '目立たせるのをやめる' : `「${tag}」のタブだけを、左の盤面で目立たせる`;
+      hl.title = on ? tr('目立たせるのをやめる') : tr('「{0}」のタブだけを、左の盤面で目立たせる', { 0: tag });
       hl.setAttribute('aria-label', hl.title);
       hl.addEventListener('click', () => this.deps.highlight(on ? null : tag));
       head.append(hl);
@@ -284,7 +285,7 @@ export class TagIndex {
     const rows = el('div', 'tag-index-rows');
     const total = group.tabs.length + group.memos.length;
     if (total === 0) {
-      rows.append(el('div', 'tag-index-empty small', 'このタグのタブ・メモは、まだありません'));
+      rows.append(el('div', 'tag-index-empty small', tr('このタグのタブ・メモは、まだありません')));
     } else {
       // 出す行だけを作る（多いまとまりでも、見えない行は作らない）
       const all = this.full.has(group.key);
@@ -292,7 +293,7 @@ export class TagIndex {
       const memos = all ? group.memos : group.memos.slice(0, Math.max(0, ROWS - tabs.length));
       rows.append(...tabs.map((t) => this.tabRow(t, group.key)), ...memos.map((m) => this.memoRow(m, group.key)));
       if (total > ROWS) {
-        const more = el('button', 'tag-index-more', all ? `最初の ${ROWS} 件だけにする ▴` : `ほか ${total - ROWS} 件を見る ▾`);
+        const more = el('button', 'tag-index-more', all ? tr('最初の {0} 件だけにする ▴', { 0: ROWS }) : tr('ほか {0} 件を見る ▾', { 0: total - ROWS }));
         more.type = 'button';
         more.dataset.focusKey = `m:${group.key}`;
         more.addEventListener('click', () => {
@@ -332,9 +333,9 @@ export class TagIndex {
     } else {
       icon.textContent = initialOf(tab);
     }
-    const meta = [hostOf(tab.url), this.sheetName(tab.sheet) && `シート：${this.sheetName(tab.sheet)}`, tab.asleep ? '休眠中' : '', active ? '表示中' : ''].filter(Boolean).join('・');
+    const meta = [hostOf(tab.url), this.sheetName(tab.sheet) && tr('シート：{0}', { 0: this.sheetName(tab.sheet) }), tab.asleep ? tr('休眠中') : '', active ? tr('表示中') : ''].filter(Boolean).join(tr('・'));
     row.append(icon, el('span', 'tag-index-name', titleOf(tab)), el('span', 'tag-index-meta', meta));
-    row.title = `${titleOf(tab)}\n${tab.url}\n（押すと、このタブを表示）`;
+    row.title = tr('{0}\n{1}\n（押すと、このタブを表示）', { 0: titleOf(tab), 1: tab.url });
     row.addEventListener('click', () => this.deps.activate(tab.id));
     return row;
   }
@@ -345,9 +346,9 @@ export class TagIndex {
     row.dataset.focusKey = `n:${groupKey}:${memo.id}`;
     const icon = el('span', 'tag-index-icon memo', memo.image ? '▣' : memo.by ? '✦' : '✎');
     const sheet = this.sheetName(memo.sheet);
-    const meta = [memo.by ? `${memo.by}` : 'メモ', sheet && `シート：${sheet}`, dateOf(memo.updatedAt)].filter(Boolean).join('・');
+    const meta = [memo.by ? `${memo.by}` : tr('メモ'), sheet && tr('シート：{0}', { 0: sheet }), dateOf(memo.updatedAt)].filter(Boolean).join(tr('・'));
     row.append(icon, el('span', 'tag-index-name', memo.title), el('span', 'tag-index-meta', meta));
-    row.title = `${memo.title}\n（押すと、左の盤面でこのメモを開く）`;
+    row.title = tr('{0}\n（押すと、左の盤面でこのメモを開く）', { 0: memo.title });
     row.addEventListener('click', () => this.deps.showMemo(memo.id));
     return row;
   }
@@ -406,14 +407,14 @@ export class TagIndex {
 }
 
 function titleOf(tab: Tab) {
-  return tab.title || hostOf(tab.url) || tab.url || '新しいタブ';
+  return tab.title || hostOf(tab.url) || tab.url || tr('新しいタブ');
 }
 
 function countLabel(group: Group) {
   const parts: string[] = [];
-  if (group.tabs.length > 0) parts.push(`タブ ${group.tabs.length}`);
-  if (group.memos.length > 0) parts.push(`メモ ${group.memos.length}`);
-  return parts.join('・') || '0';
+  if (group.tabs.length > 0) parts.push(tr('タブ {0}', { 0: group.tabs.length }));
+  if (group.memos.length > 0) parts.push(tr('メモ {0}', { 0: group.memos.length }));
+  return parts.join(tr('・')) || '0';
 }
 
 function dateOf(ms: number) {

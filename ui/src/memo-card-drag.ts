@@ -3,6 +3,7 @@
 //   ・左に頼むのは使う側（app/memo-pane.ts の moveCard）。ここは「どのカードの前へ入れるか」を返すだけ
 //   ・押す・つまむ・離す・やめるは pointer-grab.ts。置き場の計算は memo-card-order.ts の dropIndexAt（純粋な関数）
 //   ・線（SVG の層）は描き直さない。カードの位置はドラッグの間は変わらない（描き直しは使う側が押した時点から待つ）
+import { t } from './i18n';
 import { type DropAt, type DropBox, dropIndexAt, dropPos } from './memo-card-order';
 import { type Grab, grabPointer } from './pointer-grab';
 import { CARD_COLUMNS, lastPlaceableSlot } from './threads';
@@ -160,7 +161,7 @@ export class CardDrag {
     s.listHit = hit;
     this.host.listHover?.(hit, s.copy);
     const base = this.host.chip(s.id);
-    this.chipEl.textContent = hit && hit !== 'same' ? `${s.copy ? '写す' : '移す'} ${base}` : base;
+    this.chipEl.textContent = hit && hit !== 'same' ? `${s.copy ? t('写す') : t('移す')} ${base}` : base;
     if (hit) {
       this.marker.hidden = true;
       for (const g of s.ghosts) g.node.classList.remove('hot');

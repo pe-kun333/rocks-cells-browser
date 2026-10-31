@@ -1,5 +1,27 @@
 # 変更点 / CHANGELOG
 
+## Ver0.031β-en（2026-11-01）
+
+### 新しくできること
+
+- **英語の画面**：Windows の表示言語が日本語以外なら、はじめから英語で動きます（日本語なら日本語）。見た目（テーマ）の小窓の「言語 / Language」で、日本語・English・自動を選べます（次の起動から全体に効きます）。
+  - メニュー・ボタン・知らせ・設定の文など、画面の文の大半（約 3,800 件）を英語にしました。exe 側の文（右クリックのメニュー・小窓の題・WebView2 ランタイムの案内など）も英語になります。
+  - 英語の表に無い文は、日本語のまま出ます。AI への指示の文（プロンプト）と、保存するデータの文字（つながりの種類・スタンプの名前など）は、この版では日本語のままです（AI の指示の英語は次の版で）。
+
+### 変わったこと
+
+- exe の版の番号を 0.0.31.1 にしました（Ver0.031β と同じ機能に、英語の画面を足した版）。
+
+### New
+
+- **English UI**: when the Windows display language is not Japanese, the app starts in English (Japanese Windows stays Japanese). Switch in the appearance (theme) popup → "Language": 日本語 / English / Auto (applies fully after restarting the app).
+  - Most UI text (about 3,800 strings: menus, buttons, notices, settings) is translated. Text from the exe (context menus, mini window titles, the WebView2 Runtime prompt) is also in English.
+  - Text not yet in the English table falls back to Japanese. AI prompts and stored data labels (link kinds, stamp names, etc.) stay Japanese in this version (English AI prompts are planned for the next version).
+
+### Changed
+
+- The exe version is 0.0.31.1 (Ver0.031β plus the English UI).
+
 ## Ver0.031β（2026-11-01）
 
 ### 新しくできること

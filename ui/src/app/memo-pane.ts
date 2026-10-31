@@ -1,6 +1,7 @@
 import { BOT_FEATURES } from '../features';
 // 下のメモの区画（ページの下の面）。写しを見て、変えてほしいときは左に頼む
 //   本文の下に、コメントのカードと「＋コメント」。帯から引用と画像を足す（M3）
+import { t as tr } from '../i18n';
 import { armConfirm } from '../confirm-arm';
 import { requestPageText } from '../ai/page';
 import { type HostMessage, onMessage, request, send } from '../bridge';
@@ -98,45 +99,45 @@ export function startMemoPane() {
   handle.setAttribute('role', 'separator');
   handle.setAttribute('aria-orientation', 'horizontal');
   handle.setAttribute('aria-label', '下のメモの区画の高さ。上下の矢印キーで 20 ずつ変わります');
-  handle.title = 'ドラッグで高さを変える';
+  handle.title = tr('ドラッグで高さを変える');
 
   const band = el('div', 'memo-pane-band');
   const bandRow = el('div', 'memo-pane-band-row');
-  const title = el('button', 'memo-pane-title', 'メモ');
+  const title = el('button', 'memo-pane-title', tr('メモ'));
   title.type = 'button';
   title.setAttribute('aria-haspopup', 'dialog');
   title.setAttribute('aria-expanded', 'false');
   title.setAttribute('aria-controls', 'memo-pane-list-window');
-  title.title = 'このシートのメモと、最近開いたメモの一覧（押すと開く・閉じる）';
+  title.title = tr('このシートのメモと、最近開いたメモの一覧（押すと開く・閉じる）');
   const sheet = el('span', 'memo-pane-sheet');
-  const page = el('span', 'memo-pane-page', '上：ページがありません');
-  const close = el('button', 'memo-pane-close', '閉じる（Esc）');
+  const page = el('span', 'memo-pane-page', tr('上：ページがありません'));
+  const close = el('button', 'memo-pane-close', tr('閉じる（Esc）'));
   close.type = 'button';
-  close.title = '下の区画を閉じる';
+  close.title = tr('下の区画を閉じる');
   bandRow.append(title, sheet, page, close);
   const tools = el('div', 'memo-pane-tools');
-  const quoteBtn = el('button', 'memo-pane-tool', '❝ 選んだ文を引用');
+  const quoteBtn = el('button', 'memo-pane-tool', tr('❝ 選んだ文を引用'));
   quoteBtn.type = 'button';
-  quoteBtn.title = '上のページで選んだ文を、引用のカードにします';
-  const shotBtn = el('button', 'memo-pane-tool', '▣ 見えている所を画像に');
+  quoteBtn.title = tr('上のページで選んだ文を、引用のカードにします');
+  const shotBtn = el('button', 'memo-pane-tool', tr('▣ 見えている所を画像に'));
   shotBtn.type = 'button';
-  shotBtn.title = '上に見えている所を画像にして、カードにします';
-  const pageBtn = el('button', 'memo-pane-tool', '⇣ 全体を画像に');
+  shotBtn.title = tr('上に見えている所を画像にして、カードにします');
+  const pageBtn = el('button', 'memo-pane-tool', tr('⇣ 全体を画像に'));
   pageBtn.type = 'button';
-  pageBtn.title = '上のページを、スクロールで隠れた所も含めて1枚の画像にします。ページによっては、きれいに撮れないことがあります。撮っている間、ページが一瞬ちらつくことがあります';
-  const pickBtn = el('button', 'memo-pane-tool', '🖼 画像を選ぶ');
+  pageBtn.title = tr('上のページを、スクロールで隠れた所も含めて1枚の画像にします。ページによっては、きれいに撮れないことがあります。撮っている間、ページが一瞬ちらつくことがあります');
+  const pickBtn = el('button', 'memo-pane-tool', tr('🖼 画像を選ぶ'));
   pickBtn.type = 'button';
-  pickBtn.title = 'コンピュータの画像をカードにします。この区画へ貼る・落とすこともできます';
+  pickBtn.title = tr('コンピュータの画像をカードにします。この区画へ貼る・落とすこともできます');
   const fileInput = el('input', 'memo-pane-file');
   fileInput.type = 'file';
   fileInput.accept = 'image/*';
   fileInput.hidden = true;
-  const copyBtn = el('button', 'memo-pane-tool', '⧉ まとめてコピー');
+  const copyBtn = el('button', 'memo-pane-tool', tr('⧉ まとめてコピー'));
   copyBtn.type = 'button';
-  copyBtn.title = '本文とカードを、Markdown にしてコピーします。メモ帳に貼れます';
-  const gotoBtn = el('button', 'memo-pane-tool', 'このタブに移動');
+  copyBtn.title = tr('本文とカードを、Markdown にしてコピーします。メモ帳に貼れます');
+  const gotoBtn = el('button', 'memo-pane-tool', tr('このタブに移動'));
   gotoBtn.type = 'button';
-  gotoBtn.title = '左の盤面で、このメモのセルへ移ります。別のシートなら、そのシートに切り替えます';
+  gotoBtn.title = tr('左の盤面で、このメモのセルへ移ります。別のシートなら、そのシートに切り替えます');
   gotoBtn.addEventListener('click', () => {
     if (!view) {
       status.textContent = 'そのメモのセルは、もうありません';
@@ -144,14 +145,14 @@ export function startMemoPane() {
     }
     ask({ command: 'focusMemoPaneCell', id: view.id });
   });
-  const newBtn = el('button', 'memo-pane-tool', '＋ 新しいメモ');
+  const newBtn = el('button', 'memo-pane-tool', tr('＋ 新しいメモ'));
   newBtn.type = 'button';
-  newBtn.title = '表示中のタブの近くに、空のメモのセルを置いて、ここで開きます。呼称セットは、いま開いているメモと同じにします';
+  newBtn.title = tr('表示中のタブの近くに、空のメモのセルを置いて、ここで開きます。呼称セットは、いま開いているメモと同じにします');
   // 型を貼る ▾：保存してある型の一覧（docs/plan-card-templates.md の Phase 1c）。選ぶと、このメモの最後のカードの次に貼る
   const tplPasteWrap = el('span', 'memo-pane-menu-wrap');
-  const tplPasteBtn = el('button', 'memo-pane-tool', '型を貼る ▾');
+  const tplPasteBtn = el('button', 'memo-pane-tool', tr('型を貼る ▾'));
   tplPasteBtn.type = 'button';
-  tplPasteBtn.title = '登録した型のカードを、このメモの最後に貼ります（貼ったあと「元に戻す」で消せます）';
+  tplPasteBtn.title = tr('登録した型のカードを、このメモの最後に貼ります（貼ったあと「元に戻す」で消せます）');
   tplPasteBtn.setAttribute('aria-haspopup', 'menu');
   tplPasteBtn.setAttribute('aria-expanded', 'false');
   const tplMenu = el('div', 'memo-pane-menu memo-pane-tplmenu');
@@ -161,26 +162,26 @@ export function startMemoPane() {
   const menuWrap = el('span', 'memo-pane-menu-wrap');
   const menuBtn = el('button', 'memo-pane-tool', '☰');
   menuBtn.type = 'button';
-  menuBtn.title = '一覧と、上のページのリンク';
+  menuBtn.title = tr('一覧と、上のページのリンク');
   menuBtn.setAttribute('aria-haspopup', 'menu');
   menuBtn.setAttribute('aria-expanded', 'false');
   menuBtn.setAttribute('aria-label', '一覧と、上のページのリンク');
   const menu = el('div', 'memo-pane-menu');
   menu.hidden = true;
   menu.setAttribute('role', 'menu');
-  const listItem = el('button', 'memo-pane-menu-item', '一覧を出す');
+  const listItem = el('button', 'memo-pane-menu-item', tr('一覧を出す'));
   listItem.type = 'button';
   listItem.setAttribute('role', 'menuitem');
-  const linkItem = el('button', 'memo-pane-menu-item', '上のページのリンクを入れる');
+  const linkItem = el('button', 'memo-pane-menu-item', tr('上のページのリンクを入れる'));
   linkItem.type = 'button';
   linkItem.setAttribute('role', 'menuitem');
-  linkItem.title = '今の上のページを、リンクのカードにします（文は空）';
+  linkItem.title = tr('今の上のページを、リンクのカードにします（文は空）');
   menu.append(listItem, linkItem);
   menuWrap.append(menuBtn, menu);
   tools.append(gotoBtn, quoteBtn, shotBtn, pageBtn, pickBtn, copyBtn, newBtn, tplPasteWrap, menuWrap, fileInput);
   band.append(bandRow, tools);
 
-  const status = el('div', 'memo-pane-status', '自動で保存します');
+  const status = el('div', 'memo-pane-status', tr('自動で保存します'));
   // 送った直後の知らせ（切れた関連の一行と、送り先を開く・元に戻す）。右の × で両方消える。数十秒でも消える
   const sentNotice = el('div', 'memo-pane-sentnotice');
   sentNotice.hidden = true;
@@ -189,13 +190,13 @@ export function startMemoPane() {
   const sentBar = el('div', 'memo-pane-sentbar');
   sentBar.setAttribute('role', 'status');
   const sentText = el('span', 'memo-pane-sentbar-text');
-  const sentOpen = el('button', 'memo-pane-sentbar-btn', '送り先を開く');
+  const sentOpen = el('button', 'memo-pane-sentbar-btn', tr('送り先を開く'));
   sentOpen.type = 'button';
-  const sentUndo = el('button', 'memo-pane-sentbar-btn', '元に戻す');
+  const sentUndo = el('button', 'memo-pane-sentbar-btn', tr('元に戻す'));
   sentUndo.type = 'button';
   const sentClose = el('button', 'memo-pane-sentnotice-x', '×');
   sentClose.type = 'button';
-  sentClose.title = '閉じる';
+  sentClose.title = tr('閉じる');
   sentClose.setAttribute('aria-label', '閉じる');
   sentBar.append(sentText, sentOpen, sentUndo);
   sentNotice.append(sentWarn, sentBar, sentClose);
@@ -203,24 +204,23 @@ export function startMemoPane() {
   const pickBar = el('div', 'memo-pane-pickbar');
   pickBar.hidden = true;
   pickBar.setAttribute('role', 'status');
-  const pickText = el('span', 'memo-pane-pickbar-text', '0枚を選んでいます');
-  const pickMove = el('button', 'memo-pane-pickbar-btn', '別のメモへ移す…');
+  const pickText = el('span', 'memo-pane-pickbar-text', tr('0枚を選んでいます'));
+  const pickMove = el('button', 'memo-pane-pickbar-btn', tr('別のメモへ移す…'));
   pickMove.type = 'button';
-  const pickCopy = el('button', 'memo-pane-pickbar-btn', '写す…');
+  const pickCopy = el('button', 'memo-pane-pickbar-btn', tr('写す…'));
   pickCopy.type = 'button';
-  const pickNew = el('button', 'memo-pane-pickbar-btn', '新しいメモにする');
+  const pickNew = el('button', 'memo-pane-pickbar-btn', tr('新しいメモにする'));
   pickNew.type = 'button';
-  pickNew.title = '選んだカードを、近くに作る空のメモへ移します。呼称セットは、このメモと同じにします';
-  const pickTemplate = el('button', 'memo-pane-pickbar-btn', '型にする…');
+  pickNew.title = tr('選んだカードを、近くに作る空のメモへ移します。呼称セットは、このメモと同じにします');
+  const pickTemplate = el('button', 'memo-pane-pickbar-btn', tr('型にする…'));
   pickTemplate.type = 'button';
-  const pickAsk = el('button', 'memo-pane-pickbar-btn', 'Grok に頼む');
+  const pickAsk = el('button', 'memo-pane-pickbar-btn', tr('Grok に頼む'));
   pickAsk.type = 'button';
   if (!BOT_FEATURES) pickAsk.style.display = 'none'; // 公開版（rebuild-public.ps1）
-  const pickAll = el('button', 'memo-pane-pickbar-btn', '全部選ぶ');
-  pickAll.type = 'button';
-  const pickLinked = el('button', 'memo-pane-pickbar-btn', 'つながっているカードも選ぶ');
+  const pickAll = el('button', 'memo-pane-pickbar-btn', tr('全部選ぶ'));  pickAll.type = 'button';
+  const pickLinked = el('button', 'memo-pane-pickbar-btn', tr('つながっているカードも選ぶ'));
   pickLinked.type = 'button';
-  const pickStop = el('button', 'memo-pane-pickbar-btn', '選ぶのをやめる');
+  const pickStop = el('button', 'memo-pane-pickbar-btn', tr('選ぶのをやめる'));
   pickStop.type = 'button';
   pickBar.append(pickText, pickMove, pickCopy, pickNew, pickTemplate, pickAsk, pickAll, pickLinked, pickStop);
   pickMove.addEventListener('click', () => beginSend('move', selectedIds()));
@@ -242,11 +242,11 @@ export function startMemoPane() {
     if (!view) return;
     const extra = linkedClosure(view.replies, selectedIds()).filter((id) => !picked.has(id));
     if (extra.length === 0) {
-      say('つながっているほかのカードはありません');
+      say(tr('つながっているほかのカードはありません'));
       return;
     }
     for (const id of extra) picked.add(id);
-    say(`つながっているカード ${extra.length} 枚を足しました`);
+    say(tr('つながっているカード {0} 枚を足しました', { 0: extra.length }));
     renderCards(view, undefined, true);
   });
   pickStop.addEventListener('click', () => stopPicking());
@@ -262,22 +262,22 @@ export function startMemoPane() {
   });
   sentClose.addEventListener('click', () => hideSentNotice());
   // 件数の行：左は文（今の件数）、右は道具（関連の見せ方 ▾・あふれたときの注記。renderCountTools が並べる）
-  const countText = el('span', 'memo-pane-count-text', 'コメント 0（返信を入れて 0/300）');
+  const countText = el('span', 'memo-pane-count-text', tr('コメント 0（返信を入れて 0/300）'));
   const countTools = el('span', 'memo-pane-count-tools');
   // 「関連の見せ方 ▾」のボタンは作り直さない（押した欄の戻り先を保つ）。押すと欄：マウスなら押した所、キーボードならボタンの左下
-  const countPick = el('button', 'memo-pane-count-view', '☐ 選ぶ');
+  const countPick = el('button', 'memo-pane-count-view', tr('☐ 選ぶ'));
   countPick.type = 'button';
-  countPick.title = 'カードを選んで、別のメモへまとめて移す・写す';
+  countPick.title = tr('カードを選んで、別のメモへまとめて移す・写す');
   countPick.dataset.focusKey = 'countpick';
   countPick.addEventListener('click', () => {
     if (cardMap.isOpen) {
-      say('マップの中では選べません（並びに戻ってから）');
+      say(tr('マップの中では選べません（並びに戻ってから）'));
       return;
     }
     if (pickingCards) stopPicking();
     else startPicking();
   });
-  const countView = el('button', 'memo-pane-count-view', '関連の見せ方 ▾');
+  const countView = el('button', 'memo-pane-count-view', tr('関連の見せ方 ▾'));
   countView.type = 'button';
   countView.setAttribute('aria-haspopup', 'menu');
   countView.dataset.focusKey = 'countview';
@@ -290,9 +290,9 @@ export function startMemoPane() {
     }
   });
   // 「時刻順」（結んだカードが一枚でもあるときだけ出す。押すと、時刻順と並べた順を行き来する。aria-pressed は renderCountTools が当てる）
-  const countTime = el('button', 'memo-pane-count-view', '時刻順');
+  const countTime = el('button', 'memo-pane-count-view', tr('時刻順'));
   countTime.type = 'button';
-  countTime.title = '結んだ区間の時刻の順に並べる（動画ごと。読む画面がその動画を開いていればチャプターの仕切りも）。もう一度押すと元の並べ方に戻します';
+  countTime.title = tr('結んだ区間の時刻の順に並べる（動画ごと。読む画面がその動画を開いていればチャプターの仕切りも）。もう一度押すと元の並べ方に戻します');
   countTime.dataset.focusKey = 'counttime';
   countTime.addEventListener('click', () => {
     cardOrder = cardOrder === 'time' ? 'order' : 'time';
@@ -302,14 +302,14 @@ export function startMemoPane() {
   const countSwitch = el('span', 'memo-pane-count-switch');
   countSwitch.setAttribute('role', 'group');
   countSwitch.setAttribute('aria-label', '並び・マップ');
-  const countList = el('button', '', '並び');
+  const countList = el('button', '', tr('並び'));
   countList.type = 'button';
-  countList.title = 'カードを並びで見る';
+  countList.title = tr('カードを並びで見る');
   countList.dataset.focusKey = 'countswitch:list';
   countList.addEventListener('click', () => closeMap(true));
-  const countMap = el('button', '', 'マップ');
+  const countMap = el('button', '', tr('マップ'));
   countMap.type = 'button';
-  countMap.title = '関連のつながりを、図で見る';
+  countMap.title = tr('関連のつながりを、図で見る');
   countMap.dataset.focusKey = 'countswitch:map';
   countMap.addEventListener('click', () => openMap());
   countSwitch.append(countList, countMap);
@@ -319,28 +319,28 @@ export function startMemoPane() {
   const by = el('div', 'memo-pane-by');
   const body = el('textarea', 'memo-pane-body');
   body.rows = 3;
-  body.placeholder = 'ここにメモを書きます';
+  body.placeholder = tr('ここにメモを書きます');
   const meta = el('div', 'memo-pane-meta');
   const filterBox = el('div', 'memo-pane-tagfilter'); // カードをタグで絞る札（一覧の「見出しで絞る」の memo-pane-filter とは別）
   filterBox.hidden = true;
   const cards = el('div', 'memo-pane-cards');
   const compose = el('form', 'memo-pane-compose');
-  const composeLabel = el('div', 'memo-pane-compose-label', '＋コメント');
+  const composeLabel = el('div', 'memo-pane-compose-label', tr('＋コメント'));
   const comment = el('textarea');
   comment.rows = 2;
-  comment.placeholder = 'コメントを書く（Ctrl+Enter で足す・Shift+Enter で次の行に足す）';
+  comment.placeholder = tr('コメントを書く（Ctrl+Enter で足す・Shift+Enter で次の行に足す）');
   comment.setAttribute('aria-label', 'コメントを書く');
   const composeRow = el('div', 'memo-pane-compose-row');
   const meter = el('span', 'memo-pane-meter', `0 / ${REPLY_FOLD}`);
-  const hint = el('span', 'memo-pane-longhint', '長め：カードでは 280字まで見せて、続きは開きます');
+  const hint = el('span', 'memo-pane-longhint', tr('長め：カードでは 280字まで見せて、続きは開きます'));
   hint.hidden = true;
-  const sendBtn = el('button', 'preview-button', '足す');
+  const sendBtn = el('button', 'preview-button', tr('足す'));
   sendBtn.type = 'submit';
   const nextRowLabel = el('label', 'memo-pane-compose-nextrow');
   const nextRowCheck = el('input');
   nextRowCheck.type = 'checkbox';
   nextRowCheck.checked = readNextRow();
-  const nextRowText = el('span', '', '次の行に');
+  const nextRowText = el('span', '', tr('次の行に'));
   nextRowLabel.append(nextRowCheck, nextRowText);
   nextRowCheck.addEventListener('change', () => writeNextRow(nextRowCheck.checked));
   // 読む画面の今のマスと結ぶ（V2b・D24）：読む画面が動画を開いているときだけ出す。既定はオフ（覚えない）
@@ -367,7 +367,7 @@ export function startMemoPane() {
   listWindow.hidden = true;
   const filter = el('input', 'memo-pane-filter');
   filter.type = 'search';
-  filter.placeholder = '見出しで絞る';
+  filter.placeholder = tr('見出しで絞る');
   filter.setAttribute('aria-label', '見出しで絞る');
   const listBody = el('div', 'memo-pane-list-body');
   // 札：このシートと最近の、どちらを見せるか（押すと替わる。文字と押された印は renderList が付ける）
@@ -397,14 +397,14 @@ export function startMemoPane() {
   });
   listWindow.append(filterWords.box, listParts, listBody);
   main.append(scroll);
-  const empty = el('div', 'memo-pane-empty', 'メモのセルをダブルクリックすると、ここに開きます');
+  const empty = el('div', 'memo-pane-empty', tr('メモのセルをダブルクリックすると、ここに開きます'));
   const light = el('div', 'memo-pane-light');
   light.hidden = true;
   const lightImg = el('img');
-  lightImg.alt = '大きく見た画像';
+  lightImg.alt = tr('大きく見た画像');
   const lightClose = el('button', 'memo-pane-light-close', '×');
   lightClose.type = 'button';
-  lightClose.title = '画像を閉じる';
+  lightClose.title = tr('画像を閉じる');
   lightClose.setAttribute('aria-label', '大きく見た画像を閉じる');
   light.append(lightImg, lightClose);
   // 段 D7：カードとセルの顔の画像を書き足す面。小窓とは別の文。やめるまではファイルも台帳も変えない
@@ -417,10 +417,10 @@ export function startMemoPane() {
   linkBar.setAttribute('role', 'status');
   linkBar.hidden = true;
   const linkText = el('span', 'memo-pane-linkbar-text');
-  const linkPick = el('button', 'memo-pane-linkbar-pick', '一覧から選ぶ');
+  const linkPick = el('button', 'memo-pane-linkbar-pick', tr('一覧から選ぶ'));
   linkPick.type = 'button';
   linkPick.addEventListener('click', () => openLinkPicker());
-  const linkCancel = el('button', 'memo-pane-linkbar-cancel', 'やめる（Esc）');
+  const linkCancel = el('button', 'memo-pane-linkbar-cancel', tr('やめる（Esc）'));
   linkCancel.type = 'button';
   linkCancel.addEventListener('click', () => endLinking(true));
   linkBar.append(linkText, linkPick, linkCancel);
@@ -431,7 +431,7 @@ export function startMemoPane() {
   linkPicker.hidden = true;
   const linkFilter = el('input', 'memo-pane-link-picker-filter');
   linkFilter.type = 'search';
-  linkFilter.placeholder = '相手のカードを字で絞る';
+  linkFilter.placeholder = tr('相手のカードを字で絞る');
   linkFilter.setAttribute('aria-label', '相手のカードを字で絞る');
   const linkList = el('div', 'memo-pane-link-picker-list');
   linkPicker.append(linkFilter, linkList);
@@ -452,14 +452,14 @@ export function startMemoPane() {
   tplDialog.setAttribute('role', 'dialog');
   tplDialog.setAttribute('aria-label', '型として登録');
   tplDialog.hidden = true;
-  const tplHead = el('div', 'memo-pane-tpl-head', '選んだカードを型として登録');
+  const tplHead = el('div', 'memo-pane-tpl-head', tr('選んだカードを型として登録'));
   const tplCounts = el('div', 'memo-pane-tpl-counts');
   const tplExcluded = el('div', 'memo-pane-tpl-excluded');
-  const tplNameLabel = el('label', 'memo-pane-tpl-label', '名前');
+  const tplNameLabel = el('label', 'memo-pane-tpl-label', tr('名前'));
   const tplName = el('input', 'memo-pane-tpl-name');
   tplName.type = 'text';
   tplName.maxLength = TEMPLATE_LIMITS.name;
-  tplName.placeholder = '例：賛成・反対・結論';
+  tplName.placeholder = tr('例：賛成・反対・結論');
   tplName.setAttribute('aria-label', '型の名前');
   tplNameLabel.append(tplName);
   const tplFolders = el('div', 'memo-pane-tpl-folders');
@@ -493,9 +493,9 @@ export function startMemoPane() {
   const tplModeNote = el('div', 'memo-pane-tpl-excluded');
   const tplMsg = el('div', 'memo-pane-tpl-msg');
   tplMsg.setAttribute('role', 'status');
-  const tplSave = el('button', 'memo-pane-tpl-btn', '登録');
+  const tplSave = el('button', 'memo-pane-tpl-btn', tr('登録'));
   tplSave.type = 'button';
-  const tplCancel = el('button', 'memo-pane-tpl-btn', 'やめる');
+  const tplCancel = el('button', 'memo-pane-tpl-btn', tr('やめる'));
   tplCancel.type = 'button';
   const tplButtons = el('div', 'memo-pane-tpl-buttons');
   tplButtons.append(tplCancel, tplSave);
@@ -505,21 +505,21 @@ export function startMemoPane() {
   tplFill.setAttribute('role', 'dialog');
   tplFill.setAttribute('aria-label', '空欄を入れて貼る');
   tplFill.hidden = true;
-  const tplFillHead = el('div', 'memo-pane-tpl-head', '空欄を入れて貼る');
+  const tplFillHead = el('div', 'memo-pane-tpl-head', tr('空欄を入れて貼る'));
   const tplFillName = el('div', 'memo-pane-tpl-counts');
   const tplFillFields = el('div', 'memo-pane-tpl-fillfields');
-  const FILL_NOTE = '空のままの欄は {{…}} のまま貼ります';
+  const FILL_NOTE = tr('空のままの欄は {{…}} のまま貼ります');
   const tplFillNote = el('div', 'memo-pane-tpl-excluded', FILL_NOTE);
   const tplFillMsg = el('div', 'memo-pane-tpl-msg');
   tplFillMsg.setAttribute('role', 'status');
-  const tplFillPaste = el('button', 'memo-pane-tpl-btn', '貼る');
+  const tplFillPaste = el('button', 'memo-pane-tpl-btn', tr('貼る'));
   tplFillPaste.type = 'button';
-  const tplFillCancel = el('button', 'memo-pane-tpl-btn', 'やめる');
+  const tplFillCancel = el('button', 'memo-pane-tpl-btn', tr('やめる'));
   tplFillCancel.type = 'button';
   const tplFillButtons = el('div', 'memo-pane-tpl-buttons');
-  const tplFillLoad = el('button', 'memo-pane-tpl-btn memo-pane-tpl-btn-left', '穴埋めファイルを読み込む…');
+  const tplFillLoad = el('button', 'memo-pane-tpl-btn memo-pane-tpl-btn-left', tr('穴埋めファイルを読み込む…'));
   tplFillLoad.type = 'button';
-  tplFillLoad.title = 'Grok Bot が返した穴埋めのファイル（honeycomb-cardtpl-fill）を選んで、空欄に先に入れます（入れるだけ。貼るのは「貼る」を押したとき）';
+  tplFillLoad.title = tr('Grok Bot が返した穴埋めのファイル（honeycomb-cardtpl-fill）を選んで、空欄に先に入れます（入れるだけ。貼るのは「貼る」を押したとき）');
   tplFillButtons.append(tplFillLoad, tplFillCancel, tplFillPaste);
   tplFill.append(tplFillHead, tplFillName, tplFillFields, tplFillNote, tplFillMsg, tplFillButtons);
   // 型の窓（パレット）：「型を貼る ▾」の「型の窓を開く」か `/` キーで開く、重なる窓（Phase 2）。検索・フォルダ・サムネイル・矢印で選ぶ・選ぶと並びに「入る番地」の点線（ゴースト）
@@ -529,7 +529,7 @@ export function startMemoPane() {
   tplPalette.hidden = true;
   const tplPalFilter = el('input', 'memo-pane-tplpal-filter');
   tplPalFilter.type = 'text';
-  tplPalFilter.placeholder = '名前・カードの文で絞る（↑↓で選び、Enter で貼る）';
+  tplPalFilter.placeholder = tr('名前・カードの文で絞る（↑↓で選び、Enter で貼る）');
   tplPalFilter.setAttribute('role', 'combobox');
   tplPalFilter.setAttribute('aria-label', '型を絞る');
   tplPalFilter.setAttribute('aria-controls', 'memo-pane-tplpal-list');
@@ -539,7 +539,7 @@ export function startMemoPane() {
   tplPalFolders.setAttribute('role', 'group');
   tplPalFolders.setAttribute('aria-label', 'フォルダで絞る');
   for (const folder of [null, ...TEMPLATE_FOLDERS]) {
-    const chip = el('button', 'memo-pane-tplpal-chip', folder ?? '全部');
+    const chip = el('button', 'memo-pane-tplpal-chip', folder ?? tr('全部'));
     chip.type = 'button';
     chip.addEventListener('click', () => {
       palFolder = folder;
@@ -557,20 +557,19 @@ export function startMemoPane() {
   tplPalList.setAttribute('aria-label', '型の一覧');
   const tplPalInfo = el('div', 'memo-pane-tplpal-info');
   tplPalInfo.setAttribute('aria-live', 'polite');
-  const tplPalHint = el('div', 'memo-pane-tplpal-hint', '↑↓ で選ぶ・Enter かクリックで貼る・Esc で閉じる');
-  const tplPalRestore = el('button', 'memo-pane-tplpal-restore', '初期サンプルを復元');
+  const tplPalHint = el('div', 'memo-pane-tplpal-hint', tr('↑↓ で選ぶ・Enter かクリックで貼る・Esc で閉じる'));
+  const tplPalRestore = el('button', 'memo-pane-tplpal-restore', tr('初期サンプルを復元'));
   tplPalRestore.type = 'button';
-  tplPalRestore.title = '足りない内蔵サンプルの型だけを足します（今ある型は変えません）';
-  const tplPalExport = el('button', 'memo-pane-tplpal-restore', '書き出す');
+  tplPalRestore.title = tr('足りない内蔵サンプルの型だけを足します（今ある型は変えません）');
+  const tplPalExport = el('button', 'memo-pane-tplpal-restore', tr('書き出す'));
   tplPalExport.type = 'button';
-  tplPalExport.title = '型を ui-data\\exports にファイルとして書き出します（全部。1 件だけは、その行の「書出」）';
-  const tplPalImport = el('button', 'memo-pane-tplpal-restore', '読み込む…');
+  tplPalExport.title = tr('型を ui-data\\exports にファイルとして書き出します（全部。1 件だけは、その行の「書出」）');
+  const tplPalImport = el('button', 'memo-pane-tplpal-restore', tr('読み込む…'));
   tplPalImport.type = 'button';
-  tplPalImport.title = '書き出した型のファイル（JSON）を選んで、足します（今ある型は消しません）。Grok Bot の穴埋めのファイルなら、空欄を入れた小窓が開きます（貼るのは「貼る」を押したとき）';
-  const tplPalAsk = el('button', 'memo-pane-tplpal-restore', 'Grok に頼む…');
-  if (!BOT_FEATURES) tplPalAsk.style.display = 'none'; // 公開版（rebuild-public.ps1）：Grok 機能が既定オフ
-  tplPalAsk.type = 'button';
-  tplPalAsk.title = 'Grok Bot に型の下書きを頼む文を作って、コピーします（アプリは何も送りません。貼って送るのはあなたです）';
+  tplPalImport.title = tr('書き出した型のファイル（JSON）を選んで、足します（今ある型は消しません）。Grok Bot の穴埋めのファイルなら、空欄を入れた小窓が開きます（貼るのは「貼る」を押したとき）');
+  const tplPalAsk = el('button', 'memo-pane-tplpal-restore', tr('Grok に頼む…'));
+  if (!BOT_FEATURES) tplPalAsk.style.display = 'none'; // 公開版（rebuild-public.ps1）：Grok 機能が既定オフ  tplPalAsk.type = 'button';
+  tplPalAsk.title = tr('Grok Bot に型の下書きを頼む文を作って、コピーします（アプリは何も送りません。貼って送るのはあなたです）');
   const tplPalTools = el('div', 'memo-pane-tplpal-tools');
   tplPalTools.append(tplPalAsk, tplPalExport, tplPalImport, tplPalRestore);
   const tplPalFoot = el('div', 'memo-pane-tplpal-foot');
@@ -587,15 +586,15 @@ const tplImport = el('div', 'memo-pane-tpl-dialog');
 tplImport.setAttribute('role', 'dialog');
 tplImport.setAttribute('aria-label', '型の読み込み');
 tplImport.hidden = true;
-const tplImportHead = el('div', 'memo-pane-tpl-head', '型の読み込み');
+const tplImportHead = el('div', 'memo-pane-tpl-head', tr('型の読み込み'));
 const tplImportName = el('div', 'memo-pane-tpl-counts');
 const tplImportList = el('div', 'memo-pane-tpl-importlist');
 const tplImportNote = el('div', 'memo-pane-tpl-excluded');
 const tplImportMsg = el('div', 'memo-pane-tpl-msg');
 tplImportMsg.setAttribute('role', 'status');
-const tplImportOk = el('button', 'memo-pane-tpl-btn', '足す');
+const tplImportOk = el('button', 'memo-pane-tpl-btn', tr('足す'));
 tplImportOk.type = 'button';
-const tplImportCancel = el('button', 'memo-pane-tpl-btn', 'やめる');
+const tplImportCancel = el('button', 'memo-pane-tpl-btn', tr('やめる'));
 tplImportCancel.type = 'button';
 const tplImportButtons = el('div', 'memo-pane-tpl-buttons');
 tplImportButtons.append(tplImportCancel, tplImportOk);
@@ -606,14 +605,14 @@ const tplAsk = el('div', 'memo-pane-tpl-dialog');
 tplAsk.setAttribute('role', 'dialog');
 tplAsk.setAttribute('aria-label', 'Grok Bot に型の下書きを頼む');
 tplAsk.hidden = true;
-const tplAskHead = el('div', 'memo-pane-tpl-head', 'Grok Bot に型の下書きを頼む');
-const tplAskLead = el('div', 'memo-pane-tpl-excluded', `頼む文を作ってコピーします。${ASK_NOTE}`);
+const tplAskHead = el('div', 'memo-pane-tpl-head', tr('Grok Bot に型の下書きを頼む'));
+const tplAskLead = el('div', 'memo-pane-tpl-excluded', tr('頼む文を作ってコピーします。{0}', { 0: ASK_NOTE }));
 const tplAskPurposeLabel = el('label', 'memo-pane-tpl-label');
 const tplAskPurpose = el('textarea', 'memo-pane-tpl-name');
 tplAskPurpose.rows = 3;
 tplAskPurpose.maxLength = ASK_LIMITS.purpose;
-tplAskPurpose.placeholder = '例）読書会の準備に使う、5 枚くらいの型。本の要点と話したい問いを書き込める穴あきの型';
-tplAskPurposeLabel.append(el('span', '', 'どんな型がほしいですか（必須）'), tplAskPurpose);
+tplAskPurpose.placeholder = tr('例）読書会の準備に使う、5 枚くらいの型。本の要点と話したい問いを書き込める穴あきの型');
+tplAskPurposeLabel.append(el('span', '', tr('どんな型がほしいですか（必須）')), tplAskPurpose);
 const tplAskNamesChk = el('input');
 tplAskNamesChk.type = 'checkbox';
 const tplAskNamesText = el('span');
@@ -629,13 +628,13 @@ const tplAskPreviewLabel = el('label', 'memo-pane-tpl-label');
 const tplAskPreview = el('textarea', 'memo-pane-tpl-name');
 tplAskPreview.rows = 8;
 tplAskPreview.readOnly = true;
-tplAskPreviewLabel.append(el('span', '', 'コピーする文（このとおりに入ります）'), tplAskPreview);
+tplAskPreviewLabel.append(el('span', '', tr('コピーする文（このとおりに入ります）')), tplAskPreview);
 const tplAskCount = el('div', 'memo-pane-tpl-excluded');
 const tplAskMsg = el('div', 'memo-pane-tpl-msg');
 tplAskMsg.setAttribute('role', 'status');
-const tplAskCopy = el('button', 'memo-pane-tpl-btn', 'コピーする');
+const tplAskCopy = el('button', 'memo-pane-tpl-btn', tr('コピーする'));
 tplAskCopy.type = 'button';
-const tplAskCancel = el('button', 'memo-pane-tpl-btn', 'やめる');
+const tplAskCancel = el('button', 'memo-pane-tpl-btn', tr('やめる'));
 tplAskCancel.type = 'button';
 const tplAskButtons = el('div', 'memo-pane-tpl-buttons');
 tplAskButtons.append(tplAskCancel, tplAskCopy);
@@ -757,7 +756,7 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
       split.setAttribute('aria-orientation', 'horizontal');
       upperOwner = owner;
       split.setAttribute('aria-label', SPLIT_LABEL[owner]);
-      split.title = 'ドラッグで上下の高さを変える。ダブルクリックで半分に戻します';
+      split.title = tr('ドラッグで上下の高さを変える。ダブルクリックで半分に戻します');
       wireUpperSplit(split);
       const lower = el('div', 'memo-pane-lower');
       while (root.firstChild) lower.append(root.firstChild);
@@ -869,7 +868,7 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
     canStart: () => linking === null && !cardMap.isOpen && drag === null,
     chip: (id) => {
       const ids = idsForDrag(id);
-      if (ids.length > 1) return `${ids.length}枚`;
+      if (ids.length > 1) return tr('{0}枚', { 0: ids.length });
       const reply = view?.replies.find((r) => r.id === id);
       return reply ? `${kindMark(reply)} ${cardLabel(reply, 16)}` : '';
     },
@@ -879,20 +878,20 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
       relMenu.close();
       moreMenu.close();
       tagMenu.close();
-      dragHint = '置きたい所で離します。一覧のメモの上で離すと移します（Ctrl で写す）。Esc でやめます';
+      dragHint = tr('置きたい所で離します。一覧のメモの上で離すと移します（Ctrl で写す）。Esc でやめます');
       say(dragHint);
     },
     listHit: (x, y) => listHit(x, y),
     listHover: (id, copy) => {
       if (!id || id === 'same') {
         paintDropHint(null);
-        if (id === 'same') status.textContent = '同じメモへは送れません';
+        if (id === 'same') status.textContent = tr('同じメモへは送れません');
         else if (dragHint) status.textContent = dragHint;
         return;
       }
       paintDropHint(id);
-      const name = id === 'new' ? '新しいメモ' : ([...sheetItems, ...recentItems].find((item) => item.id === id)?.title ?? 'メモ');
-      status.textContent = copy ? `「${name}」へ写します（離すと写す）` : `「${name}」へ移します（離すと移す。Ctrl で写す）`;
+      const name = id === 'new' ? tr('新しいメモ') : ([...sheetItems, ...recentItems].find((item) => item.id === id)?.title ?? tr('メモ'));
+      status.textContent = copy ? tr('「{0}」へ写します（離すと写す）', { 0: name }) : tr('「{0}」へ移します（離すと移す。Ctrl で写す）', { 0: name });
     },
     onListDrop: (id, target, copy) => {
       dragHint = '';
@@ -902,7 +901,7 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
         ignoreListClick = false;
       }, 0);
       if (target === 'same') {
-        say('同じメモへは送れません');
+        say(tr('同じメモへは送れません'));
         return;
       }
       const ids = idsForDrag(id);
@@ -920,7 +919,7 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
       const pos = before === null ? others.length : others.indexOf(before);
       if (pos < 0 || moveCard(id, pos) !== 'moved') status.textContent = statusBeforeGrab;
     },
-    onCancel: () => say('やめました（元の位置のまま）'),
+    onCancel: () => say(tr('やめました（元の位置のまま）')),
     slots: () => (slotMode && view ? topSlots(orderedReplies(view)) : null),
     onPlace: (id, slot) => {
       if (placeCard(id, slot) !== 'moved') status.textContent = statusBeforeGrab;
@@ -1053,7 +1052,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     tellKnownLinkSets();
   });
   linkNameSets.onSaveFailed(() => {
-    status.textContent = '呼称セットを保存できませんでした';
+    status.textContent = tr('呼称セットを保存できませんでした');
   });
   window.addEventListener('pagehide', () => linkNameSets.flush());
   void linkNameSets.load();
@@ -1115,7 +1114,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (text === lastSent) return;
     lastSent = text;
     ask({ command: 'setMemoText', id, text });
-    status.textContent = `保存しました ${clock()}`;
+    status.textContent = tr('保存しました {0}', { 0: clock() });
   }
 
   function scheduleSave() {
@@ -1130,16 +1129,16 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     hint.hidden = n <= REPLY_FOLD;
     const full = (view?.replies.length ?? 0) >= MAX_REPLIES;
     sendBtn.disabled = full || comment.value.trim() === '';
-    sendBtn.title = full ? `返信は1つのメモに ${MAX_REPLIES} 件までです` : 'コメントを足す（Ctrl+Enter。Shift+Enter で次の行に）';
+    sendBtn.title = full ? tr('返信は1つのメモに {0} 件までです', { 0: MAX_REPLIES }) : tr('コメントを足す（Ctrl+Enter。Shift+Enter で次の行に）');
   }
 
   function showCount(replies: readonly Reply[]) {
     const n = replies.filter((r) => r.parent === null).length;
     if (filterTag === null) {
-      countText.textContent = `コメント ${n}（返信を入れて ${replies.length}/${MAX_REPLIES}）`;
+      countText.textContent = tr('コメント {0}（返信を入れて {1}/{2}）', { 0: n, 1: replies.length, 2: MAX_REPLIES });
     } else {
       const m = visibleTops(replies, filterTag, keepShown).length;
-      countText.textContent = `コメント 表示 ${m} ／ 全 ${n}（返信を入れて ${replies.length}/${MAX_REPLIES}）`;
+      countText.textContent = tr('コメント 表示 {0} ／ 全 {1}（返信を入れて {2}/{3}）', { 0: m, 1: n, 2: replies.length, 3: MAX_REPLIES });
     }
     renderCountTools();
   }
@@ -1147,10 +1146,10 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   function fillMeta(next: MemoPaneView) {
     const like = el('button', next.liked > 0 ? 'preview-like liked' : 'preview-like', next.liked > 0 ? `♥${next.liked}` : '♡');
     like.type = 'button';
-    like.title = 'いいね（押すたびに 1→2→3→なし）';
+    like.title = tr('いいね（押すたびに 1→2→3→なし）');
     like.addEventListener('click', () => ask({ command: 'setMemoLiked', id: next.id, liked: (next.liked + 1) % 4 }));
     const tags = tagArea(
-      { tags: next.tags, what: 'このメモ', change: (add, remove) => ask({ command: 'changeTags', memo: next.id, add, remove }) },
+      { tags: next.tags, what: tr('このメモ'), change: (add, remove) => ask({ command: 'changeTags', memo: next.id, add, remove }) },
       { editable: true, toast: (text) => (status.textContent = text) },
     );
     meta.replaceChildren(tags, like);
@@ -1290,7 +1289,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (cardOrder === 'chain' && !hasAnyLinks()) cardOrder = 'order'; // 関連が無くなったら並べた順に戻す（「関連の見せ方 ▾」も消えて戻せなくなるため）
     if (cardOrder === 'time' && !hasTimedCards()) cardOrder = 'order'; // 結んだカードが無くなったら並べた順に戻す（「時刻順」のボタンも消えるため）
     const nodes: HTMLElement[] = cardOrder === 'chain' ? chainNodes(current, tops) : cardOrder === 'time' ? timeNodes(current, tops) : tops.map((reply) => commentCard(current, reply));
-    if (filterTag !== null && tops.length === 0) nodes.push(el('p', 'memo-pane-filter-empty', 'このタグのカードはありません'));
+    if (filterTag !== null && tops.length === 0) nodes.push(el('p', 'memo-pane-filter-empty', tr('このタグのカードはありません')));
     cards.classList.toggle('linking', linking !== null);
     cards.classList.toggle('picking', pickingCards);
     cardsWrap.classList.toggle('has-links', hasAnyLinks()); // 隙間と余白を線路の幅に（並べる前に。並びが一度で決まるように）
@@ -1341,11 +1340,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const { chains, loose } = chainOrder(tops);
     const nodes: HTMLElement[] = [];
     for (const chain of chains) {
-      nodes.push(el('p', 'memo-pane-chain-head', `つながり：「${cardLabel(chain[0], 16)}」ほか ${chain.length - 1} 枚`));
+      nodes.push(el('p', 'memo-pane-chain-head', tr('つながり：「{0}」ほか {1} 枚', { 0: cardLabel(chain[0], 16), 1: chain.length - 1 })));
       for (const reply of chain) nodes.push(commentCard(current, reply));
     }
     if (loose.length > 0) {
-      nodes.push(el('p', 'memo-pane-chain-head', `つながりなし（${loose.length} 枚）`));
+      nodes.push(el('p', 'memo-pane-chain-head', tr('つながりなし（{0} 枚）', { 0: loose.length })));
       for (const reply of loose) nodes.push(commentCard(current, reply));
     }
     return nodes;
@@ -1358,14 +1357,14 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const order = timeOrder(tops, { first: readerNow?.video ?? null, chapters });
     const nodes: HTMLElement[] = [];
     for (const group of order.groups) {
-      nodes.push(el('p', 'memo-pane-chain-head memo-pane-time-head', `🎬 ${group.title}（${group.count} 枚）`));
+      nodes.push(el('p', 'memo-pane-chain-head memo-pane-time-head', tr('🎬 {0}（{1} 枚）', { 0: group.title, 1: group.count })));
       for (const section of group.sections) {
         if (section.title !== null) nodes.push(el('p', 'memo-pane-chain-head memo-pane-time-chapter', `${secLabel(section.start ?? 0)} ${section.title}`));
         for (const reply of section.cards) nodes.push(commentCard(current, reply));
       }
     }
     if (order.loose.length > 0) {
-      nodes.push(el('p', 'memo-pane-chain-head', `結んでいないカード（${order.loose.length} 枚）`));
+      nodes.push(el('p', 'memo-pane-chain-head', tr('結んでいないカード（{0} 枚）', { 0: order.loose.length })));
       for (const reply of order.loose) nodes.push(commentCard(current, reply));
     }
     return nodes;
@@ -1400,8 +1399,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const on = canReorder() && slotMode;
     nextRowCheck.disabled = !on;
     const title = on
-      ? 'オンのあいだ、新しい一番上のカードを、いちばん下のカードの次の行の 1 列目に足します（オフでも Shift+Enter で足すと次の行へ。返信は今までどおり）'
-      : '今は使えません。並べた順で、絞りがなく、3 列の幅があり、並べ替えできるときだけ使えます';
+      ? tr('オンのあいだ、新しい一番上のカードを、いちばん下のカードの次の行の 1 列目に足します（オフでも Shift+Enter で足すと次の行へ。返信は今までどおり）')
+      : tr('今は使えません。並べた順で、絞りがなく、3 列の幅があり、並べ替えできるときだけ使えます');
     nextRowLabel.title = title;
     nextRowCheck.title = title;
     nextRowLabel.classList.toggle('is-disabled', !on);
@@ -1435,8 +1434,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     renderCards(current);
     startFlash(id, true);
     const reply = current.replies.find((r) => r.id === id);
-    const where = filterTag !== null ? `・タグ「${filterTag}」の中` : '';
-    say(`「${reply ? cardLabel(reply, 16) : ''}」を ${from + 1} 枚目から ${to + 1} 枚目へ動かしました（${visible.length} 枚中${where}）`);
+    const where = filterTag !== null ? tr('・タグ「{0}」の中', { 0: filterTag }) : '';
+    say(tr('「{0}」を {1} 枚目から {2} 枚目へ動かしました（{3} 枚中{4}）', { 0: reply ? cardLabel(reply, 16) : '', 1: from + 1, 2: to + 1, 3: visible.length, 4: where }));
     return 'moved';
   }
 
@@ -1451,7 +1450,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     ask({ command: 'resetReplyOrder', id: current.id });
     if (focusId) focusAfter = `card:${focusId}:move`;
     renderCards(current);
-    say('作った順に戻しました');
+    say(tr('作った順に戻しました'));
   }
 
   // 試し：id のカードを空いた番地 slot（行 × 3 ＋ 列）に置くよう左に頼み、待ちの並びで先に描く
@@ -1470,7 +1469,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     renderCards(current);
     startFlash(id, true);
     const reply = current.replies.find((r) => r.id === id);
-    say(`「${reply ? cardLabel(reply, 16) : ''}」を ${Math.floor(slot / CARD_COLUMNS) + 1} 行目の ${(slot % CARD_COLUMNS) + 1} 列目に置きました`);
+    say(tr('「{0}」を {1} 行目の {2} 列目に置きました', { 0: reply ? cardLabel(reply, 16) : '', 1: Math.floor(slot / CARD_COLUMNS) + 1, 2: (slot % CARD_COLUMNS) + 1 }));
     return 'moved';
   }
 
@@ -1484,12 +1483,12 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     ask({ command: 'packReplies', id: current.id });
     if (focusId) focusAfter = `card:${focusId}:move`;
     renderCards(current);
-    say('空きを詰めました（並びはそのまま）');
+    say(tr('空きを詰めました（並びはそのまま）'));
   }
 
   // 「詰める」のボタン（空きがあるときだけ）
   function packButton(current: MemoPaneView, focusId?: string) {
-    return hasSlotGaps(orderedReplies(current)) ? [{ label: '詰める', title: 'カードの間の空きを詰めます（並びはそのまま）', close: true, run: () => packCards(focusId) }] : [];
+    return hasSlotGaps(orderedReplies(current)) ? [{ label: tr('詰める'), title: tr('カードの間の空きを詰めます（並びはそのまま）'), close: true, run: () => packCards(focusId) }] : [];
   }
 
   // 試し：升目に置くか（並べた順・絞っていない・3 列が入る幅）。置かないときは、今までどおり詰めて並べる（番地は残る）
@@ -1553,15 +1552,15 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!reply) return;
     const label = cardLabel(reply, 16);
     if (cardOrder !== 'order') {
-      const name = cardOrder === 'chain' ? 'つながり順' : '時刻順';
+      const name = cardOrder === 'chain' ? tr('つながり順') : tr('時刻順');
       linkMenu.open(x, y, [
-        { section: `並べ替え：「${label}」` },
-        { note: `${name}の間は並べ替えられません。` },
+        { section: tr('並べ替え：「{0}」', { 0: label }) },
+        { note: tr('{0}の間は並べ替えられません。', { 0: name }) },
         {
           row: '',
           buttons: [
             {
-              label: '並べた順にする',
+              label: tr('並べた順にする'),
               close: true,
               run: () => {
                 cardOrder = 'order';
@@ -1572,24 +1571,24 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
           ],
         },
       ]);
-      say(`${name}の間は並べ替えられません`);
+      say(tr('{0}の間は並べ替えられません', { 0: name }));
     } else {
       // 前後の計算は、押した時点の並びで行う（欄を開いた時点の n は使わない。stepCard と moveCard が、その時点の orderLists を読む）
       const { visible } = orderLists(current);
       const n = visible.indexOf(id) + 1;
       const m = visible.length;
       if (n === 0) return;
-      const where = filterTag !== null ? `・タグ「${filterTag}」の中` : '';
+      const where = filterTag !== null ? tr('・タグ「{0}」の中', { 0: filterTag }) : '';
       linkMenu.open(x, y, [
-        { section: `並べ替え：「${label}」（${n} 枚目／${m} 枚${where}）` },
-        { label: '← 前へ', hint: 'Alt+←', disabled: n === 1, run: () => stepCard(id, -1) },
-        { label: '後ろへ →', hint: 'Alt+→', disabled: n === m, run: () => stepCard(id, 1) },
-        { label: 'いちばん前へ', disabled: n === 1, run: () => moveCard(id, 0) },
-        { label: 'いちばん後へ', disabled: n === m, run: () => moveCard(id, Number.MAX_SAFE_INTEGER) }, // 端へは、見えている列の最後に丸められる
+        { section: tr('並べ替え：「{0}」（{1} 枚目／{2} 枚{3}）', { 0: label, 1: n, 2: m, 3: where }) },
+        { label: tr('← 前へ'), hint: 'Alt+←', disabled: n === 1, run: () => stepCard(id, -1) },
+        { label: tr('後ろへ →'), hint: 'Alt+→', disabled: n === m, run: () => stepCard(id, 1) },
+        { label: tr('いちばん前へ'), disabled: n === 1, run: () => moveCard(id, 0) },
+        { label: tr('いちばん後へ'), disabled: n === m, run: () => moveCard(id, Number.MAX_SAFE_INTEGER) }, // 端へは、見えている列の最後に丸められる
         'sep',
         isReordered(current)
-          ? { row: '並び', buttons: [...packButton(current, id), { label: '作った順に戻す', confirm: 'もう一度押すと戻します', close: true, run: () => resetOrder(id) }] }
-          : { note: 'まだ並べ替えていません（作った順のまま）' },
+          ? { row: tr('並び'), buttons: [...packButton(current, id), { label: tr('作った順に戻す'), confirm: tr('もう一度押すと戻します'), close: true, run: () => resetOrder(id) }] }
+          : { note: tr('まだ並べ替えていません（作った順のまま）') },
       ]);
     }
     if (keyboard) linkMenu.focusFirst();
@@ -1610,8 +1609,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const { visible } = orderLists(current);
     const i = visible.indexOf(id);
     if (i < 0) return;
-    if (i + delta < 0) say('いちばん前です');
-    else if (i + delta >= visible.length) say('いちばん後ろです');
+    if (i + delta < 0) say(tr('いちばん前です'));
+    else if (i + delta >= visible.length) say(tr('いちばん後ろです'));
     else moveCard(id, i + delta);
   }
 
@@ -1678,7 +1677,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         lineMode = 'selected';
         autoSelected = true;
         // 並べ替えたばかりの文（動かしました・戻しました）は上書きしない（件数の行の注記は出る）
-        if (Date.now() - saidAt > 3000) status.textContent = '線が多いので、選んだカードの線だけ出しています（関連の見せ方 ▾ で「すべて」に戻せます）';
+        if (Date.now() - saidAt > 3000) status.textContent = tr('線が多いので、選んだカードの線だけ出しています（関連の見せ方 ▾ で「すべて」に戻せます）');
         renderCountTools();
         linkShape = '';
         scheduleLinks();
@@ -1701,7 +1700,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const from = view?.replies.find((r) => r.id === link.from);
     const to = view?.replies.find((r) => r.id === link.to);
     if (!from || !to) return linkKindInfo(link.kind).name;
-    return `${linkSentence(`「${cardLabel(from, 20)}」`, `「${cardLabel(to, 20)}」`, link.kind)}（押すと：元へ移る・相手へ移る・外す）`;
+    return tr('{0}（押すと：元へ移る・相手へ移る・外す）', { 0: linkSentence(`「${cardLabel(from, 20)}」`, `「${cardLabel(to, 20)}」`, link.kind) });
   }
 
   // 線を押した（隙間の当たり判定）：小さな欄で、元へ移る・相手へ移る・この関連を外す
@@ -1714,14 +1713,14 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!from || !to) return;
     linkMenu.open(e.clientX, e.clientY, [
       { section: linkSentence(`「${cardLabel(from, 16)}」`, `「${cardLabel(to, 16)}」`, link.kind) },
-      { label: '元へ移る', run: () => jumpToLinked(link.from) },
-      { label: '相手へ移る', run: () => jumpToLinked(link.to) },
+      { label: tr('元へ移る'), run: () => jumpToLinked(link.from) },
+      { label: tr('相手へ移る'), run: () => jumpToLinked(link.to) },
       'sep',
       {
-        label: 'この関連を外す',
+        label: tr('この関連を外す'),
         run: () => {
           ask({ command: 'changeReplyLinks', id: current.id, replyId: link.from, add: [], remove: [{ to: link.to, kind: link.kind }] });
-          status.textContent = '関連を外しました';
+          status.textContent = tr('関連を外しました');
         },
       },
     ]);
@@ -1729,7 +1728,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
 
   // 件数の行の道具：線が多くて「選んだカード」に自動で替えたときの注記と、「関連の見せ方 ▾」（線路が無ければ何も出さない）
   function renderCountTools() {
-    countPick.textContent = pickingCards ? '☑ 選ぶ' : '☐ 選ぶ';
+    countPick.textContent = pickingCards ? tr('☑ 選ぶ') : tr('☐ 選ぶ');
     countPick.setAttribute('aria-pressed', String(pickingCards));
     const nodes: HTMLElement[] = [countPick];
     if (hasTimedCards()) {
@@ -1743,7 +1742,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       updatePickBar();
       return;
     }
-    if (autoSelected) nodes.push(el('span', 'memo-pane-count-note', '線が多いので、選んだカードの線だけ出しています'));
+    if (autoSelected) nodes.push(el('span', 'memo-pane-count-note', tr('線が多いので、選んだカードの線だけ出しています')));
     countList.setAttribute('aria-pressed', String(!cardMap.isOpen)); // 並びの窓か、マップの窓か
     countMap.setAttribute('aria-pressed', String(cardMap.isOpen));
     nodes.push(countSwitch, countView);
@@ -1820,14 +1819,14 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     else delete view.linkSet;
     ask({ command: 'setMemoLinkSet', id: view.id, setId });
     const set = setId ? chosenLinkNameSet(linkNameSets.book, setId) : undefined;
-    status.textContent = set ? `このメモの呼称セットを「${set.name}」にしました` : 'このメモの呼称セットを外しました（このメモの名前に戻しました）';
+    status.textContent = set ? tr('このメモの呼称セットを「{0}」にしました', { 0: set.name }) : tr('このメモの呼称セットを外しました（このメモの名前に戻しました）');
     refreshLinkNames();
     after?.();
   }
 
   function deleteLinkSet(set: LinkNameSet) {
     if (linkSetUnusable()) {
-      status.textContent = '呼称セットは今は変えられません（台帳を読めませんでした）';
+      status.textContent = tr('呼称セットは今は変えられません（台帳を読めませんでした）');
       return;
     }
     const using = view?.linkSet === set.id;
@@ -1836,22 +1835,22 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!removed) {
       if (using && view) view.linkSet = set.id;
       refreshLinkNames();
-      status.textContent = '呼称セットを消せませんでした';
+      status.textContent = tr('呼称セットを消せませんでした');
       return;
     }
     ask({ command: 'clearMemoLinkSet', setId: set.id });
-    status.textContent = `呼称セット「${set.name}」を消しました。使っていたメモは、そのメモの名前に戻ります`;
+    status.textContent = tr('呼称セット「{0}」を消しました。使っていたメモは、そのメモの名前に戻ります', { 0: set.name });
   }
 
   // 呼称セットの名前と 6 つの名前（set が無ければ、新しいセットを作って、このメモで使う）
   function openLinkNameSetForm(set: LinkNameSet | null, x: number, y: number) {
     const form = el('form', 'cell-menu-form memo-pane-link-set-form');
-    form.append(el('div', 'cell-menu-section', set ? `呼称セット「${set.name}」` : '新しい呼称セット'));
-    form.append(el('div', 'cell-menu-note', '色と矢じりはそのままです。名前は 10 文字までです'));
+    form.append(el('div', 'cell-menu-section', set ? tr('呼称セット「{0}」', { 0: set.name }) : tr('新しい呼称セット')));
+    form.append(el('div', 'cell-menu-note', tr('色と矢じりはそのままです。名前は 10 文字までです')));
     const nameInput = el('input');
     nameInput.value = set?.name ?? '';
     nameInput.maxLength = LINK_NAME_SET_NAME_MAX;
-    nameInput.placeholder = 'セットの名前';
+    nameInput.placeholder = tr('セットの名前');
     nameInput.setAttribute('aria-label', 'セットの名前');
     form.append(nameInput);
     const base = set?.names ?? {};
@@ -1860,7 +1859,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       const row = el('div', 'memo-pane-link-set-row');
       const label = el('span', 'memo-pane-link-set-kind', LINK_KIND_DEFAULT_NAMES[k.kind]);
       label.style.setProperty('--rel', k.color);
-      label.title = 'この種類の色と形は変わりません';
+      label.title = tr('この種類の色と形は変わりません');
       const input = el('input');
       input.value = base[k.kind] ?? LINK_KIND_DEFAULT_NAMES[k.kind];
       input.maxLength = LINK_KIND_NAME_MAX;
@@ -1870,9 +1869,9 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       inputs.set(k.kind, input);
     }
     const buttons = el('div', 'cell-menu-kind');
-    const ok = el('button', 'cell-menu-small', set ? '保存する' : '作ってこのメモで使う');
+    const ok = el('button', 'cell-menu-small', set ? tr('保存する') : tr('作ってこのメモで使う'));
     ok.type = 'submit';
-    const cancel = el('button', 'cell-menu-small', 'やめる');
+    const cancel = el('button', 'cell-menu-small', tr('やめる'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => linkMenu.close());
     buttons.append(ok, cancel);
@@ -1880,7 +1879,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       if (linkSetUnusable()) {
-        status.textContent = '呼称セットは今は変えられません（台帳を読めませんでした）';
+        status.textContent = tr('呼称セットは今は変えられません（台帳を読めませんでした）');
         return;
       }
       const raw: LinkKindNames = {};
@@ -1891,13 +1890,13 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         linkNameSets.apply({ type: 'setNames', id: set.id, names });
         const saved = chosenLinkNameSet(linkNameSets.book, set.id);
         linkMenu.close();
-        status.textContent = `呼称セット「${saved?.name ?? set.name}」の名前を保存しました`;
+        status.textContent = tr('呼称セット「{0}」の名前を保存しました', { 0: saved?.name ?? set.name });
         return;
       }
       const id = linkNameSets.apply({ type: 'add', name: nameInput.value, names });
       linkMenu.close();
       if (!id) {
-        status.textContent = '呼称セットを作れませんでした';
+        status.textContent = tr('呼称セットを作れませんでした');
         return;
       }
       chooseLinkSet(id);
@@ -1920,28 +1919,28 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const currentId = view.linkSet;
     const current = chosenLinkNameSet(book, currentId);
     const reopen = () => openLinkNameSetMenu(x, y);
-    const entries: MenuEntry[] = [{ section: '呼称セット（このメモだけ。登録は全部のメモで共通）' }];
+    const entries: MenuEntry[] = [{ section: tr('呼称セット（このメモだけ。登録は全部のメモで共通）') }];
     entries.push({
-      row: '選ばない',
-      hint: 'このメモの名前',
+      row: tr('選ばない'),
+      hint: tr('このメモの名前'),
       buttons: [
         {
-          label: '使う',
+          label: tr('使う'),
           pressed: !currentId,
-          title: '呼称セットを外して、このメモの名前に戻す',
+          title: tr('呼称セットを外して、このメモの名前に戻す'),
           run: () => chooseLinkSet(null, reopen),
         },
       ],
     });
     for (const set of book.sets) {
-      const names = LINK_KINDS.map((k) => set.names[k.kind] ?? LINK_KIND_DEFAULT_NAMES[k.kind]).join('・');
+      const names = LINK_KINDS.map((k) => set.names[k.kind] ?? LINK_KIND_DEFAULT_NAMES[k.kind]).join(tr('・'));
       entries.push({
         row: set.name,
         buttons: [
           {
-            label: '使う',
+            label: tr('使う'),
             pressed: set.id === currentId,
-            title: `${names}（このメモの関連の名前を、このセットにする）`,
+            title: tr('{0}（このメモの関連の名前を、このセットにする）', { 0: names }),
             run: () => chooseLinkSet(set.id, reopen),
           },
         ],
@@ -1951,27 +1950,27 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const full = book.sets.length >= MAX_LINK_NAME_SETS;
     const locked = linkSetUnusable();
     entries.push({
-      label: '新しいセット…',
-      hint: full ? `${MAX_LINK_NAME_SETS} 個まで` : '名前と 6 つの名前',
+      label: tr('新しいセット…'),
+      hint: full ? tr('{0} 個まで', { 0: MAX_LINK_NAME_SETS }) : tr('名前と 6 つの名前'),
       disabled: full || locked || !linkNameSets.ready,
       run: () => openLinkNameSetForm(null, x, y),
     });
     entries.push({
-      label: '今の名前をセットとして保存…',
+      label: tr('今の名前をセットとして保存…'),
       disabled: full || locked || !linkNameSets.ready,
       run: () =>
         linkMenu.prompt(
-          '新しいセットの名前',
-          `セット${book.sets.length + 1}`,
+          tr('新しいセットの名前'),
+          tr('セット{0}', { 0: book.sets.length + 1 }),
           (name) => {
             const id = linkNameSets.apply({ type: 'add', name, names: shownLinkKindNames() });
             if (!id) {
-              status.textContent = '呼称セットを保存できませんでした';
+              status.textContent = tr('呼称セットを保存できませんでした');
               return;
             }
             chooseLinkSet(id);
             const saved = chosenLinkNameSet(linkNameSets.book, id);
-            status.textContent = `呼称セット「${saved?.name ?? name}」を保存して、このメモで使うようにしました`;
+            status.textContent = tr('呼称セット「{0}」を保存して、このメモで使うようにしました', { 0: saved?.name ?? name });
           },
           { x, y },
           { maxLength: LINK_NAME_SET_NAME_MAX },
@@ -1979,16 +1978,16 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     });
     if (current) {
       entries.push({
-        label: `「${current.name}」の名前を変える…`,
+        label: tr('「{0}」の名前を変える…', { 0: current.name }),
         disabled: locked,
         run: () =>
           linkMenu.prompt(
-            'セットの名前',
+            tr('セットの名前'),
             current.name,
             (name) => {
               linkNameSets.apply({ type: 'rename', id: current.id, name });
               const saved = chosenLinkNameSet(linkNameSets.book, current.id);
-              status.textContent = `呼称セットの名前を「${saved?.name ?? name}」にしました`;
+              status.textContent = tr('呼称セットの名前を「{0}」にしました', { 0: saved?.name ?? name });
               reopen();
             },
             { x, y },
@@ -1996,78 +1995,78 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
           ),
       });
       entries.push({
-        label: `「${current.name}」の 6 つの名前…`,
+        label: tr('「{0}」の 6 つの名前…', { 0: current.name }),
         disabled: locked,
         run: () => openLinkNameSetForm(current, x, y),
       });
       entries.push({
         row: '',
-        buttons: [{ label: `「${current.name}」を消す`, confirm: 'もう一度押すと消す', close: true, run: () => deleteLinkSet(current) }],
+        buttons: [{ label: tr('「{0}」を消す', { 0: current.name }), confirm: tr('もう一度押すと消す'), close: true, run: () => deleteLinkSet(current) }],
       });
     } else if (currentId && linkNameSets.ready) {
-      entries.push({ note: '選んでいたセットは、もうありません。このメモの名前で出しています' });
-      entries.push({ label: 'このメモの選択を外す', run: () => chooseLinkSet(null, reopen) });
+      entries.push({ note: tr('選んでいたセットは、もうありません。このメモの名前で出しています') });
+      entries.push({ label: tr('このメモの選択を外す'), run: () => chooseLinkSet(null, reopen) });
     }
-    if (!linkNameSets.ready) entries.push({ note: '呼称セットを読み込んでいます…' });
-    else if (locked) entries.push({ note: '呼称セットの台帳を読めなかったので、今は変えられません' });
+    if (!linkNameSets.ready) entries.push({ note: tr('呼称セットを読み込んでいます…') });
+    else if (locked) entries.push({ note: tr('呼称セットの台帳を読めなかったので、今は変えられません') });
     linkMenu.open(x, y, entries);
   }
 
   // 関連の見せ方の欄（「関連の見せ方 ▾」）：線の見せ方を選ぶ（欄は開いたまま描き直す）と、線の凡例。keyboard のときは、いちばん上の項目へ
   function openLinkView(x: number, y: number, keyboard: boolean) {
     // 凡例の文字（色と形の名前。この欄だけで使う）
-    const colorName: Record<LinkKind, string> = { ground: '緑', counter: '赤', next: '青', same: '灰', ask: '紫', supplement: '黄土' };
-    const headName: Record<string, string> = { triangle: '三角の矢じり', bar: '止めの棒', chevron: '山形の矢じり', none: '矢じりなし（向きなし）', dot: '丸の矢じり', diamond: 'ひし形の矢じり' };
+    const colorName: Record<LinkKind, string> = { ground: tr('緑'), counter: tr('赤'), next: tr('青'), same: tr('灰'), ask: tr('紫'), supplement: tr('黄土') };
+    const headName: Record<string, string> = { triangle: tr('三角の矢じり'), bar: tr('止めの棒'), chevron: tr('山形の矢じり'), none: tr('矢じりなし（向きなし）'), dot: tr('丸の矢じり'), diamond: tr('ひし形の矢じり') };
     const modes: { label: string; value: 'all' | 'selected' | 'none' }[] = [
-      { label: 'すべて', value: 'all' },
-      { label: '選んだカード', value: 'selected' },
-      { label: '出さない', value: 'none' },
+      { label: tr('すべて'), value: 'all' },
+      { label: tr('選んだカード'), value: 'selected' },
+      { label: tr('出さない'), value: 'none' },
     ];
     // 欄の中身（押したあとは、押してある印と注記を当て直すために組み直す）
     const build = (): MenuEntry[] => {
       const next: MenuEntry[] = [
-        { section: '関連の見せ方' },
-        { row: '線', buttons: modes.map((m) => ({ label: m.label, pressed: lineMode === m.value, run: () => choose(m.value) })) },
+        { section: tr('関連の見せ方') },
+        { row: tr('線'), buttons: modes.map((m) => ({ label: m.label, pressed: lineMode === m.value, run: () => choose(m.value) })) },
       ];
-      if (lineMode === 'selected' && selectedCard === null) next.push({ note: 'カードを押すと、そのカードの線だけを出します' });
+      if (lineMode === 'selected' && selectedCard === null) next.push({ note: tr('カードを押すと、そのカードの線だけを出します') });
       next.push(
-        { section: '並べ方' },
+        { section: tr('並べ方') },
         {
-          row: '並べ方',
+          row: tr('並べ方'),
           buttons: [
-            { label: view && isReordered(view) ? '並べた順' : '作った順', title: '並べ替えると「並べた順」になります', pressed: cardOrder === 'order', run: () => chooseOrder('order') },
-            { label: 'つながり順', pressed: cardOrder === 'chain', run: () => chooseOrder('chain') },
-            ...(hasTimedCards() ? [{ label: '時刻順', pressed: cardOrder === 'time', run: () => chooseOrder('time') }] : []),
+            { label: view && isReordered(view) ? tr('並べた順') : tr('作った順'), title: tr('並べ替えると「並べた順」になります'), pressed: cardOrder === 'order', run: () => chooseOrder('order') },
+            { label: tr('つながり順'), pressed: cardOrder === 'chain', run: () => chooseOrder('chain') },
+            ...(hasTimedCards() ? [{ label: tr('時刻順'), pressed: cardOrder === 'time', run: () => chooseOrder('time') }] : []),
           ],
         },
       );
-      if (view && isReordered(view)) next.push({ row: '並び', buttons: [...packButton(view), { label: '作った順に戻す', confirm: 'もう一度押すと戻します', close: true, run: () => resetOrder() }] });
+      if (view && isReordered(view)) next.push({ row: tr('並び'), buttons: [...packButton(view), { label: tr('作った順に戻す'), confirm: tr('もう一度押すと戻します'), close: true, run: () => resetOrder() }] });
       const chosen = chosenLinkNameSet(linkNameSets.book, view?.linkSet);
       const missingSet = !!view?.linkSet && !chosen && linkNameSets.ready;
-      const setRow = !linkNameSets.ready ? '読み込み中' : chosen ? chosen.name : missingSet ? '見つかりません' : '選んでいない';
-      next.push({ section: '呼称セット' });
+      const setRow = !linkNameSets.ready ? tr('読み込み中') : chosen ? chosen.name : missingSet ? tr('見つかりません') : tr('選んでいない');
+      next.push({ section: tr('呼称セット') });
       next.push({
         row: setRow,
-        hint: missingSet ? 'このメモの名前で出しています' : undefined,
+        hint: missingSet ? tr('このメモの名前で出しています') : undefined,
         buttons: [
           {
-            label: '選ぶ ▾',
-            aria: 'このメモの呼称セットを選ぶ',
-            title: chosen ? `このメモは「${chosen.name}」。登録は全部のメモで共通、使うセットはこのメモだけ` : '登録は全部のメモで共通です。使うセットは、このメモだけ変わります',
+            label: tr('選ぶ ▾'),
+            aria: tr('このメモの呼称セットを選ぶ'),
+            title: chosen ? tr('このメモは「{0}」。登録は全部のメモで共通、使うセットはこのメモだけ', { 0: chosen.name }) : tr('登録は全部のメモで共通です。使うセットは、このメモだけ変わります'),
             run: () => openLinkNameSetMenu(x, y),
           },
         ],
       });
-      next.push({ section: '凡例（元 → 相手。元は相手の〈種類〉）' });
+      next.push({ section: tr('凡例（元 → 相手。元は相手の〈種類〉）') });
       for (const k of LINK_KINDS) {
         const renamed = k.name !== LINK_KIND_DEFAULT_NAMES[k.kind];
-        const setTitle = chosen ? `セット「${chosen.name}」の名前（このセットを使うメモ全部）` : 'このメモだけの名前';
+        const setTitle = chosen ? tr('セット「{0}」の名前（このセットを使うメモ全部）', { 0: chosen.name }) : tr('このメモだけの名前');
         next.push({
-          row: `${k.name}：${colorName[k.kind]}・${headName[k.head]}${k.dashed ? '・破線' : ''}`,
-          hint: renamed ? `元は「${LINK_KIND_DEFAULT_NAMES[k.kind]}」` : undefined,
+          row: tr('{0}：{1}・{2}{3}', { 0: k.name, 1: colorName[k.kind], 2: headName[k.head], 3: k.dashed ? '・破線' : '' }),
+          hint: renamed ? tr('元は「{0}」', { 0: LINK_KIND_DEFAULT_NAMES[k.kind] }) : undefined,
           buttons: [
-            { label: '名前を変える', aria: chosen ? `呼称セット「${chosen.name}」の「${k.name}」の名前を変える` : `「${k.name}」の名前を変える`, title: setTitle, run: () => renameKind(k.kind, x, y) },
-            ...(renamed ? [{ label: '元に戻す', aria: `「${k.name}」を「${LINK_KIND_DEFAULT_NAMES[k.kind]}」に戻す`, title: setTitle, run: () => applyKindName(k.kind, null) }] : []),
+            { label: tr('名前を変える'), aria: chosen ? tr('呼称セット「{0}」の「{1}」の名前を変える', { 0: chosen.name, 1: k.name }) : tr('「{0}」の名前を変える', { 0: k.name }), title: setTitle, run: () => renameKind(k.kind, x, y) },
+            ...(renamed ? [{ label: tr('元に戻す'), aria: tr('「{0}」を「{1}」に戻す', { 0: k.name, 1: LINK_KIND_DEFAULT_NAMES[k.kind] }), title: setTitle, run: () => applyKindName(k.kind, null) }] : []),
           ],
         });
       }
@@ -2080,13 +2079,13 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       const set = chosenLinkNameSet(linkNameSets.book, view.linkSet);
       if (set) {
         if (linkSetUnusable()) {
-          status.textContent = '呼称セットは今は変えられません（台帳を読めませんでした）';
+          status.textContent = tr('呼称セットは今は変えられません（台帳を読めませんでした）');
           return;
         }
         const names = withLinkKindName(set.names, kind, name);
         linkNameSets.apply({ type: 'setNames', id: set.id, names: names ?? {} });
         const shown = linkKindInfo(kind).name;
-        status.textContent = name ? `呼称セット「${set.name}」の名前を「${shown}」にしました` : `呼称セット「${set.name}」の「${shown}」を元の名前に戻しました`;
+        status.textContent = name ? tr('呼称セット「{0}」の名前を「{1}」にしました', { 0: set.name, 1: shown }) : tr('呼称セット「{0}」の「{1}」を元の名前に戻しました', { 0: set.name, 1: shown });
         entries.splice(0, entries.length, ...build());
         linkMenu.refresh();
         return;
@@ -2095,7 +2094,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       view.linkNames = names; // 写しが戻る前に、この区画ですぐ当てる
       applyLinkKindNames(names);
       ask({ command: 'setMemoLinkNames', id: view.id, names: names ?? null });
-      status.textContent = name ? `関連の種類の名前を「${linkKindInfo(kind).name}」にしました` : `関連の種類の名前を「${linkKindInfo(kind).name}」に戻しました`;
+      status.textContent = name ? tr('関連の種類の名前を「{0}」にしました', { 0: linkKindInfo(kind).name }) : tr('関連の種類の名前を「{0}」に戻しました', { 0: linkKindInfo(kind).name });
       if (view) renderCards(view, undefined, true);
       scheduleLinks();
       renderCountTools();
@@ -2103,7 +2102,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       linkMenu.refresh();
     };
     const renameKind = (kind: LinkKind, px: number, py: number) => {
-      linkMenu.prompt(`「${linkKindInfo(kind).name}」の新しい名前（${LINK_KIND_NAME_MAX} 文字まで）`, linkKindInfo(kind).name, (value) => applyKindName(kind, value), { x: px, y: py }, { maxLength: LINK_KIND_NAME_MAX });
+      linkMenu.prompt(tr('「{0}」の新しい名前（{1} 文字まで）', { 0: linkKindInfo(kind).name, 1: LINK_KIND_NAME_MAX }), linkKindInfo(kind).name, (value) => applyKindName(kind, value), { x: px, y: py }, { maxLength: LINK_KIND_NAME_MAX });
     };
     const choose = (mode: 'all' | 'selected' | 'none') => {
       lineMode = mode;
@@ -2155,7 +2154,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   function jumpToReply(current: MemoPaneView, id: string) {
     const reply = current.replies.find((r) => r.id === id);
     if (!reply) {
-      status.textContent = 'そのコメントは、もうありません';
+      status.textContent = tr('そのコメントは、もうありません');
       return;
     }
     if (cardMap.isOpen) closeMap(false); // 移る道は先に閉じる（マップの窓）
@@ -2164,7 +2163,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (filterTag && top && !(top.tags ?? []).includes(filterTag)) {
       filterTag = null;
       keepShown.clear();
-      status.textContent = 'タグの絞りを外しました（検索から移ったため）';
+      status.textContent = tr('タグの絞りを外しました（検索から移ったため）');
     }
     if (top) openBodies.add(top.id); // 一番上のカードの 280 字の折りたたみを開く
     revealReply(refOf(current.id), current.replies, id);
@@ -2209,16 +2208,16 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!view) return;
     const memoId = view.id;
     imageMenu.open(x, y, [
-      { section: 'カードの画像' },
+      { section: tr('カードの画像') },
       {
-        label: '🖼 画像を撮影に送る',
-        hint: '大きく開く',
+        label: tr('🖼 画像を撮影に送る'),
+        hint: tr('大きく開く'),
         run: () => {
           ask({ command: 'captureCardImage', id: memoId, replyId });
-          status.textContent = '画像を右の撮影に送りました（大きく開きます）';
+          status.textContent = tr('画像を右の撮影に送りました（大きく開きます）');
         },
       },
-      { label: '書き足す…', hint: '新しいカードに足す', run: () => void beginAnnotate({ kind: 'card', replyId }) },
+      { label: tr('書き足す…'), hint: tr('新しいカードに足す'), run: () => void beginAnnotate({ kind: 'card', replyId }) },
     ]);
   }
 
@@ -2242,7 +2241,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const reply = source.kind === 'card' ? view.replies.find((item) => item.id === source.replyId) : undefined;
     const imageId = source.kind === 'card' ? reply?.image : view.image;
     if (!imageId) {
-      say('その画像は、もうありません');
+      say(tr('その画像は、もうありません'));
       return;
     }
     annotateBusy = true;
@@ -2250,7 +2249,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       const src = await loadShot(imageId);
       if (view?.id !== memoId) return;
       if (!src) {
-        say('その画像は、もうありません');
+        say(tr('その画像は、もうありません'));
         return;
       }
       closeLight();
@@ -2295,7 +2294,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       const fit = await fitPicture(result.image, true);
       if (view?.id !== memoId) return;
       if ('error' in fit) {
-        say(`書き足した版を整えられませんでした（${FIT_STAGE[fit.error]}）`);
+        say(tr('書き足した版を整えられませんでした（{0}）', { 0: FIT_STAGE[fit.error] }));
         return;
       }
       const id = newShotId();
@@ -2305,7 +2304,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         return;
       }
       if (!ok) {
-        say('画像を保存できませんでした（保存：ファイルに書けない）');
+        say(tr('画像を保存できませんでした（保存：ファイルに書けない）'));
         return;
       }
       shotUrls.set(id, fit.dataUrl);
@@ -2331,7 +2330,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       card.append(block);
       const long = quote.text.split('\n').length > 4 || [...quote.text].length > 160;
       if (long) {
-        const more = el('button', 'memo-pane-more', open ? 'たたむ ▴' : '…続き ▾');
+        const more = el('button', 'memo-pane-more', open ? tr('たたむ ▴') : tr('…続き ▾'));
         more.type = 'button';
         more.addEventListener('click', () => {
           if (openQuotes.has(reply.id)) openQuotes.delete(reply.id);
@@ -2343,7 +2342,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     }
     const src = el('button', 'memo-pane-source', quoteSourceLabel(quote));
     src.type = 'button';
-    src.title = 'この文の所を開く';
+    src.title = tr('この文の所を開く');
     src.addEventListener('click', () => {
       ask({ command: 'openQuote', url: quote.url, fragmentUrl: quoteFragmentUrl(quote.url, quote.text) });
     });
@@ -2354,15 +2353,15 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!reply.image) return;
     const src = shotUrl(reply.image);
     if (!src) {
-      card.append(el('div', 'memo-pane-shot-wait', '画像を読んでいます'));
+      card.append(el('div', 'memo-pane-shot-wait', tr('画像を読んでいます')));
       return;
     }
     const btn = el('button', 'memo-pane-thumb');
     btn.type = 'button';
-    btn.title = '画像を大きく見る';
+    btn.title = tr('画像を大きく見る');
     const img = el('img');
     img.src = src;
-    img.alt = 'カードの画像';
+    img.alt = tr('カードの画像');
     btn.append(img);
     btn.addEventListener('click', () => openLight(src, reply.id));
     btn.addEventListener('contextmenu', (e) => {
@@ -2395,7 +2394,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   function roomForCard(): boolean {
     if (!view) return false;
     if (view.replies.length >= MAX_REPLIES) {
-      status.textContent = `返信は1つのメモに ${MAX_REPLIES} 件までです`;
+      status.textContent = tr('返信は1つのメモに {0} 件までです', { 0: MAX_REPLIES });
       return false;
     }
     return true;
@@ -2406,36 +2405,36 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const memoId = view.id;
     const tabId = view.page.tabId;
     if (tabId === null) {
-      status.textContent = '上のページがありません';
+      status.textContent = tr('上のページがありません');
       return;
     }
     setBusy(true);
-    status.textContent = '選んだ文を読んでいます';
+    status.textContent = tr('選んだ文を読んでいます');
     try {
       const pageText = await requestPageText(tabId);
       if (view?.id !== memoId) return;
       if (pageText.error === 'noPage') {
-        status.textContent = '上のページがありません';
+        status.textContent = tr('上のページがありません');
         return;
       }
       if (pageText.error) {
-        status.textContent = '上のページの文を読めませんでした';
+        status.textContent = tr('上のページの文を読めませんでした');
         return;
       }
       const selection = (pageText.selection ?? '').trim();
       if (!selection) {
-        status.textContent = '上のページで文を選んでから押してください';
+        status.textContent = tr('上のページで文を選んでから押してください');
         return;
       }
       const quote = parseQuote({ text: selection, url: pageText.url ?? '', title: pageText.title ?? '' });
       if (!quote) {
-        status.textContent = 'このページのアドレスでは引用を残せません';
+        status.textContent = tr('このページのアドレスでは引用を残せません');
         return;
       }
       if (!roomForCard()) return;
       armNewEdit();
       ask({ command: 'addMemoComment', id: memoId, text: '', quote });
-      status.textContent = '引用を入れました';
+      status.textContent = tr('引用を入れました');
     } finally {
       setBusy(false);
     }
@@ -2447,11 +2446,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const tabId = view.page.tabId;
     const source = { url: view.page.url, title: view.page.title };
     if (tabId === null) {
-      status.textContent = '撮れませんでした（ページが眠っている・小窓に出ているなど）';
+      status.textContent = tr('撮れませんでした（ページが眠っている・小窓に出ているなど）');
       return;
     }
     setBusy(true);
-    status.textContent = '見えている所を撮っています';
+    status.textContent = tr('見えている所を撮っています');
     try {
       // maxEdge：上に見えている範囲だけ。下の区画に入力先があっても撮れ、大きすぎて届かない画像にしない
       const reply = await request((requestId) => ({ type: 'captureFull', requestId, id: tabId, maxEdge: 1600 }), 8_000);
@@ -2461,19 +2460,19 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         return;
       }
       if (!/^data:image\/(jpeg|png);base64,./.test(reply.image)) {
-        status.textContent = '撮った画像を整えられませんでした（受け取り：画像の形でない）';
+        status.textContent = tr('撮った画像を整えられませんでした（受け取り：画像の形でない）');
         return;
       }
       const fit = await fitPicture(reply.image, false);
       if (view?.id !== memoId) return;
       if ('error' in fit) {
-        status.textContent = `撮った画像を整えられませんでした（${FIT_STAGE[fit.error]}）`;
+        status.textContent = tr('撮った画像を整えられませんでした（{0}）', { 0: FIT_STAGE[fit.error] });
         return;
       }
       const quote = parseQuote({ text: '', url: source.url, title: source.title });
       await saveShot(memoId, fit.dataUrl, quote);
     } catch (error) {
-      if (view?.id === memoId) status.textContent = `撮った画像を整えられませんでした（途中：${error instanceof Error ? error.name : '不明'}）`;
+      if (view?.id === memoId) status.textContent = tr('撮った画像を整えられませんでした（途中：{0}）', { 0: error instanceof Error ? error.name : '不明' });
     } finally {
       setBusy(false);
     }
@@ -2485,16 +2484,16 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const tabId = view.page.tabId;
     const source = { url: view.page.url, title: view.page.title };
     if (tabId === null) {
-      status.textContent = '全体の画像を撮れませんでした（全体：ページなし）';
+      status.textContent = tr('全体の画像を撮れませんでした（全体：ページなし）');
       return;
     }
     if (view.replies.length >= MAX_REPLIES) {
-      status.textContent = `返信は1つのメモに ${MAX_REPLIES} 件までです`;
+      status.textContent = tr('返信は1つのメモに {0} 件までです', { 0: MAX_REPLIES });
       return;
     }
     const name = exportFileName(source.url, 'jpg');
     setBusy(true);
-    status.textContent = 'ページ全体を撮っています';
+    status.textContent = tr('ページ全体を撮っています');
     try {
       const shot = await request((requestId) => ({ type: 'capturePage', requestId, id: tabId, name }), 60_000);
       const here = () => view?.id === memoId;
@@ -2507,11 +2506,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       const thumb = await visibleThumb(tabId);
       const quote = parseQuote({ text: '', url: source.url, title: source.title });
       if (!thumb.image && !quote) {
-        if (here()) status.textContent = `全体の画像は保存しました（${savedName}）。このページのアドレスではカードを残せません`;
+        if (here()) status.textContent = tr('全体の画像は保存しました（{0}）。このページのアドレスではカードを残せません', { 0: savedName });
         return;
       }
       if (here() && view && view.replies.length >= MAX_REPLIES) {
-        status.textContent = `全体の画像は保存しました（${savedName}）。返信は1つのメモに ${MAX_REPLIES} 件までです`;
+        status.textContent = tr('全体の画像は保存しました（{0}）。返信は1つのメモに {1} 件までです', { 0: savedName, 1: MAX_REPLIES });
         return;
       }
       if (here()) armNewEdit();
@@ -2523,9 +2522,9 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         ...(quote ? { quote } : {}),
         file: savedName,
       });
-      if (here()) status.textContent = thumb.note ? `全体の画像は保存しました。${thumb.note}` : '全体の画像を入れました';
+      if (here()) status.textContent = thumb.note ? tr('全体の画像は保存しました。{0}', { 0: thumb.note }) : tr('全体の画像を入れました');
     } catch (error) {
-      if (view?.id === memoId) status.textContent = `全体の画像を撮れませんでした（全体：途中で止まった ${error instanceof Error ? error.name : '不明'}）`;
+      if (view?.id === memoId) status.textContent = tr('全体の画像を撮れませんでした（全体：途中で止まった {0}）', { 0: error instanceof Error ? error.name : '不明' });
     } finally {
       setBusy(false);
     }
@@ -2535,12 +2534,12 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   async function visibleThumb(tabId: number): Promise<{ image?: string; note?: string }> {
     const reply = await request((requestId) => ({ type: 'captureFull', requestId, id: tabId, maxEdge: 1600 }), 8_000);
     if (reply?.type !== 'capture' || !reply.ok || !reply.image) return { note: captureFailure(reply) };
-    if (!/^data:image\/(jpeg|png);base64,./.test(reply.image)) return { note: '見えている所は入れられませんでした（受け取り：画像の形でない）' };
+    if (!/^data:image\/(jpeg|png);base64,./.test(reply.image)) return { note: tr('見えている所は入れられませんでした（受け取り：画像の形でない）') };
     const fit = await fitPicture(reply.image, false);
-    if ('error' in fit) return { note: `見えている所は入れられませんでした（${FIT_STAGE[fit.error]}）` };
+    if ('error' in fit) return { note: tr('見えている所は入れられませんでした（{0}）', { 0: FIT_STAGE[fit.error] }) };
     const id = newShotId();
     const ok = await writeData(`shots/${id}.json`, { version: 1, data: fit.dataUrl });
-    if (!ok) return { note: '見えている所は入れられませんでした（保存：ファイルに書けない）' };
+    if (!ok) return { note: tr('見えている所は入れられませんでした（保存：ファイルに書けない）') };
     shotUrls.set(id, fit.dataUrl);
     return { image: id };
   }
@@ -2549,7 +2548,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!view || busy || !reply.image) return;
     const memoId = view.id;
     setBusy(true);
-    status.textContent = '画像を書き出しています';
+    status.textContent = tr('画像を書き出しています');
     try {
       const saved = await readData<{ data?: unknown }>(`shots/${reply.image}.json`);
       if (view?.id !== memoId) return;
@@ -2559,7 +2558,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       const comma = dataUrl.indexOf(',');
       const payload = comma >= 0 ? dataUrl.slice(comma + 1) : '';
       if ((!png && !jpeg) || !payload) {
-        status.textContent = 'この画像は書き出せませんでした（書き出す：カードの画像を読めない）';
+        status.textContent = tr('この画像は書き出せませんでした（書き出す：カードの画像を読めない）');
         return;
       }
       const name = exportFileName(reply.quote?.url || view.page.url, png ? 'png' : 'jpg');
@@ -2569,7 +2568,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         status.textContent = exportFailure(sent);
         return;
       }
-      status.textContent = `画像を書き出しました（${sent.name}）`;
+      status.textContent = tr('画像を書き出しました（{0}）', { 0: sent.name });
     } finally {
       setBusy(false);
     }
@@ -2580,21 +2579,21 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const memoId = view.id;
     const text = memoMarkdown(view);
     setBusy(true);
-    status.textContent = 'コピーしています';
+    status.textContent = tr('コピーしています');
     try {
       const reply = await request((requestId) => ({ type: 'clipboardWrite', requestId, text, html: '' }), 8_000);
       if (view?.id !== memoId) return;
       if (reply?.type !== 'clipboardWritten') {
-        status.textContent = 'まとめてコピーできませんでした（コピー：返事なし）';
+        status.textContent = tr('まとめてコピーできませんでした（コピー：返事なし）');
         return;
       }
       if (!reply.ok) {
-        status.textContent = 'まとめてコピーできませんでした（コピー：書けない）';
+        status.textContent = tr('まとめてコピーできませんでした（コピー：書けない）');
         return;
       }
-      status.textContent = 'まとめてコピーしました。メモ帳に貼れます';
+      status.textContent = tr('まとめてコピーしました。メモ帳に貼れます');
     } catch {
-      if (view?.id === memoId) status.textContent = 'まとめてコピーできませんでした（コピー：途中で止まった）';
+      if (view?.id === memoId) status.textContent = tr('まとめてコピーできませんでした（コピー：途中で止まった）');
     } finally {
       setBusy(false);
     }
@@ -2603,21 +2602,21 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   function addPageLink() {
     if (!view || busy) return;
     if (view.page.tabId === null || !view.page.url) {
-      status.textContent = '上のページがありません（リンク：ページなし）';
+      status.textContent = tr('上のページがありません（リンク：ページなし）');
       return;
     }
     const quote = parseQuote({ text: '', url: view.page.url, title: view.page.title });
     if (!quote) {
-      status.textContent = 'このページのアドレスではリンクを残せません（リンク：アドレス）';
+      status.textContent = tr('このページのアドレスではリンクを残せません（リンク：アドレス）');
       return;
     }
     if (view.replies.length >= MAX_REPLIES) {
-      status.textContent = `返信は1つのメモに ${MAX_REPLIES} 件までです（リンク：いっぱい）`;
+      status.textContent = tr('返信は1つのメモに {0} 件までです（リンク：いっぱい）', { 0: MAX_REPLIES });
       return;
     }
     armNewEdit();
     ask({ command: 'addMemoComment', id: view.id, text: '', quote });
-    status.textContent = 'ページのリンクを入れました';
+    status.textContent = tr('ページのリンクを入れました');
   }
 
   function closeMenu() {
@@ -2643,31 +2642,31 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     tplMenu.hidden = false;
     tplPasteBtn.setAttribute('aria-expanded', 'true');
     const seq = ++tplMenuSeq;
-    tplMenu.replaceChildren(el('div', 'memo-pane-tplmenu-note', '読み込んでいます…'));
+    tplMenu.replaceChildren(el('div', 'memo-pane-tplmenu-note', tr('読み込んでいます…')));
     const loaded = await loadTemplates(templateIo).catch(() => null);
     if (seq !== tplMenuSeq || tplMenu.hidden) return;
     if (!loaded || loaded.state === 'unreadable') {
-      tplMenu.replaceChildren(el('div', 'memo-pane-tplmenu-note error', '型の保存ファイルを読めませんでした（ファイルは変えていません）'));
+      tplMenu.replaceChildren(el('div', 'memo-pane-tplmenu-note error', tr('型の保存ファイルを読めませんでした（ファイルは変えていません）')));
       return;
     }
     const nodes: HTMLElement[] = [];
-    const winItem = el('button', 'memo-pane-menu-item', '型の窓を開く…（/ キー）');
+    const winItem = el('button', 'memo-pane-menu-item', tr('型の窓を開く…（/ キー）'));
     winItem.type = 'button';
     winItem.setAttribute('role', 'menuitem');
-    winItem.title = '型を検索し、サムネイルで見て、貼る位置を確かめてから貼ります';
+    winItem.title = tr('型を検索し、サムネイルで見て、貼る位置を確かめてから貼ります');
     winItem.addEventListener('click', () => {
       closeTplMenu();
       openTplPalette();
     });
     nodes.push(winItem);
-    if (loaded.templates.length === 0) nodes.push(el('div', 'memo-pane-tplmenu-note', loaded.skipped > 0 ? `読める型がありません（読めない型が ${loaded.skipped} 件あります）` : TEMPLATE_EMPTY_HINT));
+    if (loaded.templates.length === 0) nodes.push(el('div', 'memo-pane-tplmenu-note', loaded.skipped > 0 ? tr('読める型がありません（読めない型が {0} 件あります）', { 0: loaded.skipped }) : TEMPLATE_EMPTY_HINT));
     for (const group of templateMenuGroups(loaded.templates)) {
       nodes.push(el('div', 'memo-pane-tplmenu-folder', group.folder));
       for (const t of group.items) {
         const item = el('button', 'memo-pane-menu-item', templateMenuLabel(t));
         item.type = 'button';
         item.setAttribute('role', 'menuitem');
-        item.title = `「${t.name}」を、このメモの最後に貼ります`;
+        item.title = tr('「{0}」を、このメモの最後に貼ります', { 0: t.name });
         item.addEventListener('click', () => {
           closeTplMenu();
           tplPasteBtn.focus();
@@ -2676,7 +2675,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         nodes.push(item);
       }
     }
-    if (loaded.templates.length > 0 && loaded.skipped > 0) nodes.push(el('div', 'memo-pane-tplmenu-note', `読めない型が ${loaded.skipped} 件あります（出していません）`));
+    if (loaded.templates.length > 0 && loaded.skipped > 0) nodes.push(el('div', 'memo-pane-tplmenu-note', tr('読めない型が {0} 件あります（出していません）', { 0: loaded.skipped })));
     tplMenu.replaceChildren(...nodes);
   }
 
@@ -2714,7 +2713,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     fillTpl = t;
     fillFromBoard = board ?? null;
     fillInputs = [];
-    tplFillName.textContent = `型「${t.name}」（${t.cards.length}枚・${MODE_LABELS[t.mode]}）`;
+    tplFillName.textContent = tr('型「{0}」（{1}枚・{2}）', { 0: t.name, 1: t.cards.length, 2: MODE_LABELS[t.mode] });
     const rows: HTMLElement[] = [];
     for (const name of names.slice(0, 40)) {
       const row = el('label', 'memo-pane-tpl-fillrow');
@@ -2737,10 +2736,10 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       fillInputs.push({ name, input });
     }
     tplFillFields.replaceChildren(...rows);
-    const many = names.length > 40 ? '空欄が多いので、最初の 40 個だけ入れられます（残りは {{…}} のまま貼ります）' : '';
+    const many = names.length > 40 ? tr('空欄が多いので、最初の 40 個だけ入れられます（残りは {{…}} のまま貼ります）') : '';
     tplFillMsg.textContent = prefill ? [prefill.text, many].filter(Boolean).join('。') : many;
     tplFillMsg.classList.remove('error');
-    tplFillNote.textContent = prefill?.note ? `${FILL_NOTE}。Grok のメモ：${prefill.note}` : FILL_NOTE;
+    tplFillNote.textContent = prefill?.note ? tr('{0}。Grok のメモ：{1}', { 0: FILL_NOTE, 1: prefill.note }) : FILL_NOTE;
     tplFill.hidden = false;
     placeTplFill();
     fillInputs[0]?.input.focus();
@@ -2774,8 +2773,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     closeTplFill(false);
     if (!board) tplPasteBtn.focus();
     const notes: string[] = [];
-    if (done.empty > 0) notes.push(`空欄 ${done.empty} 個は {{…}} のまま貼りました`);
-    if (done.truncated > 0) notes.push(`${MAX_REPLY_TEXT} 字を超えた ${done.truncated} 枚は、切って貼りました`);
+    if (done.empty > 0) notes.push(tr('空欄 {0} 個は {{…}} のまま貼りました', { 0: done.empty }));
+    if (done.truncated > 0) notes.push(tr('{0} 字を超えた {1} 枚は、切って貼りました', { 0: MAX_REPLY_TEXT, 1: done.truncated }));
     if (board) {
       board.done(done.template, notes); // ボードから開いた小窓：貼るのはボード（見ている場所の真ん中へ。ids を付けて）
       return;
@@ -2840,7 +2839,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const result = ghostSlots(ghostTpl, orderedReplies(view));
     if (!result.ok) return result;
     ghostTpl.cards.forEach((c, i) => {
-      const node = el('div', 'memo-pane-tpl-ghost', `＋ ${c.title || '（空のカード）'}`);
+      const node = el('div', 'memo-pane-tpl-ghost', `＋ ${c.title || tr('（空のカード）')}`);
       node.setAttribute('aria-hidden', 'true');
       if (slotMode) {
         const slot = result.slots[i];
@@ -2875,12 +2874,12 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const nodes: HTMLElement[] = [];
     let note = '';
     let bad = false;
-    if (palState === 'loading') note = '読み込んでいます…';
+    if (palState === 'loading') note = tr('読み込んでいます…');
     else if (palState === 'unreadable') {
-      note = '型の保存ファイルを読めませんでした（ファイルは変えていません）';
+      note = tr('型の保存ファイルを読めませんでした（ファイルは変えていません）');
       bad = true;
-    } else if (palAll.length === 0) note = palSkipped > 0 ? `読める型がありません（読めない型が ${palSkipped} 件あります）` : `${TEMPLATE_EMPTY_HINT}。見本が欲しいときは、下の「初期サンプルを復元」を押してください`;
-    else if (order.length === 0) note = '当てはまる型がありません';
+    } else if (palAll.length === 0) note = palSkipped > 0 ? tr('読める型がありません（読めない型が {0} 件あります）', { 0: palSkipped }) : tr('{0}。見本が欲しいときは、下の「初期サンプルを復元」を押してください', { 0: TEMPLATE_EMPTY_HINT });
+    else if (order.length === 0) note = tr('当てはまる型がありません');
     tplPalNote.textContent = note;
     tplPalNote.classList.toggle('error', bad);
     let folder = '';
@@ -2899,19 +2898,19 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       const acts = el('div', 'memo-pane-tplpal-acts');
       const rename = el('button', 'memo-pane-tplpal-act', '✎');
       rename.type = 'button';
-      rename.title = '名前を変える';
+      rename.title = tr('名前を変える');
       rename.setAttribute('aria-label', `「${t.name}」の名前を変える`);
-      const out = el('button', 'memo-pane-tplpal-act', '書出');
+      const out = el('button', 'memo-pane-tplpal-act', tr('書出'));
       out.type = 'button';
-      out.title = 'この型だけをファイルに書き出します';
+      out.title = tr('この型だけをファイルに書き出します');
       out.setAttribute('aria-label', `「${t.name}」だけを書き出す`);
       out.addEventListener('click', (e) => {
         e.stopPropagation();
         void exportTemplates(t);
       });
-      const del = el('button', 'memo-pane-tplpal-act', '削除');
+      const del = el('button', 'memo-pane-tplpal-act', tr('削除'));
       del.type = 'button';
-      del.title = 'この型を消します（もう一度押すと消えます）';
+      del.title = tr('この型を消します（もう一度押すと消えます）');
       del.setAttribute('aria-label', `「${t.name}」を削除`);
       rename.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -2928,7 +2927,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       item.addEventListener('click', () => pasteFromPalette(t));
       nodes.push(item);
     }
-    if (palState === 'ok' && palAll.length > 0 && palSkipped > 0) nodes.push(el('div', 'memo-pane-tplpal-note', `読めない型が ${palSkipped} 件あります（出していません）`));
+    if (palState === 'ok' && palAll.length > 0 && palSkipped > 0) nodes.push(el('div', 'memo-pane-tplpal-note', tr('読めない型が {0} 件あります（出していません）', { 0: palSkipped })));
     tplPalList.replaceChildren(...nodes);
     for (const [i, btn] of [...tplPalFolders.children].entries()) {
       (btn as HTMLElement).setAttribute('aria-pressed', String(i === 0 ? palFolder === null : TEMPLATE_FOLDERS[i - 1] === palFolder));
@@ -2983,7 +2982,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         finished = true;
         void renameStoredTemplate(templateIo, t.id, input.value).then((done) => {
           if (!done.ok) nameEl.textContent = t.name;
-          paletteResult(done, '名前を変えました');
+          paletteResult(done, tr('名前を変えました'));
           tplPalFilter.focus();
         });
       }
@@ -2994,17 +2993,17 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   function onPaletteDelete(t: CardTemplate, del: HTMLButtonElement) {
     if (!del.hasAttribute('data-armed-confirm')) {
       armConfirm(del, () => {
-        del.textContent = '削除';
+        del.textContent = tr('削除');
         del.classList.remove('danger');
         tplPalInfo.textContent = '';
       });
-      del.textContent = 'もう一度押すと削除';
+      del.textContent = tr('もう一度押すと削除');
       del.classList.add('danger');
-      tplPalInfo.textContent = `「${t.name}」を消します。もう一度「削除」を押すと消えます（別の所を押すか Esc でやめます）`;
+      tplPalInfo.textContent = tr('「{0}」を消します。もう一度「削除」を押すと消えます（別の所を押すか Esc でやめます）', { 0: t.name });
       tplPalInfo.classList.remove('error');
       return;
     }
-    void deleteStoredTemplate(templateIo, t.id).then((done) => paletteResult(done, `「${t.name}」を消しました`));
+    void deleteStoredTemplate(templateIo, t.id).then((done) => paletteResult(done, tr('「{0}」を消しました', { 0: t.name })));
   }
 
   // ---------- 型の書き出し・読み込み（Phase 4）：純粋な部分は memo-card-template-io.ts ----------
@@ -3023,28 +3022,28 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     try {
       const loaded = await loadTemplates(templateIo).catch(() => null);
       if (!loaded || loaded.state === 'unreadable') {
-        ioSay('型の保存ファイルを読めないので、書き出せません（ファイルは変えていません）', true);
+        ioSay(tr('型の保存ファイルを読めないので、書き出せません（ファイルは変えていません）'), true);
         return;
       }
       const list = only ? loaded.templates.filter((t) => t.id === only.id) : loaded.templates;
       if (list.length === 0) {
-        ioSay(only ? 'その型はもうありません' : '書き出す型がありません', true);
+        ioSay(only ? tr('その型はもうありません') : tr('書き出す型がありません'), true);
         return;
       }
       const data = buildExport(list);
       if (!exportFitsImportLimit(data)) {
-        ioSay(`大きすぎて書き出せません（読み込める大きさは ${IMPORT_FILE_LABEL} まで）。「書出」で 1 件ずつ書き出してください`, true);
+        ioSay(tr('大きすぎて書き出せません（読み込める大きさは {0} まで）。「書出」で 1 件ずつ書き出してください', { 0: IMPORT_FILE_LABEL }), true);
         return;
       }
       const name = templateExportName();
       if (!(await writeData(name, data))) {
-        ioSay('書き出せませんでした（ui-data に書けません）', true);
+        ioSay(tr('書き出せませんでした（ui-data に書けません）'), true);
         return;
       }
       const path = `ui-data\\${name.replace(/\//g, '\\')}`;
       const copied = await request((requestId) => ({ type: 'clipboardWrite', requestId, text: path, html: '' }), 8_000).catch(() => null);
-      const skipped = !only && loaded.skipped > 0 ? `。読めない型 ${loaded.skipped} 件は含めていません` : '';
-      ioSay(`書き出しました：${path}（${list.length} 件${skipped}）${copied?.type === 'clipboardWritten' && copied.ok ? '。場所の名前をコピーしました' : ''}`, false);
+      const skipped = !only && loaded.skipped > 0 ? tr('。読めない型 {0} 件は含めていません', { 0: loaded.skipped }) : '';
+      ioSay(tr('書き出しました：{0}（{1} 件{2}）{3}', { 0: path, 1: list.length, 2: skipped, 3: copied?.type === 'clipboardWritten' && copied.ok ? '。場所の名前をコピーしました' : '' }), false);
     } finally {
       importBusy = false;
     }
@@ -3056,12 +3055,12 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     try {
       const reply = await request((requestId) => ({ type: 'openJsonFile', requestId }), 10 * 60_000);
       if (!reply || reply.type !== 'jsonFile') {
-        ioSay('ファイルを選ぶ窓から返事がありません。何も変えていません', true);
+        ioSay(tr('ファイルを選ぶ窓から返事がありません。何も変えていません'), true);
         return;
       }
       if (!reply.ok) {
         if (reply.error === 'cancel') return;
-        ioSay(reply.error === 'big' ? `ファイルが大きすぎます（${IMPORT_FILE_LABEL} まで）。何も変えていません` : 'ファイルを読めませんでした。何も変えていません', true);
+        ioSay(reply.error === 'big' ? tr('ファイルが大きすぎます（{0} まで）。何も変えていません', { 0: IMPORT_FILE_LABEL }) : tr('ファイルを読めませんでした。何も変えていません'), true);
         return;
       }
       if (isFillText(reply.text ?? '')) {
@@ -3082,7 +3081,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         ioSay(templateSaveMessage('partial'), true);
         return;
       }
-      openTplImport(reply.name ?? 'ファイル', parsed, loaded.templates);
+      openTplImport(reply.name ?? tr('ファイル'), parsed, loaded.templates);
     } finally {
       importBusy = false;
     }
@@ -3111,7 +3110,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!view) return;
     const plan = planFill(found.template, fill);
     if (plan.used === 0) {
-      ioSay(`「${found.template.name}」の空欄に当たる値がありません（空欄名が合いません）。何も開いていません`, true);
+      ioSay(tr('「{0}」の空欄に当たる値がありません（空欄名が合いません）。何も開いていません', { 0: found.template.name }), true);
       return;
     }
     const blocked = pasteBlocked(view.replies.length, found.template.cards.length);
@@ -3121,7 +3120,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     }
     closeTplPalette(false);
     openTplFill(found.template, { values: plan.values, text: fillPlanText(plan, fill.ignored), note: fill.note });
-    status.textContent = `「${found.template.name}」の空欄に値を ${plan.used} 個入れました。確かめて「貼る」を押してください（まだ貼っていません）`;
+    status.textContent = tr('「{0}」の空欄に値を {1} 個入れました。確かめて「貼る」を押してください（まだ貼っていません）', { 0: found.template.name, 1: plan.used });
   }
 
   // 空欄の小窓の「穴埋めファイルを読み込む…」：今開いている型用のファイルの値を、空欄に入れる（ほかの空欄・型は変えない）
@@ -3136,18 +3135,18 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     try {
       const reply = await request((requestId) => ({ type: 'openJsonFile', requestId }), 10 * 60_000);
       if (!reply || reply.type !== 'jsonFile') {
-        say('ファイルを選ぶ窓から返事がありません。何も入れていません', true);
+        say(tr('ファイルを選ぶ窓から返事がありません。何も入れていません'), true);
         return;
       }
       if (!reply.ok) {
         if (reply.error === 'cancel') return;
-        say(reply.error === 'big' ? `ファイルが大きすぎます（${IMPORT_FILE_LABEL} まで）。何も入れていません` : 'ファイルを読めませんでした。何も入れていません', true);
+        say(reply.error === 'big' ? tr('ファイルが大きすぎます（{0} まで）。何も入れていません', { 0: IMPORT_FILE_LABEL }) : tr('ファイルを読めませんでした。何も入れていません'), true);
         return;
       }
       if (fillTpl !== tpl) return; // 選んでいる間に、小窓が閉じた・別の型になった
       const text = reply.text ?? '';
       if (parseImportText(text).ok) {
-        say('これは型のファイルです。穴埋めのファイル（honeycomb-cardtpl-fill）を選んでください。何も入れていません', true);
+        say(tr('これは型のファイルです。穴埋めのファイル（honeycomb-cardtpl-fill）を選んでください。何も入れていません'), true);
         return;
       }
       const fill = parseFillText(text);
@@ -3157,19 +3156,19 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       }
       const same = (fill.template.id !== '' && fill.template.id === tpl.id) || (fill.template.name !== '' && fill.template.name === tpl.name);
       if (!same) {
-        say(`このファイルは「${fill.template.name || fill.template.id}」用です。今開いている型「${tpl.name}」には入れていません`, true);
+        say(tr('このファイルは「{0}」用です。今開いている型「{1}」には入れていません', { 0: fill.template.name || fill.template.id, 1: tpl.name }), true);
         return;
       }
       const plan = planFill(tpl, fill);
       if (plan.used === 0) {
-        say('この型の空欄に当たる値がありません（空欄名が合いません）。何も入れていません', true);
+        say(tr('この型の空欄に当たる値がありません（空欄名が合いません）。何も入れていません'), true);
         return;
       }
       for (const f of fillInputs) {
         const v = plan.values[f.name];
         if (v !== undefined) f.input.value = v;
       }
-      tplFillNote.textContent = fill.note ? `${FILL_NOTE}。Grok のメモ：${fill.note}` : FILL_NOTE;
+      tplFillNote.textContent = fill.note ? tr('{0}。Grok のメモ：{1}', { 0: FILL_NOTE, 1: fill.note }) : FILL_NOTE;
       say(fillPlanText(plan, fill.ignored), false);
     } finally {
       importBusy = false;
@@ -3187,29 +3186,29 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   function openTplImport(fileName: string, parsed: Extract<ImportParse, { ok: true }>, existing: readonly CardTemplate[]) {
     const merged = mergeImported(existing, parsed.templates);
     importIncoming = parsed.templates;
-    tplImportName.textContent = `${fileName}：${parsed.total} 件のうち、足せる型 ${merged.items.length} 件${parsed.skipped.length > 0 ? `・読めない型 ${parsed.skipped.length} 件` : ''}`;
+    tplImportName.textContent = tr('{0}：{1} 件のうち、足せる型 {2} 件{3}', { 0: fileName, 1: parsed.total, 2: merged.items.length, 3: parsed.skipped.length > 0 ? `・読めない型 ${parsed.skipped.length} 件` : '' });
     const rows: HTMLElement[] = [];
     const SHOW = 40;
     for (const item of merged.items.slice(0, SHOW)) {
       const t = item.template;
       const row = el('div', 'memo-pane-tpl-importrow');
-      row.append(el('div', 'memo-pane-tpl-importname', t.name), el('div', 'memo-pane-tpl-importmeta', `${t.folder}・${t.cards.length}枚・${MODE_LABELS[t.mode]}${item.nameChanged ? `（もとの名前「${item.fromName}」は、同じ名前があるので変えます）` : ''}`));
+      row.append(el('div', 'memo-pane-tpl-importname', t.name), el('div', 'memo-pane-tpl-importmeta', tr('{0}・{1}枚・{2}{3}', { 0: t.folder, 1: t.cards.length, 2: MODE_LABELS[t.mode], 3: item.nameChanged ? `（もとの名前「${item.fromName}」は、同じ名前があるので変えます）` : '' })));
       rows.push(row);
     }
-    if (merged.items.length > SHOW) rows.push(el('div', 'memo-pane-tpl-importmeta', `ほか ${merged.items.length - SHOW} 件`));
+    if (merged.items.length > SHOW) rows.push(el('div', 'memo-pane-tpl-importmeta', tr('ほか {0} 件', { 0: merged.items.length - SHOW })));
     for (const s of parsed.skipped.slice(0, SHOW)) {
       const row = el('div', 'memo-pane-tpl-importrow skip');
-      row.append(el('div', 'memo-pane-tpl-importname', `${s.index + 1} 番目の型は読めません`), el('div', 'memo-pane-tpl-importmeta', skipReasonText(s.why)));
+      row.append(el('div', 'memo-pane-tpl-importname', tr('{0} 番目の型は読めません', { 0: s.index + 1 })), el('div', 'memo-pane-tpl-importmeta', skipReasonText(s.why)));
       rows.push(row);
     }
-    if (parsed.skipped.length > SHOW) rows.push(el('div', 'memo-pane-tpl-importmeta', `読めない型は、ほか ${parsed.skipped.length - SHOW} 件`));
-    if (rows.length === 0) rows.push(el('div', 'memo-pane-tpl-importmeta', '足せる型がありません'));
+    if (parsed.skipped.length > SHOW) rows.push(el('div', 'memo-pane-tpl-importmeta', tr('読めない型は、ほか {0} 件', { 0: parsed.skipped.length - SHOW })));
+    if (rows.length === 0) rows.push(el('div', 'memo-pane-tpl-importmeta', tr('足せる型がありません')));
     tplImportList.replaceChildren(...rows);
-    tplImportNote.textContent = merged.summary.dropped > 0 ? `${TEMPLATE_LIMITS.templates} 件まで置けるので、入らない ${merged.summary.dropped} 件は足しません（今 ${existing.length} 件）` : `今 ${existing.length} 件。足しても今ある型は変わりません（${TEMPLATE_LIMITS.templates} 件まで）`;
-    tplImportMsg.textContent = merged.items.length === 0 ? '足せる型がないので、何も変えません' : '';
+    tplImportNote.textContent = merged.summary.dropped > 0 ? tr('{0} 件まで置けるので、入らない {1} 件は足しません（今 {2} 件）', { 0: TEMPLATE_LIMITS.templates, 1: merged.summary.dropped, 2: existing.length }) : tr('今 {0} 件。足しても今ある型は変わりません（{1} 件まで）', { 0: existing.length, 1: TEMPLATE_LIMITS.templates });
+    tplImportMsg.textContent = merged.items.length === 0 ? tr('足せる型がないので、何も変えません') : '';
     tplImportMsg.classList.remove('error');
     tplImportOk.disabled = merged.items.length === 0;
-    tplImportOk.textContent = merged.items.length > 0 ? `${merged.items.length} 件を足す` : '足す';
+    tplImportOk.textContent = merged.items.length > 0 ? tr('{0} 件を足す', { 0: merged.items.length }) : tr('足す');
     tplImport.hidden = false;
     placeTplImport();
     (merged.items.length > 0 ? tplImportOk : tplImportCancel).focus();
@@ -3250,20 +3249,20 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     tplAskMsg.classList.remove('error');
     if (!r.ok) {
       tplAskPreview.value = '';
-      tplAskCount.textContent = '目的を書くと、ここにコピーする文が出ます';
+      tplAskCount.textContent = tr('目的を書くと、ここにコピーする文が出ます');
       tplAskCopy.disabled = true;
       return;
     }
     tplAskPreview.value = r.text;
-    const notes = [`${r.chars.toLocaleString('ja-JP')} 字`];
-    if (r.names > 0) notes.push(`今ある型の名前 ${r.names} 件`);
-    if (r.materials > 0) notes.push(`カードの文 ${r.materials} 枚`);
+    const notes = [tr('{0} 字', { 0: r.chars.toLocaleString('ja-JP') })];
+    if (r.names > 0) notes.push(tr('今ある型の名前 {0} 件', { 0: r.names }));
+    if (r.materials > 0) notes.push(tr('カードの文 {0} 枚', { 0: r.materials }));
     if (tplAskMatChk.checked && !tplAskMatChk.disabled) {
-      if (askPick.dropped > 0) notes.push(`入りきらない ${askPick.dropped} 枚は入れません（${ASK_LIMITS.materialCards} 枚・${ASK_LIMITS.materialChars.toLocaleString('ja-JP')} 字まで）`);
-      if (askPick.cut > 0) notes.push(`${MAX_REPLY_TEXT} 字を超えた ${askPick.cut} 枚は切って入れます`);
-      if (askPick.empty > 0) notes.push(`文のない ${askPick.empty} 枚（画像だけなど）は入れません`);
+      if (askPick.dropped > 0) notes.push(tr('入りきらない {0} 枚は入れません（{1} 枚・{2} 字まで）', { 0: askPick.dropped, 1: ASK_LIMITS.materialCards, 2: ASK_LIMITS.materialChars.toLocaleString('ja-JP') }));
+      if (askPick.cut > 0) notes.push(tr('{0} 字を超えた {1} 枚は切って入れます', { 0: MAX_REPLY_TEXT, 1: askPick.cut }));
+      if (askPick.empty > 0) notes.push(tr('文のない {0} 枚（画像だけなど）は入れません', { 0: askPick.empty }));
     }
-    tplAskCount.textContent = notes.join('・');
+    tplAskCount.textContent = notes.join(tr('・'));
     tplAskCopy.disabled = false;
   }
 
@@ -3278,14 +3277,14 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     tplAskPurpose.value = askPurposeKeep;
     tplAskNamesChk.checked = false;
     tplAskNamesChk.disabled = askNames.length === 0;
-    tplAskNamesText.textContent = askNames.length > 0 ? `今ある型の名前も入れる（${askNames.length} 件。同じ名前にならないよう頼みます）` : '今ある型の名前も入れる（今は型がありません）';
+    tplAskNamesText.textContent = askNames.length > 0 ? tr('今ある型の名前も入れる（{0} 件。同じ名前にならないよう頼みます）', { 0: askNames.length }) : tr('今ある型の名前も入れる（今は型がありません）');
     tplAskMatChk.checked = false;
     tplAskMatChk.disabled = askPick.cards.length === 0;
-    tplAskMatText.textContent = askPick.cards.length > 0 ? `選んでいるカードの文も入れる（${askPick.cards.length} 枚）` : '選んでいるカードの文も入れる（今は選んでいません）';
+    tplAskMatText.textContent = askPick.cards.length > 0 ? tr('選んでいるカードの文も入れる（{0} 枚）', { 0: askPick.cards.length }) : tr('選んでいるカードの文も入れる（今は選んでいません）');
     tplAskMatNote.textContent =
       askPick.cards.length > 0
-        ? 'カードの文は、チェックを入れたときだけ入ります。名前・連絡先・パスワードなどが入っていないか、下の「コピーする文」で確かめてください'
-        : 'カードの文を入れたいときは、先に「☐ 選ぶ」で材料にするカードを選んでから、この窓を開いてください（選ばなければ、カードの文は入りません）';
+        ? tr('カードの文は、チェックを入れたときだけ入ります。名前・連絡先・パスワードなどが入っていないか、下の「コピーする文」で確かめてください')
+        : tr('カードの文を入れたいときは、先に「☐ 選ぶ」で材料にするカードを選んでから、この窓を開いてください（選ばなければ、カードの文は入りません）');
     tplAsk.hidden = false;
     placeTplAsk();
     refreshTplAsk();
@@ -3305,7 +3304,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (askBusy) return;
     const r = askRequest();
     if (!r.ok) {
-      tplAskMsg.textContent = 'どんな型がほしいかを書いてください';
+      tplAskMsg.textContent = tr('どんな型がほしいかを書いてください');
       tplAskMsg.classList.add('error');
       tplAskPurpose.focus();
       return;
@@ -3315,15 +3314,15 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     try {
       const reply = await request((requestId) => ({ type: 'clipboardWrite', requestId, text: r.text, html: '' }), 8_000).catch(() => null);
       if (reply?.type !== 'clipboardWritten' || !reply.ok) {
-        tplAskMsg.textContent = reply?.type === 'clipboardWritten' ? 'コピーできませんでした（コピー：書けない）' : 'コピーできませんでした（コピー：返事なし）';
+        tplAskMsg.textContent = reply?.type === 'clipboardWritten' ? tr('コピーできませんでした（コピー：書けない）') : tr('コピーできませんでした（コピー：返事なし）');
         tplAskMsg.classList.add('error');
         return;
       }
       closeTplAsk(true);
-      const parts = [`${r.chars.toLocaleString('ja-JP')} 字`];
-      if (r.names > 0) parts.push(`型の名前 ${r.names} 件`);
-      if (r.materials > 0) parts.push(`カードの文 ${r.materials} 枚`);
-      ioSay(`Grok Bot に頼む文をコピーしました（${parts.join('・')}）。Grok Bot を開いて貼って送ってください。返ってきた JSON は、ファイルに保存して「読み込む…」で読めます`, false);
+      const parts = [tr('{0} 字', { 0: r.chars.toLocaleString('ja-JP') })];
+      if (r.names > 0) parts.push(tr('型の名前 {0} 件', { 0: r.names }));
+      if (r.materials > 0) parts.push(tr('カードの文 {0} 枚', { 0: r.materials }));
+      ioSay(tr('Grok Bot に頼む文をコピーしました（{0}）。Grok Bot を開いて貼って送ってください。返ってきた JSON は、ファイルに保存して「読み込む…」で読めます', { 0: parts.join('・') }), false);
     } finally {
       askBusy = false;
       if (!tplAsk.hidden) tplAskCopy.disabled = false;
@@ -3342,7 +3341,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         tplImportOk.disabled = false;
         return;
       }
-      const text = done.summary ? importSummaryText(done.summary) : '読み込みました';
+      const text = done.summary ? importSummaryText(done.summary) : tr('読み込みました');
       closeTplImport(false);
       status.textContent = text;
       if (!tplPalette.hidden) {
@@ -3356,7 +3355,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
 
   function restoreSamples() {
     void restoreSampleTemplates(templateIo).then((done) =>
-      paletteResult(done, done.ok && (done.added ?? 0) > 0 ? `内蔵サンプルを ${done.added} 件足しました` : '内蔵サンプルは、すべてそろっています'),
+      paletteResult(done, done.ok && (done.added ?? 0) > 0 ? tr('内蔵サンプルを {0} 件足しました', { 0: done.added }) : tr('内蔵サンプルは、すべてそろっています')),
     );
   }
 
@@ -3507,7 +3506,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         const action = dropAction(overCardArea(e.clientX, e.clientY), view ? pasteBlocked(view.replies.length, t.cards.length) : null);
         endPaletteDrag();
         if (action === 'none') {
-          tplPalInfo.textContent = '貼っていません（カードの区画の上で離すと貼れます）';
+          tplPalInfo.textContent = tr('貼っていません（カードの区画の上で離すと貼れます）');
           tplPalInfo.classList.remove('error');
           return;
         }
@@ -3516,7 +3515,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       onCancel: (moved) => {
         endPaletteDrag();
         if (moved) {
-          tplPalInfo.textContent = 'やめました（貼っていません）';
+          tplPalInfo.textContent = tr('やめました（貼っていません）');
           tplPalInfo.classList.remove('error');
         }
       },
@@ -3537,8 +3536,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!view) return;
     listWindow.hidden = false;
     title.setAttribute('aria-expanded', 'true');
-    listWindow.setAttribute('aria-label', sendPick ? '送り先のメモ' : 'メモの一覧');
-    filter.placeholder = sendPick ? '送り先を絞る' : '見出しで絞る';
+    listWindow.setAttribute('aria-label', sendPick ? tr('送り先のメモ') : tr('メモの一覧'));
+    filter.placeholder = sendPick ? tr('送り先を絞る') : tr('見出しで絞る');
     filter.setAttribute('aria-label', filter.placeholder);
     placeListWindow();
     renderList();
@@ -3552,7 +3551,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     listWindow.hidden = true;
     title.setAttribute('aria-expanded', 'false');
     listWindow.setAttribute('aria-label', 'メモの一覧');
-    filter.placeholder = '見出しで絞る';
+    filter.placeholder = tr('見出しで絞る');
     filter.setAttribute('aria-label', '見出しで絞る');
     filterWords.close();
     filter.value = '';
@@ -3578,11 +3577,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const sheet = sheetItems.filter(match);
     const recent = recentItems.filter(match);
     const onSheet = listPart === 'sheet';
-    sheetPartBtn.textContent = `このシート ${sheet.length}`;
-    sheetPartBtn.title = `このシート（${listSheetName || 'シート'}）のメモ`;
+    sheetPartBtn.textContent = tr('このシート {0}', { 0: sheet.length });
+    sheetPartBtn.title = tr('このシート（{0}）のメモ', { 0: listSheetName || 'シート' });
     sheetPartBtn.setAttribute('aria-pressed', String(onSheet));
-    recentPartBtn.textContent = `最近 ${recent.length}`;
-    recentPartBtn.title = '最近開いたメモ';
+    recentPartBtn.textContent = tr('最近 {0}', { 0: recent.length });
+    recentPartBtn.title = tr('最近開いたメモ');
     recentPartBtn.setAttribute('aria-pressed', String(!onSheet));
     const shown = onSheet ? sheet : recent;
     listBody.replaceChildren();
@@ -3592,13 +3591,13 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       return;
     }
     if (sendPick) {
-      const verb = sendPick.mode === 'move' ? '移す' : '写す';
-      listBody.append(el('div', 'memo-pane-list-empty', `${sendPick.ids.length}枚を${verb}先`));
-      const neu = el('button', 'memo-pane-list-item memo-pane-list-new', '＋ 新しいメモにする');
+      const verb = sendPick.mode === 'move' ? tr('移す') : tr('写す');
+      listBody.append(el('div', 'memo-pane-list-empty', tr('{0}枚を{1}先', { 0: sendPick.ids.length, 1: verb })));
+      const neu = el('button', 'memo-pane-list-item memo-pane-list-new', tr('＋ 新しいメモにする'));
       neu.type = 'button';
       neu.dataset.memoId = 'new';
       neu.dataset.focusKey = 'listitem:new';
-      neu.title = '空のメモを近くに作り、そこへ入れます。呼称セットは、このメモと同じにします';
+      neu.title = tr('空のメモを近くに作り、そこへ入れます。呼称セットは、このメモと同じにします');
       neu.addEventListener('click', () => {
         if (ignoreListClick) return;
         chooseSendTarget(null);
@@ -3606,15 +3605,15 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       listBody.append(neu);
     }
     if (shown.length === 0) {
-      const none = onSheet ? 'このシートにメモがありません' : 'まだありません';
-      listBody.append(el('div', 'memo-pane-list-empty', q ? '当てはまるメモがありません' : none));
+      const none = onSheet ? tr('このシートにメモがありません') : tr('まだありません');
+      listBody.append(el('div', 'memo-pane-list-empty', q ? tr('当てはまるメモがありません') : none));
     }
     for (const item of shown) listBody.append(listButton(item));
     refocus(listWindow, key);
   }
 
   function listButton(item: MemoIndexItem) {
-    const name = item.title || '（空のメモ）';
+    const name = item.title || tr('（空のメモ）');
     const armed = armedItem === item.id;
     const b = el('button', 'memo-pane-list-item');
     b.type = 'button';
@@ -3624,10 +3623,10 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (view?.id === item.id) b.setAttribute('aria-current', 'true');
     if (sendPick && view?.id === item.id) {
       b.disabled = true;
-      b.title = '今開いているメモです';
+      b.title = tr('今開いているメモです');
     }
     if (armed && !sendPick) b.classList.add('armed');
-    b.append(el('span', 'memo-pane-list-name', armed && !sendPick ? '書きかけが消えます・もう一度押すと替えます' : name));
+    b.append(el('span', 'memo-pane-list-name', armed && !sendPick ? tr('書きかけが消えます・もう一度押すと替えます') : name));
     if ((item.liked ?? 0) >= 1) b.append(el('span', 'memo-pane-list-mark', `♥${item.liked}`));
     if (item.image) b.append(el('span', 'memo-pane-list-mark', '🖼'));
     if (item.by) b.append(el('span', 'memo-pane-list-by', item.by));
@@ -3730,11 +3729,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!view) return;
     const next = orderedSendIds(ids);
     if (next.length === 0) {
-      say('送るカードがありません');
+      say(tr('送るカードがありません'));
       return;
     }
     if (next.some((id) => cardEdits.has(id))) {
-      say('書き直しの途中のカードは送れません');
+      say(tr('書き直しの途中のカードは送れません'));
       return;
     }
     if (cardMap.isOpen) closeMap(false);
@@ -3752,15 +3751,15 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!view) return;
     const next = orderedSendIds(ids);
     if (next.length === 0) {
-      say('送るカードがありません');
+      say(tr('送るカードがありません'));
       return;
     }
     if (next.some((id) => cardEdits.has(id))) {
-      say('書き直しの途中のカードは送れません');
+      say(tr('書き直しの途中のカードは送れません'));
       return;
     }
     if (to !== null && to === view.id) {
-      say('同じメモへは送れません');
+      say(tr('同じメモへは送れません'));
       return;
     }
     const travel = linkTravel(view.replies, next);
@@ -3789,12 +3788,12 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   function sendConfirmBox(confirm: { to: string | null; cut: number; kept: number; ids: string[] }) {
     const mode = sendPick?.mode ?? 'move';
     const box = el('div', 'memo-pane-send-confirm');
-    const where = confirm.to === null ? '新しいメモ' : ([...sheetItems, ...recentItems].find((item) => item.id === confirm.to)?.title ?? '送り先');
-    box.append(el('p', 'memo-pane-send-confirm-where', `「${where}」へ`));
+    const where = confirm.to === null ? tr('新しいメモ') : ([...sheetItems, ...recentItems].find((item) => item.id === confirm.to)?.title ?? tr('送り先'));
+    box.append(el('p', 'memo-pane-send-confirm-where', tr('「{0}」へ', { 0: where })));
     box.append(el('p', '', sendWarning(mode, confirm.cut, confirm.kept) ?? ''));
-    const verb = mode === 'move' ? '移す' : '写す';
+    const verb = mode === 'move' ? tr('移す') : tr('写す');
     const row = el('div', 'memo-pane-send-confirm-row');
-    const go = el('button', 'memo-pane-list-item', `このまま${verb}`);
+    const go = el('button', 'memo-pane-list-item', tr('このまま{0}', { 0: verb }));
     go.type = 'button';
     go.dataset.focusKey = 'sendconfirm:go';
     go.addEventListener('click', () => commitSend(mode, confirm.ids, confirm.to));
@@ -3802,7 +3801,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (view) {
       const extra = linkedClosure(view.replies, confirm.ids).filter((id) => !confirm.ids.includes(id) && !cardEdits.has(id));
       if (extra.length > 0) {
-        const withThem = el('button', 'memo-pane-list-item', `つながっている ${extra.length} 枚も一緒に${verb}`);
+        const withThem = el('button', 'memo-pane-list-item', tr('つながっている {0} 枚も一緒に{1}', { 0: extra.length, 1: verb }));
         withThem.type = 'button';
         withThem.dataset.focusKey = 'sendconfirm:with';
         withThem.addEventListener('click', () => {
@@ -3816,9 +3815,9 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         row.append(withThem);
       }
       const blocked = linkedClosure(view.replies, confirm.ids).filter((id) => cardEdits.has(id));
-      if (blocked.length > 0) box.append(el('p', 'memo-pane-list-empty', '書き直しの途中のカードは一緒に送れません'));
+      if (blocked.length > 0) box.append(el('p', 'memo-pane-list-empty', tr('書き直しの途中のカードは一緒に送れません')));
     }
-    const cancel = el('button', 'memo-pane-list-item', 'やめる');
+    const cancel = el('button', 'memo-pane-list-item', tr('やめる'));
     cancel.type = 'button';
     cancel.dataset.focusKey = 'sendconfirm:cancel';
     cancel.addEventListener('click', () => {
@@ -3903,7 +3902,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     }
     pickBar.hidden = false;
     const n = picked.size;
-    pickText.textContent = `${n}枚を選んでいます`;
+    pickText.textContent = tr('{0}枚を選んでいます', { 0: n });
     pickMove.disabled = n === 0;
     pickCopy.disabled = n === 0;
     pickNew.disabled = n === 0;
@@ -3911,7 +3910,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     pickTemplate.disabled = !tplState.enabled;
     pickTemplate.title = tplState.hint;
     if (!tplDialog.hidden && !tplSaving && !tplFromBoard && !sameIds(selectedIds(), tplIds)) closeTplDialog(false); // 選び直したら、小窓は閉じる（数が変わるため）
-    pickAll.textContent = filterTag !== null ? '絞り込み中を全部選ぶ' : '全部選ぶ';
+    pickAll.textContent = filterTag !== null ? tr('絞り込み中を全部選ぶ') : tr('全部選ぶ');
   }
 
   // ---------- 型にする（選んだカードを型として登録。計画書 docs/plan-card-templates.md の Phase 1b） ----------
@@ -3934,7 +3933,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   function refreshTplPreview() {
     const src = tplSource(tplFromBoard);
     if (!src) return;
-    const preview = buildTemplateFromCards(src.replies, tplIds, { name: '型', mode: tplMode, offsets: tplOffsets ?? undefined });
+    const preview = buildTemplateFromCards(src.replies, tplIds, { name: tr('型'), mode: tplMode, offsets: tplOffsets ?? undefined });
     if (!preview.ok) return;
     const text = describeTemplateReport(preview.report);
     tplCounts.textContent = text.counts;
@@ -3969,9 +3968,9 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       return;
     }
     // 数だけ先に見せる（名前は仮。ほんとうの登録は「登録」を押したとき）
-    const preview = buildTemplateFromCards(src.replies, ids, { name: '型', offsets: from?.offsets });
+    const preview = buildTemplateFromCards(src.replies, ids, { name: tr('型'), offsets: from?.offsets });
     if (!preview.ok) {
-      const note = preview.why === 'missing' ? '選んだカードが見つかりません。選び直してください' : '型にできませんでした';
+      const note = preview.why === 'missing' ? tr('選んだカードが見つかりません。選び直してください') : tr('型にできませんでした');
       status.textContent = note;
       if (from) tplDoneListeners.forEach((fn) => fn(note, false));
       return;
@@ -4016,11 +4015,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const built = buildTemplateFromCards(src.replies, tplIds, { name, folder: tplFolder, mode: tplMode, offsets: tplOffsets ?? undefined });
     if (!built.ok) {
       const messages = {
-        empty: '選んだカードがありません',
-        missing: '選んだカードが見つかりません。選び直してください',
-        'too-many': `型にできるのは ${TEMPLATE_LIMITS.cards} 枚までです`,
-        name: '名前を入れてください',
-        text: `カードの文が長すぎます（${TEMPLATE_LIMITS.text}文字まで）`,
+        empty: tr('選んだカードがありません'),
+        missing: tr('選んだカードが見つかりません。選び直してください'),
+        'too-many': tr('型にできるのは {0} 枚までです', { 0: TEMPLATE_LIMITS.cards }),
+        name: tr('名前を入れてください'),
+        text: tr('カードの文が長すぎます（{0}文字まで）', { 0: TEMPLATE_LIMITS.text }),
       } as const;
       tplSay(messages[built.why], true);
       if (built.why === 'name') tplName.focus();
@@ -4028,14 +4027,14 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     }
     tplSaving = true;
     tplSave.disabled = true;
-    tplSay('保存しています…');
+    tplSay(tr('保存しています…'));
     // ボードから開いたときだけ：同じ名前の型がすでにあれば断る（選ぶ帯からのときは、今までどおり同じ名前も登録できる）
     if (fromBoard) {
       const existing = await loadTemplates(templateIo).catch(() => null);
       if (existing && existing.state !== 'unreadable' && templateNameTaken(existing.templates, built.template.name)) {
         tplSaving = false;
         tplSave.disabled = false;
-        tplSay(`「${built.template.name}」という名前の型がすでにあります。別の名前にしてください`, true);
+        tplSay(tr('「{0}」という名前の型がすでにあります。別の名前にしてください', { 0: built.template.name }), true);
         tplName.focus();
         return;
       }
@@ -4045,7 +4044,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (tplDialog.hidden) {
       // 保存の間に、小窓が閉じた（Esc・メモを替えた など）。保存できたことだけは知らせる
       if (done.ok) {
-        const text = `型「${built.template.name}」を登録しました（${done.count}件）`;
+        const text = tr('型「{0}」を登録しました（{1}件）', { 0: built.template.name, 1: done.count });
         say(text);
         if (fromBoard) tplDoneListeners.forEach((fn) => fn(text, true));
       }
@@ -4059,14 +4058,14 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const savedName = built.template.name;
     closeTplDialog(false);
     if (!fromBoard) stopPicking(); // ボードから開いたときは、選びをそのまま残す
-    const text = `型「${savedName}」を登録しました（${done.count}件）`;
+    const text = tr('型「{0}」を登録しました（{1}件）', { 0: savedName, 1: done.count });
     say(text);
     if (fromBoard) tplDoneListeners.forEach((fn) => fn(text, true));
   }
 
   function openExported(name: string) {
     if (!isSafeExportName(name)) {
-      status.textContent = 'このファイルは開けません（書き出す：名前）';
+      status.textContent = tr('このファイルは開けません（書き出す：名前）');
       return;
     }
     send({ type: 'openExported', name });
@@ -4074,7 +4073,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
 
   function revealExported(name: string) {
     if (!isSafeExportName(name)) {
-      status.textContent = 'このファイルのフォルダは開けません（書き出す：名前）';
+      status.textContent = tr('このファイルのフォルダは開けません（書き出す：名前）');
       return;
     }
     send({ type: 'revealExported', name });
@@ -4084,11 +4083,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!view || busy) return;
     const memoId = view.id;
     if (file.type && !file.type.startsWith('image/')) {
-      status.textContent = '画像のファイルを選んでください';
+      status.textContent = tr('画像のファイルを選んでください');
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      status.textContent = '20MB を超える画像は入れられません';
+      status.textContent = tr('20MB を超える画像は入れられません');
       return;
     }
     setBusy(true);
@@ -4096,14 +4095,14 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       const src = await readAsDataUrl(file);
       if (view?.id !== memoId) return;
       if (!src) {
-        status.textContent = 'この画像は入れられませんでした（ファイル：読めない）';
+        status.textContent = tr('この画像は入れられませんでした（ファイル：読めない）');
         return;
       }
       const png = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
       const fit = await fitPicture(src, png);
       if (view?.id !== memoId) return;
       if ('error' in fit) {
-        status.textContent = `この画像は入れられませんでした（${FIT_STAGE[fit.error]}）`;
+        status.textContent = tr('この画像は入れられませんでした（{0}）', { 0: FIT_STAGE[fit.error] });
         return;
       }
       await saveShot(memoId, fit.dataUrl);
@@ -4119,13 +4118,13 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const ok = await writeData(`shots/${id}.json`, { version: 1, data: dataUrl });
     if (view?.id !== memoId) return;
     if (!ok) {
-      status.textContent = '画像を保存できませんでした（保存：ファイルに書けない）';
+      status.textContent = tr('画像を保存できませんでした（保存：ファイルに書けない）');
       return;
     }
     shotUrls.set(id, dataUrl);
     armNewEdit();
     ask({ command: 'addMemoComment', id: memoId, text: '', image: id, ...(quote ? { quote } : {}) });
-    status.textContent = '画像を入れました';
+    status.textContent = tr('画像を入れました');
   }
 
   // 帯は、状態の行と件数の行にちょうど重ねる（区画の中の位置を測って入れる）
@@ -4143,7 +4142,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     linkMenu.close();
     relMenu.close();
     linking = { from, key };
-    linkText.textContent = `「${cardLabel(reply, 16)}」の相手のカードを押してください`;
+    linkText.textContent = tr('「{0}」の相手のカードを押してください', { 0: cardLabel(reply, 16) });
     placeLinkBar();
     linkBar.hidden = false;
     if (view) renderCards(view);
@@ -4169,7 +4168,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       const now = a?.links?.find((l) => l.to === to)?.kind;
       if (now !== kind) {
         ask({ command: 'changeReplyLinks', id: view.id, replyId: from, add: [{ to, kind }], remove: [] });
-        status.textContent = `関連「${linkKindInfo(kind).name}」を付けました`;
+        status.textContent = tr('関連「{0}」を付けました', { 0: linkKindInfo(kind).name });
       }
     }
     endLinking(true);
@@ -4184,26 +4183,26 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const now = a.links?.find((l) => l.to === to)?.kind;
     const backSame = (b.links ?? []).some((l) => l.to === from && l.kind === 'same');
     const set = chosenLinkNameSet(linkNameSets.book, view.linkSet);
-    const entries: MenuEntry[] = [{ section: `「${cardLabel(a, 12)}」は「${cardLabel(b, 12)}」の…${set ? `（${set.name}）` : ''}` }];
+    const entries: MenuEntry[] = [{ section: tr('「{0}」は「{1}」の…{2}', { 0: cardLabel(a, 12), 1: cardLabel(b, 12), 2: set ? `（${set.name}）` : '' }) }];
     for (const k of LINK_KINDS) {
       entries.push({
         label: k.name,
-        hint: now === k.kind ? '今の種類' : k.kind === 'same' && backSame ? `もう「${k.name}」です` : undefined,
+        hint: now === k.kind ? tr('今の種類') : k.kind === 'same' && backSame ? tr('もう「{0}」です', { 0: k.name }) : undefined,
         disabled: k.kind === 'same' && backSame && now !== 'same',
         run: () => chooseKind(from, to, k.kind),
       });
     }
     if (now) {
       entries.push('sep', {
-        label: 'この関連を外す',
+        label: tr('この関連を外す'),
         run: () => {
           if (view) ask({ command: 'changeReplyLinks', id: view.id, replyId: from, add: [], remove: [{ to, kind: now }] });
-          status.textContent = '関連を外しました';
+          status.textContent = tr('関連を外しました');
           endLinking(true);
         },
       });
     }
-    entries.push('sep', { label: 'やめる', run: () => endLinking(true) });
+    entries.push('sep', { label: tr('やめる'), run: () => endLinking(true) });
     linkMenu.open(x, y, entries);
     if (keyboard) linkMenu.focusFirst();
   }
@@ -4233,17 +4232,17 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const current = view;
     const shown = new Set(visibleTops(current.replies, filterTag, keepShown).map((r) => r.id));
     const set = chosenLinkNameSet(linkNameSets.book, current.linkSet);
-    const entries: MenuEntry[] = [{ section: set ? `このカードの関連（${set.name}）` : 'このカードの関連' }];
+    const entries: MenuEntry[] = [{ section: set ? tr('このカードの関連（{0}）', { 0: set.name }) : tr('このカードの関連') }];
     for (const rel of relationsOf(current, id)) {
       const other = current.replies.find((r) => r.id === rel.other);
       if (!other) continue;
       const name = `「${cardLabel(other, 16)}」`;
-      const sentence = rel.outgoing ? linkSentence('このカード', name, rel.kind) : linkSentence(name, 'このカード', rel.kind);
+      const sentence = rel.outgoing ? linkSentence(tr('このカード'), name, rel.kind) : linkSentence(name, tr('このカード'), rel.kind);
       // 見る：相手のカードを、このカードの横に出して止める（もう一度押すと閉じる。一覧は開いたまま）。行の右クリックも同じ
       const peek: MenuButton = {
-        label: '見る',
-        aria: `${sentence}：相手のカードを横に出す（もう一度押すと閉じる）`,
-        title: '相手のカードを横に出して止める（もう一度押すと閉じる・右クリックでも）',
+        label: tr('見る'),
+        aria: tr('{0}：相手のカードを横に出す（もう一度押すと閉じる）', { 0: sentence }),
+        title: tr('相手のカードを横に出して止める（もう一度押すと閉じる・右クリックでも）'),
         pressed: peeking(rel.other),
         run: () => {
           peekLinked(id, rel.other, origin);
@@ -4254,17 +4253,17 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       entries.push({
         menu: () => peek.run(),
         row: sentence,
-        hint: shown.has(rel.other) ? undefined : '絞りで隠れています',
+        hint: shown.has(rel.other) ? undefined : tr('絞りで隠れています'),
         buttons: [
           peek,
-          { label: '移る', aria: `${sentence}：相手のカードへ移る`, close: true, run: () => jumpToLinked(rel.other) },
+          { label: tr('移る'), aria: tr('{0}：相手のカードへ移る', { 0: sentence }), close: true, run: () => jumpToLinked(rel.other) },
           {
-            label: '外す',
-            aria: `${sentence}：この関連を外す`,
+            label: tr('外す'),
+            aria: tr('{0}：この関連を外す', { 0: sentence }),
             close: true,
             run: () => {
               if (view) ask({ command: 'changeReplyLinks', id: view.id, replyId: rel.source, add: [], remove: [{ to: rel.outgoing ? rel.other : id, kind: rel.kind }] });
-              status.textContent = '関連を外しました';
+              status.textContent = tr('関連を外しました');
             },
           },
         ],
@@ -4285,7 +4284,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   //   マップを開いているときは、マップの札の横（札の右クリックと同じ）
   function peekLinked(source: string, target: string, origin: RelationOrigin) {
     if (!topCard(target)) {
-      status.textContent = 'そのカードは、もうありません';
+      status.textContent = tr('そのカードは、もうありません');
       return;
     }
     if (cardMap.isOpen || origin === 'map-pop') {
@@ -4302,14 +4301,14 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const current = view;
     const target = current.replies.find((r) => r.id === id && r.parent === null);
     if (!target) {
-      status.textContent = 'そのカードは、もうありません';
+      status.textContent = tr('そのカードは、もうありません');
       return;
     }
     if (cardMap.isOpen) closeMap(false); // 移る道は先に閉じる（マップの窓）
     if (filterTag !== null && !(target.tags ?? []).includes(filterTag) && !keepShown.has(id)) {
       filterTag = null;
       keepShown.clear();
-      status.textContent = 'タグの絞りを外しました（関連から移ったため）';
+      status.textContent = tr('タグの絞りを外しました（関連から移ったため）');
     }
     renderCards(current, undefined, true);
     const node = cards.querySelector<HTMLElement>(`[data-card="${CSS.escape(id)}"]`);
@@ -4366,7 +4365,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       item.dataset.pick = r.id;
       item.append(el('span', 'memo-pane-link-picker-name', cardLabel(r, 30)), el('span', 'memo-pane-link-picker-date', dateOf(r.createdAt)));
       item.title = cardLabel(r, 120);
-      if (!shown.has(r.id)) item.append(el('span', 'memo-pane-link-picker-hidden', '隠れ'));
+      if (!shown.has(r.id)) item.append(el('span', 'memo-pane-link-picker-hidden', tr('隠れ')));
       item.addEventListener('click', () => {
         if (linking === null) return;
         const rect = item.getBoundingClientRect();
@@ -4377,8 +4376,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       });
       linkList.append(item);
     }
-    if (hits.length === 0) linkList.append(el('div', 'memo-pane-link-picker-empty', '当てはまるカードがありません'));
-    else if (hits.length > LINK_PICK_MAX) linkList.append(el('div', 'memo-pane-link-picker-empty', `ほか ${hits.length - LINK_PICK_MAX} 枚（字で絞ってください）`));
+    if (hits.length === 0) linkList.append(el('div', 'memo-pane-link-picker-empty', tr('当てはまるカードがありません')));
+    else if (hits.length > LINK_PICK_MAX) linkList.append(el('div', 'memo-pane-link-picker-empty', tr('ほか {0} 枚（字で絞ってください）', { 0: hits.length - LINK_PICK_MAX })));
   }
 
   // ↑↓：窓の中の項目のあいだを、本物の焦点で動かす（絞る欄から ↓ で一件目、一件目から ↑ で絞る欄）。動いたら true
@@ -4401,15 +4400,15 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const fresh = wanted.filter((t) => !now.includes(t));
     const room = Math.max(0, MAX_TAGS_PER_TAB - now.length);
     if (fresh.length === 0) {
-      status.textContent = 'もう付いています';
+      status.textContent = tr('もう付いています');
       return;
     }
     if (room === 0) {
-      status.textContent = `タグは1つに ${MAX_TAGS_PER_TAB} 個までです（ほかのタグを外してから付けてください）`;
+      status.textContent = tr('タグは1つに {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB });
       return;
     }
     change(fresh.slice(0, room), []);
-    if (fresh.length > room) status.textContent = `タグは1つに ${MAX_TAGS_PER_TAB} 個までなので、${fresh.length - room} 個は付けませんでした`;
+    if (fresh.length > room) status.textContent = tr('タグは1つに {0} 個までなので、{1} 個は付けませんでした', { 0: MAX_TAGS_PER_TAB, 1: fresh.length - room });
   }
 
   function quickTags(now: readonly string[], change: TagChange, key: string): HTMLElement[] {
@@ -4421,23 +4420,23 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       b.type = 'button';
       b.style.setProperty('--tag', tagColor(tag));
       b.setAttribute('aria-pressed', String(on));
-      b.title = on ? `タグ「${tag}」を外す（いつものタグ）` : `タグ「${tag}」を付ける（いつものタグ）`;
+      b.title = on ? tr('タグ「{0}」を外す（いつものタグ）', { 0: tag }) : tr('タグ「{0}」を付ける（いつものタグ）', { 0: tag });
       b.dataset.focusKey = `card:${key}:quick:${tag}`;
       b.addEventListener('click', () => (on ? change([], [tag]) : addTags(now, [tag], change)));
       out.push(b);
     }
-    const sets = el('button', 'memo-pane-tag-menu', 'セット▾');
+    const sets = el('button', 'memo-pane-tag-menu', tr('セット▾'));
     sets.type = 'button';
-    sets.title = 'タグのセット（いつものタグを替える・全部付ける・今のタグを保存・登録）';
+    sets.title = tr('タグのセット（いつものタグを替える・全部付ける・今のタグを保存・登録）');
     sets.setAttribute('aria-haspopup', 'menu');
     sets.dataset.focusKey = `card:${key}:tagsets`;
     sets.addEventListener('click', () => {
       const r = sets.getBoundingClientRect();
       openTagSetMenu(now, change, r.left, r.bottom);
     });
-    const other = el('button', 'memo-pane-tag-menu', 'その他▾');
+    const other = el('button', 'memo-pane-tag-menu', tr('その他▾'));
     other.type = 'button';
-    other.title = 'ほかのタグ（このメモでよく使う順）から付ける';
+    other.title = tr('ほかのタグ（このメモでよく使う順）から付ける');
     other.setAttribute('aria-haspopup', 'menu');
     other.dataset.focusKey = `card:${key}:tagother`;
     other.addEventListener('click', () => {
@@ -4453,33 +4452,33 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const book = tagBook.book;
     const cur = tagBook.current;
     const reopen = () => openTagSetMenu(now, change, x, y);
-    const entries: MenuEntry[] = [{ section: 'タグのセット（右サイドバーのタグのボタンと同じ）' }];
+    const entries: MenuEntry[] = [{ section: tr('タグのセット（右サイドバーのタグのボタンと同じ）') }];
     for (const set of book.sets) {
       const list = set.tags.filter((t): t is string => !!t);
       entries.push({
-        row: set.id === cur.id ? `${set.name}（いつもの）` : set.name,
-        hint: list.length > 0 ? list.join('・') : '空き',
+        row: set.id === cur.id ? tr('{0}（いつもの）', { 0: set.name }) : set.name,
+        hint: list.length > 0 ? list.join(tr('・')) : tr('空き'),
         buttons: [
-          { label: '使う', pressed: set.id === cur.id, title: 'カードに出す 6 つのボタンを、このセットにする', run: () => (tagBook.apply({ type: 'setCurrent', id: set.id }), reopen()) },
-          { label: '全部付ける', close: true, run: () => (list.length > 0 ? addTags(now, list, change) : (status.textContent = 'このセットは空きです')) },
+          { label: tr('使う'), pressed: set.id === cur.id, title: tr('カードに出す 6 つのボタンを、このセットにする'), run: () => (tagBook.apply({ type: 'setCurrent', id: set.id }), reopen()) },
+          { label: tr('全部付ける'), close: true, run: () => (list.length > 0 ? addTags(now, list, change) : (status.textContent = tr('このセットは空きです'))) },
         ],
       });
     }
     entries.push('sep');
     entries.push({
-      label: '今のタグをセットとして保存…',
-      hint: now.length > TAG_BUTTONS ? `はじめの ${TAG_BUTTONS} 個` : `${now.length}`,
+      label: tr('今のタグをセットとして保存…'),
+      hint: now.length > TAG_BUTTONS ? tr('はじめの {0} 個', { 0: TAG_BUTTONS }) : `${now.length}`,
       disabled: now.length === 0 || book.sets.length >= 12,
       run: () =>
-        tagMenu.prompt('新しいセットの名前', `セット${book.sets.length + 1}`, (name) => {
+        tagMenu.prompt(tr('新しいセットの名前'), tr('セット{0}', { 0: book.sets.length + 1 }), (name) => {
           tagBook.apply({ type: 'addSet', name, tags: now.slice(0, TAG_BUTTONS) });
-          status.textContent = `セット「${name}」を保存して、いつものタグにしました`;
+          status.textContent = tr('セット「{0}」を保存して、いつものタグにしました', { 0: name });
         }, { x, y }, { maxLength: 20 }),
     });
-    entries.push({ label: 'いつものタグを登録…', hint: `${TAG_BUTTONS} つ`, run: () => openTagRegister(cur, x, y) });
-    entries.push({ label: `「${cur.name}」の名前を変える…`, run: () => tagMenu.prompt('セットの名前', cur.name, (name) => tagBook.apply({ type: 'replaceSet', id: cur.id, name }), { x, y }, { maxLength: 20 }) });
-    if (book.sets.length > 1) entries.push({ row: '', buttons: [{ label: `「${cur.name}」を消す`, confirm: 'もう一度押すと消す', close: true, run: () => tagBook.apply({ type: 'removeSet', id: cur.id }) }] });
-    if (!tagBook.ready) entries.push({ note: 'タグのボタンを読み込んでいます…' });
+    entries.push({ label: tr('いつものタグを登録…'), hint: tr('{0} つ', { 0: TAG_BUTTONS }), run: () => openTagRegister(cur, x, y) });
+    entries.push({ label: tr('「{0}」の名前を変える…', { 0: cur.name }), run: () => tagMenu.prompt(tr('セットの名前'), cur.name, (name) => tagBook.apply({ type: 'replaceSet', id: cur.id, name }), { x, y }, { maxLength: 20 }) });
+    if (book.sets.length > 1) entries.push({ row: '', buttons: [{ label: tr('「{0}」を消す', { 0: cur.name }), confirm: tr('もう一度押すと消す'), close: true, run: () => tagBook.apply({ type: 'removeSet', id: cur.id }) }] });
+    if (!tagBook.ready) entries.push({ note: tr('タグのボタンを読み込んでいます…') });
     tagMenu.open(x, y, entries);
   }
 
@@ -4488,15 +4487,15 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const list = candidates.filter((t) => !now.includes(t) && !mine.has(t)).slice(0, 30);
     const pills: MenuButton[] = list.map((tag) => ({ label: tag, close: true, run: () => addTags(now, [tag], change) }));
     tagMenu.open(x, y, [
-      { section: 'その他のタグ（このメモでよく使う順）' },
-      ...(pills.length > 0 ? [{ pills } as MenuEntry] : [{ note: 'ほかのタグはありません（「＋タグ」で書いて付けられます）' } as MenuEntry]),
+      { section: tr('その他のタグ（このメモでよく使う順）') },
+      ...(pills.length > 0 ? [{ pills } as MenuEntry] : [{ note: tr('ほかのタグはありません（「＋タグ」で書いて付けられます）') } as MenuEntry]),
     ]);
   }
 
   // いつものタグ（今のセットの 6 つ）を登録する小窓。候補から選ぶか、書く。空欄は空き
   function openTagRegister(set: TagButtonSet, x: number, y: number) {
     const form = el('form', 'cell-menu-form memo-pane-tag-register');
-    form.append(el('div', 'cell-menu-section', `いつものタグ（セット「${set.name}」の ${TAG_BUTTONS} つ）`));
+    form.append(el('div', 'cell-menu-section', tr('いつものタグ（セット「{0}」の {1} つ）', { 0: set.name, 1: TAG_BUTTONS })));
     const list = el('datalist');
     list.id = `memo-tag-register-${Date.now().toString(36)}`;
     for (const tag of candidates) {
@@ -4511,10 +4510,10 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       const input = el('input');
       input.value = set.tags[i] ?? '';
       input.maxLength = 30;
-      input.placeholder = `${i + 1} つ目（空き）`;
+      input.placeholder = tr('{0} つ目（空き）', { 0: i + 1 });
       input.setAttribute('list', list.id);
       input.setAttribute('aria-label', `いつものタグ ${i + 1} つ目`);
-      const clear = el('button', 'cell-menu-small', '空ける');
+      const clear = el('button', 'cell-menu-small', tr('空ける'));
       clear.type = 'button';
       clear.addEventListener('click', () => ((input.value = ''), input.focus()));
       row.append(input, clear);
@@ -4522,9 +4521,9 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       inputs.push(input);
     }
     const buttons = el('div', 'cell-menu-kind');
-    const ok = el('button', 'cell-menu-small', '登録する');
+    const ok = el('button', 'cell-menu-small', tr('登録する'));
     ok.type = 'submit';
-    const cancel = el('button', 'cell-menu-small', 'やめる');
+    const cancel = el('button', 'cell-menu-small', tr('やめる'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => tagMenu.close());
     buttons.append(ok, cancel);
@@ -4534,7 +4533,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       const tags = inputs.map((input) => normalizeTag(input.value) || null);
       tagBook.apply({ type: 'replaceSet', id: set.id, tags });
       tagMenu.close();
-      status.textContent = `いつものタグを登録しました（セット「${set.name}」）`;
+      status.textContent = tr('いつものタグを登録しました（セット「{0}」）', { 0: set.name });
     });
     form.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
@@ -4562,7 +4561,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         const start = row.sec;
         const play = el('button', 'memo-pane-at', `▶ ${row.label}`);
         play.type = 'button';
-        play.title = '読む画面でこの時刻へ（開いていなければ、その動画を開きます）';
+        play.title = tr('読む画面でこの時刻へ（開いていなければ、その動画を開きます）');
         play.dataset.focusKey = `card:${reply.id}:ai:${i}`;
         play.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -4600,28 +4599,28 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const ref = refOf(current.id);
     const head = el('div', 'memo-pane-card-head');
     const headMain = el('span', 'memo-pane-card-head-main');
-    headMain.append(el('span', '', `${kindMark(reply)} ${reply.by?.name ?? 'あなた'}`), el('span', '', `· ${dateOf(reply.createdAt)}`));
+    headMain.append(el('span', '', `${kindMark(reply)} ${reply.by?.name ?? tr('あなた')}`), el('span', '', `· ${dateOf(reply.createdAt)}`));
     if (aiKind) headMain.append(el('span', 'memo-pane-ai-kind', `· ${AI_KIND_LABEL[aiKind]}`));
     const cost = reply.by?.cost; // 目安の料金（AI のカードでなくても、by.cost があれば出す）
-    if (typeof cost === 'number' && Number.isFinite(cost) && cost > 0) headMain.append(el('span', 'memo-pane-ai-cost', `· 約 $${cost.toFixed(3)}`));
-    if (reply.editedAt) headMain.append(el('span', 'memo-pane-edited', '· 書き直し済み'));
+    if (typeof cost === 'number' && Number.isFinite(cost) && cost > 0) headMain.append(el('span', 'memo-pane-ai-cost', tr('· 約 ${0}', { 0: cost.toFixed(3) })));
+    if (reply.editedAt) headMain.append(el('span', 'memo-pane-edited', tr('· 書き直し済み')));
     // 結んだ区間（六角で見る。plan-reader-video の V2a-3）：「▶ 3:04」で読む画面のその時刻へ（開いていなければ、左がその動画を開く）。
     //   一つのメモに別々の動画のカードがあるときは、動画の札（題の頭）も出す（D23）
     const at = reply.parent === null ? reply.at : undefined;
     if (at) {
       const first = at.spans[0];
-      const play = el('button', 'memo-pane-at', `▶ ${secLabel(first.start)}${at.spans.length > 1 ? ` ほか ${at.spans.length - 1}` : ''}`);
+      const play = el('button', 'memo-pane-at', `▶ ${secLabel(first.start)}${at.spans.length > 1 ? tr(' ほか {0}', { 0: at.spans.length - 1 }) : ''}`);
       play.type = 'button';
-      play.title = '読む画面でこの時刻へ（開いていなければ、その動画を開きます）';
+      play.title = tr('読む画面でこの時刻へ（開いていなければ、その動画を開きます）');
       play.dataset.focusKey = `card:${reply.id}:at`;
       play.addEventListener('click', (e) => {
         e.stopPropagation();
         ask({ command: 'openReaderAt', video: at.video, start: first.start });
       });
       // マスで見る（V2b）：読む画面でこのカードと結んだマスを光らせる。もう一度押すと消す（開いていなければ、左がその動画を開いてから光らせる）
-      const look = el('button', 'memo-pane-at-glow', 'マスで見る');
+      const look = el('button', 'memo-pane-at-glow', tr('マスで見る'));
       look.type = 'button';
-      look.title = '読む画面で、このカードと結んだマスを光らせる（もう一度押すと消えます。読む画面が開いていなければ、その動画を開きます）';
+      look.title = tr('読む画面で、このカードと結んだマスを光らせる（もう一度押すと消えます。読む画面が開いていなければ、その動画を開きます）');
       look.dataset.glowCard = reply.id;
       look.dataset.focusKey = `card:${reply.id}:glow`;
       look.setAttribute('aria-pressed', String(glowing?.memoId === current.id && glowing.replyId === reply.id));
@@ -4629,26 +4628,26 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         e.stopPropagation();
         if (glowing?.memoId === current.id && glowing.replyId === reply.id) {
           dropGlow();
-          say('マスの光りを消しました');
+          say(tr('マスの光りを消しました'));
         } else {
           glowing = { memoId: current.id, replyId: reply.id };
           ask({ command: 'openReaderAt', video: at.video, start: first.start, glow: { memoId: current.id, replyId: reply.id } });
-          say('読む画面で、結んだマスを光らせます');
+          say(tr('読む画面で、結んだマスを光らせます'));
         }
         paintReaderNow();
       });
       headMain.append(play, look);
       const videos = new Set(current.replies.flatMap((r) => (r.parent === null && r.at ? [r.at.video] : [])));
-      if (videos.size > 1) headMain.append(el('span', 'memo-pane-at-video', at.title ?? '動画'));
+      if (videos.size > 1) headMain.append(el('span', 'memo-pane-at-video', at.title ?? tr('動画')));
     }
     // 関連 n（隠れ m）：押すと、このカードの関連の一覧（移る・外す）。m は、絞りで見えていない相手の数
     const relations = relationsOf(current, reply.id);
     if (relations.length > 0) {
       const shown = new Set(visibleTops(current.replies, filterTag, keepShown).map((r) => r.id));
       const hidden = relations.filter((rel) => !shown.has(rel.other)).length;
-      const count = el('button', 'memo-pane-link-count', hidden > 0 ? `関連 ${relations.length}（隠れ ${hidden}）` : `関連 ${relations.length}`);
+      const count = el('button', 'memo-pane-link-count', hidden > 0 ? tr('関連 {0}（隠れ {1}）', { 0: relations.length, 1: hidden }) : tr('関連 {0}', { 0: relations.length }));
       count.type = 'button';
-      count.title = 'このカードの関連（移る・外す）';
+      count.title = tr('このカードの関連（移る・外す）');
       count.setAttribute('aria-haspopup', 'menu');
       count.dataset.focusKey = `card:${reply.id}:links`;
       count.addEventListener('click', (e) => {
@@ -4666,9 +4665,9 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     }
     if (mapPop) {
       // マップに出したカード：つまみの代わりに「✕ 閉じる」（カードを消す × とは別。出したカードを閉じるだけ）
-      const closeBtn = el('button', 'memo-pane-map-card-close', '✕ 閉じる');
+      const closeBtn = el('button', 'memo-pane-map-card-close', tr('✕ 閉じる'));
       closeBtn.type = 'button';
-      closeBtn.title = 'このカードを閉じる（カードは消えません。Esc・札をもう一度右クリックでも閉じる）';
+      closeBtn.title = tr('このカードを閉じる（カードは消えません。Esc・札をもう一度右クリックでも閉じる）');
       closeBtn.dataset.focusKey = `card:${reply.id}:mapclose`;
       closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -4680,7 +4679,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       // 並べ替えのつまみ（頭の帯の右端。押す・右クリック・Enter で小さな欄、つまみに焦点があるときの Alt+←→ で一つずつ動かす）
       const grip = el('button', 'memo-pane-card-grip', '⠿');
       grip.type = 'button';
-      const gripName = `「${cardLabel(reply, 16)}」を並べ替える。一覧のメモの上で離すと移します（Ctrl で写す）`;
+      const gripName = tr('「{0}」を並べ替える。一覧のメモの上で離すと移します（Ctrl で写す）', { 0: cardLabel(reply, 16) });
       grip.title = gripName;
       grip.setAttribute('aria-label', gripName);
       grip.setAttribute('aria-haspopup', 'menu');
@@ -4714,7 +4713,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         const on = picked.has(reply.id);
         const box = el('button', 'memo-pane-card-check', on ? '☑' : '☐');
         box.type = 'button';
-        box.title = on ? 'このカードの選択を外す' : 'このカードを選ぶ（Shift で範囲、Ctrl で足す・外す）';
+        box.title = on ? tr('このカードの選択を外す') : tr('このカードを選ぶ（Shift で範囲、Ctrl で足す・外す）');
         box.setAttribute('aria-pressed', String(on));
         box.setAttribute('aria-label', box.title);
         box.dataset.focusKey = `card:${reply.id}:pick`;
@@ -4728,7 +4727,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     }
     // カードのタグ（グループ＝タグ。左に足し引きを頼む）
     const tags = tagArea(
-      { tags: reply.tags ?? [], what: 'このカード', change: (add, remove) => ask({ command: 'changeReplyTags', id: current.id, replyId: reply.id, add, remove }) },
+      { tags: reply.tags ?? [], what: tr('このカード'), change: (add, remove) => ask({ command: 'changeReplyTags', id: current.id, replyId: reply.id, add, remove }) },
       { editable: true, focusKey: `card:${reply.id}:`, toast: (text) => (status.textContent = text), candidates, pinned: pinnedFeed, onClose: afterTagInput },
     );
     tags.classList.add('memo-pane-card-tags');
@@ -4747,7 +4746,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         const bodyText = el('p', 'memo-pane-card-body', folded ? chars.slice(0, REPLY_FOLD).join('') : reply.text);
         card.append(bodyText);
         if (chars.length > REPLY_FOLD) {
-          const more = el('button', 'memo-pane-more', openBodies.has(reply.id) ? 'たたむ ▴' : '…続き ▾');
+          const more = el('button', 'memo-pane-more', openBodies.has(reply.id) ? tr('たたむ ▴') : tr('…続き ▾'));
           more.type = 'button';
           more.addEventListener('click', () => {
             if (openBodies.has(reply.id)) openBodies.delete(reply.id);
@@ -4759,39 +4758,39 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       }
     }
     appendImage(card, reply);
-    if (reply.file && truncatedFiles.has(reply.file)) card.append(el('p', 'memo-pane-clip', '途中までです'));
+    if (reply.file && truncatedFiles.has(reply.file)) card.append(el('p', 'memo-pane-clip', tr('途中までです')));
 
     const actions = el('div', 'memo-pane-card-actions');
     // あまり使わないもの（書き出す・全体の画像を開く・フォルダで見る・コピー）は「⋯」の小さな欄へ
     const moreEntries: MenuEntry[] = [{ section: `「${cardLabel(reply, 16)}」` }];
     if (reply.image) {
-      moreEntries.push({ label: '書き出す', hint: '画像をピクチャへ', run: () => void exportCardImage(reply) });
-      moreEntries.push({ label: '書き足す…', hint: '新しいカードに足す', run: () => void beginAnnotate({ kind: 'card', replyId: reply.id }) });
+      moreEntries.push({ label: tr('書き出す'), hint: tr('画像をピクチャへ'), run: () => void exportCardImage(reply) });
+      moreEntries.push({ label: tr('書き足す…'), hint: tr('新しいカードに足す'), run: () => void beginAnnotate({ kind: 'card', replyId: reply.id }) });
     }
     if (reply.file) {
       const fileName = reply.file;
       moreEntries.push(
-        { label: '全体の画像を開く', hint: 'ピクチャの画像', run: () => openExported(fileName) },
-        { label: 'フォルダで見る', hint: 'ピクチャ', run: () => revealExported(fileName) },
+        { label: tr('全体の画像を開く'), hint: tr('ピクチャの画像'), run: () => openExported(fileName) },
+        { label: tr('フォルダで見る'), hint: tr('ピクチャ'), run: () => revealExported(fileName) },
       );
     }
     const editingCard = cardEdits.has(reply.id);
     const askCard: MenuEntry[] =
       reply.parent === null && BOT_FEATURES
         ? [
-            { label: 'Grok に頼む', hint: 'このカードを材料に', run: () => ask({ command: 'askWithCards', memo: ref.id, replies: [reply.id], linked: 'none' }) },
-            { label: 'つながったカードも頼む', hint: '直接つながるカードは印を外して足す', run: () => ask({ command: 'askWithCards', memo: ref.id, replies: [reply.id], linked: 'one' }) },
+            { label: tr('Grok に頼む'), hint: tr('このカードを材料に'), run: () => ask({ command: 'askWithCards', memo: ref.id, replies: [reply.id], linked: 'none' }) },
+            { label: tr('つながったカードも頼む'), hint: tr('直接つながるカードは印を外して足す'), run: () => ask({ command: 'askWithCards', memo: ref.id, replies: [reply.id], linked: 'one' }) },
           ]
         : [];
     moreEntries.push(
-      { label: 'コピー', hint: '空いたセルに貼るとメモのセル', run: () => ask({ command: 'copyComment', ref, replyId: reply.id }) },
+      { label: tr('コピー'), hint: tr('空いたセルに貼るとメモのセル'), run: () => ask({ command: 'copyComment', ref, replyId: reply.id }) },
       ...askCard,
-      { label: '別のメモへ移す…', hint: editingCard ? '書き直しの途中' : 'このカードと返信', disabled: editingCard, run: () => beginSend('move', [reply.id]) },
-      { label: '別のメモへ写す…', hint: editingCard ? '書き直しの途中' : '元のカードは残る', disabled: editingCard, run: () => beginSend('copy', [reply.id]) },
-      { label: '単語カードにする…', hint: '写すだけ', run: () => makeVocabCard(reply, ref) },
+      { label: tr('別のメモへ移す…'), hint: editingCard ? tr('書き直しの途中') : tr('このカードと返信'), disabled: editingCard, run: () => beginSend('move', [reply.id]) },
+      { label: tr('別のメモへ写す…'), hint: editingCard ? tr('書き直しの途中') : tr('元のカードは残る'), disabled: editingCard, run: () => beginSend('copy', [reply.id]) },
+      { label: tr('単語カードにする…'), hint: tr('写すだけ'), run: () => makeVocabCard(reply, ref) },
     );
     if (!reply.by && !cardEdits.has(reply.id)) {
-      const edit = action('書き直す', 'このコメントの文を書き直す（引用と画像は書き直せません）', () => {
+      const edit = action(tr('書き直す'), tr('このコメントの文を書き直す（引用と画像は書き直せません）'), () => {
         if (!cardEdits.has(reply.id)) cardEdits.set(reply.id, reply.text);
         if (view) renderCards(view);
         scope.querySelector<HTMLTextAreaElement>(`[data-pane-edit="${CSS.escape(reply.id)}"] textarea`)?.focus();
@@ -4799,7 +4798,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       actions.append(edit);
     }
     const under = countUnder(current.replies, reply.id);
-    const chat = action(under > 0 ? `💬 ${under}` : '💬', under > 0 ? `返信 ${under}件` : 'このコメントに返信を書く', () => {
+    const chat = action(under > 0 ? `💬 ${under}` : '💬', under > 0 ? tr('返信 {0}件', { 0: under }) : tr('このコメントに返信を書く'), () => {
       const opened = toggleReplies(ref, reply.id);
       if (opened && current.replies.length < MAX_REPLIES) showReplyForm(ref, reply.id);
       else if (!opened && !replyDraft(ref, reply.id)) hideReplyForm(ref, reply.id);
@@ -4807,15 +4806,15 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       if (opened) scope.querySelector<HTMLTextAreaElement>(`[data-form="${CSS.escape(replyFormKey(ref, reply.id))}"] textarea`)?.focus();
     });
     chat.setAttribute('aria-expanded', String(repliesOpen(ref, reply.id)));
-    const ai = action('相棒 ▾', '相棒（今の会話のメンバー）に返信してもらう', () => {
+    const ai = action(tr('相棒 ▾'), tr('相棒（今の会話のメンバー）に返信してもらう'), () => {
       toggleCompanion(ref, reply.id);
       if (view) renderCards(view);
     });
     const full = current.replies.length >= MAX_REPLIES;
     chat.disabled = full && under === 0;
     ai.disabled = full;
-    if (full) ai.title = `返信は1つのメモに ${MAX_REPLIES} 件までです`;
-    const remove = action(armed.has(reply.id) ? '消す？' : '×', armed.has(reply.id) ? removeAgain(current.replies, reply.id) : removeTitle(current.replies, reply.id), () => {
+    if (full) ai.title = tr('返信は1つのメモに {0} 件までです', { 0: MAX_REPLIES });
+    const remove = action(armed.has(reply.id) ? tr('消す？') : '×', armed.has(reply.id) ? removeAgain(current.replies, reply.id) : removeTitle(current.replies, reply.id), () => {
       if (!armed.has(reply.id)) {
         armed.add(reply.id);
         if (view) renderCards(view);
@@ -4836,11 +4835,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const fromHere = linking?.from === reply.id;
     const linkKey = `card:${reply.id}:link`;
     // action() と同じ見た目・属性。キーボードで押したときは、始めると同時に相手の一覧も開く（カードは焦点を持たないため）
-    const linkTitle = 'このカードと、ほかのカードを関連でつなぐ（相手のカードを押して、種類を選ぶ）';
+    const linkTitle = tr('このカードと、ほかのカードを関連でつなぐ（相手のカードを押して、種類を選ぶ）');
     const link = el('button', 'thread-action memo-pane-card-link', '🔗');
     link.type = 'button';
-    link.title = fromHere ? '関連づけをやめる（もう一度押す・Esc）' : linkTitle;
-    link.setAttribute('aria-label', fromHere ? '関連づけをやめる' : linkTitle);
+    link.title = fromHere ? tr('関連づけをやめる（もう一度押す・Esc）') : linkTitle;
+    link.setAttribute('aria-label', fromHere ? tr('関連づけをやめる') : linkTitle);
     link.dataset.focusKey = linkKey;
     link.setAttribute('aria-pressed', String(fromHere));
     link.addEventListener('click', (e) => {
@@ -4856,12 +4855,12 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (inMap) {
       // マップの中では関連づけられない（相手のカードは並びで押すため）
       link.disabled = true;
-      link.title = 'マップの中では関連づけられません（並びに戻ってから 🔗）';
+      link.title = tr('マップの中では関連づけられません（並びに戻ってから 🔗）');
       link.setAttribute('aria-label', link.title);
     }
     const more = el('button', 'thread-action memo-pane-card-more', '⋯');
     more.type = 'button';
-    const moreTitle = reply.image || reply.file ? 'その他（コピー・別のメモへ移す・画像の書き出しなど）' : 'その他（コピー・別のメモへ移す）';
+    const moreTitle = reply.image || reply.file ? tr('その他（コピー・別のメモへ移す・画像の書き出しなど）') : tr('その他（コピー・別のメモへ移す）');
     more.title = moreTitle;
     more.setAttribute('aria-label', moreTitle);
     more.setAttribute('aria-haspopup', 'menu');
@@ -4892,7 +4891,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         front: picked || oneLine(reply.text, 80),
         back: '',
         example: '',
-        note: '右の単語帳に入ります。カードはこのメモを指します（写すだけ。元のカードは変わりません）',
+        note: tr('右の単語帳に入ります。カードはこのメモを指します（写すだけ。元のカードは変わりません）'),
         rotate: savedMarkNew(),
       },
       (value) => {
@@ -4900,7 +4899,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
           command: 'addCards',
           cards: [{ ...value, links: [{ kind: 'memo', id: ref.id, role: 'source' }], ...(reply.image ? { image: { kind: 'shot', id: reply.image } } : {}) }],
         });
-        say('単語帳に入れました（元のカードはそのまま残ります）');
+        say(tr('単語帳に入れました（元のカードはそのまま残ります）'));
       },
     );
   }
@@ -4908,15 +4907,15 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   // マップに出したカードの ⋯：札のどちら側に出すか（今の側は ✓ を付けて押せない）
   function popSideEntries(control: PopControl): MenuEntry[] {
     const names: [MapSide, string][] = [
-      ['right', '右に出す'],
-      ['left', '左に出す'],
-      ['top', '上に出す'],
-      ['bottom', '下に出す'],
+      ['right', tr('右に出す')],
+      ['left', tr('左に出す')],
+      ['top', tr('上に出す')],
+      ['bottom', tr('下に出す')],
     ];
     const now = control.side();
     return [
-      { section: '札のどちら側に出すか' },
-      ...names.map(([side, label]): MenuEntry => (side === now ? { label: `✓ ${label}`, hint: '今の側', disabled: true } : { label, run: () => control.setSide(side) })),
+      { section: tr('札のどちら側に出すか') },
+      ...names.map(([side, label]): MenuEntry => (side === now ? { label: `✓ ${label}`, hint: tr('今の側'), disabled: true } : { label, run: () => control.setSide(side) })),
     ];
   }
 
@@ -4927,14 +4926,14 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     text.rows = 3;
     text.value = cardEdits.get(reply.id) ?? reply.text;
     text.setAttribute('aria-label', 'コメントを書き直す');
-    if (reply.quote?.text) text.placeholder = 'この引用について書く';
+    if (reply.quote?.text) text.placeholder = tr('この引用について書く');
     const row = el('div', 'reply-form-row');
     const count = el('span', 'reply-meter', '');
     const paintCount = () => {
       const n = [...text.value].length;
       count.textContent = `${n} / ${REPLY_FOLD}`;
       count.classList.toggle('long', n > REPLY_FOLD);
-      count.title = n > REPLY_FOLD ? '長め：カードでは 280字まで見せて、続きは開きます' : '';
+      count.title = n > REPLY_FOLD ? tr('長め：カードでは 280字まで見せて、続きは開きます') : '';
     };
     paintCount();
     const closeEdit = () => {
@@ -4973,9 +4972,9 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       e.preventDefault();
       save();
     });
-    const saveBtn = el('button', 'preview-button', '残す');
+    const saveBtn = el('button', 'preview-button', tr('残す'));
     saveBtn.type = 'submit';
-    const cancel = el('button', 'preview-button', 'やめる');
+    const cancel = el('button', 'preview-button', tr('やめる'));
     cancel.type = 'button';
     cancel.addEventListener('click', closeEdit);
     row.append(count, saveBtn, cancel);
@@ -5100,15 +5099,15 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       comment.value = '';
       paintMeter();
     }
-    const head = memoTitle(next) || '（空のメモ）';
-    title.textContent = `メモ：${head}`;
+    const head = memoTitle(next) || tr('（空のメモ）');
+    title.textContent = tr('メモ：{0}', { 0: head });
     sheet.hidden = !next.sheetName;
     sheet.textContent = next.sheetName ?? '';
-    page.textContent = next.page.title ? `上：${next.page.title}` : '上：ページがありません';
+    page.textContent = next.page.title ? tr('上：{0}', { 0: next.page.title }) : tr('上：ページがありません');
     if (next.by) {
       const fromBot = next.by.who === 'bot';
       by.hidden = false;
-      by.textContent = fromBot ? `ボット（${next.by.name}）から届いた${next.label ?? '返事'}` : `${next.label ?? '考察'}・${next.by.name}`;
+      by.textContent = fromBot ? tr('ボット（{0}）から届いた{1}', { 0: next.by.name, 1: next.label ?? '返事' }) : tr('{0}・{1}', { 0: next.label ?? '考察', 1: next.by.name });
     } else {
       by.hidden = true;
       by.textContent = '';
@@ -5236,10 +5235,10 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       atText.textContent = '';
       return;
     }
-    atText.textContent = `▶ ${secLabel(now.start)} と結ぶ`;
+    atText.textContent = tr('▶ {0} と結ぶ', { 0: secLabel(now.start) });
     atLabel.title = atPin
-      ? `書き始めたときの読む画面のマス（${secLabel(atPin.start)}）と結んだカードにします`
-      : '読む画面の今のマスと結んだカードにします（書き始めたときのマスに固定します）';
+      ? tr('書き始めたときの読む画面のマス（{0}）と結んだカードにします', { 0: secLabel(atPin.start) })
+      : tr('読む画面の今のマスと結んだカードにします（書き始めたときのマスに固定します）');
   }
 
   // 結ぶマスを固定する・外す：印があり、欄に字があれば、そのときの今のマスに固定する。欄が空になったか印を外したら外す
@@ -5581,12 +5580,12 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       if (!json) return;
       e.preventDefault();
       if (json.size > IMPORT_FILE_BYTES) {
-        status.textContent = `ファイルが大きすぎます（${IMPORT_FILE_LABEL} まで）`;
+        status.textContent = tr('ファイルが大きすぎます（{0} まで）', { 0: IMPORT_FILE_LABEL });
         return;
       }
       void json.text().then(
         (text) => ask({ command: 'grokPatchText', text, name: json.name.slice(0, 120) }),
-        () => (status.textContent = 'ファイルを読めませんでした'),
+        () => (status.textContent = tr('ファイルを読めませんでした')),
       );
       return;
     }
@@ -5695,7 +5694,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       e.stopPropagation();
       const moving = cardDrag.moving;
       cardDrag.cancel();
-      if (!moving) say('やめました（元の位置のまま）'); // つまんでいたときは onCancel が出す
+      if (!moving) say(tr('やめました（元の位置のまま）')); // つまんでいたときは onCancel が出す
     },
     true,
   );
@@ -5912,18 +5911,18 @@ function action(label: string, title: string, onClick: () => void) {
 
 function removeTitle(replies: readonly Reply[], id: string) {
   const below = countUnder(replies, id);
-  return below > 0 ? `このコメントを消す（その下の返信 ${below} 件も消えます）` : 'このコメントを消す';
+  return below > 0 ? tr('このコメントを消す（その下の返信 {0} 件も消えます）', { 0: below }) : tr('このコメントを消す');
 }
 
 function removeAgain(replies: readonly Reply[], id: string) {
   const below = countUnder(replies, id);
   const linked = replies.filter((r) => r.parent === null && r.id !== id && (r.links ?? []).some((l) => l.to === id)).length;
-  const tail = linked > 0 ? `（ほかのカードからの関連 ${linked} 本も外れます）` : '';
-  return below > 0 ? `もう一度押すと、このコメントとその下の返信 ${below} 件を消します${tail}` : `もう一度押すと、このコメントを消します${tail}`;
+  const tail = linked > 0 ? tr('（ほかのカードからの関連 {0} 本も外れます）', { 0: linked }) : '';
+  return below > 0 ? tr('もう一度押すと、このコメントとその下の返信 {0} 件を消します{1}', { 0: below, 1: tail }) : tr('もう一度押すと、このコメントを消します{0}', { 0: tail });
 }
 
 function memoMarkdown(view: MemoPaneView): string {
-  const title = memoTitle({ text: view.text }) || '（空のメモ）';
+  const title = memoTitle({ text: view.text }) || tr('（空のメモ）');
   const lines = [`# ${title}`, '', view.text.trim(), '', '---', ''];
   // 一番上のカードは並べた順、返信の木は作った順
   const kidsOf = (parent: string | null) => (parent === null ? orderedTops(view.replies) : view.replies.filter((r) => r.parent === parent).sort((a, b) => a.createdAt - b.createdAt));
@@ -5937,16 +5936,16 @@ function memoMarkdown(view: MemoPaneView): string {
         for (const line of reply.quote.text.split('\n')) lines.push(`${pad}> ${line}`);
       }
       if (reply.quote) lines.push(`${pad}> — [${mdLabel(reply.quote.title)}](${reply.quote.url})`);
-      if (reply.image) lines.push(`${pad}［画像］`);
+      if (reply.image) lines.push(tr('{0}［画像］', { 0: pad }));
       if (reply.parent === null && reply.links) {
         const parts: string[] = [];
         for (const link of reply.links) {
           const target = view.replies.find((r) => r.id === link.to);
           if (!target) continue;
           const name = cardLabel(target, 24);
-          parts.push(link.kind === 'same' ? `「${name}」と${linkKindInfo(link.kind).name}` : `「${name}」の${linkKindInfo(link.kind).name}`);
+          parts.push(link.kind === 'same' ? tr('「{0}」と{1}', { 0: name, 1: linkKindInfo(link.kind).name }) : tr('「{0}」の{1}', { 0: name, 1: linkKindInfo(link.kind).name }));
         }
-        if (parts.length > 0) lines.push(`${pad}  関連：${parts.join('・')}`);
+        if (parts.length > 0) lines.push(tr('{0}  関連：{1}', { 0: pad, 1: parts.join('・') }));
       }
       walk(reply.id, depth + 1);
     }
@@ -5956,33 +5955,33 @@ function memoMarkdown(view: MemoPaneView): string {
 }
 
 function mdLabel(title: string) {
-  return (title || 'ページ').replace(/[\[\]]/g, '');
+  return (title || tr('ページ')).replace(/[\[\]]/g, '');
 }
 
 function pageFailure(reply: HostMessage | null): string {
-  if (!reply || reply.type !== 'pageCaptured') return '上のページからの返事が来ませんでした（全体：返事なし）';
-  if (reply.error === 'name') return 'ファイルの名前が違うので、全体は保存しませんでした（全体：名前）';
-  if (reply.error === 'folder') return 'ピクチャのフォルダを用意できませんでした（全体：フォルダ）';
-  if (reply.error === 'noPage') return '上のページがありません（全体：ページなし）';
-  if (reply.error === 'popout') return '小窓に出ているページは、全体を撮れません（全体：小窓）';
-  if (reply.error === 'notActive') return '上に見えているページではないので、全体を撮れません（全体：表示中でない）';
-  if (reply.error === 'metrics') return 'ページの大きさを聞けませんでした（全体：大きさを聞けない）';
-  if (reply.error === 'size') return 'ページの大きさが取れませんでした（全体：大きさが変）';
-  if (reply.error === 'shot') return 'ページ全体を画像にできませんでした（全体：撮れない）';
-  if (reply.error === 'write') return '全体の画像をファイルに書けませんでした（全体：ファイルに書けない）';
-  if (reply.error === 'big') return '全体の画像が大きすぎて保存できませんでした（全体：大きすぎる）';
-  if (reply.ok) return '全体の画像を保存できませんでした（全体：名前が空）';
-  return `全体の画像を撮れませんでした（全体：${reply.error ?? '理由なし'}）`;
+  if (!reply || reply.type !== 'pageCaptured') return tr('上のページからの返事が来ませんでした（全体：返事なし）');
+  if (reply.error === 'name') return tr('ファイルの名前が違うので、全体は保存しませんでした（全体：名前）');
+  if (reply.error === 'folder') return tr('ピクチャのフォルダを用意できませんでした（全体：フォルダ）');
+  if (reply.error === 'noPage') return tr('上のページがありません（全体：ページなし）');
+  if (reply.error === 'popout') return tr('小窓に出ているページは、全体を撮れません（全体：小窓）');
+  if (reply.error === 'notActive') return tr('上に見えているページではないので、全体を撮れません（全体：表示中でない）');
+  if (reply.error === 'metrics') return tr('ページの大きさを聞けませんでした（全体：大きさを聞けない）');
+  if (reply.error === 'size') return tr('ページの大きさが取れませんでした（全体：大きさが変）');
+  if (reply.error === 'shot') return tr('ページ全体を画像にできませんでした（全体：撮れない）');
+  if (reply.error === 'write') return tr('全体の画像をファイルに書けませんでした（全体：ファイルに書けない）');
+  if (reply.error === 'big') return tr('全体の画像が大きすぎて保存できませんでした（全体：大きすぎる）');
+  if (reply.ok) return tr('全体の画像を保存できませんでした（全体：名前が空）');
+  return tr('全体の画像を撮れませんでした（全体：{0}）', { 0: reply.error ?? '理由なし' });
 }
 
 function exportFailure(reply: HostMessage | null): string {
-  if (!reply || reply.type !== 'imageExported') return '書き出せませんでした（書き出す：返事なし）';
-  if (reply.error === 'name') return 'ファイルの名前が違うので、書き出しませんでした（書き出す：名前）';
-  if (reply.error === 'data') return 'この画像の形では書き出せませんでした（書き出す：画像の形でない）';
-  if (reply.error === 'big') return '画像が大きすぎて書き出せませんでした（書き出す：大きすぎる）';
-  if (reply.error === 'folder') return 'ピクチャのフォルダを用意できませんでした（書き出す：フォルダ）';
-  if (reply.error === 'write') return '画像をファイルに書けませんでした（書き出す：ファイルに書けない）';
-  return `書き出せませんでした（書き出す：${reply.error ?? '理由なし'}）`;
+  if (!reply || reply.type !== 'imageExported') return tr('書き出せませんでした（書き出す：返事なし）');
+  if (reply.error === 'name') return tr('ファイルの名前が違うので、書き出しませんでした（書き出す：名前）');
+  if (reply.error === 'data') return tr('この画像の形では書き出せませんでした（書き出す：画像の形でない）');
+  if (reply.error === 'big') return tr('画像が大きすぎて書き出せませんでした（書き出す：大きすぎる）');
+  if (reply.error === 'folder') return tr('ピクチャのフォルダを用意できませんでした（書き出す：フォルダ）');
+  if (reply.error === 'write') return tr('画像をファイルに書けませんでした（書き出す：ファイルに書けない）');
+  return tr('書き出せませんでした（書き出す：{0}）', { 0: reply.error ?? '理由なし' });
 }
 
 function isSafeExportName(name: string): boolean {
@@ -6008,14 +6007,14 @@ function exportFileName(url: string, ext: 'jpg' | 'png'): string {
 }
 
 function captureFailure(reply: HostMessage | null): string {
-  if (!reply || reply.type !== 'capture') return '上のページからの返事が来ませんでした（撮る：返事なし）';
-  if (reply.error === 'notActive') return '上に見えているページではないので撮れませんでした（撮る：notActive）';
-  if (reply.error === 'tooBig') return '画像が大きすぎて渡せませんでした（撮る：tooBig）';
-  if (reply.ok) return '上のページを画像にできませんでした（撮る：画像が空）';
-  if (reply.error === 'metrics') return '上のページを画像にできませんでした（撮る：見えている範囲を聞けない）';
-  if (reply.error === 'viewport') return '上のページを画像にできませんでした（撮る：見えている範囲の大きさが変）';
-  if (reply.error === 'shot' || reply.error === 'capture') return `上のページを画像にできませんでした（撮る：${reply.error}）`;
-  return `撮れませんでした（ページが眠っている・小窓に出ているなど。撮る：${reply.error ?? '理由なし'}）`;
+  if (!reply || reply.type !== 'capture') return tr('上のページからの返事が来ませんでした（撮る：返事なし）');
+  if (reply.error === 'notActive') return tr('上に見えているページではないので撮れませんでした（撮る：notActive）');
+  if (reply.error === 'tooBig') return tr('画像が大きすぎて渡せませんでした（撮る：tooBig）');
+  if (reply.ok) return tr('上のページを画像にできませんでした（撮る：画像が空）');
+  if (reply.error === 'metrics') return tr('上のページを画像にできませんでした（撮る：見えている範囲を聞けない）');
+  if (reply.error === 'viewport') return tr('上のページを画像にできませんでした（撮る：見えている範囲の大きさが変）');
+  if (reply.error === 'shot' || reply.error === 'capture') return tr('上のページを画像にできませんでした（撮る：{0}）', { 0: reply.error });
+  return tr('撮れませんでした（ページが眠っている・小窓に出ているなど。撮る：{0}）', { 0: reply.error ?? '理由なし' });
 }
 
 function dateOf(ms: number) {
@@ -6024,7 +6023,7 @@ function dateOf(ms: number) {
 }
 
 // AI のカードの種類の名前（V4b-2。頭の帯に出す）
-const AI_KIND_LABEL: Record<ReaderAiKind, string> = { tech: '技法の色', bones: '話の骨組み', tendon: '天丼と伏線', pause: '間', apply: '応用', talk: 'やり取り' };
+const AI_KIND_LABEL: Record<ReaderAiKind, string> = { tech: tr('技法の色'), bones: tr('話の骨組み'), tendon: tr('天丼と伏線'), pause: tr('間'), apply: tr('応用'), talk: tr('やり取り') };
 
 // ❝ 引用（文がある）／🖼 画像（引用の文と両方なら ❝）／🔗 リンク（文の無い引用だけ）／💬 コメント
 function kindMark(reply: Reply): string {
@@ -6050,10 +6049,10 @@ const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 
 type FitError = 'decode' | 'empty' | 'canvas' | 'encode';
 const FIT_STAGE: Record<FitError, string> = {
-  decode: '読み込み：画像として読めない',
-  empty: '読み込み：大きさが 0',
-  canvas: '縮める：canvas が使えない',
-  encode: '縮める：書き出せない',
+  decode: tr('読み込み：画像として読めない'),
+  empty: tr('読み込み：大きさが 0'),
+  canvas: tr('縮める：canvas が使えない'),
+  encode: tr('縮める：書き出せない'),
 };
 
 // 長い辺 1,600px。透明のある PNG は PNG のまま。ほかは JPEG（品質 0.85）。動く GIF は止まった絵

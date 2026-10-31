@@ -3,6 +3,7 @@
 //   ・空いたボタン（＋）を押すと、そこに登録するタグを選ぶ。ボタンを右クリックすると、並べ替え・替える・外す
 //   ・「その他 ▾」：6つに入っていないタグ（使っている数の多い順・六角メモのタグ）。付ける・外す・ボタンへ登録
 //   ・カード（拡大表示）・右の「メモ」の区画の「選んだコメントのタグ」で使う。ボタンとセットは左右のサイドバーで別々（tagbuttons.ts）
+import { t as tr } from '../i18n';
 import { isMachineTag } from '../grok-cards-tags';
 import { MAX_TAGS_PER_TAB, normalizeTag, registeredTagNames, tagColor } from '../tags';
 import { type PinnedSource, TAG_BUTTONS, type TagButtonSet, type TagButtonStore } from '../tagbuttons';
@@ -46,7 +47,7 @@ export class TagPad {
       if (this.editor && !host.store.sets.some((s) => s.id === this.editor?.setId)) this.closeEditor();
       this.emit();
     });
-    host.store.onSaveFailed(() => host.toast('タグのボタンを保存できませんでした（もう一度変えると、また保存します）'));
+    host.store.onSaveFailed(() => host.toast(tr('タグのボタンを保存できませんでした（もう一度変えると、また保存します）')));
   }
 
   // ボタン・セット・たたみ具合が変わった（カードやコメントを描き直す）
@@ -69,7 +70,7 @@ export class TagPad {
     const top = el('div', 'tag-pad-top');
     const fold = el('button', 'tag-pad-fold', this.folded ? '▸' : '▾');
     fold.type = 'button';
-    fold.title = this.folded ? 'タグのボタンを出す' : 'タグのボタンをたたむ';
+    fold.title = this.folded ? tr('タグのボタンを出す') : tr('タグのボタンをたたむ');
     fold.setAttribute('aria-label', fold.title);
     fold.setAttribute('aria-expanded', String(!this.folded));
     fold.dataset.focusKey = `${focusKey}tagfold`;
@@ -77,26 +78,26 @@ export class TagPad {
     const setButton = el('button', 'tag-pad-set');
     setButton.type = 'button';
     setButton.append(el('span', 'tag-pad-set-name', set.name), el('span', 'tag-pad-arrow', '▾'));
-    setButton.title = `${this.host.side}のタグのボタンのセット「${set.name}」（押すと切り替え・新しいセット・名前・消す）`;
+    setButton.title = tr('{0}のタグのボタンのセット「{1}」（押すと切り替え・新しいセット・名前・消す）', { 0: this.host.side, 1: set.name });
     setButton.setAttribute('aria-label', `タグのボタンのセット「${set.name}」`);
     setButton.setAttribute('aria-haspopup', 'menu');
     setButton.setAttribute('aria-expanded', 'false');
     setButton.dataset.focusKey = `${focusKey}tagset`;
     setButton.addEventListener('click', (e) => this.openSets(setButton, e.detail === 0));
-    const more = el('button', 'tag-pad-more', 'その他 ▾');
+    const more = el('button', 'tag-pad-more', tr('その他 ▾'));
     more.type = 'button';
-    more.title = '6つのボタンに入っていないタグ（付ける・外す・ボタンに登録。名前を書けば、どのタグでも）';
+    more.title = tr('6つのボタンに入っていないタグ（付ける・外す・ボタンに登録。名前を書けば、どのタグでも）');
     more.setAttribute('aria-haspopup', 'menu');
     more.setAttribute('aria-expanded', 'false');
     more.dataset.focusKey = `${focusKey}tagmore`;
     more.addEventListener('click', (e) => this.openMore(more, target, tags, e.detail === 0));
     const edit = el('button', 'tag-pad-edit', '✎');
     edit.type = 'button';
-    edit.title = 'タグのボタンを編集（6つのタグ・並び・セットの名前）';
+    edit.title = tr('タグのボタンを編集（6つのタグ・並び・セットの名前）');
     edit.setAttribute('aria-label', 'タグのボタンを編集');
     edit.dataset.focusKey = `${focusKey}tagedit`;
     edit.addEventListener('click', () => this.openEditor(edit.getBoundingClientRect(), edit.dataset.focusKey));
-    top.append(fold, el('span', 'tag-pad-label', 'タグのボタン'), setButton, el('span', 'tag-pad-gap'), more, edit);
+    top.append(fold, el('span', 'tag-pad-label', tr('タグのボタン')), setButton, el('span', 'tag-pad-gap'), more, edit);
     box.append(top);
     if (this.folded) return box;
 
@@ -113,7 +114,7 @@ export class TagPad {
         const mark = () => {
           const has = tags.includes(tag);
           b.setAttribute('aria-pressed', String(has));
-          b.title = `${has ? `${target.what}から外す` : `${target.what}に付ける`}：#${tag}（右クリックで並べ替え・替える・ボタンから外す）`;
+          b.title = tr('{0}：#{1}（右クリックで並べ替え・替える・ボタンから外す）', { 0: has ? `${target.what}から外す` : `${target.what}に付ける`, 1: tag });
         };
         mark();
         b.addEventListener('click', () => {
@@ -130,7 +131,7 @@ export class TagPad {
       } else {
         const b = el('button', 'tag-pad-button empty', '＋');
         b.type = 'button';
-        b.title = `空き（押すと、ボタン ${i + 1} に登録するタグを選ぶ）`;
+        b.title = tr('空き（押すと、ボタン {0} に登録するタグを選ぶ）', { 0: i + 1 });
         b.setAttribute('aria-label', `空きのボタン ${i + 1}（押すと、登録するタグを選ぶ）`);
         b.setAttribute('aria-haspopup', 'menu');
         b.dataset.focusKey = `${focusKey}tagbtn:${i}`;
@@ -153,7 +154,7 @@ export class TagPad {
       return;
     }
     if (tags.length >= MAX_TAGS_PER_TAB) {
-      this.host.toast(`タグは1つに ${MAX_TAGS_PER_TAB} 個までです（ほかのタグを外してから付けてください）`);
+      this.host.toast(tr('タグは1つに {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB }));
       return;
     }
     tags.push(tag);
@@ -176,62 +177,62 @@ export class TagPad {
     const at = cornerOf(anchor);
     const rect = anchor.getBoundingClientRect(); // メニューを開いている間に、カードが描き直されることがある
     const back = anchor.dataset.focusKey;
-    const entries: MenuEntry[] = [{ section: `タグのボタンのセット（${this.host.side}）` }];
+    const entries: MenuEntry[] = [{ section: tr('タグのボタンのセット（{0}）', { 0: this.host.side }) }];
     for (const set of store.sets) {
       const names = set.tags.filter((t): t is string => !!t);
-      entries.push({ label: `${set.id === current.id ? '✓' : '　'} ${set.name}`, hint: names.slice(0, 3).join('・') || '空き', run: () => store.setCurrent(set.id) });
+      entries.push({ label: `${set.id === current.id ? '✓' : '　'} ${set.name}`, hint: names.slice(0, 3).join(tr('・')) || tr('空き'), run: () => store.setCurrent(set.id) });
     }
     entries.push('sep');
     entries.push({
-      label: '＋ 新しいセット…',
+      label: tr('＋ 新しいセット…'),
       disabled: !store.canAddSet,
       run: () =>
         menu.prompt(
-          '新しいセットの名前',
-          `セット${store.sets.length + 1}`,
+          tr('新しいセットの名前'),
+          tr('セット{0}', { 0: store.sets.length + 1 }),
           (name) => {
             const set = store.addSet(name);
-            if (set) this.host.toast(`セット「${set.name}」を作りました。空いたボタン（＋）を押すと、タグを登録できます`);
+            if (set) this.host.toast(tr('セット「{0}」を作りました。空いたボタン（＋）を押すと、タグを登録できます', { 0: set.name }));
           },
           at,
         ),
     });
     entries.push({
-      label: 'このセットを複製…',
+      label: tr('このセットを複製…'),
       disabled: !store.canAddSet,
       run: () =>
         menu.prompt(
-          '複製したセットの名前',
-          `${current.name}のコピー`,
+          tr('複製したセットの名前'),
+          tr('{0}のコピー', { 0: current.name }),
           (name) => {
             const set = store.addSet(name, current.tags);
-            if (set) this.host.toast(`「${current.name}」を複製して、「${set.name}」にしました`);
+            if (set) this.host.toast(tr('「{0}」を複製して、「{1}」にしました', { 0: current.name, 1: set.name }));
           },
           at,
         ),
     });
-    entries.push({ label: 'このセットの名前を変える…', run: () => menu.prompt('セットの名前', current.name, (name) => store.renameSet(current.id, name), at) });
+    entries.push({ label: tr('このセットの名前を変える…'), run: () => menu.prompt(tr('セットの名前'), current.name, (name) => store.renameSet(current.id, name), at) });
     if (store.sets.length > 1) {
       entries.push({
-        row: `「${current.name}」を消す`,
+        row: tr('「{0}」を消す', { 0: current.name }),
         buttons: [
           {
-            label: '消す',
+            label: tr('消す'),
             confirm: '本当に消す',
-            aria: `セット「${current.name}」を消す（2回押す）`,
+            aria: tr('セット「{0}」を消す（2回押す）', { 0: current.name }),
             run: () => {
               menu.close();
               store.removeSet(current.id);
-              this.host.toast(`セット「${current.name}」を消しました（付けたタグはそのままです）`);
+              this.host.toast(tr('セット「{0}」を消しました（付けたタグはそのままです）', { 0: current.name }));
             },
           },
         ],
       });
     } else {
-      entries.push({ label: 'このセットを消す（最後の1つは消せません）', disabled: true });
+      entries.push({ label: tr('このセットを消す（最後の1つは消せません）'), disabled: true });
     }
-    if (!store.canAddSet) entries.push({ label: 'セットは 12 個までです', disabled: true });
-    entries.push('sep', { label: '✎ ボタンを編集…', run: () => this.openEditor(anchor.isConnected ? anchor.getBoundingClientRect() : rect, back) });
+    if (!store.canAddSet) entries.push({ label: tr('セットは 12 個までです'), disabled: true });
+    entries.push('sep', { label: tr('✎ ボタンを編集…'), run: () => this.openEditor(anchor.isConnected ? anchor.getBoundingClientRect() : rect, back) });
     menu.open(at.x, at.y, entries);
     if (keyboard) menu.focusFirst();
   }
@@ -244,19 +245,19 @@ export class TagPad {
     const inButtons = new Set(store.current.tags.filter((t): t is string => !!t));
     const all = this.known(tags).filter((u) => !inButtons.has(u.tag));
     const shown = all.slice(0, MORE_MAX);
-    const entries: MenuEntry[] = [{ section: `その他のタグ（${target.what}に付ける・外す）` }];
+    const entries: MenuEntry[] = [{ section: tr('その他のタグ（{0}に付ける・外す）', { 0: target.what }) }];
     entries.push({
-      label: '＋ タグの名前を書いて付ける…',
-      hint: '新しいタグも',
+      label: tr('＋ タグの名前を書いて付ける…'),
+      hint: tr('新しいタグも'),
       run: () =>
         menu.prompt(
-          '付けるタグの名前（# と空白は入りません）',
+          tr('付けるタグの名前（# と空白は入りません）'),
           '',
           (value) => {
             const tag = normalizeTag(value);
             if (!tag) return;
             if (tags.includes(tag)) {
-              this.host.toast(`「${tag}」はもう付いています`);
+              this.host.toast(tr('「{0}」はもう付いています', { 0: tag }));
               return;
             }
             this.toggle(target, tags, tag);
@@ -264,17 +265,17 @@ export class TagPad {
           at,
         ),
     });
-    if (shown.length === 0) entries.push({ label: 'ほかのタグはまだありません', disabled: true });
+    if (shown.length === 0) entries.push({ label: tr('ほかのタグはまだありません'), disabled: true });
     else entries.push('sep');
     for (const use of shown) {
       const tag = use.tag;
-      const row = { row: '', hint: use.count > 0 ? String(use.count) : '六角メモ', buttons: [] as MenuButton[] };
+      const row = { row: '', hint: use.count > 0 ? String(use.count) : tr('六角メモ'), buttons: [] as MenuButton[] };
       const toggle: MenuButton = { label: '', run: () => undefined };
       const label = () => {
         const has = tags.includes(tag);
         row.row = `${has ? '✓ ' : ''}#${tag}`;
-        toggle.label = has ? '外す' : '付ける';
-        toggle.aria = has ? `#${tag} を${target.what}から外す` : `#${tag} を${target.what}に付ける`;
+        toggle.label = has ? tr('外す') : tr('付ける');
+        toggle.aria = has ? tr('#{0} を{1}から外す', { 0: tag, 1: target.what }) : tr('#{0} を{1}に付ける', { 0: tag, 1: target.what });
       };
       toggle.run = () => {
         this.toggle(target, tags, tag);
@@ -283,22 +284,22 @@ export class TagPad {
       };
       label();
       row.buttons.push(toggle, {
-        label: 'ボタンへ',
-        aria: `#${tag} を空いたボタンに登録する`,
+        label: tr('ボタンへ'),
+        aria: tr('#{0} を空いたボタンに登録する', { 0: tag }),
         run: () => {
           menu.close();
           const slot = store.firstEmpty();
           if (slot < 0) {
-            this.host.toast('ボタンに空きがありません。ボタンを右クリック →「ボタンから外す」か、✎ で入れ替えてください');
+            this.host.toast(tr('ボタンに空きがありません。ボタンを右クリック →「ボタンから外す」か、✎ で入れ替えてください'));
             return;
           }
           store.assign(slot, tag);
-          this.host.toast(`「${tag}」をボタン ${slot + 1} に登録しました（セット「${store.current.name}」）`);
+          this.host.toast(tr('「{0}」をボタン {1} に登録しました（セット「{2}」）', { 0: tag, 1: slot + 1, 2: store.current.name }));
         },
       });
       entries.push(row);
     }
-    if (all.length > shown.length) entries.push({ label: `ほか ${all.length - shown.length} 個（多い順に ${MORE_MAX} 個まで。ほかは名前を書いて付けられます）`, disabled: true });
+    if (all.length > shown.length) entries.push({ label: tr('ほか {0} 個（多い順に {1} 個まで。ほかは名前を書いて付けられます）', { 0: all.length - shown.length, 1: MORE_MAX }), disabled: true });
     menu.open(at.x, at.y, entries);
     if (keyboard) menu.focusFirst();
   }
@@ -308,13 +309,13 @@ export class TagPad {
     this.closeEditor();
     const { store, menu } = this.host;
     const inButtons = new Set(store.current.tags.filter((t): t is string => !!t));
-    const entries: MenuEntry[] = [{ section: `ボタン ${slot + 1} に登録するタグ` }];
+    const entries: MenuEntry[] = [{ section: tr('ボタン {0} に登録するタグ', { 0: slot + 1 }) }];
     entries.push({
-      label: '＋ タグの名前を書く…',
-      hint: '新しいタグも',
+      label: tr('＋ タグの名前を書く…'),
+      hint: tr('新しいタグも'),
       run: () =>
         menu.prompt(
-          `ボタン ${slot + 1} に登録するタグの名前`,
+          tr('ボタン {0} に登録するタグの名前', { 0: slot + 1 }),
           '',
           (value) => {
             const tag = normalizeTag(value);
@@ -325,24 +326,24 @@ export class TagPad {
     });
     const own = tags.filter((t) => !inButtons.has(t));
     if (own.length > 0) {
-      entries.push({ section: `${target.what}のタグ` });
+      entries.push({ section: tr('{0}のタグ', { 0: target.what }) });
       for (const tag of own) entries.push({ label: `#${tag}`, run: () => store.assign(slot, tag) });
     }
     const usedAll = this.host.used().filter((u) => !inButtons.has(u.tag) && !own.includes(u.tag));
     const used = usedAll.slice(0, CHOICE_MAX);
     if (used.length > 0) {
-      entries.push({ section: 'よく使うタグ' });
+      entries.push({ section: tr('よく使うタグ') });
       for (const u of used) entries.push({ label: `#${u.tag}`, hint: String(u.count), run: () => store.assign(slot, u.tag) });
     }
     const listed = new Set([...own, ...usedAll.map((u) => u.tag)]);
     const hexAll = registeredTagNames().filter((t) => !inButtons.has(t) && !listed.has(t));
     const hex = hexAll.slice(0, CHOICE_MAX);
     if (hex.length > 0) {
-      entries.push({ section: '六角メモのタグ' });
+      entries.push({ section: tr('六角メモのタグ') });
       for (const tag of hex) entries.push({ label: `#${tag}`, run: () => store.assign(slot, tag) });
     }
     const hidden = usedAll.length - used.length + hexAll.length - hex.length;
-    if (hidden > 0) entries.push({ label: `ほか ${hidden} 個（いちばん上で名前を書けば、どのタグでも登録できます）`, disabled: true });
+    if (hidden > 0) entries.push({ label: tr('ほか {0} 個（いちばん上で名前を書けば、どのタグでも登録できます）', { 0: hidden }), disabled: true });
     menu.open(at.x, at.y, entries);
     if (keyboard) menu.focusFirst();
   }
@@ -355,13 +356,13 @@ export class TagPad {
     if (!tag) return;
     const has = tags.includes(tag);
     const entries: MenuEntry[] = [
-      { section: `ボタン ${slot + 1}：#${tag}` },
-      { label: has ? `${target.what}から外す` : `${target.what}に付ける`, run: () => this.toggle(target, tags, tag) },
+      { section: tr('ボタン {0}：#{1}', { 0: slot + 1, 1: tag }) },
+      { label: has ? tr('{0}から外す', { 0: target.what }) : tr('{0}に付ける', { 0: target.what }), run: () => this.toggle(target, tags, tag) },
       'sep',
-      { label: '← 前へ', disabled: slot === 0, run: () => store.swap(slot, slot - 1) },
-      { label: '後ろへ →', disabled: slot === TAG_BUTTONS - 1, run: () => store.swap(slot, slot + 1) },
-      { label: '別のタグに替える…', run: () => this.openChooser(slot, at, target, tags, keyboard) },
-      { label: 'ボタンから外す（付けたタグはそのまま）', run: () => store.clear(slot) },
+      { label: tr('← 前へ'), disabled: slot === 0, run: () => store.swap(slot, slot - 1) },
+      { label: tr('後ろへ →'), disabled: slot === TAG_BUTTONS - 1, run: () => store.swap(slot, slot + 1) },
+      { label: tr('別のタグに替える…'), run: () => this.openChooser(slot, at, target, tags, keyboard) },
+      { label: tr('ボタンから外す（付けたタグはそのまま）'), run: () => store.clear(slot) },
     ];
     menu.open(at.x, at.y, entries);
     if (keyboard) menu.focusFirst();
@@ -398,10 +399,10 @@ export class TagPad {
     const head = el('div', 'tag-pad-editor-head');
     const close = el('button', 'tag-pad-editor-x', '×');
     close.type = 'button';
-    close.title = 'やめる（Esc）';
+    close.title = tr('やめる（Esc）');
     close.setAttribute('aria-label', 'やめる');
     close.addEventListener('click', () => this.closeEditor());
-    head.append(el('span', 'tag-pad-editor-title', `タグのボタンを編集（${this.host.side}）`), close);
+    head.append(el('span', 'tag-pad-editor-title', tr('タグのボタンを編集（{0}）', { 0: this.host.side })), close);
 
     const listId = `tag-pad-known-${store.side}`;
     const known = el('datalist');
@@ -417,7 +418,7 @@ export class TagPad {
     name.maxLength = 20;
     name.value = set.name;
     name.setAttribute('aria-label', 'セットの名前');
-    nameRow.append(el('span', '', 'セットの名前'), name);
+    nameRow.append(el('span', '', tr('セットの名前')), name);
 
     const inputs: HTMLInputElement[] = [];
     const rows = el('div', 'tag-pad-editor-rows');
@@ -426,7 +427,7 @@ export class TagPad {
       const input = el('input');
       input.value = set.tags[i] ?? '';
       input.maxLength = 30;
-      input.placeholder = '（空き）';
+      input.placeholder = tr('（空き）');
       input.setAttribute('list', listId);
       input.setAttribute('aria-label', `ボタン ${i + 1} のタグ`);
       inputs.push(input);
@@ -436,11 +437,11 @@ export class TagPad {
         [input.value, other.value] = [other.value, input.value];
         other.focus();
       };
-      const up = smallButton('↑', `ボタン ${i + 1} を前へ`, () => swapWith(i - 1));
+      const up = smallButton('↑', tr('ボタン {0} を前へ', { 0: i + 1 }), () => swapWith(i - 1));
       up.disabled = i === 0;
-      const down = smallButton('↓', `ボタン ${i + 1} を後ろへ`, () => swapWith(i + 1));
+      const down = smallButton('↓', tr('ボタン {0} を後ろへ', { 0: i + 1 }), () => swapWith(i + 1));
       down.disabled = i === TAG_BUTTONS - 1;
-      const clear = smallButton('空に', `ボタン ${i + 1} を空きにする`, () => {
+      const clear = smallButton(tr('空に'), tr('ボタン {0} を空きにする', { 0: i + 1 }), () => {
         input.value = '';
         input.focus();
       });
@@ -448,17 +449,17 @@ export class TagPad {
       rows.append(row);
     }
 
-    const note = el('div', 'tag-pad-editor-note', '# と空白は入りません。同じタグは1つにまとめます。空きのボタンは「＋」になります（付けたタグは変わりません）。Ctrl+Enter で保存');
+    const note = el('div', 'tag-pad-editor-note', tr('# と空白は入りません。同じタグは1つにまとめます。空きのボタンは「＋」になります（付けたタグは変わりません）。Ctrl+Enter で保存'));
     const foot = el('div', 'tag-pad-editor-foot');
-    const cancel = smallButton('やめる', 'やめる（Esc）', () => this.closeEditor());
-    const save = el('button', 'tag-pad-editor-save primary', '保存');
+    const cancel = smallButton(tr('やめる'), tr('やめる（Esc）'), () => this.closeEditor());
+    const save = el('button', 'tag-pad-editor-save primary', tr('保存'));
     save.type = 'button';
     save.addEventListener('click', () => {
       const changed = store.replaceSet(set.id, { name: name.value, tags: inputs.map((x) => normalizeTag(x.value) || null) });
       this.closeEditor();
       const saved = store.sets.find((s) => s.id === set.id);
-      if (!saved) this.host.toast('編集していたセットが無くなったので、書き直せませんでした');
-      else if (changed) this.host.toast(`セット「${saved.name}」のタグのボタンを書き直しました`);
+      if (!saved) this.host.toast(tr('編集していたセットが無くなったので、書き直せませんでした'));
+      else if (changed) this.host.toast(tr('セット「{0}」のタグのボタンを書き直しました', { 0: saved.name }));
     });
     foot.append(cancel, save);
     panel.append(head, known, nameRow, rows, note, foot);
@@ -519,7 +520,7 @@ export function tagArea(
     if (o.editable) {
       const remove = el('button', 'tag-remove', '×');
       remove.type = 'button';
-      remove.title = `タグ「${tag}」を外す`;
+      remove.title = tr('タグ「{0}」を外す', { 0: tag });
       remove.setAttribute('aria-label', `タグ「${tag}」を外す`);
       remove.dataset.focusKey = `${o.focusKey ?? ''}tagx:${tag}`;
       remove.addEventListener('click', () => target.change([], [tag]));
@@ -528,12 +529,12 @@ export function tagArea(
     row.append(chip);
   }
   if (o.editable) {
-    const add = el('button', 'tag-add', '＋タグ');
+    const add = el('button', 'tag-add', tr('＋タグ'));
     add.type = 'button';
     add.dataset.focusKey = `${o.focusKey ?? ''}tagadd`;
     add.addEventListener('click', () => {
       const input = el('input', 'preview-tag-input');
-      input.placeholder = 'タグ（Enter で付ける）';
+      input.placeholder = tr('タグ（Enter で付ける）');
       input.maxLength = 30;
       input.setAttribute('aria-label', `${target.what}に付けるタグ（Enter で付ける）`);
       // 候補（今付いているタグは除く）。datalist は書く欄の直後に置き、閉じるときに一緒に外す（pinned があるときは datalist を作らず、候補の欄）
@@ -567,7 +568,7 @@ export function tagArea(
       const choose = (value: string) => {
         const tag = normalizeTag(value);
         if (tag && !target.tags.includes(tag) && target.tags.length >= MAX_TAGS_PER_TAB) {
-          o.toast?.(`タグは1つに ${MAX_TAGS_PER_TAB} 個までです（ほかのタグを外してから付けてください）`);
+          o.toast?.(tr('タグは1つに {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB }));
           finish(null, true);
           return;
         }
@@ -630,7 +631,7 @@ function candidateBox(input: HTMLInputElement, target: TagTarget, pinned: Pinned
   // 候補の欄を押しても、書く欄の焦点は残す（書く欄の blur で閉じないように）
   panel.addEventListener('mousedown', (e) => e.preventDefault());
 
-  const capNote = `タグは ${MAX_TAGS_PER_TAB} 個までです（ほかのタグを外してから付けてください）`;
+  const capNote = tr('タグは {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB });
   let active: string | null = null; // 選んでいる項目のタグ（描き直しても、同じタグが見えていれば残す）
   let seq = 0; // 項目の id の数
   let closed = false;
@@ -698,16 +699,16 @@ function candidateBox(input: HTMLInputElement, target: TagTarget, pinned: Pinned
     const capped = target.tags.length >= MAX_TAGS_PER_TAB;
     const nodes: HTMLElement[] = [];
     if (capped) nodes.push(note(capNote));
-    if (!data) nodes.push(note('登録したタグはありません（右サイドバーのタグのボタンの ✎ で登録できます）'));
+    if (!data) nodes.push(note(tr('登録したタグはありません（右サイドバーのタグのボタンの ✎ で登録できます）')));
     if (data && pinnedShown.length > 0) {
       const headId = `${panel.id}-pinned`;
       const row = group('tag-candidates-pinned', headId);
       for (const tag of pinnedShown) {
         const has = target.tags.includes(tag);
-        const title = has ? 'このカードに付いています' : capped ? capNote : `#${tag} を${target.what}に付ける`;
+        const title = has ? tr('このカードに付いています') : capped ? capNote : tr('#{0} を{1}に付ける', { 0: tag, 1: target.what });
         row.append(item(tag, 'tag-candidate pinned', has || capped, title, has ? `✓ ${tag}` : tag));
       }
-      nodes.push(head(`登録したタグ（セット「${data.setName}」・右サイドバー）`, headId), row);
+      nodes.push(head(tr('登録したタグ（セット「{0}」・右サイドバー）', { 0: data.setName }), headId), row);
     }
     if (data && pinnedShown.length > 0 && restShown.length > 0) {
       const sep = el('div', 'tag-candidates-sep');
@@ -717,10 +718,10 @@ function candidateBox(input: HTMLInputElement, target: TagTarget, pinned: Pinned
     if (restShown.length > 0) {
       const headId = `${panel.id}-rest`;
       const rows = group('tag-candidates-rest', headId);
-      for (const tag of restShown) rows.append(item(tag, 'tag-candidate', capped, capped ? capNote : `#${tag} を${target.what}に付ける`, tag));
-      nodes.push(head('その他（このメモのカード・メモ・六角メモ）', headId), rows);
+      for (const tag of restShown) rows.append(item(tag, 'tag-candidate', capped, capped ? capNote : tr('#{0} を{1}に付ける', { 0: tag, 1: target.what }), tag));
+      nodes.push(head(tr('その他（このメモのカード・メモ・六角メモ）'), headId), rows);
     }
-    if (pinnedShown.length + restShown.length === 0) nodes.push(note(query ? '書いた字で付けます（新しいタグ）' : '候補はまだありません（書いた字で付けます）'));
+    if (pinnedShown.length + restShown.length === 0) nodes.push(note(query ? tr('書いた字で付けます（新しいタグ）') : tr('候補はまだありません（書いた字で付けます）')));
     panel.replaceChildren(...nodes);
     syncActive(false);
   };

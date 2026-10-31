@@ -3,6 +3,7 @@
 //   ・種類と色・矢じりは下の区画のカードの関連と同じ表（LINK_KINDS）。名前は元の名前（メモごとに変えた名前は使わない）
 //   ・一組の向きごとに 1 本（同じ向きの二本目は断る。「同じ」は向きが無いので逆向きも断る）。自分自身へは引かない
 //   ・保存は session.json（boardLinks）。シートをアーカイブしても線は残し、戻せばまたつながる（uid がアーカイブに入るので）
+import { t } from './i18n';
 import { isLinkKind, LINK_KIND_DEFAULT_NAMES, type LinkKind } from './memo-card-links';
 
 export type CellRef = string;
@@ -62,8 +63,8 @@ export function boardKindName(kind: LinkKind): string {
 export function boardLinkSentence(from: string, to: string, kind: LinkKind): string {
   const name = boardKindName(kind);
   const fits = [...name].length <= 6 && !/[\s:：→←↔「」『』（）()、。,.!?！？]/.test(name);
-  if (kind === 'same') return fits ? `「${from}」と「${to}」は${name}` : `「${from}」↔「${to}」：${name}`;
-  return fits ? `「${from}」は「${to}」の${name}` : `「${from}」→「${to}」：${name}`;
+  if (kind === 'same') return fits ? t('「{0}」と「{1}」は{2}', { 0: from, 1: to, 2: name }) : `「${from}」↔「${to}」：${name}`;
+  return fits ? t('「{0}」は「{1}」の{2}', { 0: from, 1: to, 2: name }) : `「${from}」→「${to}」：${name}`;
 }
 
 // 同じ組の線がもうあるか（同じ向き。「同じ」はどちら向きでも）

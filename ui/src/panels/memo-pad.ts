@@ -11,6 +11,7 @@
 //     （一覧の中で欄を出し入れすると、押している間に中身がずれるので、選んだコメントの欄は1つだけ・一覧の外に置く）
 //   ・台帳（メモのセル・シート）は左サイドバーが持つ。ここは写しを見て、頼みごとを左へ送る
 //   ・入口とボットのセル（isSpecialCell）は、蜂の巣には出すが、一覧・数には入れない。コピー・コメントへ移るも出さない
+import { t as tr } from '../i18n';
 import { armConfirm } from '../confirm-arm';
 import { cellLines } from '../cellface';
 import { type Hex, hexCorners, hexKey, hexToPixel, pixelToHex } from '../hex';
@@ -95,7 +96,7 @@ export class MemoPad {
     this.collapsed = loadCollapsed();
     this.element.setAttribute('aria-label', 'メモ');
 
-    this.head.append(el('h2', 'memo-pad-title', 'メモ'), this.sub, this.fold);
+    this.head.append(el('h2', 'memo-pad-title', tr('メモ')), this.sub, this.fold);
     this.fold.type = 'button';
     this.fold.addEventListener('click', () => {
       this.collapsed = !this.collapsed;
@@ -114,7 +115,7 @@ export class MemoPad {
       '右のメモの蜂の巣。空いた所のドラッグ・ホイール・矢印キーで上下左右に動かせます。メモのセルはドラッグで動かせます。メモのセルをダブルクリックすると下のコメントへ、空いたセルをダブルクリックするとその場所にメモを書けます',
     );
     this.center.type = 'button';
-    this.center.title = '蜂の巣を真ん中に戻す（印を付けたセルがあれば、そのセルへ）';
+    this.center.title = tr('蜂の巣を真ん中に戻す（印を付けたセルがあれば、そのセルへ）');
     this.center.setAttribute('aria-label', '蜂の巣を真ん中に戻す');
     this.center.addEventListener('click', () => {
       const memo = this.cells.find((m) => m.id === this.selected);
@@ -129,9 +130,9 @@ export class MemoPad {
     this.text.id = 'memo-pad-text';
     this.text.rows = 2;
     this.text.maxLength = MAX_TEXT;
-    this.text.placeholder = 'コメントを書く（Ctrl+Enter）。書いたものは新しいセルになります';
+    this.text.placeholder = tr('コメントを書く（Ctrl+Enter）。書いたものは新しいセルになります');
     this.text.setAttribute('aria-label', 'コメントを書く（書いたものは、右のメモの新しいセルになります）');
-    const send = el('button', 'memo-pad-send', '書く');
+    const send = el('button', 'memo-pad-send', tr('書く'));
     send.type = 'submit';
     form.append(this.text, send);
     form.addEventListener('submit', (e) => {
@@ -224,7 +225,7 @@ export class MemoPad {
       this.closeEditor();
       if (draft) {
         this.text.value = this.text.value.trim() ? `${this.text.value.replace(/\s+$/, '')}\n${draft}` : draft;
-        this.say('書きかけのメモは、下の書く欄に移しました');
+        this.say(tr('書きかけのメモは、下の書く欄に移しました'));
       }
     }
     // 書いて、まだ届いていないもの（ほかのシートに書いた分）は待ち続ける。届いたかは、そのシートのメモの数で見る
@@ -237,7 +238,7 @@ export class MemoPad {
   private sheetInfo(id: string): { name: string; color: string } {
     const sheet = this.deps.sheets().find((s) => s.id === id);
     if (sheet) return { name: sheet.name, color: sheet.color };
-    return { name: this.created.get(id) ?? (id === RIGHT_MEMO_SHEET ? RIGHT_MEMO_NAME : 'シート'), color: 'var(--accent)' };
+    return { name: this.created.get(id) ?? (id === RIGHT_MEMO_SHEET ? RIGHT_MEMO_NAME : tr('シート')), color: 'var(--accent)' };
   }
 
   // 新しいシートの名前の案（「右のメモ 2」など、まだ無い番号）
@@ -333,13 +334,13 @@ export class MemoPad {
       tab.append(main);
       if (reg.tabs.length > 1) {
         const armed = this.armedTab === id;
-        const close = el('button', `memo-pad-tab-x${armed ? ' armed' : ''}`, armed ? '外す' : '×');
+        const close = el('button', `memo-pad-tab-x${armed ? ' armed' : ''}`, armed ? tr('外す') : '×');
         close.type = 'button';
         close.dataset.key = `x:${id}`;
         close.title = armed
-          ? '書いたものがあるシートです。外すと、右のタブからは開けなくなります（左のシートの一覧から開けます。セットに保存しておけば、あとでタブに戻せます）。もう一度押すと外します'
-          : 'タブから外す（シートは消えません。何も書いていない新しいシートだけは片づけます）';
-        close.setAttribute('aria-label', armed ? `「${info.name}」をタブから外す（書いたものがあります。もう一度押すと外します）` : `「${info.name}」をタブから外す`);
+          ? tr('書いたものがあるシートです。外すと、右のタブからは開けなくなります（左のシートの一覧から開けます。セットに保存しておけば、あとでタブに戻せます）。もう一度押すと外します')
+          : tr('タブから外す（シートは消えません。何も書いていない新しいシートだけは片づけます）');
+        close.setAttribute('aria-label', armed ? tr('「{0}」をタブから外す（書いたものがあります。もう一度押すと外します）', { 0: info.name }) : tr('「{0}」をタブから外す', { 0: info.name }));
         if (armed) armConfirm(close, () => {
           window.clearTimeout(this.armTimer);
           this.armedTab = null;
@@ -369,7 +370,7 @@ export class MemoPad {
       const add = el('button', 'memo-pad-tab-add', '＋');
       add.type = 'button';
       add.dataset.key = 'add';
-      add.title = '新しいシートを足す';
+      add.title = tr('新しいシートを足す');
       add.setAttribute('aria-label', '新しいシートを足す');
       add.setAttribute('aria-expanded', String(this.panel === 'add'));
       add.addEventListener('click', () => (this.panel === 'add' ? this.closePanel() : this.openPanel('add', 'add')));
@@ -377,16 +378,16 @@ export class MemoPad {
     }
     nodes.push(el('span', 'memo-pad-slots', `${reg.tabs.length}/${MAX_TABS}`));
     const tools = el('div', 'memo-pad-tab-tools');
-    const save = el('button', 'memo-pad-save', 'セットに保存');
+    const save = el('button', 'memo-pad-save', tr('セットに保存'));
     save.type = 'button';
     save.dataset.key = 'save';
-    save.title = '今のタブのシートを「シートのセット」として保存して、タブの場所を空ける（シートは消えません）';
+    save.title = tr('今のタブのシートを「シートのセット」として保存して、タブの場所を空ける（シートは消えません）');
     save.setAttribute('aria-expanded', String(this.panel === 'save'));
     save.addEventListener('click', () => (this.panel === 'save' ? this.closePanel() : this.openPanel('save', 'save')));
-    const sets = el('button', 'memo-pad-sets', `セット ${reg.sets.length} ▾`);
+    const sets = el('button', 'memo-pad-sets', tr('セット {0} ▾', { 0: reg.sets.length }));
     sets.type = 'button';
     sets.dataset.key = 'sets';
-    sets.title = 'シートのセットの一覧（開くと、そのシートがタブに戻る）';
+    sets.title = tr('シートのセットの一覧（開くと、そのシートがタブに戻る）');
     sets.setAttribute('aria-expanded', String(this.panel === 'sets' || (typeof this.panel === 'object' && this.panel !== null)));
     sets.addEventListener('click', () => (this.panel === 'sets' ? this.closePanel() : this.openPanel('sets', 'sets')));
     tools.append(save, sets);
@@ -434,61 +435,61 @@ export class MemoPad {
       input.maxLength = 20;
       input.value = this.freshName();
       input.setAttribute('aria-label', '新しいシートの名前');
-      const ok = el('button', 'primary', '作る');
+      const ok = el('button', 'primary', tr('作る'));
       ok.type = 'submit';
-      form.append(input, ok, button('やめる', () => this.closePanel()));
+      form.append(input, ok, button(tr('やめる'), () => this.closePanel()));
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         if (reg.tabs.length >= MAX_TABS) {
-          this.say('タブは6つまでです。セットに保存するか、× で外してから足してください');
+          this.say(tr('タブは6つまでです。セットに保存するか、× で外してから足してください'));
           this.finishPanel();
           return;
         }
         if (!this.canMakeSheet()) {
-          this.say('シートが多すぎて足せません（左のシートは100枚まで）。使わないシートを左で消してから、もう一度足してください');
+          this.say(tr('シートが多すぎて足せません（左のシートは100枚まで）。使わないシートを左で消してから、もう一度足してください'));
           this.finishPanel();
           return;
         }
         reg.addTab(this.createSheet(input.value));
         this.finishPanel();
       });
-      nodes.push(el('div', 'memo-pad-pop-title', '新しいシートを足す'), form);
+      nodes.push(el('div', 'memo-pad-pop-title', tr('新しいシートを足す')), form);
     } else if (panel === 'save') {
       const form = el('form', 'memo-pad-pop-row');
       const input = el('input');
       input.id = 'memo-pad-set-name';
       input.maxLength = 30;
-      input.value = `シートのセット ${stamp(Date.now())}`;
+      input.value = tr('シートのセット {0}', { 0: stamp(Date.now()) });
       input.setAttribute('aria-label', 'シートのセットの名前');
-      const ok = el('button', 'primary', '保存');
+      const ok = el('button', 'primary', tr('保存'));
       ok.type = 'submit';
-      form.append(input, ok, button('やめる', () => this.closePanel()));
+      form.append(input, ok, button(tr('やめる'), () => this.closePanel()));
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         // 先に、保存できるか・新しい空のシートを作れるかを確かめる（できなければ、タブはそのまま）
         if (!reg.canSaveSet) {
-          this.say('シートのセットは100個までです。「セット ▾」の一覧から使わないセットを消してください');
+          this.say(tr('シートのセットは100個までです。「セット ▾」の一覧から使わないセットを消してください'));
           this.finishPanel();
           return;
         }
         if (!this.canMakeSheet()) {
-          this.say('シートが多すぎて、新しい空のシートを作れません（左のシートは100枚まで）。使わないシートを左で消してから、もう一度保存してください');
+          this.say(tr('シートが多すぎて、新しい空のシートを作れません（左のシートは100枚まで）。使わないシートを左で消してから、もう一度保存してください'));
           this.finishPanel();
           return;
         }
-        const name = input.value.trim() || `シートのセット ${stamp(Date.now())}`;
+        const name = input.value.trim() || tr('シートのセット {0}', { 0: stamp(Date.now()) });
         const set = reg.saveSet(name, this.createSheet(this.freshName()));
-        if (set) this.say(`「${set.name}」に保存しました（シート ${set.sheets.length} 枚）。「セット ▾」から開けます`);
+        if (set) this.say(tr('「{0}」に保存しました（シート {1} 枚）。「セット ▾」から開けます', { 0: set.name, 1: set.sheets.length }));
         this.finishPanel();
       });
       nodes.push(
-        el('div', 'memo-pad-pop-title', `今のタブのシート ${reg.tabs.length} 枚を、シートのセットとして保存`),
+        el('div', 'memo-pad-pop-title', tr('今のタブのシート {0} 枚を、シートのセットとして保存', { 0: reg.tabs.length })),
         form,
-        el('div', 'memo-pad-pop-note', '保存したシートはタブから外れて、「セット ▾」の一覧に入ります。タブには新しい空のシートが1つ入ります（シートは消えません）'),
+        el('div', 'memo-pad-pop-note', tr('保存したシートはタブから外れて、「セット ▾」の一覧に入ります。タブには新しい空のシートが1つ入ります（シートは消えません）')),
       );
     } else if (panel === 'sets') {
-      nodes.push(el('div', 'memo-pad-pop-title', `シートのセット（${reg.sets.length}）`));
-      if (reg.sets.length === 0) nodes.push(el('div', 'memo-pad-pop-note', 'まだありません。「セットに保存」で作れます'));
+      nodes.push(el('div', 'memo-pad-pop-title', tr('シートのセット（{0}）', { 0: reg.sets.length })));
+      if (reg.sets.length === 0) nodes.push(el('div', 'memo-pad-pop-note', tr('まだありません。「セットに保存」で作れます')));
       const list = el('div', 'memo-pad-set-list');
       for (const set of reg.sets) {
         const row = el('div', 'memo-pad-set');
@@ -501,15 +502,15 @@ export class MemoPad {
           chip.title = sheet.name;
           chips.append(chip);
         }
-        info.append(el('b', '', set.name), el('span', '', `シート ${set.sheets.length} 枚・${stamp(set.at)}`), chips);
-        info.title = set.sheets.map((id) => this.sheetInfo(id).name).join('・');
-        const open = button('開く', () => {
+        info.append(el('b', '', set.name), el('span', '', tr('シート {0} 枚・{1}', { 0: set.sheets.length, 1: stamp(set.at) })), chips);
+        info.title = set.sheets.map((id) => this.sheetInfo(id).name).join(tr('・'));
+        const open = button(tr('開く'), () => {
           if (this.tabsHaveWriting()) this.openPanel({ open: set.id });
           else this.openSet(set.id, false);
         }, '', `open:${set.id}`);
         open.setAttribute('aria-label', `「${set.name}」を開く`);
         const armed = this.armedSet === set.id;
-        const remove = button(armed ? 'もう一度で消す' : '消す', () => {
+        const remove = button(armed ? tr('もう一度で消す') : tr('消す'), () => {
           if (this.armedSet === set.id) {
             this.armedSet = null;
             reg.removeSet(set.id);
@@ -528,8 +529,8 @@ export class MemoPad {
           this.armedSet = null;
           this.renderPanel();
         });
-        remove.title = 'セットを消す（シートそのものは消えません）';
-        remove.setAttribute('aria-label', armed ? `「${set.name}」を消す（もう一度押すと消えます）` : `「${set.name}」を消す`);
+        remove.title = tr('セットを消す（シートそのものは消えません）');
+        remove.setAttribute('aria-label', armed ? tr('「{0}」を消す（もう一度押すと消えます）', { 0: set.name }) : tr('「{0}」を消す', { 0: set.name }));
         row.append(info, open, remove);
         list.append(row);
       }
@@ -547,16 +548,16 @@ export class MemoPad {
       row.setAttribute('aria-labelledby', 'memo-pad-ask-title');
       row.setAttribute('aria-describedby', 'memo-pad-ask-note');
       row.append(
-        button('保存して開く', () => this.openSet(set.id, true), 'primary', 'ask:save'),
-        button('保存せずに開く', () => this.openSet(set.id, false), '', 'ask:just'),
-        button('やめる', () => this.openPanel('sets'), '', 'ask:no'),
+        button(tr('保存して開く'), () => this.openSet(set.id, true), 'primary', 'ask:save'),
+        button(tr('保存せずに開く'), () => this.openSet(set.id, false), '', 'ask:just'),
+        button(tr('やめる'), () => this.openPanel('sets'), '', 'ask:no'),
       );
-      const title = el('div', 'memo-pad-pop-title', `「${set.name}」を開きます。今のタブのシートには書いたものがあります。どうしますか？`);
+      const title = el('div', 'memo-pad-pop-title', tr('「{0}」を開きます。今のタブのシートには書いたものがあります。どうしますか？', { 0: set.name }));
       title.id = 'memo-pad-ask-title';
       const note = el(
         'div',
         'memo-pad-pop-note',
-        '「保存して開く」は、今のタブを新しいシートのセットに保存してから開きます。「保存せずに開く」でもシートは消えません（左のシートの一覧から開けます。何も書いていない新しいシートだけは片づけます）',
+        tr('「保存して開く」は、今のタブを新しいシートのセットに保存してから開きます。「保存せずに開く」でもシートは消えません（左のシートの一覧から開けます。何も書いていない新しいシートだけは片づけます）'),
       );
       note.id = 'memo-pad-ask-note';
       nodes.push(title, row, note);
@@ -567,13 +568,13 @@ export class MemoPad {
 
   private openSet(setId: string, saveCurrent: boolean) {
     if (saveCurrent && !this.registry.canSaveSet) {
-      this.say('シートのセットは100個までです。使わないセットを消してから、もう一度開いてください');
+      this.say(tr('シートのセットは100個までです。使わないセットを消してから、もう一度開いてください'));
       return;
     }
-    const opened = this.registry.openSet(setId, saveCurrent ? `シートのセット ${stamp(Date.now())}` : null);
+    const opened = this.registry.openSet(setId, saveCurrent ? tr('シートのセット {0}', { 0: stamp(Date.now()) }) : null);
     if (opened) {
       this.tidy(opened.dropped);
-      this.say(`「${opened.set.name}」のシートをタブに戻しました${saveCurrent ? '（今のタブはセットに保存しました）' : ''}`);
+      this.say(tr('「{0}」のシートをタブに戻しました{1}', { 0: opened.set.name, 1: saveCurrent ? '（今のタブはセットに保存しました）' : '' }));
     }
     this.finishPanel();
   }
@@ -627,12 +628,12 @@ export class MemoPad {
   // 描き直す（force：返信を書いている途中でも）
   render(force = false) {
     this.fold.textContent = this.collapsed ? '▸' : '▾';
-    this.fold.title = this.collapsed ? 'メモの区画を開く' : 'メモの区画をたたむ';
+    this.fold.title = this.collapsed ? tr('メモの区画を開く') : tr('メモの区画をたたむ');
     this.fold.setAttribute('aria-label', this.fold.title);
     this.fold.setAttribute('aria-expanded', String(!this.collapsed));
     this.body.hidden = this.collapsed;
     const name = this.sheetInfo(this.shown).name;
-    this.sub.textContent = `シート「${name}」・${this.memos.length} 個`;
+    this.sub.textContent = tr('シート「{0}」・{1} 個', { 0: name, 1: this.memos.length });
     this.board.setAttribute(
       'aria-label',
       `「${name}」の蜂の巣。空いた所のドラッグ・ホイール・矢印キーで上下左右に動かせます。メモのセルはドラッグで動かせます。メモのセルをダブルクリックすると下のコメントへ、空いたセルをダブルクリックするとその場所にメモを書けます`,
@@ -680,12 +681,12 @@ export class MemoPad {
     if (pos && !this.editing && !this.collapsed && !this.occupied(pos)) {
       this.openEditor(pos);
       this.editorText.value = text;
-      this.status.textContent = '書けませんでした（左のお知らせを見てください）。書いた文は、その場所の書く欄に戻しました';
+      this.status.textContent = tr('書けませんでした（左のお知らせを見てください）。書いた文は、その場所の書く欄に戻しました');
     } else {
       this.text.value = this.text.value.trim() ? `${this.text.value.replace(/\s+$/, '')}\n${text}` : text;
       this.status.textContent = sheetName
-        ? `「${sheetName}」に書けませんでした（左のお知らせを見てください）。書いた文は、下の書く欄に戻しました`
-        : '書けませんでした（左のお知らせを見てください）。書いた文は、下の書く欄に戻しました';
+        ? tr('「{0}」に書けませんでした（左のお知らせを見てください）。書いた文は、下の書く欄に戻しました', { 0: sheetName })
+        : tr('書けませんでした（左のお知らせを見てください）。書いた文は、下の書く欄に戻しました');
     }
     this.status.classList.remove('info');
     this.status.hidden = false;
@@ -700,11 +701,11 @@ export class MemoPad {
     this.editorText.id = 'memo-pad-editor-text';
     this.editorText.rows = 2;
     this.editorText.maxLength = MAX_TEXT;
-    this.editorText.placeholder = 'ここに書く（Ctrl+Enter・Esc でやめる）';
+    this.editorText.placeholder = tr('ここに書く（Ctrl+Enter・Esc でやめる）');
     this.editorText.setAttribute('aria-label', 'この場所に置くメモ');
-    const ok = el('button', 'memo-pad-editor-ok', 'ここに置く');
+    const ok = el('button', 'memo-pad-editor-ok', tr('ここに置く'));
     ok.type = 'submit';
-    const cancel = el('button', 'memo-pad-editor-cancel', 'やめる');
+    const cancel = el('button', 'memo-pad-editor-cancel', tr('やめる'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => this.closeEditor(true));
     const row = el('div', 'memo-pad-editor-row');
@@ -874,23 +875,23 @@ export class MemoPad {
     const entries: MenuEntry[] = [];
     const special = isSpecialCell(memo); // 入口・ボットのセル：一覧に無く、コピーもしない
     if (!special) {
-      entries.push(from === 'cell' ? { label: 'コメントへ移る', hint: 'ダブルクリック', run: () => this.toPost(memo.id) } : { label: 'セルへ移る', hint: 'ダブルクリック', run: () => this.toCell(memo.id) });
+      entries.push(from === 'cell' ? { label: tr('コメントへ移る'), hint: tr('ダブルクリック'), run: () => this.toPost(memo.id) } : { label: tr('セルへ移る'), hint: tr('ダブルクリック'), run: () => this.toCell(memo.id) });
     }
-    if (!special) entries.push({ label: 'コピー', hint: '左の盤面に貼れる', run: () => this.deps.askLeft({ command: 'copyComment', ref, replyId: null }) });
-    if (memo.bot) entries.push({ label: 'Grok Bot アプリで開くのは、左の盤面のセルから', disabled: true });
-    if (memo.app) entries.push({ label: '中央に出すのは、左の盤面のセルをダブルクリック', disabled: true });
+    if (!special) entries.push({ label: tr('コピー'), hint: tr('左の盤面に貼れる'), run: () => this.deps.askLeft({ command: 'copyComment', ref, replyId: null }) });
+    if (memo.bot) entries.push({ label: tr('Grok Bot アプリで開くのは、左の盤面のセルから'), disabled: true });
+    if (memo.app) entries.push({ label: tr('中央に出すのは、左の盤面のセルをダブルクリック'), disabled: true });
     if (memo.capture) {
-      entries.push({ label: '右の撮影で開くのは、左の盤面のダブルクリック', disabled: true });
-      entries.push({ label: '撮った画像は、右の撮影で消します', disabled: true });
+      entries.push({ label: tr('右の撮影で開くのは、左の盤面のダブルクリック'), disabled: true });
+      entries.push({ label: tr('撮った画像は、右の撮影で消します'), disabled: true });
     }
     if (!memo.capture) entries.push(
       'sep',
       {
-        row: memo.portal ? 'この入口' : memo.bot ? 'このボットのセル' : memo.app ? 'このアプリのセル' : 'このメモ',
+        row: memo.portal ? tr('この入口') : memo.bot ? tr('このボットのセル') : memo.app ? tr('このアプリのセル') : tr('このメモ'),
         buttons: [
           {
-            label: memo.bot || memo.app ? '外す' : '消す',
-            confirm: 'もう一度押すと消えます',
+            label: memo.bot || memo.app ? tr('外す') : tr('消す'),
+            confirm: tr('もう一度押すと消えます'),
             run: () => {
               this.deps.menu.close();
               this.deps.askLeft({ command: 'removeMemo', id: memo.id });
@@ -1005,7 +1006,7 @@ export class MemoPad {
         // 空いたセル：そこにメモを書く
         const hex = this.hexAt(e.clientX, e.clientY);
         if (!keyboard && !this.occupied(hex)) {
-          this.deps.menu.open(e.clientX, e.clientY, [{ label: 'ここにメモを書く', hint: 'ダブルクリック', run: () => this.openEditor(hex) }]);
+          this.deps.menu.open(e.clientX, e.clientY, [{ label: tr('ここにメモを書く'), hint: tr('ダブルクリック'), run: () => this.openEditor(hex) }]);
         }
         return;
       }
@@ -1082,7 +1083,7 @@ export class MemoPad {
       const cls = ['memo-pad-cell', kind, memo.id === this.selected ? 'sel' : '', memo.id === this.flashed ? 'flash' : '', dragging ? 'dragging' : ''].filter(Boolean).join(' ');
       const g = svg('g', { class: cls, 'data-memo': memo.id });
       g.append(svg('polygon', { class: 'hex', points: hexCorners(p.x, p.y, FACE) }));
-      const label = memo.portal ? ['入口'] : memo.bot ? ['ボット'] : memo.app ? ['アプリ'] : memo.capture ? ['撮影'] : memo.text ? cellLines(memo.text) : [memo.image ? '画像' : '…'];
+      const label = memo.portal ? [tr('入口')] : memo.bot ? [tr('ボット')] : memo.app ? [tr('アプリ')] : memo.capture ? [tr('撮影')] : memo.text ? cellLines(memo.text) : [memo.image ? tr('画像') : '…'];
       label.forEach((line, i) => g.append(text(p.x, p.y + 3 + (label.length === 1 ? 0 : (i - 0.5) * 9.5), line, 'cell-text')));
       if (memo.replies.length > 0) {
         g.append(svg('circle', { class: 'badge', cx: String(p.x + 11), cy: String(p.y - 12), r: '5' }));
@@ -1093,14 +1094,14 @@ export class MemoPad {
           'title',
           {},
           memo.portal
-            ? 'シートへの入口'
+            ? tr('シートへの入口')
             : memo.bot
-              ? `ボットのセル${memo.text ? `「${memo.text}」` : ''}（左の盤面で押すと Grok Bot アプリが開きます）`
+              ? tr('ボットのセル{0}（左の盤面で押すと Grok Bot アプリが開きます）', { 0: memo.text ? `「${memo.text}」` : '' })
               : memo.app
-                ? 'アプリのセル（左の盤面でダブルクリックすると、中央に出します）'
+                ? tr('アプリのセル（左の盤面でダブルクリックすると、中央に出します）')
                 : memo.capture
-                  ? '撮ったもの（左の盤面でダブルクリックすると、右の撮影で開きます）'
-                  : `${memo.text || '（画像のメモ）'}${memo.replies.length ? `（返信 ${memo.replies.length}）` : ''}`,
+                  ? tr('撮ったもの（左の盤面でダブルクリックすると、右の撮影で開きます）')
+                  : `${memo.text || tr('（画像のメモ）')}${memo.replies.length ? tr('（返信 {0}）', { 0: memo.replies.length }) : ''}`,
         ),
       );
       if (dragging) lifted = g;
@@ -1114,7 +1115,7 @@ export class MemoPad {
       const under = this.moving ? this.cells.find((m) => m.id !== dragged?.id && hexKey(m.pos) === hexKey(mark)) : undefined;
       const cls = !this.moving ? 'memo-pad-new' : under?.portal && !dragged?.portal ? 'memo-pad-drop into-portal' : 'memo-pad-drop';
       const target = svg('polygon', { class: cls, points: hexCorners(p.x, p.y, FACE) });
-      if (cls.includes('into-portal')) target.append(svg('title', {}, 'この入口のシートへ移す'));
+      if (cls.includes('into-portal')) target.append(svg('title', {}, tr('この入口のシートへ移す')));
       nodes.push(target);
     }
     if (lifted) nodes.push(lifted);
@@ -1147,18 +1148,18 @@ export class MemoPad {
     this.stripKey = key;
     const focusKey = active?.dataset.focusKey;
     const head = el('div', 'memo-pad-tagstrip-head');
-    head.append(el('b', '', '選んだコメントのタグ'));
+    head.append(el('b', '', tr('選んだコメントのタグ')));
     if (!memo) {
       this.tagStrip.classList.add('empty');
-      head.append(el('span', '', 'コメント（か蜂の巣のセル）を1回押すと、ここでタグを付けられます'));
+      head.append(el('span', '', tr('コメント（か蜂の巣のセル）を1回押すと、ここでタグを付けられます')));
       this.tagStrip.replaceChildren(head);
       return;
     }
     this.tagStrip.classList.remove('empty');
-    const text = memo.text || (memo.image ? '（画像のメモ）' : '');
+    const text = memo.text || (memo.image ? tr('（画像のメモ）') : '');
     const snippet = [...text.replace(/\s+/g, ' ').trim()];
     head.append(el('span', '', snippet.length > 24 ? `${snippet.slice(0, 24).join('')}…` : snippet.join('')));
-    const target = { tags, what: 'このコメント', change: (add: string[], remove: string[]) => this.deps.changeTags(memo.id, add, remove) };
+    const target = { tags, what: tr('このコメント'), change: (add: string[], remove: string[]) => this.deps.changeTags(memo.id, add, remove) };
     this.tagStrip.replaceChildren(head, tagArea(target, { editable: true, pad: this.deps.tagPad, focusKey: `strip${memo.id}:`, toast: (t) => this.say(t) }));
     if (focusKey) this.tagStrip.querySelector<HTMLElement>(`[data-focus-key="${CSS.escape(focusKey)}"]`)?.focus({ preventScroll: true });
   }
@@ -1184,9 +1185,9 @@ export class MemoPad {
     const top = this.list.scrollTop;
     const nodes: HTMLElement[] = [];
     if (!this.ready) {
-      nodes.push(el('div', 'memo-pad-empty', '読み込んでいます…'));
+      nodes.push(el('div', 'memo-pad-empty', tr('読み込んでいます…')));
     } else if (this.memos.length === 0) {
-      nodes.push(el('div', 'memo-pad-empty', `まだありません。上の欄に書くと、ここと蜂の巣に出ます（左のシートの一覧の「${this.sheetInfo(this.shown).name}」にも出ます）。`));
+      nodes.push(el('div', 'memo-pad-empty', tr('まだありません。上の欄に書くと、ここと蜂の巣に出ます（左のシートの一覧の「{0}」にも出ます）。', { 0: this.sheetInfo(this.shown).name })));
     }
     for (const memo of this.memos) nodes.push(this.post(memo));
     this.list.replaceChildren(...nodes);
@@ -1206,14 +1207,14 @@ export class MemoPad {
     const item = el('article', `memo-pad-post${fromBot ? ' bot-reply' : memo.by ? ' ai' : ''}${memo.id === this.selected ? ' sel' : ''}`);
     item.dataset.memo = memo.id;
     item.tabIndex = 0;
-    const text = memo.text || (memo.image ? '（画像のメモ）' : '');
-    const who = memo.by ? (fromBot ? `ボット（${memo.by.name}）から届いた${memo.label ?? '返事'}` : `${memo.by.name}（${memo.label ?? '考察'}）`) : 'あなた';
+    const text = memo.text || (memo.image ? tr('（画像のメモ）') : '');
+    const who = memo.by ? (fromBot ? tr('ボット（{0}）から届いた{1}', { 0: memo.by.name, 1: memo.label ?? '返事' }) : `${memo.by.name}（${memo.label ?? tr('考察')}）`) : tr('あなた');
     item.setAttribute('aria-label', `${memo.by && !fromBot ? memo.by.name : who}、${dateTimeOf(memo.createdAt)}：${text}`);
     const head = el('div', 'memo-pad-post-head');
     head.append(el('b', '', who), el('span', '', dateTimeOf(memo.createdAt)));
-    const toCell = el('button', 'memo-pad-to-cell', 'セルへ ↑');
+    const toCell = el('button', 'memo-pad-to-cell', tr('セルへ ↑'));
     toCell.type = 'button';
-    toCell.title = '上の蜂の巣の、このコメントのセルへ移る（ダブルクリックでも）';
+    toCell.title = tr('上の蜂の巣の、このコメントのセルへ移る（ダブルクリックでも）');
     toCell.addEventListener('click', () => this.toCell(memo.id));
     head.append(toCell);
     const ref: ThreadRef = { kind: 'memo', id: memo.id };
@@ -1221,7 +1222,7 @@ export class MemoPad {
     item.append(head, el('div', 'memo-pad-post-text', text));
     // 付いたタグ（見せるだけ。付ける・外すのは、一覧のすぐ下の「選んだコメントのタグ」）
     const tags = memo.tags ?? [];
-    if (tags.length > 0) item.append(tagArea({ tags, what: 'このコメント', change: () => undefined }, { editable: false }));
+    if (tags.length > 0) item.append(tagArea({ tags, what: tr('このコメント'), change: () => undefined }, { editable: false }));
     item.append(threadBlock(ref, memo.replies, this.deps.thread));
     // 1回押す：印。2回押す・Enter：セルへ。右クリック：メニュー（ボタン・書く欄・返信の上では、それぞれの動き）
     const inControl = (target: EventTarget | null) => target instanceof Element && !!target.closest('button, a, input, textarea, select, .thread');

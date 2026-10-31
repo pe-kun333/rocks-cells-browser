@@ -9,6 +9,7 @@
 //   ・1つの依頼に1件まで。要点が同じもの（空白・記号・全角半角・大文字小文字の違いだけのもの）は重ねて残さない
 //   ・題名は 60 字・要点は 3 行であわせて 600 字まで。見えない制御文字・文字の向きを変える文字は消す
 //   ・外から来た文：画面には文字としてだけ出す（textContent。HTML にしない）
+import { t } from './i18n';
 import { type BotLink, type BotMessage, BOT_MESSAGE_ID_RE, cleanBotLine, cleanBotText, cutChars, FILE_ID_RE, RELAY_REQUEST_ID_RE } from './bot-replies';
 import { deleteData, listData, readData, writeData } from './data';
 
@@ -169,7 +170,7 @@ export function buildVision(reply: VisionReply, now: number, id: string): Vision
     ...(role ? { role: cutChars(role, ROLE_MAX).text } : {}),
     ...(Number.isInteger(reply.group) && (reply.group ?? 0) >= 1 ? { group: reply.group } : {}),
     botId: reply.botId,
-    botName: cutChars(cleanBotLine(reply.botName) || 'ボット', BOT_NAME_MAX).text,
+    botName: cutChars(cleanBotLine(reply.botName) || t('ボット'), BOT_NAME_MAX).text,
     ...(links.length ? { links: links.map((l) => ({ url: l.url, ...(l.title ? { title: cutChars(cleanBotLine(l.title), 200).text } : {}) })) } : {}),
     source: { fileId: reply.fileId, messageId: m.id, ...(m.at ? { at: cutChars(cleanBotLine(m.at), 64).text } : {}) },
   };
@@ -204,7 +205,7 @@ export function parseVision(raw: unknown): Vision | null {
     ...(role ? { role } : {}),
     ...(Number.isInteger(r.group) && (r.group as number) >= 1 ? { group: r.group as number } : {}),
     botId: r.botId,
-    botName: line(r.botName, BOT_NAME_MAX) || 'ボット',
+    botName: line(r.botName, BOT_NAME_MAX) || t('ボット'),
     ...(links.length ? { links } : {}),
     source: { fileId: src.fileId, messageId: src.messageId, ...(at ? { at } : {}) },
   };

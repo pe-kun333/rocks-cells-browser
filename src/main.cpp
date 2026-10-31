@@ -14,6 +14,7 @@
 #include <string>
 
 #include "browser.h"
+#include "l10n.h"
 #include "theme.h"
 
 namespace {
@@ -176,6 +177,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCmd) {
 
     // WebView2 は COM という仕組みの上で動くので、最初に初期化しておく
     if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED))) return 1;
+
+    // 画面の言葉（英語版 E4）：UI が残した lang.txt ＞ Windows の表示言語。起動したときに 1 回だけ決める
+    l10n::Init();
 
     // 見た目のテーマ：前回の色（theme.json）があれば、窓を作る前に地と枠の色を決める（最初の一瞬から、その色の窓）。
     //   自動のときは今の Windows の明暗で組を選ぶ。無ければ今までどおり白

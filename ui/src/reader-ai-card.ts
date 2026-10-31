@@ -3,6 +3,7 @@
 //   ・読み戻す（parseAiCardText）：改行を \n にそろえ、空の行を捨てる。1 行目が時刻の形でなければ見出し。時刻の形の行は timed、ほかは plain
 //   ・時刻の札（secLabel）は reader/youtube.ts の timeLabel と同じ結果。youtube.ts は bridge を読むので import せず、中身を写す
 //   ・純粋な関数だけ（DOM・window・Date.now・Math.random を使わない）。外へ送らない
+import { t as tr } from './i18n';
 
 // 組むときの 1 行（AI の構造化出力から作る）
 export interface AiCardLine {
@@ -23,7 +24,7 @@ export interface AiCardBody {
 }
 
 export const AI_TECH_MAX = 12; // 技法の札の字数（コードポイント）
-export const AI_CARD_UNTITLED = 'AI のカード'; // 見出しが空のとき
+export const AI_CARD_UNTITLED = tr('AI のカード'); // 見出しが空のとき
 
 // 時刻の行の形：「▶ 時刻」のあとに、任意で〔技法〕と文。時刻は h:mm:ss か m:ss。時刻の直後が数字かコロンなら時刻として読まない
 const AI_LINE_RE = /^▶\s*(?:(\d{1,2}):(\d{2}):(\d{2})|(\d{1,3}):(\d{2}))(?![\d:])(?:\s*〔([^〕\n]{1,12})〕)?\s*(.*)$/u;
@@ -116,7 +117,7 @@ const lengthOf = (head: string, lines: readonly AiCardLine[]) => [...aiCardText(
 function chunk(head: string, lines: readonly AiCardLine[], max: number): AiCardPart[] {
   const parts: AiCardPart[] = [];
   let now: AiCardLine[] = [];
-  const headOf = (n: number) => (n === 0 ? head : `${head}・続き ${n + 1}`);
+  const headOf = (n: number) => (n === 0 ? head : tr('{0}・続き {1}', { 0: head, 1: n + 1 }));
   for (const line of lines) {
     if (now.length > 0 && lengthOf(headOf(parts.length), [...now, line]) > max) {
       parts.push({ head: headOf(parts.length), lines: now });

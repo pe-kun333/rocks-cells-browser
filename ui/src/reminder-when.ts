@@ -1,5 +1,6 @@
 // リマインダーの時刻の読み方と、置き直しの形（K2。docs/plan-cards.md §5 の 11・12）
 //   DOM も台帳も知らない（vitest で確かめる）。時刻はこのパソコンの時刻
+import { t as tr } from './i18n';
 import type { Reminder, ReminderRepeat, ReminderTrigger } from './types';
 
 const MINUTE = 60_000;
@@ -74,12 +75,12 @@ export interface PresetTime {
 //   延ばすときは「来週」を除いて使う
 export function presetTimes(now: number): PresetTime[] {
   const out: PresetTime[] = [
-    { key: 'm10', label: '10 分後', dueAt: now + 10 * MINUTE },
-    { key: 'h1', label: '1 時間後', dueAt: now + HOUR },
+    { key: 'm10', label: tr('10 分後'), dueAt: now + 10 * MINUTE },
+    { key: 'h1', label: tr('1 時間後'), dueAt: now + HOUR },
   ];
   const evening = atClock(now, 17, 0);
-  if (evening > now) out.push({ key: 'evening', label: '今日の夕方', dueAt: evening });
-  out.push({ key: 'morning', label: '明日の朝', dueAt: atClock(now, 9, 0, 1) }, { key: 'week', label: '来週', dueAt: atClock(now, 9, 0, 7) });
+  if (evening > now) out.push({ key: 'evening', label: tr('今日の夕方'), dueAt: evening });
+  out.push({ key: 'morning', label: tr('明日の朝'), dueAt: atClock(now, 9, 0, 1) }, { key: 'week', label: tr('来週'), dueAt: atClock(now, 9, 0, 7) });
   return out;
 }
 
@@ -104,7 +105,7 @@ export function siteHost(url: string): string | null {
 
 // 引き金の札
 export function triggerLabel(trigger: ReminderTrigger): string {
-  return trigger.kind === 'site' ? `次に ${trigger.host} を開いたとき` : '次に起動したとき';
+  return trigger.kind === 'site' ? tr('次に {0} を開いたとき', { 0: trigger.host }) : tr('次に起動したとき');
 }
 
 // 引き金で置くリマインダー（K4）：時刻では鳴らさないので、dueAt は作った時刻＋400 日（古い版でも 400 日は鳴らない）
@@ -114,10 +115,10 @@ export function triggeredReminder(text: string, trigger: ReminderTrigger, now: n
 
 // 繰り返し（K3。計画書 §5 の 15）
 export const REPEATS: readonly [ReminderRepeat, string][] = [
-  ['daily', '毎日'],
-  ['weekdays', '毎平日'],
-  ['weekly', '毎週'],
-  ['monthly', '毎月'],
+  ['daily', tr('毎日')],
+  ['weekdays', tr('毎平日')],
+  ['weekly', tr('毎週')],
+  ['monthly', tr('毎月')],
 ];
 
 export const repeatLabel = (repeat: ReminderRepeat) => REPEATS.find(([key]) => key === repeat)?.[1] ?? '';
@@ -148,7 +149,7 @@ export function nextRepeat(dueAt: number, repeat: ReminderRepeat, now: number): 
 export function dayLabel(dueAt: number, now: number): string {
   const tomorrow = atClock(now, 0, 0, 1);
   if (dueAt < tomorrow) return '今日';
-  if (dueAt < atClock(now, 0, 0, 2)) return '明日';
+  if (dueAt < atClock(now, 0, 0, 2)) return tr('明日');
   const d = new Date(dueAt);
   return `${d.getMonth() + 1}/${d.getDate()}（${WEEKDAYS[d.getDay()]}）`;
 }

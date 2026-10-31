@@ -12,6 +12,7 @@
 //     ので同じ道で写しが取られる
 //   ・書く中身は toBoardFile／serializeBoard を通す：200 KB を超える・メモ id が名前に使えないときは書かない。300 件を超える board も
 //     書かない（呼ぶ側が trimNodes で整える。黙って捨てない）
+import { t } from './i18n';
 import type { CheckedRead } from './data';
 import {
   BOARD_LIMITS,
@@ -88,31 +89,31 @@ export async function saveBoard(io: BoardIo, loaded: LoadBoardResult, board: Boa
 export function boardUnreadableNote(why: 'name' | 'failed' | BoardRefusal): string {
   switch (why) {
     case 'version':
-      return 'このボードは新しい版のアプリで作られたので読めません。位置は保存されません（仮の並びで見せています）';
+      return t('このボードは新しい版のアプリで作られたので読めません。位置は保存されません（仮の並びで見せています）');
     case 'name':
-      return 'このメモのボードは保存できません（メモの名前が保存先に使えません）。位置は保存されません';
+      return t('このメモのボードは保存できません（メモの名前が保存先に使えません）。位置は保存されません');
     default:
-      return 'このボードは読めないので、位置は保存されません（仮の並びで見せています。ファイルは変えていません）';
+      return t('このボードは読めないので、位置は保存されません（仮の並びで見せています。ファイルは変えていません）');
   }
 }
 
 export function boardSaveMessage(why: SaveBoardFailure): string {
   switch (why) {
     case 'unreadable':
-      return 'ボードのファイルを読めなかったので、位置を保存しませんでした（ファイルは変えていません）';
+      return t('ボードのファイルを読めなかったので、位置を保存しませんでした（ファイルは変えていません）');
     case 'name':
-      return 'このメモのボードは保存できません（メモの名前が保存先に使えません）';
+      return t('このメモのボードは保存できません（メモの名前が保存先に使えません）');
     case 'memo':
-      return 'ボードのメモが違うので、保存しませんでした';
+      return t('ボードのメモが違うので、保存しませんでした');
     case 'full':
-      return `ボードに残せる位置は ${BOARD_LIMITS.nodes} 件までです。保存しませんでした`;
+      return t('ボードに残せる位置は {0} 件までです。保存しませんでした', { 0: BOARD_LIMITS.nodes });
     case 'size':
-      return 'ボードのファイルが大きすぎるので、保存しませんでした';
+      return t('ボードのファイルが大きすぎるので、保存しませんでした');
     case 'changed':
-      return 'ボードのファイルが読んだあとに変わっていたので、保存しませんでした。開き直してください';
+      return t('ボードのファイルが読んだあとに変わっていたので、保存しませんでした。開き直してください');
     case 'backup':
-      return 'もとのボードの写しを取れなかったので、保存しませんでした';
+      return t('もとのボードの写しを取れなかったので、保存しませんでした');
     case 'write':
-      return 'ボードの位置を保存できませんでした（書き込み：失敗）';
+      return t('ボードの位置を保存できませんでした（書き込み：失敗）');
   }
 }

@@ -2,6 +2,7 @@
 //   ページを静止画にして、マウスの位置を中心に六角形の枠を出す。ホイール・＋−・↑↓ で大きさ、1〜9 で登録した大きさ（S で登録）、
 //   クリック・Enter で切り取り、コメントを書いて「左のセルに置く」「相棒に見せる」「Grok に送る」（S3.12）。Esc・右クリックでやめる
 //   六角形の外は透明な画像にする
+import { t } from '../i18n';
 import { el } from '../util';
 import { BOT_FEATURES } from '../features';
 
@@ -72,10 +73,10 @@ export function startShot(image: string, pageTitle: string, onDone: (result: Sho
   const sizesBox = el('span', 'shot-sizes');
   const radiusLabel = el('span', 'shot-radius');
   bar.append(
-    el('strong', '', '六角形スクショ'),
+    el('strong', '', t('六角形スクショ')),
     radiusLabel,
     sizesBox,
-    el('span', 'shot-help', 'ホイール・＋−で大きさ／1〜9 登録した大きさ（S で登録）／クリックで切り取る／Esc でやめる'),
+    el('span', 'shot-help', t('ホイール・＋−で大きさ／1〜9 登録した大きさ（S で登録）／クリックで切り取る／Esc でやめる')),
   );
   root.append(img, svg, bar);
   document.body.append(root);
@@ -93,7 +94,7 @@ export function startShot(image: string, pageTitle: string, onDone: (result: Sho
     const w = window.innerWidth;
     const h = window.innerHeight;
     dim.setAttribute('d', `M0,0H${w}V${h}H0Z M${pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join('L')}Z`);
-    radiusLabel.textContent = `半径 ${Math.round(r)}px`;
+    radiusLabel.textContent = t('半径 {0}px', { 0: Math.round(r) });
     sizesBox.replaceChildren(
       ...prefs.sizes.map((size, i) => {
         const b = el('button', 'shot-size', `${i + 1}: ${Math.round(size)}`);
@@ -149,41 +150,40 @@ export function startShot(image: string, pageTitle: string, onDone: (result: Sho
     panel = el('form', 'shot-panel');
     const preview = el('img', 'shot-preview');
     preview.src = shot;
-    preview.alt = '切り取った六角形';
+    preview.alt = t('切り取った六角形');
     const forTab = purpose === 'tabImage' || purpose === 'linkCover'; // どちらも、切り取った六角形がタブの表紙になる
-    const okLabel = purpose === 'linkCover' ? '表紙にしてセルに追加' : forTab ? 'タブの画像にする' : '左のセルに置く';
+    const okLabel = purpose === 'linkCover' ? t('表紙にしてセルに追加') : forTab ? t('タブの画像にする') : t('左のセルに置く');
     const text = el('textarea', 'shot-comment');
     text.rows = forTab ? 1 : 3;
     if (forTab) text.maxLength = 40;
     text.placeholder = forTab
-      ? `タブのコメント（なくてもよい・40文字まで）\nEnter で「${okLabel}」`
-      : `コメント（なくてもよい）${pageTitle ? `｜${pageTitle}` : ''}\nEnter で「左のセルに置く」・Shift+Enter で改行`;
+      ? t('タブのコメント（なくてもよい・40文字まで）\nEnter で「{0}」', { 0: okLabel })
+      : t('コメント（なくてもよい）{0}\nEnter で「左のセルに置く」・Shift+Enter で改行', { 0: pageTitle ? `｜${pageTitle}` : '' });
     const buttons = el('div', 'shot-buttons');
     const send = (to: ShotTarget) => finish({ image: shot, comment: text.value.trim(), to });
     const cell = el('button', 'reader-tool', okLabel);
     cell.type = 'submit';
-    const ask = el('button', 'reader-tool', '相棒に見せる');
+    const ask = el('button', 'reader-tool', t('相棒に見せる'));
     ask.type = 'button';
-    ask.title = '右の相棒に画像を見せて、説明してもらう（画像が Anthropic に送られます）';
+    ask.title = t('右の相棒に画像を見せて、説明してもらう（画像が Anthropic に送られます）');
     ask.addEventListener('click', () => send('companion'));
-    const both = el('button', 'reader-tool', '両方');
+    const both = el('button', 'reader-tool', t('両方'));
     both.type = 'button';
-    both.title = '左のセルに置いて、右の相棒にも見せる';
+    both.title = t('左のセルに置いて、右の相棒にも見せる');
     both.addEventListener('click', () => send('both'));
-    const grok = el('button', 'reader-tool', 'Grok に送る');
+    const grok = el('button', 'reader-tool', t('Grok に送る'));
     grok.type = 'button';
-    grok.title = 'Grok-Bot 1体に、画像とコメントを送る（依頼の小窓が開きます。貼るのは画像と文の2回。画像は Grok Bot に送られます）';
+    grok.title = t('Grok-Bot 1体に、画像とコメントを送る（依頼の小窓が開きます。貼るのは画像と文の2回。画像は Grok Bot に送られます）');
     grok.addEventListener('click', () => send('grok'));
     if (!BOT_FEATURES) grok.hidden = true;
-    const again = el('button', 'reader-tool', '選び直す');
-    again.type = 'button';
+    const again = el('button', 'reader-tool', t('選び直す'));    again.type = 'button';
     again.addEventListener('click', () => {
       panel?.remove();
       panel = null;
       mode = 'frame';
       svg.classList.remove('frozen');
     });
-    const cancel = el('button', 'reader-tool', 'やめる');
+    const cancel = el('button', 'reader-tool', t('やめる'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => finish(null));
     if (forTab) buttons.append(cell, again, cancel);

@@ -4,6 +4,7 @@
 //   ・当てる（台帳に足す・控え・記録・戻す）のは app/interchange-flow.ts
 //   ・ファイルの中の id は付け替えの鍵にしか使わない。シート・島・メモ・カード・線は全部手元で新しく作る（§5）
 //   ・memocells.ts・session.ts は data.ts（C++ とのやりとり）を読み込むので import しない。同じ数・同じ直し方をここに置き、テストで同じか確かめる
+import { t as tr } from './i18n';
 import { cleanBotLine, cleanBotText, cutChars } from './bot-replies';
 import { type BoardLink, type CellRef, findDuplicate } from './board-links';
 import { type Hex, hexKey, nearestFree } from './hex';
@@ -30,10 +31,10 @@ export const IX_LIMITS = {
 } as const;
 
 export const IMPORT_WHO = 'import'; // 取り込んだもの（by の無いもの・キャラのふりをするもの）の書き手（D1）
-export const IMPORT_LABEL = '取り込み';
+export const IMPORT_LABEL = tr('取り込み');
 export const OPINION_LABEL = '意見';
-export const CONTINUED = '（続き）'; // 長いカードを分けた返信の頭（D2）
-export const MEMO_OVERFLOW = '本文の続き'; // 長いメモの文の続き（一番上のカード、rank 0）
+export const CONTINUED = tr('（続き）'); // 長いカードを分けた返信の頭（D2）
+export const MEMO_OVERFLOW = tr('本文の続き'); // 長いメモの文の続き（一番上のカード、rank 0）
 
 // ---------- 見分け（3 つの入口で共通） ----------
 
@@ -88,36 +89,36 @@ export interface IxProblem {
 }
 
 const PROBLEM_TEXT: Record<IxProblemCode, (n: number) => string> = {
-  unknownKey: (n) => `知らない項目 ${n} 個（残しておきます）`,
-  droppedField: (n) => `取り込まない項目 ${n} 個（画像・入口など。残しておきます）`,
-  badMemo: (n) => `形の崩れたメモ ${n} 個（取り込みません）`,
-  badCard: (n) => `形の崩れたカード ${n} 枚（取り込みません）`,
-  badIsland: (n) => `形の崩れた島 ${n} 個（取り込みません）`,
-  badBoardLink: (n) => `形の崩れた盤面の線 ${n} 本（取り込みません）`,
-  dupMemoId: (n) => `同じ id のメモ ${n} 個（別のメモとして取り込みます）`,
-  dupCardId: (n) => `同じ id のカード ${n} 枚（別のカードとして取り込みます）`,
-  dupIslandId: (n) => `同じ id の島 ${n} 個（後のものは使いません）`,
-  otherSheet: (n) => `別のシートの印のメモ ${n} 個（同じ新しいシートに入れます）`,
-  orphanCard: (n) => `親の見つからない返信 ${n} 枚（一番上のカードにします）`,
-  danglingCardLink: (n) => `相手のいないカードの関連 ${n} 本（落とします）`,
-  crossMemoLink: (n) => `別のメモのカードへの関連 ${n} 本（v1 は取り込みません）`,
-  badLinkKind: (n) => `知らない種類の関連・線 ${n} 本（落とします）`,
-  cardLinksOver: (n) => `1 枚 10 本を超えた関連 ${n} 本（落とします）`,
-  sameBack: (n) => `逆向きの「同じ」の二本目 ${n} 本（落とします）`,
-  danglingBoardLink: (n) => `相手のいない盤面の線 ${n} 本（落とします）`,
-  tabBoardLink: (n) => `タブへの線 ${n} 本（v1 は取り込みません）`,
-  dupBoardLink: (n) => `重なる・自分への盤面の線 ${n} 本（落とします）`,
-  boardLinksOver: (n) => `盤面の線の上限（500）を超える ${n} 本（落とします）`,
-  islandMissing: (n) => `島が見つからないメモ ${n} 個（島なしで取り込みます）`,
-  islandsOver: (n) => `島の上限（50）で作れない島 ${n} 個（そのメモは島なし）`,
-  posMoved: (n) => `重なった位置 ${n} 個（近くに動かしました）`,
-  posAuto: (n) => `位置の無いメモ ${n} 個（近くに置きました）`,
-  timeFixed: (n) => `範囲の外の時刻 ${n} 個（今の時刻にしました）`,
-  longCard: (n) => `2,000 字を超えたカード ${n} 枚（「${CONTINUED}」の返信に分けました）`,
-  longMemo: (n) => `5,000 字を超えたメモ ${n} 個（「${MEMO_OVERFLOW}」のカードに分けました）`,
-  cardsOver: (n) => `1 メモ 300 枚を超えたカード ${n} 枚（落とします）`,
-  tagsCut: (n) => `直したタグ ${n} 個（10 個・30 字まで）`,
-  authorReplaced: (n) => `書き手を「${IMPORT_LABEL}」にしたもの ${n} 個`,
+  unknownKey: (n) => tr('知らない項目 {0} 個（残しておきます）', { 0: n }),
+  droppedField: (n) => tr('取り込まない項目 {0} 個（画像・入口など。残しておきます）', { 0: n }),
+  badMemo: (n) => tr('形の崩れたメモ {0} 個（取り込みません）', { 0: n }),
+  badCard: (n) => tr('形の崩れたカード {0} 枚（取り込みません）', { 0: n }),
+  badIsland: (n) => tr('形の崩れた島 {0} 個（取り込みません）', { 0: n }),
+  badBoardLink: (n) => tr('形の崩れた盤面の線 {0} 本（取り込みません）', { 0: n }),
+  dupMemoId: (n) => tr('同じ id のメモ {0} 個（別のメモとして取り込みます）', { 0: n }),
+  dupCardId: (n) => tr('同じ id のカード {0} 枚（別のカードとして取り込みます）', { 0: n }),
+  dupIslandId: (n) => tr('同じ id の島 {0} 個（後のものは使いません）', { 0: n }),
+  otherSheet: (n) => tr('別のシートの印のメモ {0} 個（同じ新しいシートに入れます）', { 0: n }),
+  orphanCard: (n) => tr('親の見つからない返信 {0} 枚（一番上のカードにします）', { 0: n }),
+  danglingCardLink: (n) => tr('相手のいないカードの関連 {0} 本（落とします）', { 0: n }),
+  crossMemoLink: (n) => tr('別のメモのカードへの関連 {0} 本（v1 は取り込みません）', { 0: n }),
+  badLinkKind: (n) => tr('知らない種類の関連・線 {0} 本（落とします）', { 0: n }),
+  cardLinksOver: (n) => tr('1 枚 10 本を超えた関連 {0} 本（落とします）', { 0: n }),
+  sameBack: (n) => tr('逆向きの「同じ」の二本目 {0} 本（落とします）', { 0: n }),
+  danglingBoardLink: (n) => tr('相手のいない盤面の線 {0} 本（落とします）', { 0: n }),
+  tabBoardLink: (n) => tr('タブへの線 {0} 本（v1 は取り込みません）', { 0: n }),
+  dupBoardLink: (n) => tr('重なる・自分への盤面の線 {0} 本（落とします）', { 0: n }),
+  boardLinksOver: (n) => tr('盤面の線の上限（500）を超える {0} 本（落とします）', { 0: n }),
+  islandMissing: (n) => tr('島が見つからないメモ {0} 個（島なしで取り込みます）', { 0: n }),
+  islandsOver: (n) => tr('島の上限（50）で作れない島 {0} 個（そのメモは島なし）', { 0: n }),
+  posMoved: (n) => tr('重なった位置 {0} 個（近くに動かしました）', { 0: n }),
+  posAuto: (n) => tr('位置の無いメモ {0} 個（近くに置きました）', { 0: n }),
+  timeFixed: (n) => tr('範囲の外の時刻 {0} 個（今の時刻にしました）', { 0: n }),
+  longCard: (n) => tr('2,000 字を超えたカード {0} 枚（「{1}」の返信に分けました）', { 0: n, 1: CONTINUED }),
+  longMemo: (n) => tr('5,000 字を超えたメモ {0} 個（「{1}」のカードに分けました）', { 0: n, 1: MEMO_OVERFLOW }),
+  cardsOver: (n) => tr('1 メモ 300 枚を超えたカード {0} 枚（落とします）', { 0: n }),
+  tagsCut: (n) => tr('直したタグ {0} 個（10 個・30 字まで）', { 0: n }),
+  authorReplaced: (n) => tr('書き手を「{0}」にしたもの {1} 個', { 0: IMPORT_LABEL, 1: n }),
 };
 
 export function problemText(p: IxProblem): string {
@@ -219,10 +220,10 @@ export interface InterchangeDoc {
 export type InterchangeReason = 'notJson' | 'badFormat' | 'badVersion' | 'noMemos';
 
 export const INTERCHANGE_REASON_TEXT: Record<InterchangeReason, string> = {
-  notJson: 'ファイルを読めませんでした',
-  badFormat: 'このファイルは取り込めません',
-  badVersion: '新しい版の取り込みファイルです（v1 まで読めます）',
-  noMemos: '取り込めるメモがありません',
+  notJson: tr('ファイルを読めませんでした'),
+  badFormat: tr('このファイルは取り込めません'),
+  badVersion: tr('新しい版の取り込みファイルです（v1 まで読めます）'),
+  noMemos: tr('取り込めるメモがありません'),
 };
 
 export type InterchangeParse = { ok: true; doc: InterchangeDoc; problems: IxProblem[] } | { ok: false; reason: InterchangeReason; version?: number };
@@ -485,7 +486,7 @@ export function clampTime(value: unknown, now: number, fallback = now): { value:
 
 // 出どころの名前（by の無いものに付ける。x_grokBot.botName ＋「の下書き」。無ければ「取り込み」）
 export function sourceName(botName?: string): string {
-  return botName ? cutChars(`${botName}の下書き`, IX_LIMITS.byName).text : IMPORT_LABEL;
+  return botName ? cutChars(tr('{0}の下書き', { 0: botName }), IX_LIMITS.byName).text : IMPORT_LABEL;
 }
 
 export interface Attribution {
@@ -601,7 +602,7 @@ export function placeMemos(memos: readonly { key: string; pos: unknown; island: 
 
 // 島の名前（session.ts の normalizeIslandName と同じ直し方。session.ts は data.ts を読み込むのでここに置く）
 export function islandName(name: string): string {
-  return [...name.trim().replace(/\s+/g, ' ')].slice(0, 20).join('') || normalizeTag(name) || '島';
+  return [...name.trim().replace(/\s+/g, ' ')].slice(0, 20).join('') || normalizeTag(name) || tr('島');
 }
 
 const COLOR_RE = /^#[0-9a-f]{6}$/i;
@@ -703,7 +704,7 @@ function opinionMark(raw: unknown): string | null {
 
 function titleOf(text: string): string {
   const line = text.split('\n').find((l) => l.trim()) ?? '';
-  return cutChars(line.trim(), 40).text || '（文なし）';
+  return cutChars(line.trim(), 40).text || tr('（文なし）');
 }
 
 // 計画を作る（何も変えない）。map を渡せば同じ id を使う（一覧のチェックを変えるたびに作り直しても id が変わらない）
@@ -1054,9 +1055,9 @@ export function planInterchange(doc: InterchangeDoc, world: InterchangeWorld, ch
   // 上限の判定（§4.1・§4.2）
   const overMemos = Math.max(0, world.counts.memos + cells.length + (choice.portal !== false && world.portal ? 1 : 0) - world.limits.memos);
   let blocked: string | null = null;
-  if (world.counts.sheets >= world.limits.sheets) blocked = `シートが多すぎます（${world.limits.sheets} 枚まで）`;
-  else if (cells.length === 0) blocked = '取り込むメモを選んでください';
-  else if (overMemos > 0) blocked = `メモが多すぎます（全部で ${world.limits.memos} 個まで）。あと ${overMemos} 個外してください`;
+  if (world.counts.sheets >= world.limits.sheets) blocked = tr('シートが多すぎます（{0} 枚まで）', { 0: world.limits.sheets });
+  else if (cells.length === 0) blocked = tr('取り込むメモを選んでください');
+  else if (overMemos > 0) blocked = tr('メモが多すぎます（全部で {0} 個まで）。あと {1} 個外してください', { 0: world.limits.memos, 1: overMemos });
 
   const sheetName = normalizeSheetName(cleanBotLine(doc.sheet.name)) || IMPORT_LABEL;
   const sheetColor = typeof doc.sheet.color === 'string' && COLOR_RE.test(doc.sheet.color) ? doc.sheet.color : world.sheetColor();

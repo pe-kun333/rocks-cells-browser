@@ -26,6 +26,7 @@
 //   ・画像と文を一つの貼り付けで（依頼の小窓 v2・R7d）：botAsk の nest.pasteMode を小窓の pasteMode に渡す（html のときだけ。既定は 2 回貼り）
 //   ・webhook「そのまま送る」（依頼の小窓 v2・R11）：botAsk の hook（宛先と鍵の「ある／ない」）を小窓に渡す。結果は relay の botHookResult を
 //     hookResult で AskLeftSender に渡す。届かなかった依頼の切り替えは命令 botHookFallback
+import { t } from '../i18n';
 import { askAttachmentKey } from '../draft-materials';
 import { normalizeLastRequest } from '../bot-last-request';
 import { normalizePresets, presetOpenEntry } from '../bot-presets';
@@ -141,7 +142,7 @@ export class ReaderAsk {
       confirmApp: p.confirmed !== true,
       nest: { askAll: nest.askAll === 'lead' ? 'lead' : 'each', ...(typeof nest.lead === 'string' ? { lead: nest.lead } : {}) },
       pasteMode: nest.pasteMode === 'html' ? 'html' : 'two', // 画像の貼り方（R7d。巣の設定。html と書いてあるときだけ 1 回）
-      heading: shot ? 'Grok に送る（六角スクショ）' : 'Grok に調べてもらう',
+      heading: shot ? t('Grok に送る（六角スクショ）') : t('Grok に調べてもらう'),
       entry: presetOpenEntry(p.entry, !!shot),
       ...(presets ? { presets } : {}),
       ...(lastRequest ? { lastRequest } : {}),

@@ -5,6 +5,7 @@
 //   読む画面で見たものと送るものを一致させる（番号つき）。
 //   線と文字は、どの道具でも当たれば選べる（capture-hit.ts）。選ぶと、移動・端点のつまみ・矢印キー・消す・書き直しができる（R4-C）。
 //   拡大（合わせる・100%・200%・Ctrl+ホイール）は reader/capture-zoom.ts。
+import { t } from '../i18n';
 import { CellMenu, type MenuEntry } from '../panels/cell-menu';
 import {
   BLUR_LIMIT,
@@ -57,25 +58,25 @@ type DrawTool = StrokeKind | 'stamp' | 'blur';
 // 戻す・やり直すの一段（要素と配列は不変として扱う。変えるときは新しく作る）
 type Snap = { marks: readonly CaptureMark[]; strokes: readonly CaptureStroke[] };
 
-const KEPT = '残す画像には焼き付きません（AI に送る画像には入ります）';
+const KEPT = t('残す画像には焼き付きません（AI に送る画像には入ります）');
 
 // 表示の順＝キー（1〜）の順
 const TOOLS: { id: DrawTool; label: string; title: string }[] = [
-  { id: 'arrow', label: '矢印', title: `始点から終点へ矢印を引きます。${KEPT}` },
-  { id: 'rect', label: '四角', title: `四角で囲みます。${KEPT}` },
-  { id: 'marker', label: '蛍光ペン', title: `半透明の線を引きます。${KEPT}` },
-  { id: 'text', label: '文字', title: `クリックした場所に、一行を書きます。${KEPT}` },
-  { id: 'stamp', label: 'スタンプ', title: '画像をクリックした場所にスタンプを置きます。右クリックでも置けます。AI に送る画像には番号つきで焼き、文も番号で指します' },
+  { id: 'arrow', label: t('矢印'), title: t('始点から終点へ矢印を引きます。{0}', { 0: KEPT }) },
+  { id: 'rect', label: t('四角'), title: t('四角で囲みます。{0}', { 0: KEPT }) },
+  { id: 'marker', label: t('蛍光ペン'), title: t('半透明の線を引きます。{0}', { 0: KEPT }) },
+  { id: 'text', label: t('文字'), title: t('クリックした場所に、一行を書きます。{0}', { 0: KEPT }) },
+  { id: 'stamp', label: t('スタンプ'), title: t('画像をクリックした場所にスタンプを置きます。右クリックでも置けます。AI に送る画像には番号つきで焼き、文も番号で指します') },
   {
     id: 'blur',
-    label: '隠す',
-    title: '四角で囲むと、確認のあと、その部分を残す画像からも隠します（黒く塗りつぶし。モザイクも選べます）。隠した場所の読んだ文字も「（隠した）」になります',
+    label: t('隠す'),
+    title: t('四角で囲むと、確認のあと、その部分を残す画像からも隠します（黒く塗りつぶし。モザイクも選べます）。隠した場所の読んだ文字も「（隠した）」になります'),
   },
 ];
 
 const HIDE_MODES: { id: HideMode; label: string }[] = [
-  { id: 'fill', label: '塗りつぶし' },
-  { id: 'mosaic', label: 'モザイク' },
+  { id: 'fill', label: t('塗りつぶし') },
+  { id: 'mosaic', label: t('モザイク') },
 ];
 
 const HISTORY_MAX = 100;
@@ -85,9 +86,9 @@ const INK_FIELD = '.capture-ink-note input';
 
 // 拡大の段のボタン（見出しの「閉じる」の左）
 const ZOOM_BUTTONS: { level: ZoomLevel; label: string; title: string }[] = [
-  { level: 'fit', label: '合わせる', title: '画像の全体が見える大きさにします（Ctrl+0）' },
-  { level: 1, label: '100%', title: '画像の 1 画素を、画面の 1 画素にします（Ctrl+= で大きく、Ctrl+- で小さく。Ctrl+ホイールでも）' },
-  { level: 2, label: '200%', title: '100% の 2 倍にします' },
+  { level: 'fit', label: t('合わせる'), title: t('画像の全体が見える大きさにします（Ctrl+0）') },
+  { level: 1, label: '100%', title: t('画像の 1 画素を、画面の 1 画素にします（Ctrl+= で大きく、Ctrl+- で小さく。Ctrl+ホイールでも）') },
+  { level: 2, label: '200%', title: t('100% の 2 倍にします') },
 ];
 
 const HIT_TOLERANCE_PX = 6; // 線に当たる余裕（CSS px）
@@ -97,7 +98,7 @@ const STROKE_MIN = 0.012; // つまみで動かして、これより短く（四
 const NUDGE_STEP = 0.001; // 矢印キー 1 回の移動（画像に対する割合）。Shift で NUDGE_BIG
 const NUDGE_BIG = 0.01;
 const NUDGE_WAIT_MS = 250; // 矢印キーをこれだけ押さなければ、動かした分を 1 回の操作として台帳へ
-const NOTE_PLACEHOLDER = 'ひとこと（空でもよい）';
+const NOTE_PLACEHOLDER = t('ひとこと（空でもよい）');
 
 // つまみ 1 つ。どの端点（台帳の x・y の組）を動かすか
 interface HandleSpec {
@@ -149,21 +150,21 @@ let hideSeq = 0;
 
 // 隠すの失敗の理由（右の店の reason）ごとの文。ほかは「もう一度」。none と write は、頼んだのが隠すか取り消すかで文が変わる
 const HIDE_FAIL: Record<string, string> = {
-  limit: `隠す場所は ${BLUR_LIMIT} までです`,
-  readonly: '撮影の一覧を読めていないので、隠せません',
-  stale: 'あとで別の場所を隠したので、取り消せません',
-  missing: 'この撮影は消されています。閉じてください',
-  image: '画像を読めなかったので、隠せませんでした',
+  limit: t('隠す場所は {0} までです', { 0: BLUR_LIMIT }),
+  readonly: t('撮影の一覧を読めていないので、隠せません'),
+  stale: t('あとで別の場所を隠したので、取り消せません'),
+  missing: t('この撮影は消されています。閉じてください'),
+  image: t('画像を読めなかったので、隠せませんでした'),
 };
-const HIDE_FAIL_DEFAULT = '隠せませんでした。もう一度押してください';
+const HIDE_FAIL_DEFAULT = t('隠せませんでした。もう一度押してください');
 // 成功したが、一覧（captures.json）の保存に失敗した（右の店の saved が false。reason: 'index' で届く）
-const INDEX_NOT_SAVED = '（一覧の保存に失敗しました。開き直すと、読んだ文字が戻ることがあります）';
+const INDEX_NOT_SAVED = t('（一覧の保存に失敗しました。開き直すと、読んだ文字が戻ることがあります）');
 
 function hideFailText(reason: string | undefined, kind: 'hide' | 'unhide') {
   if (reason === 'none') {
-    return kind === 'unhide' ? '取り消せるものがありません（読み直したり、別の撮影を隠したりしたあとは、取り消せません）' : '隠す場所が小さすぎます';
+    return kind === 'unhide' ? t('取り消せるものがありません（読み直したり、別の撮影を隠したりしたあとは、取り消せません）') : t('隠す場所が小さすぎます');
   }
-  if (reason === 'write') return kind === 'unhide' ? '画像を保存できなかったので、取り消せませんでした。もう一度押してください' : '画像を保存できなかったので、隠せませんでした。もう一度押してください';
+  if (reason === 'write') return kind === 'unhide' ? t('画像を保存できなかったので、取り消せませんでした。もう一度押してください') : t('画像を保存できなかったので、隠せませんでした。もう一度押してください');
   return (reason && HIDE_FAIL[reason]) || HIDE_FAIL_DEFAULT;
 }
 
@@ -225,15 +226,15 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
   document.querySelector('.shot')?.remove();
   const root = el('div', 'capture-view');
   root.tabIndex = -1;
-  const title = el('h1', 'capture-view-title', payload.title || '撮った画像');
+  const title = el('h1', 'capture-view-title', payload.title || t('撮った画像'));
   const hint = el(
     'p',
     'capture-view-hint',
-    'スタンプ・矢印・四角・蛍光ペン・文字は、残す画像のファイルには焼き付きません。AI に送る画像には、書き込みと、スタンプ・四角の番号を焼きます。隠すだけは、確認のあと残す画像にも焼きます。',
+    t('スタンプ・矢印・四角・蛍光ペン・文字は、残す画像のファイルには焼き付きません。AI に送る画像には、書き込みと、スタンプ・四角の番号を焼きます。隠すだけは、確認のあと残す画像にも焼きます。'),
   );
   const heading = el('div', 'capture-view-heading');
   heading.append(title, hint);
-  const close = el('button', 'capture-view-close', '閉じる');
+  const close = el('button', 'capture-view-close', t('閉じる'));
   close.type = 'button';
   const zoomGroup = el('div', 'capture-zoom-group');
   zoomGroup.setAttribute('role', 'group');
@@ -273,21 +274,21 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
     modeButtons.set(item.id, button);
     modeGroup.append(button);
   }
-  const hide = el('button', 'capture-tool', '隠す');
+  const hide = el('button', 'capture-tool', t('隠す'));
   hide.type = 'button';
-  const cancelBlur = el('button', 'capture-tool', 'やめる');
+  const cancelBlur = el('button', 'capture-tool', t('やめる'));
   cancelBlur.type = 'button';
   hideRow.append(modeGroup, hide, cancelBlur);
   confirm.append(hideRow);
   // 隠れないものの注意（該当するときだけ）
-  if (payload.askedAt) confirm.append(el('p', 'capture-hide-note', `${whenOf(payload.askedAt)} に送っています。送った写しは隠れません`));
-  if (payload.video) confirm.append(el('p', 'capture-hide-note', 'mp4 は隠れません（カードの「mp4 だけ消す」で消せます）'));
+  if (payload.askedAt) confirm.append(el('p', 'capture-hide-note', t('{0} に送っています。送った写しは隠れません', { 0: whenOf(payload.askedAt) })));
+  if (payload.video) confirm.append(el('p', 'capture-hide-note', t('mp4 は隠れません（カードの「mp4 だけ消す」で消せます）')));
   const status = el('p', 'capture-view-status');
   status.setAttribute('role', 'status');
   const stage = el('div', 'capture-stage');
   const frame = el('div', 'capture-frame');
   const img = el('img', 'capture-view-image');
-  img.alt = '撮った画像';
+  img.alt = t('撮った画像');
   const canvas = el('canvas', 'capture-draw');
   canvas.width = 0; // 大きさは fitCanvas で決める
   canvas.height = 0;
@@ -346,15 +347,15 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
   let history: Snap[] = [{ marks, strokes }];
   let cursor = 0;
 
-  const undoButton = el('button', 'capture-tool capture-undo', '戻す');
+  const undoButton = el('button', 'capture-tool capture-undo', t('戻す'));
   undoButton.type = 'button';
-  undoButton.title = '最後の操作を戻します（スタンプ・矢印・四角・蛍光ペン・文字）。隠すのは「隠すのを取り消す」で';
-  const redoButton = el('button', 'capture-tool capture-redo', 'やり直す');
+  undoButton.title = t('最後の操作を戻します（スタンプ・矢印・四角・蛍光ペン・文字）。隠すのは「隠すのを取り消す」で');
+  const redoButton = el('button', 'capture-tool capture-redo', t('やり直す'));
   redoButton.type = 'button';
-  redoButton.title = '戻した操作をやり直します';
-  const unhideButton = el('button', 'capture-tool capture-unhide', '隠すのを取り消す');
+  redoButton.title = t('戻した操作をやり直します');
+  const unhideButton = el('button', 'capture-tool capture-unhide', t('隠すのを取り消す'));
   unhideButton.type = 'button';
-  unhideButton.title = '最後に隠した 1 か所を元に戻します（この画面を閉じるまで）。読んだ文字も戻ります';
+  unhideButton.title = t('最後に隠した 1 か所を元に戻します（この画面を閉じるまで）。読んだ文字も戻ります');
   const toolButtons = new Map<DrawTool, HTMLButtonElement>();
   for (const item of TOOLS) {
     const button = el('button', 'capture-tool', item.label);
@@ -372,7 +373,7 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
   for (const item of STAMPS) {
     const button = el('button', 'capture-tool', `${item.emoji} ${item.label}`);
     button.type = 'button';
-    button.title = `${item.emoji} ${item.label} のスタンプを置きます`;
+    button.title = t('{0} {1} のスタンプを置きます', { 0: item.emoji, 1: item.label });
     button.addEventListener('click', () => {
       stampKind = item.id;
       paintTools();
@@ -572,7 +573,7 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
       const node = handleNodes[index];
       node.style.left = `${stroke[spec.x] * 100}%`;
       node.style.top = `${stroke[spec.y] * 100}%`;
-      const text = stroke.kind === 'rect' ? '四角の角を動かす' : stroke.kind === 'marker' ? '蛍光ペンの端を動かす' : '矢印の端を動かす';
+      const text = stroke.kind === 'rect' ? t('四角の角を動かす') : stroke.kind === 'marker' ? t('蛍光ペンの端を動かす') : t('矢印の端を動かす');
       node.setAttribute('aria-label', text);
       node.title = text;
     });
@@ -645,9 +646,9 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
       button.style.top = `${mark.y * 100}%`;
       button.style.width = `${px}px`;
       button.style.height = `${px}px`;
-      const text = `${stamp?.emoji ?? '•'} ${stamp?.label ?? 'スタンプ'}${mark.note ? `：${mark.note}` : ''}。ドラッグで動かせます`;
+      const text = t('{0} {1}{2}。ドラッグで動かせます', { 0: stamp?.emoji ?? '•', 1: stamp?.label ?? 'スタンプ', 2: mark.note ? `：${mark.note}` : '' });
       const n = numberOf(numbers, 'mark', mark.id);
-      button.setAttribute('aria-label', n === undefined ? text : `印 ${n}　${text}`);
+      button.setAttribute('aria-label', n === undefined ? text : t('印 {0}　{1}', { 0: n, 1: text }));
       button.title = text;
       button.dataset.mark = mark.id;
       button.addEventListener('pointerdown', (event) => startDrag(event, mark.id));
@@ -676,7 +677,7 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
         const input = el('input');
         input.type = 'text';
         input.value = typedNote ?? mark.note;
-        input.placeholder = '一行（空でもよい）';
+        input.placeholder = t('一行（空でもよい）');
         input.maxLength = MARK_NOTE_MAX;
         input.setAttribute('aria-label', 'スタンプの一行');
         input.addEventListener('input', () => {
@@ -706,9 +707,9 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
       form.style.top = `${inkAt.y * 100}%`;
       const input = el('input');
       input.type = 'text';
-      input.placeholder = isNote ? NOTE_PLACEHOLDER : '一行';
+      input.placeholder = isNote ? NOTE_PLACEHOLDER : t('一行');
       input.maxLength = STROKE_TEXT_MAX;
-      input.setAttribute('aria-label', isNote ? 'ひとこと' : '書き込む文字');
+      input.setAttribute('aria-label', isNote ? t('ひとこと') : t('書き込む文字'));
       input.value = typedInk ?? target?.text ?? '';
       input.addEventListener('input', () => {
         const text = clipStrokeText(input.value);
@@ -853,25 +854,25 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
   const stampMenu = (x: number, y: number, id: string) => {
     const current = marks.find((mark) => mark.id === id)?.stamp;
     menuOf().open(x, y, [
-      { section: 'このスタンプ' },
+      { section: t('このスタンプ') },
       {
         pills: STAMPS.map((stamp) => ({
           label: `${stamp.emoji} ${stamp.label}`,
-          title: `${stamp.emoji} ${stamp.label} にする`,
+          title: t('{0} {1} にする', { 0: stamp.emoji, 1: stamp.label }),
           current: stamp.id === current,
           close: true,
           run: () => changeKind(id, stamp.id),
         })),
       },
-      { label: '一行を書き直す', run: () => edit(id, false) },
-      { label: '消す', run: () => remove(id) },
+      { label: t('一行を書き直す'), run: () => edit(id, false) },
+      { label: t('消す'), run: () => remove(id) },
     ]);
   };
 
   // 置くだけ。段にも送りにも入れない（一行を確定したときに、commit が積んで送る）
   const place = (stamp: StampId, x: number, y: number) => {
     if (marks.length >= MARK_LIMIT) {
-      status.textContent = `スタンプは ${MARK_LIMIT} までです`;
+      status.textContent = t('スタンプは {0} までです', { 0: MARK_LIMIT });
       return;
     }
     status.textContent = '';
@@ -895,7 +896,7 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
       return;
     }
     if (strokes.length >= STROKE_LIMIT) {
-      status.textContent = `線と文字は ${STROKE_LIMIT} までです`;
+      status.textContent = t('線と文字は {0} までです', { 0: STROKE_LIMIT });
       paint();
       return;
     }
@@ -1239,12 +1240,12 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
       const w = Math.abs(dx);
       const h = Math.abs(dy);
       if (w < 0.02 || h < 0.02) {
-        status.textContent = 'もう少し大きく囲んでください';
+        status.textContent = t('もう少し大きく囲んでください');
         paintOverlay();
         return;
       }
       if (blurs.length >= BLUR_LIMIT) {
-        status.textContent = `隠す場所は ${BLUR_LIMIT} までです`;
+        status.textContent = t('隠す場所は {0} までです', { 0: BLUR_LIMIT });
         paintOverlay();
         return;
       }
@@ -1258,7 +1259,7 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
     }
     if (tool === 'text' || tool === 'stamp') return;
     if (strokes.length >= STROKE_LIMIT) {
-      status.textContent = `線と文字は ${STROKE_LIMIT} までです`;
+      status.textContent = t('線と文字は {0} までです', { 0: STROKE_LIMIT });
       paintOverlay();
       return;
     }
@@ -1340,10 +1341,10 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
 
   // 右クリックの「この線」。矢印・四角はひとこと、文字は書き直し、どれも消せる
   const strokeMenu = (x: number, y: number, stroke: CaptureStroke) => {
-    const entries: MenuEntry[] = [{ section: 'この線' }];
-    if (stroke.kind === 'text') entries.push({ label: '書き直す', run: () => beginRewrite(stroke.id) });
-    else if (stroke.kind !== 'marker') entries.push({ label: stroke.text ? 'ひとことを書き直す' : 'ひとことを書く', run: () => beginRewrite(stroke.id) });
-    entries.push({ label: '消す', run: () => removeStroke(stroke.id) });
+    const entries: MenuEntry[] = [{ section: t('この線') }];
+    if (stroke.kind === 'text') entries.push({ label: t('書き直す'), run: () => beginRewrite(stroke.id) });
+    else if (stroke.kind !== 'marker') entries.push({ label: stroke.text ? t('ひとことを書き直す') : t('ひとことを書く'), run: () => beginRewrite(stroke.id) });
+    entries.push({ label: t('消す'), run: () => removeStroke(stroke.id) });
     menuOf().open(x, y, entries);
   };
 
@@ -1368,7 +1369,7 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
       return;
     }
     menuOf().open(event.clientX, event.clientY, [
-      { section: 'ここにスタンプ' },
+      { section: t('ここにスタンプ') },
       {
         pills: STAMPS.map((stamp) => ({
           label: stamp.label,
@@ -1423,7 +1424,7 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
     }
     // 隠す・取り消すの保存を待っている間は、Esc では閉じない（うっかり閉じると、保存できたかが分からなくなる）
     if (hiding) {
-      status.textContent = `${hideWait?.kind === 'unhide' ? '取り消しています' : '隠しています'}…（保存を待っています）。閉じるときは「閉じる」を押してください`;
+      status.textContent = t('{0}…（保存を待っています）。閉じるときは「閉じる」を押してください', { 0: hideWait?.kind === 'unhide' ? '取り消しています' : '隠しています' });
       return;
     }
     closeView();
@@ -1562,7 +1563,7 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
     const pending = blurPending;
     if (pending && !hideWait && blurs.some((region) => sameRect(region, pending))) {
       blurPending = null;
-      status.textContent = '隠せていました（右のカードでも確かめられます）';
+      status.textContent = t('隠せていました（右のカードでも確かめられます）');
       paintOverlay();
       paintConfirm();
     } else {
@@ -1602,11 +1603,11 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
     if (!ok) {
       status.textContent = hideFailText(reason, wait.kind);
     } else if (wait.kind === 'unhide') {
-      status.textContent = `隠すのを取り消しました${unsaved}`;
+      status.textContent = t('隠すのを取り消しました{0}', { 0: unsaved });
     } else {
       blurPending = null;
       const label = HIDE_MODES.find((item) => item.id === wait.mode)?.label ?? '';
-      status.textContent = `隠しました（${label}）。右のカードと盤面の画像も、この部分は読めません。重なる読んだ文字も「（隠した）」にしました。「隠すのを取り消す」で、この画面を閉じるまでは戻せます${unsaved}`;
+      status.textContent = t('隠しました（{0}）。右のカードと盤面の画像も、この部分は読めません。重なる読んだ文字も「（隠した）」にしました。「隠すのを取り消す」で、この画面を閉じるまでは戻せます{1}', { 0: label, 1: unsaved });
     }
     paint();
   };
@@ -1615,14 +1616,14 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
   const expireHide = () => {
     if (!takeHideWait() || closed) return;
     hiding = false;
-    status.textContent = '保存できたか分かりません。右のカードで確かめてください';
+    status.textContent = t('保存できたか分かりません。右のカードで確かめてください');
     paint();
   };
 
   hide.addEventListener('click', () => {
     const region = blurPending;
     if (!region || hiding) return;
-    startHide('hide', '隠しています…（保存を待っています）', (seq) => hooks.onHide([{ x: region.x, y: region.y, w: region.w, h: region.h }], hideMode, seq));
+    startHide('hide', t('隠しています…（保存を待っています）'), (seq) => hooks.onHide([{ x: region.x, y: region.y, w: region.w, h: region.h }], hideMode, seq));
   });
   cancelBlur.addEventListener('click', () => {
     if (hiding) return;
@@ -1633,7 +1634,7 @@ export function openCaptureView(payload: CaptureViewPayload, hooks: ViewHooks) {
   // Ctrl+Z には結ばない（戻す・やり直すの山は、スタンプ・線の分だけ）
   const unhide = () => {
     if (!undoable || hiding) return;
-    startHide('unhide', '取り消しています…（保存を待っています）', (seq) => hooks.onUnhide(seq));
+    startHide('unhide', t('取り消しています…（保存を待っています）'), (seq) => hooks.onUnhide(seq));
   };
 
   close.addEventListener('click', closeView);

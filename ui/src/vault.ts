@@ -2,6 +2,7 @@
 //   ・持ち主は右サイドバー（置き場の区画は右のメモの区画のすぐ下）。左からは relay の vaultAdd で頼む
 //   ・保存先：ui-data\vault\index.json（目次）・vault\items\<id>.json（文字のデータ）・vault\img\<id>-<n>.png（会話の画像。C++ が撮って書く）
 //   ・数や大きさの上限は設けない（区画に、おおよその使っている大きさを出す）
+import { t as tr } from './i18n';
 import { request, send } from './bridge';
 import { deleteData, readData, writeData } from './data';
 import { normalizeTags } from './tags';
@@ -9,11 +10,11 @@ import { normalizeTags } from './tags';
 export type VaultKind = 'conversation' | 'reply' | 'memo' | 'research' | 'vocab';
 
 export const VAULT_KIND_LABELS: Record<VaultKind, string> = {
-  conversation: '会話',
-  reply: '返事',
-  memo: '考察のメモ',
-  research: '情報収集',
-  vocab: '単語帳の案',
+  conversation: tr('会話'),
+  reply: tr('返事'),
+  memo: tr('考察のメモ'),
+  research: tr('情報収集'),
+  vocab: tr('単語帳の案'),
 };
 
 // 会話の画像（1枚に収まらない長い会話は、上から順に何枚かに分ける）

@@ -3,6 +3,7 @@
 //   ・ui-data/card-templates.json は { version: 1, templates: [...] }。読めなかった・版が違う・形が違うときは、書かない（上書きしない）
 //   ・読めない型が混ざっているファイルにも書かない（書くと、その型が消えるため）
 //   ・初めて書く前に、すでにあるファイルの写しを card-templates-before-v1.json に 1 回だけ取る（写せなければ書かない）
+import { t as tr } from './i18n';
 import type { CheckedRead } from './data';
 import {
   addTemplate,
@@ -140,13 +141,13 @@ export function templateNameTaken(list: readonly CardTemplate[], rawName: unknow
 }
 
 // ボードの「型にする…」で名前を空のまま決めたときの名前
-export const TEMPLATE_UNTITLED = '無題の型';
+export const TEMPLATE_UNTITLED = tr('無題の型');
 
 // 選ぶ帯の「型にする…」を押せるか（n：選んでいる枚数）と、ボタンの説明
 export function templatePickState(n: number): { enabled: boolean; hint: string } {
-  if (n < TEMPLATE_MIN_PICK) return { enabled: false, hint: `${TEMPLATE_MIN_PICK}枚以上選ぶと、型にできます` };
-  if (n > TEMPLATE_LIMITS.cards) return { enabled: false, hint: `型にできるのは ${TEMPLATE_LIMITS.cards} 枚までです（今 ${n} 枚）` };
-  return { enabled: true, hint: '選んだカードと、そのあいだの関連を、型として登録します' };
+  if (n < TEMPLATE_MIN_PICK) return { enabled: false, hint: tr('{0}枚以上選ぶと、型にできます', { 0: TEMPLATE_MIN_PICK }) };
+  if (n > TEMPLATE_LIMITS.cards) return { enabled: false, hint: tr('型にできるのは {0} 枚までです（今 {1} 枚）', { 0: TEMPLATE_LIMITS.cards, 1: n }) };
+  return { enabled: true, hint: tr('選んだカードと、そのあいだの関連を、型として登録します') };
 }
 
 // 登録の小窓に出す、数の 2 行
@@ -155,45 +156,45 @@ export function describeTemplateReport(report: TemplateReport): { counts: string
   const spans = report.skipped.spans ?? 0;
   const none = children + images + quotes + report.cutLinks + spans === 0;
   return {
-    counts: `${report.cards}枚・関連 ${report.links}本${report.holes !== undefined ? `・空欄 ${report.holes}個` : ''}`,
-    excluded: none ? '含めないもの：なし' : `含めないもの：画像 ${images}・引用 ${quotes}・返信 ${children}・外へ出る関連 ${report.cutLinks}本${spans > 0 ? `・結んだ区間 ${spans}` : ''}`,
+    counts: tr('{0}枚・関連 {1}本{2}', { 0: report.cards, 1: report.links, 2: report.holes !== undefined ? `・空欄 ${report.holes}個` : '' }),
+    excluded: none ? tr('含めないもの：なし') : tr('含めないもの：画像 {0}・引用 {1}・返信 {2}・外へ出る関連 {3}本{4}', { 0: images, 1: quotes, 2: children, 3: report.cutLinks, 4: spans > 0 ? `・結んだ区間 ${spans}` : '' }),
   };
 }
 
 export function templateSaveMessage(why: SaveFailure): string {
   switch (why) {
     case 'notfound':
-      return 'その型はもうありません。窓を開き直してください';
+      return tr('その型はもうありません。窓を開き直してください');
     case 'name':
-      return '名前を入れてください';
+      return tr('名前を入れてください');
     case 'unreadable':
-      return '型の保存ファイルを読めなかったので、保存しませんでした（ファイルは変えていません）';
+      return tr('型の保存ファイルを読めなかったので、保存しませんでした（ファイルは変えていません）');
     case 'partial':
-      return '型の保存ファイルに読めない型があるので、保存しませんでした（ファイルは変えていません）';
+      return tr('型の保存ファイルに読めない型があるので、保存しませんでした（ファイルは変えていません）');
     case 'full':
-      return `型は ${TEMPLATE_LIMITS.templates} 件までです。これ以上は登録できません`;
+      return tr('型は {0} 件までです。これ以上は登録できません', { 0: TEMPLATE_LIMITS.templates });
     case 'duplicate':
-      return '型の印が重なって保存できませんでした。もう一度押してください';
+      return tr('型の印が重なって保存できませんでした。もう一度押してください');
     case 'backup':
-      return 'もとの型の写しを取れなかったので、保存しませんでした';
+      return tr('もとの型の写しを取れなかったので、保存しませんでした');
     case 'write':
-      return '型を保存できませんでした（書き込み：失敗）';
+      return tr('型を保存できませんでした（書き込み：失敗）');
   }
 }
 
 // ---------- 「型を貼る ▾」のメニュー（Phase 1c） ----------
 
-export const TEMPLATE_EMPTY_HINT = 'まだ型がありません。カードを 2 枚以上選んで「型にする…」で登録できます';
+export const TEMPLATE_EMPTY_HINT = tr('まだ型がありません。カードを 2 枚以上選んで「型にする…」で登録できます');
 
-export const templateMenuLabel = (t: CardTemplate) => `${t.name}（${t.cards.length}枚${t.mode === 'snapshot' ? '' : `・${MODE_LABELS[t.mode]}`}）`;
+export const templateMenuLabel = (t: CardTemplate) => tr('{0}（{1}枚{2}）', { 0: t.name, 1: t.cards.length, 2: t.mode === 'snapshot' ? '' : `・${MODE_LABELS[t.mode]}` });
 
 // 登録の小窓の、モードの説明
 export function templateModeNote(mode: TemplateMode): string {
   switch (mode) {
     case 'snapshot':
-      return 'カードの文を、そのまま型にします';
+      return tr('カードの文を、そのまま型にします');
     case 'skeleton':
-      return '各カードの題（1 行目）だけを型にします。本文は入りません';
+      return tr('各カードの題（1 行目）だけを型にします。本文は入りません');
     case 'hole':
       return `本文を「{{${HOLE_COMMON}}}：{{題}}」の空欄にします（本文に {{…}} があるカードはそのまま）。貼るときに値を入れます`;
   }
@@ -213,5 +214,5 @@ export function templateMenuGroups(list: readonly CardTemplate[]): { folder: str
 export function pasteBlocked(existing: number, cards: number): string | null {
   const room = Math.max(0, MAX_REPLIES - existing);
   if (cards <= room) return null;
-  return `型を貼れませんでした（このメモに入りきりません。あと ${room} 枚まで、型は ${cards} 枚です。上限は ${MAX_REPLIES} 枚）`;
+  return tr('型を貼れませんでした（このメモに入りきりません。あと {0} 枚まで、型は {1} 枚です。上限は {2} 枚）', { 0: room, 1: cards, 2: MAX_REPLIES });
 }

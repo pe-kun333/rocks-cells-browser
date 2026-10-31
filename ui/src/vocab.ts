@@ -1,6 +1,7 @@
 // 単語帳：言葉・問いのカードと、間をあけた復習（覚えた度合いは六角形の6辺で表す。六角メモの「進み具合」と同じ）
 //   ・持ち主は左サイドバー（いつも動いているので、復習の時期を見て相棒に知らせられる）。保存先：ui-data\vocab.json
 //   ・右サイドバーの「単語帳」パネルには写しを送り、変えたいときは左に頼む（六角で読む画面からも頼める）
+import { t as tr } from './i18n';
 import { readDataChecked, writeData } from './data';
 import { samePage } from './threads';
 
@@ -135,11 +136,11 @@ export function schedule(card: Pick<VocabCard, 'level'>, grade: Grade, now = Dat
 // ボタンに添える「次はいつ」
 export function intervalLabel(card: Pick<VocabCard, 'level'>, grade: Grade, now = Date.now()): string {
   const ms = schedule(card, grade, now).due - now;
-  if (ms < 60 * MINUTE) return `${Math.max(1, Math.round(ms / MINUTE))}分`;
+  if (ms < 60 * MINUTE) return tr('{0}分', { 0: Math.max(1, Math.round(ms / MINUTE)) });
   const days = Math.round(ms / DAY);
-  if (days < 14) return `${Math.max(1, days)}日`;
-  if (days < 60) return `${Math.round(days / 7)}週間`;
-  return `${Math.round(days / 30)}か月`;
+  if (days < 14) return tr('{0}日', { 0: Math.max(1, days) });
+  if (days < 60) return tr('{0}週間', { 0: Math.round(days / 7) });
+  return tr('{0}か月', { 0: Math.round(days / 30) });
 }
 
 export const isDue = (card: VocabCard, now = Date.now()) => card.due <= now;

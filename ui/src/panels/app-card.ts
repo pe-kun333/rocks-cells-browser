@@ -1,4 +1,5 @@
 // アプリのセルのカード（拡大表示）。メモの書く欄にはしない（ダブルクリックで中央に出す。もう一度で最前面をやめる）
+import { t } from '../i18n';
 import { type AppEntry, appFileLabel } from '../apps';
 import { drawAppFace, svgEl } from '../cellface';
 import type { MemoCell } from '../memocells';
@@ -17,15 +18,15 @@ export function appCard(o: { memo: MemoCell; app: AppEntry | undefined; pinned?:
   const card = el('div', o.compact ? 'preview-card app-card compact' : 'preview-card app-card');
   card.dataset.memo = memo.id;
   const visual = el('div', 'preview-visual app-visual');
-  const svg = svgEl('svg', { viewBox: '-23 -23 46 47', class: 'app-card-svg', role: 'img', 'aria-label': app ? `アプリ「${app.name}」` : 'アプリ' });
+  const svg = svgEl('svg', { viewBox: '-23 -23 46 47', class: 'app-card-svg', role: 'img', 'aria-label': app ? t('アプリ「{0}」', { 0: app.name }) : t('アプリ') });
   const g = svgEl('g', { class: app ? 'cell app' : 'cell app lost' });
   drawAppFace(g, { x: 0, y: 0 }, 19.5, { name: app?.name ?? '', icon: app?.icon, lost: !app }, `app-card-clip-${memo.id}`);
   svg.append(g);
   visual.append(svg);
   card.append(visual);
-  card.append(el('div', 'preview-title', app ? `アプリ「${app.name}」` : 'アプリ（台帳に見つかりません）'));
+  card.append(el('div', 'preview-title', app ? t('アプリ「{0}」', { 0: app.name }) : t('アプリ（台帳に見つかりません）')));
   const meta = el('div', 'preview-meta');
-  meta.append(el('span', 'pill pill-app', 'アプリ'));
+  meta.append(el('span', 'pill pill-app', t('アプリ')));
   card.append(meta);
   if (app) {
     const file = el('div', 'app-card-file', appFileLabel(app));
@@ -37,8 +38,8 @@ export function appCard(o: { memo: MemoCell; app: AppEntry | undefined; pinned?:
           'p',
           'app-card-note',
           o.pinned
-            ? 'いま最前面です。もう一度ダブルクリックすると、最前面をやめます。位置と大きさはそのままです。'
-            : 'ダブルクリックで、中央の区画に合わせて最前面にします。',
+            ? t('いま最前面です。もう一度ダブルクリックすると、最前面をやめます。位置と大きさはそのままです。')
+            : t('ダブルクリックで、中央の区画に合わせて最前面にします。'),
         ),
       );
     }
@@ -56,16 +57,16 @@ export function appCard(o: { memo: MemoCell; app: AppEntry | undefined; pinned?:
     if (app) {
       row.append(
         button(
-          o.pinned ? '最前面をやめる' : '中央に出す',
-          o.pinned ? '最前面をやめる（位置と大きさはそのまま）' : 'ダブルクリックと同じ（中央に合わせて最前面）',
+          o.pinned ? t('最前面をやめる') : t('中央に出す'),
+          o.pinned ? t('最前面をやめる（位置と大きさはそのまま）') : t('ダブルクリックと同じ（中央に合わせて最前面）'),
           () => actions.launch(memo.id),
         ),
-        button('名前を変える', '台帳の名前を変える（同じアプリのセル全部）', () => actions.rename(memo.id)),
-        button('ファイルを選び直す', 'パスとアイコンを選び直す（名前はそのまま）', () => actions.repick(memo.id)),
-        button('台帳から消す', 'このアプリのセルを全部外し、台帳からも消す', () => actions.forget(memo.id)),
+        button(t('名前を変える'), t('台帳の名前を変える（同じアプリのセル全部）'), () => actions.rename(memo.id)),
+        button(t('ファイルを選び直す'), t('パスとアイコンを選び直す（名前はそのまま）'), () => actions.repick(memo.id)),
+        button(t('台帳から消す'), t('このアプリのセルを全部外し、台帳からも消す'), () => actions.forget(memo.id)),
       );
     }
-    row.append(button('セルを外す', 'このセルだけ外す（台帳には残る）', () => actions.remove(memo.id)));
+    row.append(button(t('セルを外す'), t('このセルだけ外す（台帳には残る）'), () => actions.remove(memo.id)));
     card.append(row);
   }
   return card;

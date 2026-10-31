@@ -2,6 +2,7 @@
 //   ・対象：特別なセルでないメモの本文・タグと、そのコメント（一番上のカードも、その下の返信も）の文・引用
 //   ・語が空なら、最近のメモの一覧（メモの行だけ）
 //   ・正規化と抜き出しは search.ts（import を持たない部品）
+import { t as tr } from './i18n';
 import { isSpecialCell, type MemoCell, memoTitle } from './memocells';
 import { fold, type Folded, hasAll, queryWords, type SearchItem, type SearchSort, snippetOf } from './search';
 
@@ -35,7 +36,7 @@ export function searchMemos(list: readonly MemoCell[], req: SearchRequest): { it
 
   for (const m of list) {
     if (isSpecialCell(m)) continue;
-    const title = memoTitle(m, 40) || (m.image ? '（画像のメモ）' : '（空のメモ）');
+    const title = memoTitle(m, 40) || (m.image ? tr('（画像のメモ）') : tr('（空のメモ）'));
     const replies = m.replies ?? [];
     // 作った時刻と更新の時刻（♥ でも updatedAt は進むので、それも更新に数える）
     const memoCreated = m.createdAt;

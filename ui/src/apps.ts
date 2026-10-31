@@ -2,6 +2,7 @@
 //   ・保存先：ui-data\apps.json（左サイドバーだけが読み書きする）
 //   ・セルの位置は memocells.json の app（この id）。セルを外しても台帳は残る（ボットの台帳と同じ）
 //   ・A5：summonApp で、中央の区画に合わせて最前面にする。ストアアプリは aumid で窓を探す。release で最前面をやめる
+import { t } from './i18n';
 import { request } from './bridge';
 import { readData, writeData } from './data';
 
@@ -107,7 +108,7 @@ export function sameLaunch(a: string, b: string) {
 export function appFileLabel(app: Pick<AppEntry, 'launch' | 'shortcut' | 'target'>): string {
   const path = app.shortcut || app.target || app.launch;
   const parts = path.split(/[/\\]/);
-  return parts[parts.length - 1] || path || 'ファイル';
+  return parts[parts.length - 1] || path || t('ファイル');
 }
 
 export function pickAppErrorText(error: PickAppError): string {
@@ -115,37 +116,37 @@ export function pickAppErrorText(error: PickAppError): string {
     case 'cancel':
       return '';
     case 'type':
-      return '実行ファイル（.exe）か、ショートカット（.lnk）を選んでください';
+      return t('実行ファイル（.exe）か、ショートカット（.lnk）を選んでください');
     case 'missing':
-      return 'そのファイルが見つかりませんでした。もう一度選んでください';
+      return t('そのファイルが見つかりませんでした。もう一度選んでください');
     case 'dialog':
-      return 'ファイルを選ぶ窓を出せませんでした';
+      return t('ファイルを選ぶ窓を出せませんでした');
     default:
-      return 'ファイルを選べませんでした。もう一度どうぞ';
+      return t('ファイルを選べませんでした。もう一度どうぞ');
   }
 }
 
 export function summonResultText(name: string, result: SummonResult): string {
   if (!result.ok) {
-    if (result.error === 'badPath') return `「${name}」のファイルが見つかりません。右クリック →「ファイルを選び直す…」`;
-    if (result.error === 'denied') return 'このアプリは管理者として動いているので、窓を動かせません。アプリを普通の権限で開くと、中央に合わせられます';
-    if (result.error === 'notFound') return '見つけられませんでした。一度閉じてから、このセルでもう一度開いてください';
-    if (result.error === 'timeout') return `「${name}」を開きましたが、返事が来ませんでした`;
-    return `「${name}」の窓を中央に出せませんでした`;
+    if (result.error === 'badPath') return t('「{0}」のファイルが見つかりません。右クリック →「ファイルを選び直す…」', { 0: name });
+    if (result.error === 'denied') return t('このアプリは管理者として動いているので、窓を動かせません。アプリを普通の権限で開くと、中央に合わせられます');
+    if (result.error === 'notFound') return t('見つけられませんでした。一度閉じてから、このセルでもう一度開いてください');
+    if (result.error === 'timeout') return t('「{0}」を開きましたが、返事が来ませんでした', { 0: name });
+    return t('「{0}」の窓を中央に出せませんでした', { 0: name });
   }
   switch (result.action) {
     case 'placed':
-      return `「${name}」を中央に出しました`;
+      return t('「{0}」を中央に出しました', { 0: name });
     case 'fixed':
       return result.overlap
-        ? `「${name}」は大きさを変えられないので、サイドバーに重なることがあります`
-        : `「${name}」は大きさを変えられないので、中央に寄せました`;
+        ? t('「{0}」は大きさを変えられないので、サイドバーに重なることがあります', { 0: name })
+        : t('「{0}」は大きさを変えられないので、中央に寄せました', { 0: name });
     case 'released':
-      return `「${name}」の最前面をやめました。位置はそのままです`;
+      return t('「{0}」の最前面をやめました。位置はそのままです', { 0: name });
     case 'waiting':
-      return `「${name}」を開きましたが、どの窓か分からなかったので、中央には合わせられませんでした`;
+      return t('「{0}」を開きましたが、どの窓か分からなかったので、中央には合わせられませんでした', { 0: name });
     case 'store':
-      return `「${name}」の窓を特定できませんでした。ほかのアプリの窓は動かしていません`;
+      return t('「{0}」の窓を特定できませんでした。ほかのアプリの窓は動かしていません', { 0: name });
   }
 }
 
@@ -159,7 +160,7 @@ export async function pickAppFile(): Promise<PickAppResult> {
   }
   const launch = cleanPath(reply.launch);
   if (!launch) return { ok: false, error: 'type' };
-  const name = cleanAppName(reply.name) || cleanAppName(appFileLabel({ launch, shortcut: '', target: '' })) || 'アプリ';
+  const name = cleanAppName(reply.name) || cleanAppName(appFileLabel({ launch, shortcut: '', target: '' })) || t('アプリ');
   return {
     ok: true,
     app: {
@@ -218,7 +219,7 @@ function parseApp(raw: unknown): AppEntry | null {
   const createdAt = typeof a.createdAt === 'number' ? a.createdAt : Date.now();
   return {
     id: a.id,
-    name: cleanAppName(a.name) || 'アプリ',
+    name: cleanAppName(a.name) || t('アプリ'),
     launch,
     target: cleanPath(a.target),
     args: cleanNote(a.args),
@@ -282,7 +283,7 @@ export class AppStore {
     let id = newAppId();
     while (this.get(id)) id = newAppId();
     const now = Date.now();
-    const app: AppEntry = { id, ...picked, host: '', name: cleanAppName(picked.name) || 'アプリ', createdAt: now, placedAt: now };
+    const app: AppEntry = { id, ...picked, host: '', name: cleanAppName(picked.name) || t('アプリ'), createdAt: now, placedAt: now };
     this.apps.push(app);
     this.changed();
     return app;

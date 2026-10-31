@@ -9,6 +9,7 @@
 //
 // R4-A で決めた新しい数：番号の小丸は直径 badge×0.72・字 badge×0.44（送る画像の長辺 1,024 で 2 桁が読める大きさ）。
 //   矢じりの長さは実際の線の太さ×6（縮図で線を太くしたときも釣り合う）。
+import { t } from './i18n';
 import type { CaptureBlur, CaptureMark, CaptureStroke, StampId, StrokeKind } from './captures';
 import { stampOf } from './captures';
 
@@ -89,7 +90,7 @@ export function numberOf(numbers: readonly PieceNumber[], piece: 'mark' | 'strok
 }
 
 // 絵文字を使わないとき（options.emoji === false）の 1 字
-const GLYPH: Record<StampId, string> = { good: '良', star: '★', ask: '？', idea: '！', care: '△' };
+const GLYPH: Record<StampId, string> = { good: t('良'), star: '★', ask: '？', idea: '！', care: '△' };
 
 // 太さ・矢じり・文字の大きさは、今は幅（W）だけで決める。height は将来のために受け取っている
 export function annotationStyle(width: number, _height: number): AnnotationStyle {

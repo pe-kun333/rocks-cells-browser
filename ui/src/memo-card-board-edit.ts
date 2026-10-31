@@ -2,6 +2,7 @@
 //   台帳を書くのは左だけ。ここは「左へ送る命令」を組み、送る前の確かめ（断られそうなことは先に文にする）と、送ったあとの確かめ（写しに現れたか）を決める
 //   使う命令は既存のもの：addMemoComment（＋replyId。B2-3a）・removeReply・editReply・changeReplyTags・changeReplyLinks。新しい命令は無い
 //   画面（ボタン・小窓・メニュー）は app/memo-board-tab.ts。ここで決めるのは：どのボタンが押せるか、足す場所、命令の中身、文
+import { t as tr } from './i18n';
 import { BOARD_CARD, BOARD_LIMITS, type BoardView, cleanCoord, screenToBoard } from './memo-card-board';
 import type { LoadBoardResult } from './memo-card-board-store';
 import { pasteToolNote } from './memo-card-board-paste';
@@ -31,9 +32,9 @@ export function liveSelection(replies: readonly Reply[], selected: readonly stri
 
 // カードを足せないときの文。足せるなら null。足すのは位置を保存するのが目的なので、読めない・読み込み中のボードには足さない（書かない）
 export function addBlockedNote(load: LoadBoardResult | null, replies: readonly Reply[]): string | null {
-  if (load === null) return loadingNote('足して');
-  if (load.state === 'unreadable') return unreadableBlockNote('カードは足せません', load.why);
-  if (replies.length >= MAX_REPLIES) return ledgerFullNote('カードを足せません');
+  if (load === null) return loadingNote(tr('足して'));
+  if (load.state === 'unreadable') return unreadableBlockNote(tr('カードは足せません'), load.why);
+  if (replies.length >= MAX_REPLIES) return ledgerFullNote(tr('カードを足せません'));
   return null;
 }
 
@@ -97,11 +98,11 @@ export const cardAppeared = (replies: readonly Reply[], id: string): boolean => 
 
 // ---------- 消す ----------
 
-export const deleteLabel = (n: number): string => (n >= 2 ? `${n}枚を削除` : '削除');
+export const deleteLabel = (n: number): string => (n >= 2 ? tr('{0}枚を削除', { 0: n }) : tr('削除'));
 
 export function deleteTitle(n: number): string {
-  if (n <= 0) return '先に消すカードを選んでください';
-  return `選んだ ${n} 枚のカードを消します（確認はありません。Delete キーでも消せます。Ctrl+Z で元に戻せます）`;
+  if (n <= 0) return tr('先に消すカードを選んでください');
+  return tr('選んだ {0} 枚のカードを消します（確認はありません。Delete キーでも消せます。Ctrl+Z で元に戻せます）', { 0: n });
 }
 
 // 消す命令（一番上のカードだけ。下の返信も一緒に消える）。ボード上の位置は孤児として残る（B4 の整理で消す）
@@ -119,19 +120,19 @@ export type EditCheck = { ok: true; reply: Reply } | { ok: false; note: string }
 // 書き直せるか：1 枚だけ・一番上のカード・使う人のカード（AI の返信は書き直せない＝左も断る）
 export function editCheck(replies: readonly Reply[], selected: readonly string[]): EditCheck {
   const ids = liveSelection(replies, selected);
-  if (ids.length === 0) return { ok: false, note: '先に書き直すカードを選んでください' };
-  if (ids.length > 1) return { ok: false, note: '書き直せるのは 1 枚ずつです（1 枚だけ選んでください）' };
+  if (ids.length === 0) return { ok: false, note: tr('先に書き直すカードを選んでください') };
+  if (ids.length > 1) return { ok: false, note: tr('書き直せるのは 1 枚ずつです（1 枚だけ選んでください）') };
   const reply = topOf(replies, ids[0]);
-  if (!reply) return { ok: false, note: 'カードがもうありません' };
-  if (reply.by) return { ok: false, note: 'AI が書いたカードは書き直せません' };
+  if (!reply) return { ok: false, note: tr('カードがもうありません') };
+  if (reply.by) return { ok: false, note: tr('AI が書いたカードは書き直せません') };
   return { ok: true, reply };
 }
 
 // 書き直す命令。文を空にできるのは、引用か画像があるときだけ（台帳と同じ）。文が変わらないときは null（何もしない）
 export function editCommand(memoId: string, reply: Reply, text: string): { ok: true; command: RelayCommand } | { ok: false; note: string } {
   const clean = cleanReplyText(text);
-  if (!clean && !reply.quote && !reply.image) return { ok: false, note: '文が空です（空にできるのは、引用か画像のあるカードだけです）' };
-  if (clean === reply.text) return { ok: false, note: '文は変わっていません' };
+  if (!clean && !reply.quote && !reply.image) return { ok: false, note: tr('文が空です（空にできるのは、引用か画像のあるカードだけです）') };
+  if (clean === reply.text) return { ok: false, note: tr('文は変わっていません') };
   return { ok: true, command: { command: 'editReply', ref: memoRef(memoId), replyId: reply.id, text: clean } };
 }
 
@@ -183,7 +184,7 @@ export function kindChoices(replies: readonly Reply[], from: string, to: string)
     const name = linkKindInfo(k.kind).name;
     const current = now === k.kind;
     const blocked = k.kind === 'same' && backSame && now !== 'same';
-    return { kind: k.kind, name, current, disabled: blocked, ...(current ? { hint: '今の種類' } : k.kind === 'same' && backSame ? { hint: `もう「${name}」です` } : {}) };
+    return { kind: k.kind, name, current, disabled: blocked, ...(current ? { hint: tr('今の種類') } : k.kind === 'same' && backSame ? { hint: tr('もう「{0}」です', { 0: name }) } : {}) };
   });
 }
 
@@ -193,11 +194,11 @@ export type LinkPlan = { ok: true; command: RelayCommand } | { ok: false; note: 
 export function linkAddPlan(replies: readonly Reply[], memoId: string, from: string, to: string, kind: LinkKind): LinkPlan {
   const a = topOf(replies, from);
   const b = topOf(replies, to);
-  if (!a || !b || from === to) return { ok: false, note: '結べませんでした（相手のカードがもう無いか、自分自身です）' };
+  if (!a || !b || from === to) return { ok: false, note: tr('結べませんでした（相手のカードがもう無いか、自分自身です）') };
   const done = changeLinkList(a.links ?? [], [{ to, kind }], [], (target, k) => target !== from && (k !== 'same' || !(b.links ?? []).some((l) => l.to === from && l.kind === 'same')));
-  if (done.over) return { ok: false, note: `関連は 1 枚のカードから ${MAX_LINKS_PER_CARD} 本までです（ほかの関連を外してから付けてください）` };
-  if (done.refused > 0) return { ok: false, note: 'その相手とは結べませんでした（相手のカードがもう無いか、もう「同じ」でつながっています）' };
-  if (done.links === null) return { ok: false, note: `もう関連「${linkKindInfo(kind).name}」で結ばれています` };
+  if (done.over) return { ok: false, note: tr('関連は 1 枚のカードから {0} 本までです（ほかの関連を外してから付けてください）', { 0: MAX_LINKS_PER_CARD }) };
+  if (done.refused > 0) return { ok: false, note: tr('その相手とは結べませんでした（相手のカードがもう無いか、もう「同じ」でつながっています）') };
+  if (done.links === null) return { ok: false, note: tr('もう関連「{0}」で結ばれています', { 0: linkKindInfo(kind).name }) };
   return { ok: true, command: { command: 'changeReplyLinks', id: memoId, replyId: from, add: [{ to, kind }], remove: [] } };
 }
 
@@ -262,25 +263,25 @@ export function toolState(input: { selected: readonly string[]; replies: readonl
   const pasteNote = pasteToolNote(input.load, input.replies);
   const edit = editCheck(input.replies, input.selected);
   const one = n === 1;
-  const oneNote = n === 0 ? '先にカードを 1 枚選んでください' : '1 枚だけ選んでください';
+  const oneNote = n === 0 ? tr('先にカードを 1 枚選んでください') : tr('1 枚だけ選んでください');
   const rels = one ? relationsOf(input.replies, ids[0]) : [];
   return {
-    add: { enabled: addNote === null, note: addNote ?? 'いま見ている場所の真ん中に新しいカードを足します' },
-    edit: { enabled: edit.ok, note: edit.ok ? '選んだカードの文を書き直します' : edit.note },
+    add: { enabled: addNote === null, note: addNote ?? tr('いま見ている場所の真ん中に新しいカードを足します') },
+    edit: { enabled: edit.ok, note: edit.ok ? tr('選んだカードの文を書き直します') : edit.note },
     remove: { enabled: n > 0, note: deleteTitle(n), label: deleteLabel(n) },
     tags: n > 0,
-    linkAdd: { enabled: one, note: one ? '選んだカードから、別のカードへ関連（線）を引きます' : oneNote },
-    paste: { enabled: pasteNote === null, note: pasteNote ?? '型を選んで、いま見ている場所の真ん中に貼ります（貼ったカードは全部選ばれます）' },
-    template: { enabled: n >= TEMPLATE_MIN_PICK, note: templateBlockedNote(n) ?? '選んだカードと、そのあいだの関連を、型として登録します（置いた位置も覚えます）' },
-    linkRemove: { enabled: one && rels.length > 0, note: !one ? oneNote : rels.length === 0 ? 'このカードにつながる線はありません' : '選んだカードにつながる線を、選んで外します' },
+    linkAdd: { enabled: one, note: one ? tr('選んだカードから、別のカードへ関連（線）を引きます') : oneNote },
+    paste: { enabled: pasteNote === null, note: pasteNote ?? tr('型を選んで、いま見ている場所の真ん中に貼ります（貼ったカードは全部選ばれます）') },
+    template: { enabled: n >= TEMPLATE_MIN_PICK, note: templateBlockedNote(n) ?? tr('選んだカードと、そのあいだの関連を、型として登録します（置いた位置も覚えます）') },
+    linkRemove: { enabled: one && rels.length > 0, note: !one ? oneNote : rels.length === 0 ? tr('このカードにつながる線はありません') : tr('選んだカードにつながる線を、選んで外します') },
   };
 }
 // ---------- 型にする（B3-1） ----------
 
 // 型にできない選び方の理由（できるなら null）。2 枚未満は押せない（ボタンが無効）、30 枚を超えるときは押したあとに断る
 export function templateBlockedNote(n: number): string | null {
-  if (n < TEMPLATE_MIN_PICK) return `${TEMPLATE_MIN_PICK}枚以上選ぶと、型にできます`;
-  if (n > TEMPLATE_LIMITS.cards) return `型にできるのは ${TEMPLATE_LIMITS.cards} 枚までです（いま ${n} 枚選んでいます。選び直してください）`;
+  if (n < TEMPLATE_MIN_PICK) return tr('{0}枚以上選ぶと、型にできます', { 0: TEMPLATE_MIN_PICK });
+  if (n > TEMPLATE_LIMITS.cards) return tr('型にできるのは {0} 枚までです（いま {1} 枚選んでいます。選び直してください）', { 0: TEMPLATE_LIMITS.cards, 1: n });
   return null;
 }
 

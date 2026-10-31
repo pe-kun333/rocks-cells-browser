@@ -3,6 +3,7 @@
 //   範囲選択：Shift を押しながら空きをドラッグ（今の選択に、四角に掛かるカードを足す）
 //   まとめて動かす：選んだカードのどれかをつまむと、選んだ全部が同じ量だけ動く（選んでいないカードをつまんだら、そのカードだけ選んで動かす）
 //   描く・保存するのは app/memo-board-tab.ts（保存は 1 回にまとめる：memo-card-board-view.ts の planMoves）
+import { t } from './i18n';
 import { BOARD_CARD, BOARD_LIMITS, type BoardView, type Rect, screenDeltaToBoard, screenToBoard } from './memo-card-board';
 
 export type Selection = ReadonlySet<string>;
@@ -98,5 +99,5 @@ export function groupDragPositions(starts: ReadonlyMap<string, Pt>, delta: { dx:
 // 「7枚」「7枚（3枚を選択中）」。カードが無ければ空
 export function selectionCountText(total: number, selected: number): string {
   if (total <= 0) return '';
-  return selected > 0 ? `${total}枚（${selected}枚を選択中）` : `${total}枚`;
+  return selected > 0 ? t('{0}枚（{1}枚を選択中）', { 0: total, 1: selected }) : t('{0}枚', { 0: total });
 }

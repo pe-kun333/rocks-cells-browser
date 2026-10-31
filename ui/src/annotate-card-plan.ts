@@ -4,6 +4,7 @@
 //   元が一番上のカードなら、そのカードから新しいカードへ関連を 1 本（種類は補足）。すでに 10 本なら、カードも線も置かない。
 //   下の返信・メモのセルの顔は、カードだけ置く（線は付けない。関連の上限では断らない）。
 //   箱の問いは行のまま。制御文字は消し、HTML のタグは文字のまま残す。空の行は捨て、9 行・1 行 200 字まで。
+import { t } from './i18n';
 import { cleanBotLine } from './bot-replies';
 import { MAX_LINKS_PER_CARD } from './memo-card-links';
 import { MAX_REPLIES } from './threads';
@@ -28,9 +29,9 @@ export type AnnotatedCardPlan =
   | { ok: true; memo: string; text: string; link: { from: string; kind: 'supplement' } | null }
   | { ok: false; note: string };
 
-const NONE = '書き足しが無いので、足しませんでした';
-const MISSING = '元のカードが見つかりません';
-const GONE = 'その画像は、もうありません';
+const NONE = t('書き足しが無いので、足しませんでした');
+const MISSING = t('元のカードが見つかりません');
+const GONE = t('その画像は、もうありません');
 
 // 箱の問いを、カードの文にする（制御文字は消える。タグは残る）
 export function annotatedQuestionText(raw: string): string {
@@ -55,12 +56,12 @@ export function planAnnotatedCard(input: {
   const text = annotatedQuestionText(input.questions);
   const memo = input.memo && input.memo.id === input.memoId ? input.memo : null;
   if (!memo) return { ok: false, note: input.source.kind === 'face' ? GONE : MISSING };
-  if (memo.replies.length >= MAX_REPLIES) return { ok: false, note: `返信は1つのメモに ${MAX_REPLIES} 件までです` };
+  if (memo.replies.length >= MAX_REPLIES) return { ok: false, note: t('返信は1つのメモに {0} 件までです', { 0: MAX_REPLIES }) };
   const from = input.source;
   if (from.kind === 'face') return { ok: true, memo: memo.id, text, link: null };
   const source = memo.replies.find((reply) => reply.id === from.reply);
   if (!source) return { ok: false, note: MISSING };
   if (source.parent !== null) return { ok: true, memo: memo.id, text, link: null };
-  if ((source.links ?? []).length >= MAX_LINKS_PER_CARD) return { ok: false, note: `関連は 1 枚のカードから ${MAX_LINKS_PER_CARD} 本までです` };
+  if ((source.links ?? []).length >= MAX_LINKS_PER_CARD) return { ok: false, note: t('関連は 1 枚のカードから {0} 本までです', { 0: MAX_LINKS_PER_CARD }) };
   return { ok: true, memo: memo.id, text, link: { from: source.id, kind: 'supplement' } };
 }

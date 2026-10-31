@@ -1,5 +1,6 @@
 // 札の状態（段 5〜7）。入力と答えだけ。DOM も台帳も見ない
 //   段 6 が無いあいだは、送った札は灰の「コピーした」。琥珀の「貼る前」は段 6 から
+import { t } from './i18n';
 import { parsePasted, parseSent } from './grok-cards-tags';
 
 export const RECORD_DAYS = 30;
@@ -34,13 +35,13 @@ export function cardFace(input: {
   const live = input.stage7 ? liveKind(input.request?.state ?? null, input.groupStates) : null;
   if (live === 'error' || live === 'late' || live === 'replied' || live === 'stopped') return labeled(live);
   const pasted = parsePasted(input.tags) === sent.raw;
-  if (input.stage6 && !pasted) return { kind: 'unpasted', label: '貼る前' };
-  if (input.stage6 && pasted) return { kind: 'waiting', label: '返事待ち' };
-  return { kind: 'copied', label: 'コピーした（貼ったかは分かりません）' };
+  if (input.stage6 && !pasted) return { kind: 'unpasted', label: t('貼る前') };
+  if (input.stage6 && pasted) return { kind: 'waiting', label: t('返事待ち') };
+  return { kind: 'copied', label: t('コピーした（貼ったかは分かりません）') };
 }
 
 function expired(): { kind: CardKind; label: string } {
-  return { kind: 'expired', label: '記録は期限で消えました' };
+  return { kind: 'expired', label: t('記録は期限で消えました') };
 }
 
 function finished(state: string): boolean {
@@ -48,10 +49,10 @@ function finished(state: string): boolean {
 }
 
 function labeled(kind: 'error' | 'late' | 'replied' | 'stopped'): { kind: CardKind; label: string } {
-  if (kind === 'error') return { kind, label: 'エラー !' };
-  if (kind === 'late') return { kind, label: '遅れ' };
-  if (kind === 'replied') return { kind, label: '返事あり' };
-  return { kind, label: '待つのをやめた' };
+  if (kind === 'error') return { kind, label: t('エラー !') };
+  if (kind === 'late') return { kind, label: t('遅れ') };
+  if (kind === 'replied') return { kind, label: t('返事あり') };
+  return { kind, label: t('待つのをやめた') };
 }
 
 function liveKind(state: string | null, group: readonly string[] | null): 'error' | 'late' | 'replied' | 'stopped' | 'waiting' | null {
@@ -84,5 +85,5 @@ export function heldGroups(cards: readonly { tags: readonly string[] }[]): Set<n
 // 1 日前から強くする。文は「7 日で…」、残りが 1 日以内なら「あと 1 日で…」
 export function queueNote(createdAt: number, now: number, days = 7): { text: string; soon: boolean } {
   const soon = createdAt + days * DAY - now <= DAY;
-  return { text: soon ? 'あと 1 日で順番待ちから外れます' : `${days} 日で順番待ちから外れます`, soon };
+  return { text: soon ? t('あと 1 日で順番待ちから外れます') : t('{0} 日で順番待ちから外れます', { 0: days }), soon };
 }

@@ -2,6 +2,7 @@
 //   書き出し形式：{ format: 'honeycomb-cardtpl', version: 1, templates: [...] }
 //   読み込み：JSON として読めない・format が違う・版が違うファイルは、何も変えずに断る。型 1 件ごとの検査は parseTemplateFile（読めない型は理由つきで飛ばす）
 //   足し方：id が重なれば新しい id・名前が重なれば「名前 (2)」「名前 (3)」…・合わせて 200 件まで（入る分だけ。残りは足さない）
+import { t as tr } from './i18n';
 import { type CardTemplate, cleanTemplateName, newTemplateId, parseTemplateFile, type SkipReason, TEMPLATE_LIMITS, TEMPLATE_VERSION } from './memo-card-templates';
 import { withinImportBytes } from './import-limits';
 
@@ -55,36 +56,36 @@ export function parseImportText(text: string): ImportParse {
 export function importFailText(why: ImportFail): string {
   switch (why) {
     case 'json':
-      return '型のファイルとして読めません（JSON ではありません）。何も変えていません';
+      return tr('型のファイルとして読めません（JSON ではありません）。何も変えていません');
     case 'format':
-      return '型のファイルではありません（format が honeycomb-cardtpl ではありません）。何も変えていません';
+      return tr('型のファイルではありません（format が honeycomb-cardtpl ではありません）。何も変えていません');
     case 'version':
-      return 'このファイルの版は読めません（version が 1 ではありません）。何も変えていません';
+      return tr('このファイルの版は読めません（version が 1 ではありません）。何も変えていません');
     case 'shape':
-      return '型のファイルの形が違います（templates が一覧ではありません）。何も変えていません';
+      return tr('型のファイルの形が違います（templates が一覧ではありません）。何も変えていません');
     case 'empty':
-      return '型が 1 件も入っていません。何も変えていません';
+      return tr('型が 1 件も入っていません。何も変えていません');
   }
 }
 
 export function skipReasonText(why: SkipReason): string {
   switch (why) {
     case 'shape':
-      return '形が違います';
+      return tr('形が違います');
     case 'version':
-      return '版が違います';
+      return tr('版が違います');
     case 'mode':
-      return 'モードが分かりません';
+      return tr('モードが分かりません');
     case 'name':
-      return '名前がありません';
+      return tr('名前がありません');
     case 'no-cards':
-      return 'カードがありません';
+      return tr('カードがありません');
     case 'too-many-cards':
-      return `カードが ${TEMPLATE_LIMITS.cards} 枚を超えています`;
+      return tr('カードが {0} 枚を超えています', { 0: TEMPLATE_LIMITS.cards });
     case 'text':
-      return 'カードの文が空です';
+      return tr('カードの文が空です');
     case 'limit':
-      return `${TEMPLATE_LIMITS.templates} 件を超えています`;
+      return tr('{0} 件を超えています', { 0: TEMPLATE_LIMITS.templates });
   }
 }
 
@@ -155,8 +156,8 @@ export function mergeImported(existing: readonly CardTemplate[], incoming: reado
 
 // 足したあとの知らせの文
 export function importSummaryText(s: ImportSummary): string {
-  const parts = [`${s.added} 件を読み込みました`];
-  if (s.nameChanged > 0) parts.push(`名前が重なった ${s.nameChanged} 件は「(2)」などを付けました`);
-  if (s.dropped > 0) parts.push(`${TEMPLATE_LIMITS.templates} 件に収まらない ${s.dropped} 件は足していません`);
+  const parts = [tr('{0} 件を読み込みました', { 0: s.added })];
+  if (s.nameChanged > 0) parts.push(tr('名前が重なった {0} 件は「(2)」などを付けました', { 0: s.nameChanged }));
+  if (s.dropped > 0) parts.push(tr('{0} 件に収まらない {1} 件は足していません', { 0: TEMPLATE_LIMITS.templates, 1: s.dropped }));
   return parts.join('。');
 }

@@ -1,5 +1,6 @@
 // 下の区画のカードを、タグで絞る部品（絞りの処理と札の列。app/memo-pane.ts から呼ぶ）
 //   タグを持つのは一番上のカード（parent === null）だけ。返信はそのカードと一緒に出る・隠れる
+import { t } from './i18n';
 import { isMachineTag, visibleTags } from './grok-cards-tags';
 import { tagColor } from './tags';
 import { byOrder, type Reply } from './threads';
@@ -78,9 +79,9 @@ export function cardFilterRow(o: { counts: readonly [string, number][]; total: n
   const row = el('div', 'memo-card-filter');
   row.setAttribute('role', 'group');
   row.setAttribute('aria-label', 'カードをタグで絞る');
-  const all = el('button', 'memo-card-filter-chip', `すべて ${o.total}`);
+  const all = el('button', 'memo-card-filter-chip', t('すべて {0}', { 0: o.total }));
   all.type = 'button';
-  all.title = 'タグで絞らない';
+  all.title = t('タグで絞らない');
   all.setAttribute('aria-pressed', String(o.selected === null));
   all.dataset.focusKey = 'filter:all';
   all.addEventListener('click', () => o.pick(null));
@@ -89,7 +90,7 @@ export function cardFilterRow(o: { counts: readonly [string, number][]; total: n
     const chip = el('button', 'memo-card-filter-chip', `${tag} ${n}`);
     chip.type = 'button';
     chip.style.setProperty('--tag', tagColor(tag));
-    chip.title = `タグ「${tag}」の付いたカードだけを出す`;
+    chip.title = t('タグ「{0}」の付いたカードだけを出す', { 0: tag });
     chip.setAttribute('aria-pressed', String(o.selected === tag));
     chip.dataset.focusKey = `filter:tag:${tag}`;
     chip.addEventListener('click', () => o.pick(o.selected === tag ? null : tag));
@@ -100,7 +101,7 @@ export function cardFilterRow(o: { counts: readonly [string, number][]; total: n
     const more = el('select', 'memo-card-filter-more');
     more.setAttribute('aria-label', 'その他のタグで絞る');
     more.dataset.focusKey = 'filter:more';
-    const first = el('option', '', 'その他 ▾');
+    const first = el('option', '', t('その他 ▾'));
     first.value = '';
     more.append(first);
     for (const [tag, n] of rest) {

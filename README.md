@@ -1,6 +1,6 @@
-﻿# Rocks-cells Browser Ver0.031β
+﻿# Rocks-cells Browser Ver0.031β-en
 
-> バージョン / Version: **Ver0.031β** (0.0.31, beta / プレリリース). 版の情報は `version.json` 1か所で管理しています / single source: `version.json`.
+> バージョン / Version: **Ver0.031β-en** (0.0.31.1, beta / プレリリース). 版の情報は `version.json` 1か所で管理しています / single source: `version.json`.
 
 > 変更点 / Changes: [CHANGELOG.md](CHANGELOG.md)
 
@@ -12,7 +12,7 @@ A Windows browser that arranges tabs on a hexagonal honeycomb, with memos, sheet
 
 ## 動かす / Run（はじめての方へ）
 
-1. GitHub の Releases から `RocksCellsBrowser-Ver0.031beta-portable.zip` をダウンロードします。
+1. GitHub の Releases から `RocksCellsBrowser-Ver0.031beta-en-portable.zip` をダウンロードします。
 2. zip を**右クリック →「すべて展開」**で、好きなフォルダに展開します（zip を開いたままの中からは起動しないでください）。
 3. 展開したフォルダの **`RocksCellsBrowser.exe` をダブルクリック**します（`Rocks-cells Browser.bat` でも同じです）。インストールは不要で、Node.js やサーバーも要りません（六角メモも中に入っています）。
 4. 初回だけ青い「Windows によって PC が保護されました」が出たら、「詳細情報」→「実行」を押します（下の SmartScreen について）。
@@ -33,6 +33,11 @@ Quick start: download the portable zip from Releases, **extract it** (right-clic
 **SmartScreen について / Unsigned build:** この exe はコード署名されていません。初回起動時に Windows SmartScreen が「Windows によって PC が保護されました」と表示することがあります。「詳細情報」→「実行」で起動できます。気になる場合はソースから自分でビルドしてください。
 This executable is not code-signed, so Windows SmartScreen may warn on first launch ("More info" → "Run anyway"). You can always build it yourself from source.
 
+## English / 言語 / Language
+
+**English:** Rocks-cells Browser has an English UI (from Ver0.031β-en). On Windows whose display language is not Japanese, the app starts in English automatically; on Japanese Windows it starts in Japanese. To switch, open the appearance (theme) popup and choose **Language: 日本語 / English / Auto**. The setting is saved and applies fully the next time you start the app (the exe's own text — context menus, window titles, dialogs such as the WebView2 Runtime prompt — follows it too). A few things are still Japanese in this version: text not yet in the English table, the prompts sent to the AI companion (planned for the next version), and stored data labels (link kinds, stamp names, etc.). The developer notes in `docs/` are Japanese.
+
+**日本語：** Ver0.031β-en から、画面を英語にもできます。Windows の表示言語が日本語なら日本語、それ以外なら英語ではじめから動きます。切り替えは、見た目（テーマ）の小窓の **「言語 / Language」で 日本語・English・自動** を選びます。次に起動したときから全体に効きます（exe 側の右クリックのメニュー・窓の題・WebView2 ランタイムの案内なども合わせて変わります）。英語の表に無い文、AI への指示の文（次の版で英語に）、保存するデータの文字（つながりの種類・スタンプの名前など）は、この版では日本語のままです。
 ## ビルド / Build
 
 必要: Visual Studio 2022 (C++ デスクトップ開発、Windows SDK)、Node.js 18+。

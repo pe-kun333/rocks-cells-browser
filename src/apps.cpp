@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "storage.h"
+#include "l10n.h"
 #include "strings.h"
 
 using Microsoft::WRL::ComPtr;
@@ -464,12 +465,12 @@ json Pick(HWND owner) {
     // 実在するファイルだけ。スタートメニューのショートカットも、ディスク上の .lnk なのでここで選べる
     if (FAILED(dialog->SetOptions(options | FOS_FILEMUSTEXIST | FOS_PATHMUSTEXIST | FOS_FORCEFILESYSTEM))) return Fail("dialog");
     const COMDLG_FILTERSPEC filters[] = {
-        {L"アプリ（実行ファイルとショートカット）", L"*.exe;*.lnk"},
-        {L"実行ファイル", L"*.exe"},
-        {L"ショートカット", L"*.lnk"},
+        {l10n::Tr(L"アプリ（実行ファイルとショートカット）"), L"*.exe;*.lnk"},
+        {l10n::Tr(L"実行ファイル"), L"*.exe"},
+        {l10n::Tr(L"ショートカット"), L"*.lnk"},
     };
     dialog->SetFileTypes(3, filters);
-    dialog->SetTitle(L"盤面に登録するアプリを選ぶ");
+    dialog->SetTitle(l10n::Tr(L"盤面に登録するアプリを選ぶ"));
     StartInPrograms(dialog.Get());
     const HRESULT shown = dialog->Show(owner);
     if (shown == HRESULT_FROM_WIN32(ERROR_CANCELLED)) return Fail("cancel");
@@ -510,7 +511,7 @@ json Pick(HWND owner) {
     const std::string icon = IconBase64(iconPath);
     std::wstring name = DisplayName(picked);
     if (name.empty()) name = CleanName(fs::path(picked).stem().wstring());
-    if (name.empty()) name = L"アプリ";
+    if (name.empty()) name = l10n::Tr(L"アプリ");
 
     return {{"ok", true},
             {"name", ToUtf8(name)},

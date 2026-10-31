@@ -4,6 +4,7 @@
 //   ・書くのは下のメモの区画だけ（LinkNameSetStore を作るのはそこだけ）。左はメモの linkSet を書くだけで、このファイルは書かない
 //   ・左は起動時にこのファイルを読むだけ（新しいメモに付ける id が、まだ台帳にあるかを見る。決まりは link-set-for-new.ts）。あとの増減は下の区画が知らせる
 //   ・セットを選んでいないメモは、今までどおりそのメモの linkNames（無ければ元の名前）
+import { t } from './i18n';
 import { readDataChecked, writeData } from './data';
 import { type LinkKind, type LinkKindNames, parseLinkKindNames } from './memo-card-links';
 
@@ -62,7 +63,7 @@ export function normalizeLinkNameBook(raw: unknown): LinkNameBook {
     const o = item as Record<string, unknown>;
     let id = parseLinkSetId(o.id) ?? `n${i}`;
     if (sets.some((s) => s.id === id)) id = newLinkNameSetId();
-    sets.push({ id, name: cleanLinkNameSetName(o.name) || `セット${sets.length + 1}`, names: parseLinkKindNames(o.names) ?? {} });
+    sets.push({ id, name: cleanLinkNameSetName(o.name) || t('セット{0}', { 0: sets.length + 1 }), names: parseLinkKindNames(o.names) ?? {} });
     if (sets.length >= MAX_LINK_NAME_SETS) break;
   }
   return { version: 1, sets };
@@ -101,7 +102,7 @@ export function applyLinkNameSetOp(book: LinkNameBook, op: LinkNameSetOp): LinkN
       if (b.sets.length >= MAX_LINK_NAME_SETS) return { book: b, id: null, changed: false };
       const set: LinkNameSet = {
         id: newLinkNameSetId(),
-        name: cleanLinkNameSetName(op.name) || `セット${b.sets.length + 1}`,
+        name: cleanLinkNameSetName(op.name) || t('セット{0}', { 0: b.sets.length + 1 }),
         names: parseLinkKindNames(op.names) ?? {},
       };
       return { book: { version: 1, sets: [...b.sets, set] }, id: set.id, changed: true };

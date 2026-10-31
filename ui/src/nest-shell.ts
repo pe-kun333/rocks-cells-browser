@@ -1,5 +1,6 @@
 // ダイソンの殻の見え方（計画 §4・§5）。描く前の決まりだけ。色と SVG は nest-icon.ts
 //   3 つの軸を混ぜない：開く／閉じる、届いた 0〜6、合体（殻は隠して、下の行が開閉になる）
+import { t } from './i18n';
 import { arrivedLabel } from './grok-cards-arrived';
 import { countLine } from './grok-cards-count';
 
@@ -42,22 +43,22 @@ export function shellSize(ringHeight: number): ShellSize {
 
 function arrivedText(arrived: number, arrivedOf?: number): string {
   const k = Math.max(0, Math.floor(arrived));
-  if (arrivedOf === undefined || arrivedOf <= 0) return `届いた ${Math.min(6, k)}/6`;
+  if (arrivedOf === undefined || arrivedOf <= 0) return t('届いた {0}/6', { 0: Math.min(6, k) });
   return arrivedLabel(k, arrivedOf);
 }
 
 export function shellCaption(input: Pick<ShellInput, 'open' | 'arrived' | 'drafts' | 'replies' | 'arrivedOf'>): string {
-  if (input.open) return '開いています';
+  if (input.open) return t('開いています');
   if (input.arrived > 0) return arrivedText(input.arrived, input.arrivedOf);
   return countLine(input.drafts, input.replies);
 }
 
 export function shellLabel(open: boolean, drafts: number, replies: number, arrived?: { k: number; of: number }): string {
-  if (open) return 'Grok Cards を閉じる';
+  if (open) return t('Grok Cards を閉じる');
   const line = countLine(drafts, replies);
   const extra = arrived && arrived.k > 0 && arrived.of > 0 ? arrivedLabel(arrived.k, arrived.of) : '';
-  const body = [line, extra].filter(Boolean).join('・');
-  return body ? `Grok Cards を開く（${body}）` : 'Grok Cards を開く';
+  const body = [line, extra].filter(Boolean).join(t('・'));
+  return body ? t('Grok Cards を開く（{0}）', { 0: body }) : t('Grok Cards を開く');
 }
 
 export function shellView(input: ShellInput): ShellView {
@@ -79,7 +80,7 @@ export function shellView(input: ShellInput): ShellView {
     }
   }
   const named = input.arrivedOf !== undefined && input.arrived > 0 ? { k: Math.floor(input.arrived), of: input.arrivedOf } : undefined;
-  const label = shellLabel(input.open, input.drafts, input.replies, named) + (badge === 'alert' ? '（エラー）' : '');
+  const label = shellLabel(input.open, input.drafts, input.replies, named) + (badge === 'alert' ? t('（エラー）') : '');
   return {
     size: input.size,
     open: input.open,
@@ -99,8 +100,8 @@ export function mergeRowLabel(input: Pick<ShellInput, 'drafts' | 'replies' | 'ar
   const line = countLine(input.drafts, input.replies);
   if (line) parts.push(line);
   if (input.arrived > 0) parts.push(arrivedText(input.arrived, input.arrivedOf));
-  const body = parts.join('・');
-  return body ? `${body} ▸` : '合体 Grok ▸';
+  const body = parts.join(t('・'));
+  return body ? `${body} ▸` : t('合体 Grok ▸');
 }
 
 export interface ShellDev {

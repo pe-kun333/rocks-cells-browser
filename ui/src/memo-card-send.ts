@@ -4,6 +4,7 @@
 //   ・呼び名は種類の id のまま運ぶ。画面の名前は、送り先のメモの呼称セットが決める（ここでは変えない）
 //   ・送り先の並びの最後に、元の並び順のまま足す（rank は持たせず、時刻を送り先の後ろへずらす）
 //   ・id は移すときも写すときも新しくする。1 つのメモの返信は MAX_REPLIES まで。超えるときは全部断る
+import { t } from './i18n';
 import type { ReplyLink } from './memo-card-links';
 import { pruneLinks } from './memo-card-links';
 import { descendantsOf, MAX_REPLIES, newReplyId, orderedTops, type Reply } from './threads';
@@ -101,8 +102,8 @@ export function rangeIds(order: readonly string[], anchor: string, target: strin
 // 送る前の確かめの文。切れる関連が無ければ null（呼び名の一言は、送ったあとの知らせに出す）
 export function sendWarning(mode: SendMode, cut: number, kept: number): string | null {
   if (cut <= 0) return null;
-  const head = mode === 'move' ? `関連 ${cut} 本が切れます` : `写しには、残るカードとの関連 ${cut} 本は入りません`;
-  return kept > 0 ? `${head}。残る関連の呼び名は、送り先のメモの呼称に従います` : head;
+  const head = mode === 'move' ? t('関連 {0} 本が切れます', { 0: cut }) : t('写しには、残るカードとの関連 {0} 本は入りません', { 0: cut });
+  return kept > 0 ? t('{0}。残る関連の呼び名は、送り先のメモの呼称に従います', { 0: head }) : head;
 }
 
 // カードを送ったあとの、元と送り先の返信。入力の配列と中身は変えない

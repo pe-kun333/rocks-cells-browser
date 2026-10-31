@@ -1,6 +1,7 @@
 // Grok Cards の下書き（計画の段 4。案 A：専用シートのメモのカード）
 //   シートの見つけ方・作り方はここだけ（作者 2 の仮の既定。名前は「Grok Cards」）
 //   今見ているシートは変えない。台帳を読めないときは add を呼ばない（メモリーにも残さない）
+import { t } from './i18n';
 import { CARDS_SHEET_KEY } from './cards-stages';
 import { nearestFree } from './hex';
 import { isSpecialCell, type MemoStore } from './memocells';
@@ -92,7 +93,7 @@ export function setGrokCardText(o: { memos: MemoStore; sheets: SheetStore; id: s
   const sheet = findGrokCardsSheet(o.sheets);
   const memo = o.memos.get(o.id);
   if (!sheet || !memo || memo.sheet !== sheet.id || isSpecialCell(memo)) {
-    return { ok: false, notice: 'その下書きは、もうありません。書いた文はこの欄に残しています', keep: true };
+    return { ok: false, notice: t('その下書きは、もうありません。書いた文はこの欄に残しています'), keep: true };
   }
   const plan = planAdd({
     text: o.text,
@@ -121,7 +122,7 @@ function canWrite(memos: MemoStore): boolean {
 export function markGrokCardSent(o: { memos: MemoStore; sheets: SheetStore; id: string; sent: string }): CardWrite {
   if (!isSentRaw(o.sent)) return { ok: false, notice: '', keep: true };
   const memo = cardMemo(o);
-  if (!memo) return { ok: false, notice: 'その下書きは、もうありません', keep: true };
+  if (!memo) return { ok: false, notice: t('その下書きは、もうありません'), keep: true };
   if (!canWrite(o.memos)) return { ok: false, notice: NOTICE_REFUSED, keep: true };
   const tags = withSentTag(memo.tags, o.sent);
   if (tags.join('\n') !== memo.tags.join('\n')) o.memos.update(o.id, { tags });
@@ -130,7 +131,7 @@ export function markGrokCardSent(o: { memos: MemoStore; sheets: SheetStore; id: 
 
 export function markGrokCardPasted(o: { memos: MemoStore; sheets: SheetStore; id: string }): CardWrite {
   const memo = cardMemo(o);
-  if (!memo) return { ok: false, notice: 'その下書きは、もうありません', keep: true };
+  if (!memo) return { ok: false, notice: t('その下書きは、もうありません'), keep: true };
   const tags = withPastedTag(memo.tags);
   if (!tags) return { ok: false, notice: '', keep: true };
   if (!canWrite(o.memos)) return { ok: false, notice: NOTICE_REFUSED, keep: true };
@@ -140,7 +141,7 @@ export function markGrokCardPasted(o: { memos: MemoStore; sheets: SheetStore; id
 
 export function clearGrokCardSent(o: { memos: MemoStore; sheets: SheetStore; id: string }): CardWrite {
   const memo = cardMemo(o);
-  if (!memo) return { ok: false, notice: 'その下書きは、もうありません', keep: true };
+  if (!memo) return { ok: false, notice: t('その下書きは、もうありません'), keep: true };
   if (!canWrite(o.memos)) return { ok: false, notice: NOTICE_REFUSED, keep: true };
   o.memos.update(o.id, { tags: withoutSent(memo.tags) });
   return { ok: true, notice: '', keep: false, id: memo.id };
@@ -148,7 +149,7 @@ export function clearGrokCardSent(o: { memos: MemoStore; sheets: SheetStore; id:
 
 export function removeGrokCard(o: { memos: MemoStore; sheets: SheetStore; id: string }): CardWrite {
   const memo = cardMemo(o);
-  if (!memo) return { ok: false, notice: 'その下書きは、もうありません', keep: true };
+  if (!memo) return { ok: false, notice: t('その下書きは、もうありません'), keep: true };
   if (!canWrite(o.memos)) return { ok: false, notice: NOTICE_REFUSED, keep: true };
   o.memos.remove(o.id);
   return { ok: true, notice: '', keep: false };

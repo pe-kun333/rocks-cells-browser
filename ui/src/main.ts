@@ -17,6 +17,7 @@ import { startPrimary } from './app/primary';
 import { startReader } from './app/reader';
 import { startSecondary } from './app/secondary';
 import { surface } from './bridge';
+import { startI18n } from './i18n';
 import { startTheme } from './theme';
 
 // トラックパッドのピンチは Ctrl 付きのホイールとして届く。止めないとサイドバー全体が拡大されてしまう
@@ -31,6 +32,9 @@ window.addEventListener(
 
 // 見た目のテーマ（最初の一瞬は public/theme-boot.js が付けている。ここで付け直し、変化を受ける）
 startTheme();
+
+// 画面の言語（英語版 E0）：<html lang> を付け、index.html の最初からある文字を辞書で訳す（日本語のときは何もしない）
+startI18n();
 
 if (surface === 'left') startPrimary();
 else if (surface === 'reader') startReader();

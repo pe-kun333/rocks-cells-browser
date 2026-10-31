@@ -1,6 +1,7 @@
 // 右サイドバーの「撮影」（C1・C5）
 //   見出しの「▣ 中央を撮る」の左クリックは、中央に見えているページだけ。右クリックで窓全体・デスクトップ・範囲。
 //   窓の上のボタンは置かない。カードの右クリックは、いいね1・2・3の丸いボタン（タグのボタンと同じ顔）。
+import { t } from '../i18n';
 import { armConfirm } from '../confirm-arm';
 import { formatUsd } from '../ai/budget';
 import { requestPageText } from '../ai/page';
@@ -118,18 +119,18 @@ interface AskShot {
 }
 
 const FOLD_KEY = 'honeycomb.captureFolded';
-const READONLY_SHORT = '撮影の一覧を読めなかったので、撮影の保存を止めています。アプリを開き直してください';
+const READONLY_SHORT = t('撮影の一覧を読めなかったので、撮影の保存を止めています。アプリを開き直してください');
 // 隠せたが、一覧（captures.json）の保存に失敗した（店の結果の saved が false）
-const INDEX_NOT_SAVED = '（一覧の保存に失敗しました。開き直すと、読んだ文字が戻ることがあります）';
-const NO_JAPANESE = 'この Windows には、日本語の文字認識が入っていません。設定の『時刻と言語』から追加できます';
+const INDEX_NOT_SAVED = t('（一覧の保存に失敗しました。開き直すと、読んだ文字が戻ることがあります）');
+const NO_JAPANESE = t('この Windows には、日本語の文字認識が入っていません。設定の『時刻と言語』から追加できます');
 const LEVELS: LikeLevel[] = [1, 2, 3];
 const CANDIDATE_ORDER: CandidateKind[] = ['key', 'mail', 'phone', 'card'];
-const CANDIDATE_LABEL: Record<CandidateKind, string> = { key: '鍵', mail: 'メール', phone: '電話', card: 'カード' };
+const CANDIDATE_LABEL: Record<CandidateKind, string> = { key: t('鍵'), mail: t('メール'), phone: t('電話'), card: t('カード') };
 const FIT_STAGE: Record<FitFailure, string> = {
-  decode: '読み込み：画像として読めない',
-  empty: '読み込み：大きさが 0',
-  canvas: '縮める：canvas が使えない',
-  encode: '縮める：書き出せない',
+  decode: t('読み込み：画像として読めない'),
+  empty: t('読み込み：大きさが 0'),
+  canvas: t('縮める：canvas が使えない'),
+  encode: t('縮める：書き出せない'),
 };
 // ページの画像の右クリック（I1）：ページの最上位の枠の中で evalInTab が動かす決まったスクリプト（awaitPromise つき）。
 //   右クリックで見張りが覚えた画像の、見えている矩形（見えている所の左上からの CSS ピクセル）を測る。ページの値はデータとして扱い、
@@ -173,13 +174,13 @@ const IMAGE_RECT_SCRIPT = `(async () => {
 })()`;
 // IMAGE_RECT_SCRIPT が返す reason ごとの文（知らない reason は「理由は分かりません」）
 const IMAGE_REASON: Record<string, string> = {
-  none: '画像の上で右クリックした記録がありません。読み込みの途中のページや、枠の中の画像では撮れません',
-  old: '右クリックから時間がたちました',
-  gone: '画像がページから消えました',
-  loading: '画像がまだ読み込まれていません',
-  pinch: '2 本指で拡大しているあいだは撮れません',
-  unstable: '画像の位置が落ち着きませんでした',
-  small: '画像が小さすぎます',
+  none: t('画像の上で右クリックした記録がありません。読み込みの途中のページや、枠の中の画像では撮れません'),
+  old: t('右クリックから時間がたちました'),
+  gone: t('画像がページから消えました'),
+  loading: t('画像がまだ読み込まれていません'),
+  pinch: t('2 本指で拡大しているあいだは撮れません'),
+  unstable: t('画像の位置が落ち着きませんでした'),
+  small: t('画像が小さすぎます'),
 };
 
 export class CapturePanel {
@@ -239,7 +240,7 @@ export class CapturePanel {
     this.element.setAttribute('aria-label', '撮影');
     this.status.setAttribute('role', 'status');
     this.readonlyNote.hidden = true;
-    this.body.append(this.status, this.readonlyNote, el('p', 'capture-note', '残した画像は、このパソコンの中だけです。設定の画面や鍵が写っていたら消してください。外に出すのは、「AIに頼む」で中身を見て、送るを押したときだけです。'), this.list);
+    this.body.append(this.status, this.readonlyNote, el('p', 'capture-note', t('残した画像は、このパソコンの中だけです。設定の画面や鍵が写っていたら消してください。外に出すのは、「AIに頼む」で中身を見て、送るを押したときだけです。')), this.list);
     this.element.append(this.head, this.body);
     host.store.onChange(() => this.render());
     this.element.addEventListener('focusout', () => {
@@ -304,7 +305,7 @@ export class CapturePanel {
   captureScope(scope: CaptureScope) {
     if (this.recording) {
       if (scope === 'center') void this.stopRecord();
-      else this.say('録画中です。止めてから撮ってください');
+      else this.say(t('録画中です。止めてから撮ってください'));
       return;
     }
     if (scope === 'center') void this.shoot();
@@ -316,7 +317,7 @@ export class CapturePanel {
     const via = this.regionVia;
     this.regionVia = undefined;
     if (!image.startsWith('data:image/')) {
-      this.say('囲んだ範囲を残せませんでした');
+      this.say(t('囲んだ範囲を残せませんでした'));
       return;
     }
     const addedId = await this.keepImage(image, 'region', undefined, via);
@@ -325,30 +326,30 @@ export class CapturePanel {
 
   cancelCrop() {
     this.regionVia = undefined;
-    this.say('範囲の指定をやめました');
+    this.say(t('範囲の指定をやめました'));
   }
 
   // 盤面・下の区画の画像（shots\<id>.json）を撮影に残し、大きく開く（I4）。画面は撮らず、元の画像を縮めて入れる
   //   録画中でも断らない（画面を撮らないので、録画とぶつからない）
   async keepShot(shot: string, kind: CaptureFromKind, name: string) {
     if (!/^shot[0-9a-z]+$/.test(shot) || shot.length > 64 || !(CAPTURE_FROM_KINDS as readonly string[]).includes(kind)) {
-      this.say('画像を撮影に残せませんでした（画像の名前が違います）');
+      this.say(t('画像を撮影に残せませんでした（画像の名前が違います）'));
       return;
     }
     if (this.shooting) {
-      this.say('撮っています。終わってからもう一度送ってください');
+      this.say(t('撮っています。終わってからもう一度送ってください'));
       return;
     }
     this.shooting = true;
     let added: CaptureItem | null = null;
     try {
       if (this.host.store.state === 'loading') {
-        this.say('撮影の一覧を読み込んでいます', 0);
+        this.say(t('撮影の一覧を読み込んでいます'), 0);
         await Promise.race([this.host.store.ready, new Promise<void>((resolve) => window.setTimeout(resolve, 8_000))]);
       }
       const state = this.host.store.state;
       if (state === 'loading') {
-        this.say('撮影の一覧の読み込みが終わらないので、画像を残しませんでした');
+        this.say(t('撮影の一覧の読み込みが終わらないので、画像を残しませんでした'));
         return;
       }
       if (state === 'readonly') {
@@ -356,18 +357,18 @@ export class CapturePanel {
         return;
       }
       if (this.host.store.items.length >= CAPTURE_LIMIT) {
-        this.say(`撮影は ${CAPTURE_LIMIT} 件までです。古いカードを消してから撮ってください`);
+        this.say(t('撮影は {0} 件までです。古いカードを消してから撮ってください', { 0: CAPTURE_LIMIT }));
         return;
       }
       const saved = await readData<{ data?: unknown }>(`shots/${shot}.json`);
       const data = saved?.data;
       if (typeof data !== 'string' || !data.startsWith('data:image/')) {
-        this.say('元の画像を読めませんでした（もう無いか、壊れています）');
+        this.say(t('元の画像を読めませんでした（もう無いか、壊れています）'));
         return;
       }
       const fit = await fitCaptureImage(data);
       if ('error' in fit) {
-        this.say(`画像を整えられませんでした（${FIT_STAGE[fit.error]}）`);
+        this.say(t('画像を整えられませんでした（{0}）', { 0: FIT_STAGE[fit.error] }));
         return;
       }
       const result = await this.host.store.add(fit.dataUrl, undefined, 'region', undefined, { kind, ...(name ? { name } : {}) });
@@ -378,7 +379,7 @@ export class CapturePanel {
       this.images.set(result.item.id, fit.dataUrl);
       added = result.item;
       if (this.folded) this.setFolded(false);
-      this.say('画像を撮影に残しました（AI には送りません）');
+      this.say(t('画像を撮影に残しました（AI には送りません）'));
     } finally {
       this.shooting = false;
       this.render();
@@ -392,27 +393,27 @@ export class CapturePanel {
   //   画像は左から運ばれない（url は照合だけに使う）。位置が分からないときは撮らずに理由を知らせる（カードは増えない）
   async shootImage(req: { tabId: number; url: string; tabUrl: string; at: number }) {
     if (this.recording) {
-      this.say('録画中です。止めてから撮ってください');
+      this.say(t('録画中です。止めてから撮ってください'));
       return;
     }
     if (this.shooting) {
-      this.say('撮っています。終わってからもう一度送ってください');
+      this.say(t('撮っています。終わってからもう一度送ってください'));
       return;
     }
     if (Date.now() - req.at > 20_000) {
-      this.say('時間がたったので、画像は撮りませんでした');
+      this.say(t('時間がたったので、画像は撮りませんでした'));
       return;
     }
     this.shooting = true;
     let added: CaptureItem | null = null;
     try {
       if (this.host.store.state === 'loading') {
-        this.say('撮影の一覧を読み込んでいます', 0);
+        this.say(t('撮影の一覧を読み込んでいます'), 0);
         await Promise.race([this.host.store.ready, new Promise<void>((resolve) => window.setTimeout(resolve, 8_000))]);
       }
       const state = this.host.store.state;
       if (state === 'loading') {
-        this.say('撮影の一覧の読み込みが終わらないので、画像は撮りませんでした');
+        this.say(t('撮影の一覧の読み込みが終わらないので、画像は撮りませんでした'));
         return;
       }
       if (state === 'readonly') {
@@ -420,38 +421,38 @@ export class CapturePanel {
         return;
       }
       if (this.host.store.items.length >= CAPTURE_LIMIT) {
-        this.say(`撮影は ${CAPTURE_LIMIT} 件までです。古いカードを消してから撮ってください`);
+        this.say(t('撮影は {0} 件までです。古いカードを消してから撮ってください', { 0: CAPTURE_LIMIT }));
         return;
       }
       const tab = this.host.activeTab();
       if (!tab) {
-        this.say('中央にページがありません');
+        this.say(t('中央にページがありません'));
         return;
       }
       if (tab.id !== req.tabId) {
-        this.say('右クリックしたページが、今は中央に出ていないので撮りませんでした');
+        this.say(t('右クリックしたページが、今は中央に出ていないので撮りませんでした'));
         return;
       }
       if (req.tabUrl && withoutHash(req.tabUrl) !== withoutHash(tab.url)) {
-        this.say('ページが変わったので、画像は撮りませんでした');
+        this.say(t('ページが変わったので、画像は撮りませんでした'));
         return;
       }
-      this.say('画像を撮っています', 0);
+      this.say(t('画像を撮っています'), 0);
       // 画像の位置はページに測ってもらう（右クリックの時の矩形は、右を開いたときの組み直しで当てにならない）
       const asked = await request((requestId) => ({ type: 'evalInTab', requestId, id: tab.id, script: IMAGE_RECT_SCRIPT }), 3_000);
       if (asked?.type !== 'evalResult' || !asked.ok) {
-        this.say(imageLost('ページに聞けませんでした'));
+        this.say(imageLost(t('ページに聞けませんでした')));
         return;
       }
       // ページの返事はデータとして読む
       const value = asked.value as { ok?: unknown; reason?: unknown; rect?: unknown; srcs?: unknown } | null | undefined;
       if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        this.say(imageLost('ページの返事が変でした'));
+        this.say(imageLost(t('ページの返事が変でした')));
         return;
       }
       if (value.ok !== true) {
         const reason = typeof value.reason === 'string' ? value.reason : '';
-        this.say(imageLost(Object.prototype.hasOwnProperty.call(IMAGE_REASON, reason) ? IMAGE_REASON[reason] : '理由は分かりません'));
+        this.say(imageLost(Object.prototype.hasOwnProperty.call(IMAGE_REASON, reason) ? IMAGE_REASON[reason] : t('理由は分かりません')));
         return;
       }
       const box = (value.rect && typeof value.rect === 'object' ? value.rect : {}) as Record<string, unknown>;
@@ -462,7 +463,7 @@ export class CapturePanel {
         typeof width !== 'number' || !Number.isFinite(width) || width < 1 ||
         typeof height !== 'number' || !Number.isFinite(height) || height < 1
       ) {
-        this.say(imageLost('ページの返事が変でした'));
+        this.say(imageLost(t('ページの返事が変でした')));
         return;
       }
       const rect = { x, y, width, height };
@@ -471,7 +472,7 @@ export class CapturePanel {
       if (req.url) {
         const want = withoutHash(req.url);
         if (!srcs.some((src) => withoutHash(src) === want)) {
-          this.say(imageLost('右クリックした画像と違う画像でした'));
+          this.say(imageLost(t('右クリックした画像と違う画像でした')));
           return;
         }
       }
@@ -482,7 +483,7 @@ export class CapturePanel {
       }
       const fit = await fitCaptureImage(reply.image);
       if ('error' in fit) {
-        this.say(`撮った画像を整えられませんでした（${FIT_STAGE[fit.error]}）`);
+        this.say(t('撮った画像を整えられませんでした（{0}）', { 0: FIT_STAGE[fit.error] }));
         return;
       }
       const result = await this.host.store.add(fit.dataUrl, sourceOf(tab.url, tab.title));
@@ -493,8 +494,8 @@ export class CapturePanel {
       this.images.set(result.item.id, fit.dataUrl);
       added = result.item;
       if (this.folded) this.setFolded(false);
-      let note = reply.cropped ? '画像の見えている部分だけを残しました（AI には送りません）' : '画像を撮影に残しました（AI には送りません）';
-      if (reply.reduced) note += '。大きすぎたので細かさを下げました';
+      let note = reply.cropped ? t('画像の見えている部分だけを残しました（AI には送りません）') : t('画像を撮影に残しました（AI には送りません）');
+      if (reply.reduced) note += t('。大きすぎたので細かさを下げました');
       this.say(note);
     } finally {
       this.shooting = false;
@@ -553,7 +554,7 @@ export class CapturePanel {
   private storeBlocks() {
     const state = this.host.store.state;
     if (state === 'ready') return false;
-    this.say(state === 'loading' ? '撮影の一覧を読み込んでいます。少し待ってから押してください' : READONLY_SHORT);
+    this.say(state === 'loading' ? t('撮影の一覧を読み込んでいます。少し待ってから押してください') : READONLY_SHORT);
     return true;
   }
 
@@ -569,18 +570,18 @@ export class CapturePanel {
     const item = this.host.store.items.find((row) => row.id === shown.id);
     if (!item) return;
     if (this.recording) {
-      this.say('録画中です。止めてから読んでください');
+      this.say(t('録画中です。止めてから読んでください'));
       return;
     }
     const cached = this.images.get(item.id);
     const image = typeof cached === 'string' ? cached : await this.fetchImage(item.id);
     if (!image) {
-      this.say('画像を読めませんでした');
+      this.say(t('画像を読めませんでした'));
       return;
     }
     this.readingId = item.id;
     if (this.pick?.id === item.id) this.pick = null;
-    this.say('文字を読んでいます', 0);
+    this.say(t('文字を読んでいます'), 0);
     const body = item.scope === 'center' ? this.pageBody() : Promise.resolve(null);
     // 隠した所があると、録画の時刻ごとの画面は隠れていない。代表の画像だけから読む
     //   （文字だけ隠した行が 1 つでもあるときも同じ。時刻ごとの画面を読み直すと、隠した文字が戻ってしまう）
@@ -593,7 +594,7 @@ export class CapturePanel {
     const pageText = await body;
     if (this.readingId === item.id) this.readingId = null;
     if (!reply || reply.type !== 'captureText') {
-      this.say('文字の返事が来ませんでした');
+      this.say(t('文字の返事が来ませんでした'));
       return;
     }
     if (!reply.ok) {
@@ -603,9 +604,9 @@ export class CapturePanel {
     }
     const lines = ocrLinesFromHost(reply.lines);
     await this.host.store.setOcr(item.id, lines, item.scope === 'center' ? pageText : null);
-    if (lines.length === 0) this.say('文字は見つかりませんでした');
-    else if (item.video && hiddenSome) this.say(`${lines.length} 行読みました（隠した所があるので、代表の画面だけを読みました）`, 6000);
-    else this.say(`${lines.length} 行読みました`, 4000);
+    if (lines.length === 0) this.say(t('文字は見つかりませんでした'));
+    else if (item.video && hiddenSome) this.say(t('{0} 行読みました（隠した所があるので、代表の画面だけを読みました）', { 0: lines.length }), 6000);
+    else this.say(t('{0} 行読みました', { 0: lines.length }), 4000);
   }
 
   private async pageBody(): Promise<string | undefined> {
@@ -675,7 +676,7 @@ export class CapturePanel {
     }
     if (!image) image = placeholderRecordImage(video.seconds);
     if (!image) {
-      this.say('録画の代表の画像を作れませんでした。動画は ui-data\\captures に残っています');
+      this.say(t('録画の代表の画像を作れませんでした。動画は ui-data\\captures に残っています'));
       return;
     }
     this.images.set(id, image);
@@ -684,31 +685,31 @@ export class CapturePanel {
       this.images.delete(id);
       if (saved.reason === 'full') {
         await this.deleteVideo(id);
-        this.say(`撮影は ${CAPTURE_LIMIT} 件までです。古いカードを消してから撮ってください`);
+        this.say(t('撮影は {0} 件までです。古いカードを消してから撮ってください', { 0: CAPTURE_LIMIT }));
       } else {
-        this.say('録画のカードを保存できませんでした。動画は ui-data\\captures に残っています');
+        this.say(t('録画のカードを保存できませんでした。動画は ui-data\\captures に残っています'));
       }
       return;
     }
     if (this.folded) this.setFolded(false);
-    this.say(msg.note ? '録画は途中で止まりました。そこまでを残しました' : 'このパソコンの中に残しました。AI には送りません');
+    this.say(msg.note ? t('録画は途中で止まりました。そこまでを残しました') : t('このパソコンの中に残しました。AI には送りません'));
     this.list.querySelector(`[data-capture="${saved.item.id}"]`)?.scrollIntoView({ block: 'nearest' });
   }
 
   private async beginRecord() {
     if (this.recording || this.stopping || this.shooting) return;
     if (this.recordReady === false) {
-      this.say('このパソコンでは録画できません');
+      this.say(t('このパソコンでは録画できません'));
       return;
     }
     if (this.storeBlocks()) return;
     if (this.host.store.items.length >= CAPTURE_LIMIT) {
-      this.say(`撮影は ${CAPTURE_LIMIT} 件までです。古いカードを消してから撮ってください`);
+      this.say(t('撮影は {0} 件までです。古いカードを消してから撮ってください', { 0: CAPTURE_LIMIT }));
       return;
     }
     const tab = this.host.activeTab();
     if (!tab) {
-      this.say('中央にページがありません');
+      this.say(t('中央にページがありません'));
       return;
     }
     const id = newCaptureId();
@@ -756,20 +757,20 @@ export class CapturePanel {
       return;
     }
     if (reply?.type === 'record' && reply.error === 'busy') {
-      this.say('動画を使っている途中なので消せませんでした（文字を読んでいるか、再生中です）');
+      this.say(t('動画を使っている途中なので消せませんでした（文字を読んでいるか、再生中です）'));
       return;
     }
-    this.say('動画を消せたか確かめられませんでした。もう一度押してください');
+    this.say(t('動画を消せたか確かめられませんでした。もう一度押してください'));
   }
 
   // 「mp4 だけ消す」。2 段（1 回目で「本当に mp4 を消す」）。mp4 を消せた（または元から無い）ときだけ、台帳の video を外す
   private askDropVideo(item: CaptureItem) {
     if (this.recording) {
-      this.say('録画中です。止めてから消してください');
+      this.say(t('録画中です。止めてから消してください'));
       return;
     }
     if (this.readingId === item.id) {
-      this.say('文字を読んでいる間は消せません。読み終えてから消してください');
+      this.say(t('文字を読んでいる間は消せません。読み終えてから消してください'));
       return;
     }
     if (this.dropVideoId !== item.id) {
@@ -785,15 +786,15 @@ export class CapturePanel {
     this.render();
     const reply = await this.deleteVideo(id);
     if (reply?.type === 'record' && (reply.ok || reply.error === 'badId')) {
-      if (await this.host.store.dropVideo(id)) this.say('mp4 を消しました。代表の画像のカードとして残ります');
-      else this.say('mp4 は消しましたが、一覧の保存に失敗しました。アプリを開き直すと、録画のカードのまま残ることがあります');
+      if (await this.host.store.dropVideo(id)) this.say(t('mp4 を消しました。代表の画像のカードとして残ります'));
+      else this.say(t('mp4 は消しましたが、一覧の保存に失敗しました。アプリを開き直すと、録画のカードのまま残ることがあります'));
       return;
     }
     if (reply?.type === 'record' && reply.error === 'busy') {
-      this.say('動画を使っている途中なので消せませんでした（文字を読んでいるか、再生中です）');
+      this.say(t('動画を使っている途中なので消せませんでした（文字を読んでいるか、再生中です）'));
       return;
     }
-    this.say('mp4 を消せたか確かめられませんでした。もう一度押してください');
+    this.say(t('mp4 を消せたか確かめられませんでした。もう一度押してください'));
   }
 
   private hideBusy(item: CaptureItem) {
@@ -809,7 +810,7 @@ export class CapturePanel {
     const wanted = new Set(lineIds);
     const lines = (item.ocr ?? []).filter((line) => wanted.has(line.id) && line.text !== HIDDEN_TEXT);
     if (lines.length === 0) {
-      this.say('隠す行がありません（もう隠してあるか、読み直されました）');
+      this.say(t('隠す行がありません（もう隠してあるか、読み直されました）'));
       return;
     }
     const last = item.video ? item.video.times[item.video.times.length - 1] : undefined;
@@ -823,7 +824,7 @@ export class CapturePanel {
     }
     const rects = lineHideRects(drawn);
     if (rects.length === 0 && textOnly === 0) {
-      this.say('行の場所が分からないので、隠せませんでした');
+      this.say(t('行の場所が分からないので、隠せませんでした'));
       return;
     }
     const before = hiddenLineCount(item);
@@ -849,10 +850,10 @@ export class CapturePanel {
     const count = Math.max(lines.length, now ? hiddenLineCount(now) - before : 0);
     let text =
       rects.length > 0
-        ? `${count} 行を隠しました（画像と読んだ文字）。取り消しは「大きく開く」の画面で`
-        : `${count} 行を隠しました（読んだ文字だけ。録画の別の時刻の行なので、代表の画像は塗っていません）。取り消しは「大きく開く」の画面で`;
-    if (item.askedAt) text += '。送った写しは隠れません';
-    if (item.video) text += '。mp4 は隠れません';
+        ? t('{0} 行を隠しました（画像と読んだ文字）。取り消しは「大きく開く」の画面で', { 0: count })
+        : t('{0} 行を隠しました（読んだ文字だけ。録画の別の時刻の行なので、代表の画像は塗っていません）。取り消しは「大きく開く」の画面で', { 0: count });
+    if (item.askedAt) text += t('。送った写しは隠れません');
+    if (item.video) text += t('。mp4 は隠れません');
     if (!result.saved) text += INDEX_NOT_SAVED;
     this.say(text, 10000);
   }
@@ -863,7 +864,7 @@ export class CapturePanel {
     if (!item) return;
     const ids = hideCandidates(item.ocr ?? []).map((row) => row.id);
     if (ids.length === 0) {
-      this.say('隠す候補の行はありません');
+      this.say(t('隠す候補の行はありません'));
       return;
     }
     void this.hideLines(item, ids);
@@ -872,28 +873,28 @@ export class CapturePanel {
   private async playVideo(id: string) {
     const reply = await request((requestId) => ({ type: 'recordCenter', requestId, command: 'open', id }), 4_000);
     if (reply?.type === 'record' && reply.ok) return;
-    if (reply?.type === 'record' && reply.error === 'busy') this.say('動画を使っている途中です');
-    else this.say('動画を開けませんでした');
+    if (reply?.type === 'record' && reply.error === 'busy') this.say(t('動画を使っている途中です'));
+    else this.say(t('動画を開けませんでした'));
   }
 
   private async shoot() {
     if (this.recording) {
-      this.say('録画中です。止めてから撮ってください');
+      this.say(t('録画中です。止めてから撮ってください'));
       return;
     }
     if (this.shooting) return;
     if (this.storeBlocks()) return;
     if (this.host.store.items.length >= CAPTURE_LIMIT) {
-      this.say(`撮影は ${CAPTURE_LIMIT} 件までです。古いカードを消してから撮ってください`);
+      this.say(t('撮影は {0} 件までです。古いカードを消してから撮ってください', { 0: CAPTURE_LIMIT }));
       return;
     }
     const tab = this.host.activeTab();
     if (!tab) {
-      this.say('中央にページがありません');
+      this.say(t('中央にページがありません'));
       return;
     }
     this.shooting = true;
-    this.say('中央の見えている所を撮っています', 0);
+    this.say(t('中央の見えている所を撮っています'), 0);
     let addedId: string | null = null;
     try {
       const reply = await request((requestId) => ({ type: 'captureFull', requestId, id: tab.id, maxEdge: CAPTURE_LONG_EDGE }), 8_000);
@@ -903,7 +904,7 @@ export class CapturePanel {
       }
       const fit = await fitCaptureImage(reply.image);
       if ('error' in fit) {
-        this.say(`撮った画像を整えられませんでした（${FIT_STAGE[fit.error]}）`);
+        this.say(t('撮った画像を整えられませんでした（{0}）', { 0: FIT_STAGE[fit.error] }));
         return;
       }
       const saved = await this.host.store.add(fit.dataUrl, sourceOf(tab.url, tab.title));
@@ -914,7 +915,7 @@ export class CapturePanel {
       this.images.set(saved.item.id, fit.dataUrl);
       addedId = saved.item.id;
       if (this.folded) this.setFolded(false);
-      this.say('このパソコンの中に残しました。AI には送りません');
+      this.say(t('このパソコンの中に残しました。AI には送りません'));
     } finally {
       this.shooting = false;
       this.render();
@@ -924,17 +925,17 @@ export class CapturePanel {
 
   private async shootScreen(scope: 'window' | 'desktop') {
     if (this.recording) {
-      this.say('録画中です。止めてから撮ってください');
+      this.say(t('録画中です。止めてから撮ってください'));
       return;
     }
     if (this.shooting) return;
     if (this.storeBlocks()) return;
     if (this.host.store.items.length >= CAPTURE_LIMIT) {
-      this.say(`撮影は ${CAPTURE_LIMIT} 件までです。古いカードを消してから撮ってください`);
+      this.say(t('撮影は {0} 件までです。古いカードを消してから撮ってください', { 0: CAPTURE_LIMIT }));
       return;
     }
     this.shooting = true;
-    this.say('● 撮っています', 0, true);
+    this.say(t('● 撮っています'), 0, true);
     await paintWait();
     let addedId: string | null = null;
     try {
@@ -954,18 +955,18 @@ export class CapturePanel {
 
   private async beginRegion() {
     if (this.recording) {
-      this.say('録画中です。止めてから撮ってください');
+      this.say(t('録画中です。止めてから撮ってください'));
       return;
     }
     if (this.shooting) return;
     if (this.storeBlocks()) return;
     if (this.host.store.items.length >= CAPTURE_LIMIT) {
-      this.say(`撮影は ${CAPTURE_LIMIT} 件までです。古いカードを消してから撮ってください`);
+      this.say(t('撮影は {0} 件までです。古いカードを消してから撮ってください', { 0: CAPTURE_LIMIT }));
       return;
     }
     this.shooting = true;
     this.regionVia = undefined;
-    this.say('● 撮っています', 0, true);
+    this.say(t('● 撮っています'), 0, true);
     await paintWait();
     try {
       const reply = await request((requestId) => ({ type: 'captureScreen', requestId, scope: 'window' }), 12_000);
@@ -975,12 +976,12 @@ export class CapturePanel {
       }
       const fit = await fitCaptureImage(reply.image);
       if ('error' in fit) {
-        this.say(`撮った画像を整えられませんでした（${FIT_STAGE[fit.error]}）`);
+        this.say(t('撮った画像を整えられませんでした（{0}）', { 0: FIT_STAGE[fit.error] }));
         return;
       }
       this.regionVia = reply.via === 'wgc' || reply.via === 'gdi' ? reply.via : undefined;
       this.host.askLeft({ command: 'openCrop', image: fit.dataUrl });
-      this.say('囲む範囲を、読む画面で指定してください', 0);
+      this.say(t('囲む範囲を、読む画面で指定してください'), 0);
     } finally {
       this.shooting = false;
       this.render();
@@ -990,7 +991,7 @@ export class CapturePanel {
   private async keepImage(image: string, scope: CaptureScope, source: ReturnType<typeof sourceOf>, via?: CaptureVia) {
     const fit = await fitCaptureImage(image);
     if ('error' in fit) {
-      this.say(`撮った画像を整えられませんでした（${FIT_STAGE[fit.error]}）`);
+      this.say(t('撮った画像を整えられませんでした（{0}）', { 0: FIT_STAGE[fit.error] }));
       return;
     }
     const saved = await this.host.store.add(fit.dataUrl, source, scope, via);
@@ -1000,7 +1001,7 @@ export class CapturePanel {
     }
     this.images.set(saved.item.id, fit.dataUrl);
     if (this.folded) this.setFolded(false);
-    this.say('このパソコンの中に残しました。AI には送りません');
+    this.say(t('このパソコンの中に残しました。AI には送りません'));
     return saved.item.id;
   }
 
@@ -1030,41 +1031,41 @@ export class CapturePanel {
 
   private menuFor(item: CaptureItem): MenuEntry[] {
     const entries: MenuEntry[] = [
-      { section: 'いいね' },
+      { section: t('いいね') },
       {
         pills: LEVELS.map((level) => ({
           label: LIKE_LABEL[level],
           current: item.liked === level,
           close: true,
-          title: item.liked === level ? 'もう一度押すと、いいねを外します' : `この撮影を${LIKE_LABEL[level]}にする`,
+          title: item.liked === level ? t('もう一度押すと、いいねを外します') : t('この撮影を{0}にする', { 0: LIKE_LABEL[level] }),
           run: () => {
             const next = item.liked === level ? 0 : level;
             void this.host.store.setLiked(item.id, next);
-            this.host.toast(next === 0 ? 'いいねを外しました' : `${LIKE_LABEL[level]}にしました`);
+            this.host.toast(next === 0 ? t('いいねを外しました') : t('{0}にしました', { 0: LIKE_LABEL[level] }));
           },
         })),
       },
       {
-        label: '書き込みつきでコピー',
-        hint: '線・文字・スタンプを焼いた画像をクリップボードへ',
+        label: t('書き込みつきでコピー'),
+        hint: t('線・文字・スタンプを焼いた画像をクリップボードへ'),
         run: () => void this.copyBurned(item),
       },
     ];
     if (item.source) {
       const source = item.source;
       entries.push({
-        label: 'ページを開く',
+        label: t('ページを開く'),
         hint: hostOf(source.url),
         run: () => this.host.askLeft({ command: 'openUrl', url: source.url, background: false }),
       });
     }
-    entries.push({ label: '単語カードにする…', hint: '画像を指すカード', run: () => this.makeCard(item) });
+    entries.push({ label: t('単語カードにする…'), hint: t('画像を指すカード'), run: () => this.makeCard(item) });
     entries.push('sep', {
-      label: 'この撮影を消す…',
+      label: t('この撮影を消す…'),
       run: () => {
         this.confirmId = item.id;
         this.render();
-        this.host.toast('もう一度、カードの「本当に消す」を押してください');
+        this.host.toast(t('もう一度、カードの「本当に消す」を押してください'));
       },
     });
     return entries;
@@ -1082,7 +1083,7 @@ export class CapturePanel {
         front: oneLine(firstLine?.text ?? item.comment, 400),
         back: '',
         example: '',
-        note: '右の単語帳に入ります。カードはこの撮影の画像を指します（撮影は 80 件まで。古いものから消えます）',
+        note: t('右の単語帳に入ります。カードはこの撮影の画像を指します（撮影は 80 件まで。古いものから消えます）'),
         rotate: savedMarkNew(),
       },
       (value) => {
@@ -1090,21 +1091,21 @@ export class CapturePanel {
           command: 'addCards',
           cards: [{ ...value, image: { kind: 'capture', id: item.id }, ...(item.source ? { source: { url: item.source.url, title: item.source.title } } : {}) }],
         });
-        this.host.toast('単語帳に入れました（右の「単語帳」で見られます）');
+        this.host.toast(t('単語帳に入れました（右の「単語帳」で見られます）'));
       },
     );
   }
 
   // 拡大。scene を渡したときだけ、書き込みを画像の上に重ねる（カードの画像から開くとき）。
   //   送る画像の下見・切り抜きから開くときは、書き込みを焼いた画像なので scene は渡さない（重ねると二重になる）
-  private openLightbox(dataUrl: string, note: string, alt = '撮った画像', scene?: () => AnnotationScene) {
+  private openLightbox(dataUrl: string, note: string, alt = t('撮った画像'), scene?: () => AnnotationScene) {
     this.closeLightbox();
     const view = el('div', 'capture-lightbox');
     const img = el('img');
     img.src = dataUrl;
     img.alt = alt;
     const bar = el('div', 'capture-lightbox-bar');
-    const close = el('button', '', '閉じる（Esc）');
+    const close = el('button', '', t('閉じる（Esc）'));
     close.type = 'button';
     close.addEventListener('click', () => this.closeLightbox());
     bar.append(el('span', '', note), close);
@@ -1142,17 +1143,17 @@ export class CapturePanel {
     const item = this.host.store.items.find((row) => row.id === shown.id) ?? shown;
     const src = await this.imageReady(item.id);
     if (!src) {
-      this.say('書き込みつきの画像をコピーできませんでした（画像を読めません）');
+      this.say(t('書き込みつきの画像をコピーできませんでした（画像を読めません）'));
       return;
     }
     const burned = await burnImage(src, askScene(item), { marks: 'badge' });
     if (!burned) {
-      this.say('書き込みつきの画像をコピーできませんでした（画像を作れません）');
+      this.say(t('書き込みつきの画像をコピーできませんでした（画像を作れません）'));
       return;
     }
     const payload = await clipboardImageBase64(burned);
     if (!payload) {
-      this.say('書き込みつきの画像をコピーできませんでした（大きすぎるか、読めません）');
+      this.say(t('書き込みつきの画像をコピーできませんでした（大きすぎるか、読めません）'));
       return;
     }
     const copied = await copyShotImageResult(payload, 'white');
@@ -1161,7 +1162,7 @@ export class CapturePanel {
       this.say(copied.message.replace(/。?アプリは開いていません$/, ''));
       return;
     }
-    this.say('書き込みつきの画像をコピーしました。コピーした画像は、あとで隠しても変わりません');
+    this.say(t('書き込みつきの画像をコピーしました。コピーした画像は、あとで隠しても変わりません'));
   }
 
   private queueComment(id: string, text: string) {
@@ -1188,40 +1189,40 @@ export class CapturePanel {
 
     const fold = el('button', 'capture-fold', this.folded ? '▸' : '▾');
     fold.type = 'button';
-    fold.title = this.folded ? '撮影を開く' : '撮影をたたむ';
+    fold.title = this.folded ? t('撮影を開く') : t('撮影をたたむ');
     fold.setAttribute('aria-label', fold.title);
     fold.setAttribute('aria-expanded', String(!this.folded));
     fold.addEventListener('click', () => this.setFolded(!this.folded));
-    const title = el('span', 'capture-title', '撮影');
+    const title = el('span', 'capture-title', t('撮影'));
     const state = store.state;
     const count = el('span', 'capture-count', state === 'ready' ? `${store.items.length}` : state === 'loading' ? '…' : '!');
-    count.title = state === 'ready' ? `${store.items.length} / ${CAPTURE_LIMIT} 件` : state === 'loading' ? '読み込んでいます' : '撮影の一覧を読めていません';
+    count.title = state === 'ready' ? t('{0} / {1} 件', { 0: store.items.length, 1: CAPTURE_LIMIT }) : state === 'loading' ? t('読み込んでいます') : t('撮影の一覧を読めていません');
     if (this.recording) {
       const live = el('span', 'capture-rec', recLabel(this.recordSeconds, this.recordLimit));
       live.setAttribute('role', 'status');
-      const stop = el('button', 'capture-stop', this.stopping ? '止めています…' : '停止');
+      const stop = el('button', 'capture-stop', this.stopping ? t('止めています…') : t('停止'));
       stop.type = 'button';
       stop.disabled = this.stopping;
       stop.addEventListener('click', () => this.stopRecord());
       this.head.replaceChildren(fold, title, count, live, stop);
     } else {
-      const shoot = el('button', 'capture-shoot', this.shooting ? '撮っています…' : '▣ 中央を撮る');
+      const shoot = el('button', 'capture-shoot', this.shooting ? t('撮っています…') : t('▣ 中央を撮る'));
       shoot.type = 'button';
       shoot.disabled = this.shooting;
       shoot.title = this.recordReady
-        ? '左クリックは、中央に見えているページです。右クリックで、録画・窓全体・この画面のデスクトップ・範囲を選べます'
-        : '左クリックは、中央に見えているページです。右クリックで、窓全体・この画面のデスクトップ・範囲を選べます';
+        ? t('左クリックは、中央に見えているページです。右クリックで、録画・窓全体・この画面のデスクトップ・範囲を選べます')
+        : t('左クリックは、中央に見えているページです。右クリックで、窓全体・この画面のデスクトップ・範囲を選べます');
       shoot.addEventListener('click', () => void this.shoot());
       shoot.addEventListener('contextmenu', (event) => {
         event.preventDefault();
         event.stopPropagation();
         if (this.shooting) return;
-        const entries: MenuEntry[] = [{ label: '中央の見えている所', run: () => void this.shoot() }];
-        if (this.recordReady) entries.push({ label: '中央を録画', run: () => this.startRecord() });
+        const entries: MenuEntry[] = [{ label: t('中央の見えている所'), run: () => void this.shoot() }];
+        if (this.recordReady) entries.push({ label: t('中央を録画'), run: () => this.startRecord() });
         entries.push(
-          { label: 'ブラウザの窓全体', run: () => void this.shootScreen('window') },
-          { label: 'この画面のデスクトップ', run: () => void this.shootScreen('desktop') },
-          { label: '範囲を指定…', run: () => void this.beginRegion() },
+          { label: t('ブラウザの窓全体'), run: () => void this.shootScreen('window') },
+          { label: t('この画面のデスクトップ'), run: () => void this.shootScreen('desktop') },
+          { label: t('範囲を指定…'), run: () => void this.beginRegion() },
         );
         this.host.menu.open(event.clientX, event.clientY, entries);
       });
@@ -1237,15 +1238,15 @@ export class CapturePanel {
     this.thumbOverlays.clear();
     this.list.replaceChildren();
     if (state === 'loading') {
-      this.list.append(el('p', 'capture-empty', '読み込んでいます…'));
+      this.list.append(el('p', 'capture-empty', t('読み込んでいます…')));
       return;
     }
     if (state === 'readonly') return;
     if (this.pick && !store.items.some((item) => item.id === this.pick?.id)) this.pick = null;
     if (store.items.length === 0) {
       const hint = this.recordReady
-        ? 'まだありません。中央にページを出してから「中央を撮る」を押すと、見えている所が残ります。右クリックの「中央を録画」で、同じ範囲を mp4 にできます。'
-        : 'まだありません。中央にページを出してから「中央を撮る」を押すと、見えている所が残ります。';
+        ? t('まだありません。中央にページを出してから「中央を撮る」を押すと、見えている所が残ります。右クリックの「中央を録画」で、同じ範囲を mp4 にできます。')
+        : t('まだありません。中央にページを出してから「中央を撮る」を押すと、見えている所が残ります。');
       this.list.append(el('p', 'capture-empty', hint));
       return;
     }
@@ -1263,7 +1264,7 @@ export class CapturePanel {
     const cached = this.images.get(item.id);
     const image = typeof cached === 'string' ? cached : await this.fetchImage(item.id);
     if (!image) {
-      this.say('画像を読めませんでした');
+      this.say(t('画像を読めませんでした'));
       return;
     }
     this.host.askLeft({
@@ -1273,7 +1274,7 @@ export class CapturePanel {
       marks: item.marks,
       strokes: item.strokes,
       blur: item.blur,
-      title: item.source?.title || (item.from ? captureFromTitle(item.from) : '') || '撮った画像',
+      title: item.source?.title || (item.from ? captureFromTitle(item.from) : '') || t('撮った画像'),
       ...(item.askedAt ? { askedAt: item.askedAt } : {}),
       video: !!item.video,
       undo: this.host.store.canUndo(item.id),
@@ -1304,7 +1305,7 @@ export class CapturePanel {
     if (typeof data === 'string') {
       const img = el('img');
       img.src = data;
-      img.alt = '撮った画像';
+      img.alt = t('撮った画像');
       thumb.append(img);
       // 書き込み（線・文字・スタンプと番号）と、隠した場所の枠は、読む画面と同じ描き手で重ねる
       const scene: AnnotationScene = { strokes: item.strokes, marks: item.marks, blur: item.blur };
@@ -1320,19 +1321,19 @@ export class CapturePanel {
       for (const line of item.ocr ?? []) {
         if (line.on) thumb.append(rectBox('capture-ocr-box', line));
       }
-      thumb.title = '大きく見る';
+      thumb.title = t('大きく見る');
       // 拡大は開いている間も、いまの台帳の書き込みで描く（読む画面で書き込みを変えたら、描き直しで追いつく）
-      thumb.addEventListener('click', () => this.openLightbox(data, lightboxNote(item), '撮った画像', () => this.latestScene(item.id) ?? scene));
+      thumb.addEventListener('click', () => this.openLightbox(data, lightboxNote(item), t('撮った画像'), () => this.latestScene(item.id) ?? scene));
     } else {
       thumb.disabled = true;
-      thumb.textContent = data === null ? '画像を読めませんでした' : '画像を読んでいます…';
+      thumb.textContent = data === null ? t('画像を読めませんでした') : t('画像を読んでいます…');
     }
 
     const when = el('p', 'capture-when', `${scopeLabel(item)} · ${whenOf(item.createdAt)}`);
     const comment = el('textarea', 'capture-comment');
     comment.rows = 2;
     comment.maxLength = COMMENT_MAX;
-    comment.placeholder = 'ひとこと（なくてもよい）';
+    comment.placeholder = t('ひとこと（なくてもよい）');
     comment.value = item.comment;
     comment.setAttribute('aria-label', 'ひとこと');
     const counter = el('span', [...item.comment].length > COMMENT_HINT ? 'capture-count-line is-long' : 'capture-count-line', countLabel(item.comment));
@@ -1353,28 +1354,28 @@ export class CapturePanel {
 
     const actions = el('div', 'capture-actions');
     if (this.ocrReady) {
-      const read = el('button', 'capture-read', this.readingId === item.id ? '読んでいます…' : '文字を読む');
+      const read = el('button', 'capture-read', this.readingId === item.id ? t('読んでいます…') : t('文字を読む'));
       read.type = 'button';
       read.disabled = this.readingId !== null;
-      read.title = '画像の中の文字を、行にして残します。表に見えるところは | でつながります';
+      read.title = t('画像の中の文字を、行にして残します。表に見えるところは | でつながります');
       read.addEventListener('click', () => void this.readText(item));
       actions.append(read);
     }
-    const askOpen = el('button', 'capture-ask-open', this.ask?.id === item.id ? '閉じる' : 'AIに頼む');
+    const askOpen = el('button', 'capture-ask-open', this.ask?.id === item.id ? t('閉じる') : t('AIに頼む'));
     askOpen.type = 'button';
-    askOpen.title = '送る前に、画像・文字・URLを確かめます。勝手には送りません';
+    askOpen.title = t('送る前に、画像・文字・URLを確かめます。勝手には送りません');
     askOpen.addEventListener('click', () => this.toggleAsk(item));
     actions.append(askOpen);
     if (item.video) {
-      const play = el('button', 'capture-play', '再生');
+      const play = el('button', 'capture-play', t('再生'));
       play.type = 'button';
-      play.title = 'このパソコンの動画アプリで、mp4 を開きます';
+      play.title = t('このパソコンの動画アプリで、mp4 を開きます');
       play.addEventListener('click', () => void this.playVideo(item.id));
       actions.append(play);
       const confirming = this.dropVideoId === item.id;
-      const dropMp4 = el('button', confirming ? 'capture-drop-video is-confirm' : 'capture-drop-video', confirming ? '本当に mp4 を消す' : 'mp4 だけ消す');
+      const dropMp4 = el('button', confirming ? 'capture-drop-video is-confirm' : 'capture-drop-video', confirming ? t('本当に mp4 を消す') : t('mp4 だけ消す'));
       dropMp4.type = 'button';
-      dropMp4.title = 'このパソコンの mp4 だけを消します。代表の画像のカードは残ります。元には戻せません';
+      dropMp4.title = t('このパソコンの mp4 だけを消します。代表の画像のカードは残ります。元には戻せません');
       dropMp4.addEventListener('click', () => this.askDropVideo(item));
       if (confirming) armConfirm(dropMp4, () => {
         this.dropVideoId = null;
@@ -1382,15 +1383,15 @@ export class CapturePanel {
       });
       actions.append(dropMp4);
     }
-    const widen = el('button', 'capture-widen', '大きく開く');
+    const widen = el('button', 'capture-widen', t('大きく開く'));
     widen.type = 'button';
-    widen.title = '読む画面に、この画像だけを出します。アドレス欄はありません';
+    widen.title = t('読む画面に、この画像だけを出します。アドレス欄はありません');
     widen.addEventListener('click', () => void this.openLarge(item));
     const like = el('button', item.liked > 0 ? 'capture-like is-on' : 'capture-like', item.liked > 0 ? `♥${item.liked}` : '♡');
     like.type = 'button';
-    like.title = 'いいね（押すたびに 1→2→3→なし）。右クリックで、いいね1・2・3を直接選べます';
+    like.title = t('いいね（押すたびに 1→2→3→なし）。右クリックで、いいね1・2・3を直接選べます');
     like.addEventListener('click', () => void this.host.store.setLiked(item.id, (item.liked + 1) % 4));
-    const remove = el('button', this.confirmId === item.id ? 'capture-delete is-confirm' : 'capture-delete', this.confirmId === item.id ? '本当に消す' : '消す');
+    const remove = el('button', this.confirmId === item.id ? 'capture-delete is-confirm' : 'capture-delete', this.confirmId === item.id ? '本当に消す' : t('消す'));
     remove.type = 'button';
     if (this.confirmId === item.id) armConfirm(remove, () => {
       this.confirmId = null;
@@ -1399,7 +1400,7 @@ export class CapturePanel {
     remove.addEventListener('click', () => {
       // 録画は、文字を読んでいる間は mp4 を開いているので、消さない
       if (item.video && this.readingId === item.id) {
-        this.say('文字を読んでいる間は消せません。読み終えてから消してください');
+        this.say(t('文字を読んでいる間は消せません。読み終えてから消してください'));
         return;
       }
       if (this.confirmId !== item.id) {
@@ -1418,7 +1419,7 @@ export class CapturePanel {
     actions.append(widen, like, remove);
 
     card.append(thumb, when);
-    if (item.askedAt) card.append(el('p', 'capture-asked', `頼んだ ${whenOf(item.askedAt)}`));
+    if (item.askedAt) card.append(el('p', 'capture-asked', t('頼んだ {0}', { 0: whenOf(item.askedAt) })));
     if (item.video && item.video.times.length > 0) {
       const times = el('ul', 'capture-times');
       for (const ms of item.video.times) times.append(el('li', '', clockLabel(ms)));
@@ -1434,8 +1435,8 @@ export class CapturePanel {
     if (item.source) {
       const source = item.source;
       const line = el('p', 'capture-source');
-      line.append(el('span', 'capture-source-title', source.title || hostOf(source.url) || 'ページ'));
-      const open = el('button', 'capture-open', 'ページを開く');
+      line.append(el('span', 'capture-source-title', source.title || hostOf(source.url) || t('ページ')));
+      const open = el('button', 'capture-open', t('ページを開く'));
       open.type = 'button';
       open.title = source.url;
       open.addEventListener('click', () => this.host.askLeft({ command: 'openUrl', url: source.url, background: false }));
@@ -1443,7 +1444,7 @@ export class CapturePanel {
       card.append(line);
     }
     if (item.pageText) {
-      const body = el('p', 'capture-page-text', `本文 ${item.pageText}`);
+      const body = el('p', 'capture-page-text', t('本文 {0}', { 0: item.pageText }));
       body.title = item.pageText;
       card.append(body);
     }
@@ -1464,18 +1465,18 @@ export class CapturePanel {
     const tools = el('div', 'capture-ocr-tools');
     if (kinds.size > 0) {
       tools.append(el('span', 'capture-ocr-summary', candidateSummary([...kinds.values()])));
-      const all = el('button', 'capture-ocr-hide-cands', '候補をまとめて隠す');
+      const all = el('button', 'capture-ocr-hide-cands', t('候補をまとめて隠す'));
       all.type = 'button';
       all.disabled = busy;
-      all.title = '候補の行を塗りつぶし、読んだ文字も「（隠した）」にします。取り消しは「大きく開く」の画面で';
+      all.title = t('候補の行を塗りつぶし、読んだ文字も「（隠した）」にします。取り消しは「大きく開く」の画面で');
       all.addEventListener('click', () => this.hideCandidateLines(item));
       tools.append(all);
     }
     if (!picking) {
-      const choose = el('button', 'capture-ocr-pick-start', '行を選んで隠す…');
+      const choose = el('button', 'capture-ocr-pick-start', t('行を選んで隠す…'));
       choose.type = 'button';
       choose.disabled = busy;
-      choose.title = '隠す行を選んで、まとめて隠します。候補の行は、初めから選んであります';
+      choose.title = t('隠す行を選んで、まとめて隠します。候補の行は、初めから選んであります');
       choose.addEventListener('click', () => {
         const latest = this.host.store.items.find((row) => row.id === item.id);
         if (!latest) return;
@@ -1492,7 +1493,7 @@ export class CapturePanel {
     go.type = 'button';
     const syncGo = () => {
       const count = picking ? [...picking.ids].filter((id) => selectable.has(id)).length : 0;
-      go.textContent = `選んだ ${count} 行を隠す`;
+      go.textContent = t('選んだ {0} 行を隠す', { 0: count });
       go.disabled = busy || count === 0;
     };
 
@@ -1510,7 +1511,7 @@ export class CapturePanel {
       label.append(tick, el('span', 'capture-ocr-text', line.text));
       row.append(label);
       const kind = kinds.get(line.id);
-      if (kind) row.append(el('span', 'capture-ocr-cand', `候補：${CANDIDATE_LABEL[kind]}`));
+      if (kind) row.append(el('span', 'capture-ocr-cand', t('候補：{0}', { 0: CANDIDATE_LABEL[kind] })));
       if (typeof line.at === 'number') row.append(el('span', 'capture-ocr-at', clockLabel(line.at)));
       if (!hidden && picking) {
         // 「送る／送らない」のチェックとは別。隠す行を選ぶチェック
@@ -1519,7 +1520,7 @@ export class CapturePanel {
         pick.className = 'capture-ocr-pick';
         pick.checked = picking.ids.has(line.id);
         pick.disabled = busy;
-        pick.title = '隠す行に選ぶ（左の「送る／送らない」のチェックとは別です）';
+        pick.title = t('隠す行に選ぶ（左の「送る／送らない」のチェックとは別です）');
         pick.setAttribute('aria-label', 'この行を隠す行に選ぶ');
         pick.addEventListener('click', (event) => event.stopPropagation());
         pick.addEventListener('change', () => {
@@ -1529,10 +1530,10 @@ export class CapturePanel {
         });
         row.append(pick);
       } else if (!hidden) {
-        const hide = el('button', 'capture-ocr-hide', '隠す');
+        const hide = el('button', 'capture-ocr-hide', t('隠す'));
         hide.type = 'button';
         hide.disabled = busy;
-        hide.title = 'この行を塗りつぶし、読んだ文字も「（隠した）」にします。取り消しは「大きく開く」の画面で';
+        hide.title = t('この行を塗りつぶし、読んだ文字も「（隠した）」にします。取り消しは「大きく開く」の画面で');
         hide.addEventListener('click', () => void this.hideLines(item, [line.id]));
         row.append(hide);
       }
@@ -1543,7 +1544,7 @@ export class CapturePanel {
     if (picking) {
       const bar = el('div', 'capture-ocr-pickbar');
       go.addEventListener('click', () => void this.hideLines(item, [...picking.ids].filter((id) => selectable.has(id))));
-      const cancel = el('button', 'capture-ocr-pick-cancel', 'やめる');
+      const cancel = el('button', 'capture-ocr-pick-cancel', t('やめる'));
       cancel.type = 'button';
       cancel.disabled = this.hidingId !== null;
       cancel.addEventListener('click', () => {
@@ -1626,31 +1627,31 @@ export class CapturePanel {
       ...this.host.bots().map((row) => ({ value: `b:${row.id}`, label: `Grok Bot：${row.name}` })),
     ];
     if (!options.some((row) => row.value === ask.dest)) ask.dest = options[0]?.value ?? '';
-    sheet.append(el('p', 'capture-ask-head', '出ていくもの'));
+    sheet.append(el('p', 'capture-ask-head', t('出ていくもの')));
     const hasImage = typeof this.images.get(item.id) === 'string';
-    sheet.append(this.askCheck('画像' + (item.video ? '（録画の代表1枚。mp4 は出ません）' : ''), ask.image, ask.sending || !hasImage, (on) => {
+    sheet.append(this.askCheck(t('画像') + (item.video ? t('（録画の代表1枚。mp4 は出ません）') : ''), ask.image, ask.sending || !hasImage, (on) => {
       ask.image = on;
       if (!on) ask.step = 'form';
     }));
     // 画像の下に字下げで置く、画像の出し方。画像を外すと、どちらも押せない（表示は、いま実際にそうなるかどうか）
     const companion = ask.dest.startsWith('c:');
-    sheet.append(this.askCheck('書き込みを焼く（線・文字・印と番号）', ask.burn && ask.image, ask.sending || !ask.image, (on) => {
+    sheet.append(this.askCheck(t('書き込みを焼く（線・文字・印と番号）'), ask.burn && ask.image, ask.sending || !ask.image, (on) => {
       ask.burn = on;
     }, true));
     const cropCount = cropTargets(item.marks, item.strokes).length;
     if (cropCount > 0) {
-      sheet.append(this.askCheck(`印の周りを添える（${cropCount} 枚・相棒だけ）`, ask.crops && ask.image && companion, ask.sending || !ask.image || !companion, (on) => {
+      sheet.append(this.askCheck(t('印の周りを添える（{0} 枚・相棒だけ）', { 0: cropCount }), ask.crops && ask.image && companion, ask.sending || !ask.image || !companion, (on) => {
         ask.crops = on;
       }, true));
     }
-    sheet.append(this.askCheck('印と書き込みの文', ask.marks, ask.sending, (on) => {
+    sheet.append(this.askCheck(t('印と書き込みの文'), ask.marks, ask.sending, (on) => {
       ask.marks = on;
     }));
-    sheet.append(this.askCheck('読んだ文字（外した行は除く）', ask.ocr, ask.sending, (on) => {
+    sheet.append(this.askCheck(t('読んだ文字（外した行は除く）'), ask.ocr, ask.sending, (on) => {
       ask.ocr = on;
     }));
     if (item.source && !ask.blocked) {
-      sheet.append(this.askCheck('元のページの URL', ask.url, ask.sending, (on) => {
+      sheet.append(this.askCheck(t('元のページの URL'), ask.url, ask.sending, (on) => {
         ask.url = on;
       }));
     }
@@ -1662,16 +1663,16 @@ export class CapturePanel {
     if (textNote) sheet.append(el('p', 'capture-ask-textnote', textNote));
     const candidates = hideCandidates(item.ocr ?? []);
     if (candidates.length > 0 && (ask.image || ask.ocr)) {
-      const warn = el('p', 'capture-ask-warn', `隠す候補が ${candidates.length} 行あります（まだ隠していません）。上の一覧で確かめてください`);
-      const all = el('button', 'capture-ask-hide-cands', '候補をまとめて隠す');
+      const warn = el('p', 'capture-ask-warn', t('隠す候補が {0} 行あります（まだ隠していません）。上の一覧で確かめてください', { 0: candidates.length }));
+      const all = el('button', 'capture-ask-hide-cands', t('候補をまとめて隠す'));
       all.type = 'button';
       all.disabled = this.hideBusy(item);
-      all.title = '候補の行を塗りつぶし、読んだ文字も「（隠した）」にします。取り消しは「大きく開く」の画面で';
+      all.title = t('候補の行を塗りつぶし、読んだ文字も「（隠した）」にします。取り消しは「大きく開く」の画面で');
       all.addEventListener('click', () => this.hideCandidateLines(item));
       warn.append(' ', all);
       sheet.append(warn);
     }
-    sheet.append(el('p', 'capture-ask-head', '頼み方'));
+    sheet.append(el('p', 'capture-ask-head', t('頼み方')));
     const kinds = el('div', 'capture-kinds');
     for (const kind of ASK_KINDS) {
       if (kind.id === 'marks' && !hasAskMarks(item.marks)) continue; // 「印について答えて」は、❓・⚠ があるときだけ
@@ -1681,7 +1682,7 @@ export class CapturePanel {
       // 「印について答えて」は、「印と書き込みの文」を送らないときは押せない（頼みの文が入らないので）
       const needsMarks = kind.id === 'marks' && !ask.marks;
       button.disabled = ask.sending || needsMarks;
-      button.title = needsMarks ? '「印と書き込みの文」のチェックを入れると選べます' : kind.text;
+      button.title = needsMarks ? t('「印と書き込みの文」のチェックを入れると選べます') : kind.text;
       button.setAttribute('aria-pressed', String(on));
       button.addEventListener('click', (event) => {
         event.stopPropagation();
@@ -1696,7 +1697,7 @@ export class CapturePanel {
     sheet.append(kinds);
     const note = el('textarea', 'capture-ask-note');
     note.rows = 2;
-    note.placeholder = 'ひとこと（500字まで。なくてもよい）';
+    note.placeholder = t('ひとこと（500字まで。なくてもよい）');
     note.value = ask.note;
     note.disabled = ask.sending;
     note.setAttribute('aria-label', 'ひとこと');
@@ -1711,11 +1712,11 @@ export class CapturePanel {
       noteCount.textContent = `${[...ask.note].length} / ${ASK_NOTE_MAX}`;
     });
     sheet.append(note, noteCount);
-    sheet.append(el('p', 'capture-ask-head', '送り先'));
+    sheet.append(el('p', 'capture-ask-head', t('送り先')));
     const dest = el('select', 'capture-ask-dest');
     dest.disabled = ask.sending;
     dest.setAttribute('aria-label', '送り先');
-    if (options.length === 0) dest.append(new Option('送り先がありません', ''));
+    if (options.length === 0) dest.append(new Option(t('送り先がありません'), ''));
     for (const row of options) dest.append(new Option(row.label, row.value));
     dest.value = ask.dest;
     dest.addEventListener('change', () => {
@@ -1725,10 +1726,10 @@ export class CapturePanel {
       this.render();
     });
     sheet.append(dest);
-    sheet.append(el('p', 'capture-ask-head', '送る文'));
-    sheet.append(el('pre', 'capture-ask-preview', ask.preview || '下見を作っています…'));
+    sheet.append(el('p', 'capture-ask-head', t('送る文')));
+    sheet.append(el('pre', 'capture-ask-preview', ask.preview || t('下見を作っています…')));
     sheet.append(el('p', 'capture-ask-cost', this.costLine(ask, [...ask.preview].length)));
-    const send = el('button', 'capture-send', ask.sending ? '送っています…' : ask.step === 'paste' ? '文をコピー' : '送る');
+    const send = el('button', 'capture-send', ask.sending ? t('送っています…') : ask.step === 'paste' ? t('文をコピー') : t('送る'));
     send.type = 'button';
     send.disabled = ask.sending || options.length === 0;
     send.addEventListener('click', () => void this.submitAsk());
@@ -1823,31 +1824,31 @@ export class CapturePanel {
     const shot = ask.shot && ask.shot.key === key ? ask.shot : null;
     if (!shot) {
       const failed = ask.shotFailed && ask.shotKey === key;
-      box.append(el('p', 'capture-ask-image-wait', failed ? '送る画像を作れませんでした' : '送る画像を作っています…'));
+      box.append(el('p', 'capture-ask-image-wait', failed ? t('送る画像を作れませんでした') : t('送る画像を作っています…')));
       return box;
     }
     const open = el('button', 'capture-ask-image-open');
     open.type = 'button';
-    open.title = '大きく見る（これが送る画像です）';
+    open.title = t('大きく見る（これが送る画像です）');
     const img = el('img');
     img.src = shot.dataUrl;
-    img.alt = '送る画像';
+    img.alt = t('送る画像');
     open.append(img);
     // 焼いた画像なので、書き込みは重ねない
-    const burned = ask.burn ? '書き込みを焼き、' : '';
-    open.addEventListener('click', () => this.openLightbox(shot.dataUrl, `これが送る画像です（${burned}隠した所を塗ったもの）`, '送る画像'));
+    const burned = ask.burn ? t('書き込みを焼き、') : '';
+    open.addEventListener('click', () => this.openLightbox(shot.dataUrl, t('これが送る画像です（{0}隠した所を塗ったもの）', { 0: burned }), t('送る画像')));
     box.append(open);
     if (shot.crops.length > 0) {
       const row = el('div', 'capture-ask-crops');
       for (const crop of shot.crops) {
         const button = el('button', 'capture-ask-crop');
         button.type = 'button';
-        button.title = `大きく見る（印 ${crop.target.n} の周り。これが送る切り抜きです）`;
+        button.title = t('大きく見る（印 {0} の周り。これが送る切り抜きです）', { 0: crop.target.n });
         const small = el('img');
         small.src = crop.dataUrl;
-        small.alt = `印 ${crop.target.n} の切り抜き`;
-        button.append(small, el('span', 'capture-ask-crop-label', `印 ${crop.target.n}`));
-        button.addEventListener('click', () => this.openLightbox(crop.dataUrl, `印 ${crop.target.n} の周り（これが送る切り抜きです）`, `印 ${crop.target.n} の切り抜き`));
+        small.alt = t('印 {0} の切り抜き', { 0: crop.target.n });
+        button.append(small, el('span', 'capture-ask-crop-label', t('印 {0}', { 0: crop.target.n })));
+        button.addEventListener('click', () => this.openLightbox(crop.dataUrl, t('印 {0} の周り（これが送る切り抜きです）', { 0: crop.target.n }), t('印 {0} の切り抜き', { 0: crop.target.n })));
         row.append(button);
       }
       box.append(row);
@@ -1891,40 +1892,40 @@ export class CapturePanel {
   }
 
   private costLine(ask: AskSession, chars: number) {
-    if (!ask.dest) return '送り先を選んでください';
-    if (ask.dest.startsWith('b:')) return 'Grok Bot の料金は、このブラウザでは分かりません';
-    if (this.host.practice()) return '練習モードなので料金はかかりません';
+    if (!ask.dest) return t('送り先を選んでください');
+    if (ask.dest.startsWith('b:')) return t('Grok Bot の料金は、このブラウザでは分かりません');
+    if (this.host.practice()) return t('練習モードなので料金はかかりません');
     const price = this.host.companionPrice(ask.dest.slice(2));
     const tokens = ask.image ? ask.tokens : 0;
     const usd = askEstimateUsd(price.input, price.output, tokens, chars);
-    return `目安 約 ${formatUsd(usd)}。表示は目安で、請求そのものではありません`;
+    return t('目安 約 {0}。表示は目安で、請求そのものではありません', { 0: formatUsd(usd) });
   }
 
   private async submitAsk(skipConfirm = false) {
     const ask = this.ask;
     if (!ask) return;
     if (ask.sending) {
-      this.announce('まだ送っています。終わってから、もう一度押してください');
+      this.announce(t('まだ送っています。終わってから、もう一度押してください'));
       return;
     }
     const picked = this.element.querySelector('.capture-ask-dest');
     if (picked instanceof HTMLSelectElement) ask.dest = picked.value;
     const item = this.host.store.items.find((row) => row.id === ask.id);
     if (!item) {
-      this.announce('この撮影が台帳に見つかりません');
+      this.announce(t('この撮影が台帳に見つかりません'));
       return;
     }
     // 「印について答えて」は、❓・⚠ が無いか、印と書き込みの文を送らないときは頼みに入らない。それを除いて数える
     if (effectiveKinds(item, { kinds: [...ask.kinds], marks: ask.marks }).length === 0) {
-      this.announce(ask.kinds.size > 0 ? '「印について答えて」だけでは頼めません（❓・⚠ のスタンプと、「印と書き込みの文」のチェックが要ります）。頼み方を足してください' : '頼み方を1つ以上選んでください');
+      this.announce(ask.kinds.size > 0 ? t('「印について答えて」だけでは頼めません（❓・⚠ のスタンプと、「印と書き込みの文」のチェックが要ります）。頼み方を足してください') : t('頼み方を1つ以上選んでください'));
       return;
     }
     if (!hasOutgoing(item, ask)) {
-      this.announce('出すものを1つ以上選んでください');
+      this.announce(t('出すものを1つ以上選んでください'));
       return;
     }
     if (!ask.dest) {
-      this.announce('送り先を選んでください');
+      this.announce(t('送り先を選んでください'));
       return;
     }
     const dest = ask.dest;
@@ -1946,12 +1947,12 @@ export class CapturePanel {
         const bot = this.host.bots().find((row) => row.id === botId);
         if (!bot) {
           ask.sending = false;
-          this.announce('送り先の Grok Bot が見つかりません');
+          this.announce(t('送り先の Grok Bot が見つかりません'));
           return;
         }
         if (!bot.agentId) {
           ask.sending = false;
-          this.announce(`「${bot.name}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ`, 6000);
+          this.announce(t('「{0}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ', { 0: bot.name }), 6000);
           return;
         }
         if (!skipConfirm && !this.host.botAppConfirmed()) {
@@ -1964,29 +1965,29 @@ export class CapturePanel {
         return;
       }
       ask.sending = false;
-      this.announce('送り先を選んでください');
+      this.announce(t('送り先を選んでください'));
     } catch (error) {
       if (this.ask === ask) ask.sending = false;
-      const why = error instanceof Error && error.message ? error.message : '理由が分かりません';
-      this.announce(`送れませんでした（${why}）`);
+      const why = error instanceof Error && error.message ? error.message : t('理由が分かりません');
+      this.announce(t('送れませんでした（{0}）', { 0: why }));
     }
   }
 
   private confirmGrok(name: string, imageFirst: boolean) {
     const button = this.element.querySelector('.capture-send');
     const box = button instanceof HTMLElement ? button.getBoundingClientRect() : { left: 24, bottom: 24 };
-    const what = imageFirst ? '画像をコピーしてから' : '依頼をコピーしてから';
+    const what = imageFirst ? t('画像をコピーしてから') : t('依頼をコピーしてから');
     this.host.menu.open(box.left, box.bottom, [
-      { section: '外のアプリ（Grok Bot）を開きます' },
-      { label: `${what}、「${name}」のチャットを Grok Bot アプリで開きます。次からは聞きません`, disabled: true },
+      { section: t('外のアプリ（Grok Bot）を開きます') },
+      { label: t('{0}、「{1}」のチャットを Grok Bot アプリで開きます。次からは聞きません', { 0: what, 1: name }), disabled: true },
       {
-        label: 'コピーして開く',
+        label: t('コピーして開く'),
         run: () => {
           this.host.confirmBotApp();
           void this.submitAsk(true);
         },
       },
-      { label: 'やめる', run: () => undefined },
+      { label: t('やめる'), run: () => undefined },
     ]);
     this.host.menu.focusFirst();
   }
@@ -1994,7 +1995,7 @@ export class CapturePanel {
   private async sendCompanion(item: CaptureItem, ask: AskSession, text: string) {
     if (this.host.busy()) {
       ask.sending = false;
-      this.announce('相棒が話し終わってから押してください');
+      this.announce(t('相棒が話し終わってから押してください'));
       return;
     }
     let images: string[] | undefined;
@@ -2008,7 +2009,7 @@ export class CapturePanel {
       if (this.ask !== ask) return;
       if (!made) {
         ask.sending = false;
-        this.announce('画像を準備できませんでした');
+        this.announce(t('画像を準備できませんでした'));
         return;
       }
       const crops = made.crops.slice(0, ASK_IMAGE_CAP - 1);
@@ -2026,14 +2027,14 @@ export class CapturePanel {
     }
     this.ask = null;
     await this.host.store.setAsked(item.id);
-    this.say(this.host.practice() ? '練習モードで送りました。相棒の会話に返事が出ます。料金はかかりません' : '相棒に送りました');
+    this.say(this.host.practice() ? t('練習モードで送りました。相棒の会話に返事が出ます。料金はかかりません') : t('相棒に送りました'));
   }
 
   private async sendGrok(item: CaptureItem, ask: AskSession, text: string, botId: string) {
     const bot = this.host.bots().find((row) => row.id === botId);
     if (!bot?.agentId) {
       ask.sending = false;
-      this.announce(bot ? `「${bot.name}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ` : '送り先の Grok Bot が見つかりません');
+      this.announce(bot ? t('「{0}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ', { 0: bot.name }) : t('送り先の Grok Bot が見つかりません'));
       return;
     }
     if (ask.image && ask.step !== 'paste') {
@@ -2046,7 +2047,7 @@ export class CapturePanel {
       if (this.ask !== ask) return;
       if (!payload) {
         ask.sending = false;
-        this.announce('画像を用意できませんでした（大きすぎるか、読めません）。アプリは開いていません');
+        this.announce(t('画像を用意できませんでした（大きすぎるか、読めません）。アプリは開いていません'));
         return;
       }
       const copied = await copyShotImageResult(payload, 'white');
@@ -2065,27 +2066,27 @@ export class CapturePanel {
       if (opened.ok || opened.error === 'noApp') this.host.askLeft({ command: 'botAppSeen', missing: !opened.ok });
       if (!opened.ok) {
         ask.sending = false;
-        this.announce(`${botAppErrorText(opened.error)} 画像はコピーしてあります。アプリは開いていません`);
+        this.announce(t('{0} 画像はコピーしてあります。アプリは開いていません', { 0: botAppErrorText(opened.error) }));
         return;
       }
       ask.sending = false;
       ask.step = 'paste';
       ask.grokText = text;
-      this.announce('画像をコピーして、アプリを開きました。チャットに貼ってください（Ctrl+V）。貼れたら「文をコピー」', 10000);
+      this.announce(t('画像をコピーして、アプリを開きました。チャットに貼ってください（Ctrl+V）。貼れたら「文をコピー」'), 10000);
       return;
     }
     // 画像を先にコピーしたときは、そのときの文を使う（貼った画像の番号と、文の番号を揃える）
     const body = (ask.grokText ?? text).trim();
     if (!body) {
       ask.sending = false;
-      this.announce('送る文が空なので、コピーしませんでした。アプリは開いていません');
+      this.announce(t('送る文が空なので、コピーしませんでした。アプリは開いていません'));
       return;
     }
     // 巣の「コピーしてアプリを開く」と同じ。右 → 左の命令 botDraft。左の ClipboardSender が依頼番号を付け、文をコピーし、アプリを開く
     this.host.askLeft({ command: 'botDraft', botId, text: body });
     this.ask = null;
     await this.host.store.setAsked(item.id);
-    this.announce('文をコピーしてアプリを開きました。チャットに貼って送ってください。受け取り箱が返事を待ちます', 10000);
+    this.announce(t('文をコピーしてアプリを開きました。チャットに貼って送ってください。受け取り箱が返事を待ちます'), 10000);
   }
 }
 
@@ -2115,9 +2116,9 @@ function pieceLines(item: CaptureItem): string[] {
   }
   for (const stroke of item.strokes) {
     const text = stroke.text.trim();
-    if (stroke.kind === 'rect') lines.push(`${numberOf(numbers, 'stroke', stroke.id) ?? ''} 四角${text ? ` ${text}` : ''}`);
-    else if (stroke.kind === 'arrow' && text) lines.push(`矢印：${text}`);
-    else if (stroke.kind === 'text' && text) lines.push(`文字：${text}`);
+    if (stroke.kind === 'rect') lines.push(t('{0} 四角{1}', { 0: numberOf(numbers, 'stroke', stroke.id) ?? '', 1: text ? ` ${text}` : '' }));
+    else if (stroke.kind === 'arrow' && text) lines.push(t('矢印：{0}', { 0: text }));
+    else if (stroke.kind === 'text' && text) lines.push(t('文字：{0}', { 0: text }));
   }
   return lines;
 }
@@ -2125,10 +2126,10 @@ function pieceLines(item: CaptureItem): string[] {
 // 下見の目安の行。全体の大きさとトークン、隠した数。切り抜きがあれば、その枚数とトークン、合計
 function shotNote(shot: AskShot, hidden: number) {
   const whole = imageTokens(shot.width, shot.height);
-  let line = `送る画像 ${shot.width}×${shot.height}・約 ${whole} トークン・隠した ${hidden} か所`;
+  let line = t('送る画像 {0}×{1}・約 {2} トークン・隠した {3} か所', { 0: shot.width, 1: shot.height, 2: whole, 3: hidden });
   if (shot.crops.length > 0) {
     const cropped = shot.crops.reduce((sum, crop) => sum + imageTokens(crop.width, crop.height), 0);
-    line += `／切り抜き ${shot.crops.length} 枚・約 ${cropped} トークン（計 約 ${whole + cropped}）`;
+    line += t('／切り抜き {0} 枚・約 {1} トークン（計 約 {2}）', { 0: shot.crops.length, 1: cropped, 2: whole + cropped });
   }
   return line;
 }
@@ -2157,24 +2158,24 @@ function leavingLine(item: CaptureItem, ask: AskSession, crops: number) {
   const parts: string[] = [];
   if (ask.image) {
     const how: string[] = [];
-    if (ask.burn && (item.marks.length > 0 || item.strokes.length > 0)) how.push('書き込みを焼く');
-    if (crops > 0) how.push(`切り抜き ${crops} 枚`);
-    if (item.video) parts.push(`画像（録画の代表1枚。mp4 は出ません${how.length > 0 ? `。${how.join('・')}` : ''}）`);
-    else parts.push(how.length > 0 ? `画像（${how.join('・')}）` : '画像');
+    if (ask.burn && (item.marks.length > 0 || item.strokes.length > 0)) how.push(t('書き込みを焼く'));
+    if (crops > 0) how.push(t('切り抜き {0} 枚', { 0: crops }));
+    if (item.video) parts.push(t('画像（録画の代表1枚。mp4 は出ません{0}）', { 0: how.length > 0 ? `。${how.join('・')}` : '' }));
+    else parts.push(how.length > 0 ? t('画像（{0}）', { 0: how.join('・') }) : t('画像'));
   }
-  if (ask.marks && hasMarkText(item)) parts.push('印と書き込みの文');
-  if (ask.ocr && sendableLines(item.ocr ?? []).length > 0) parts.push('読んだ文字');
+  if (ask.marks && hasMarkText(item)) parts.push(t('印と書き込みの文'));
+  if (ask.ocr && sendableLines(item.ocr ?? []).length > 0) parts.push(t('読んだ文字'));
   if (ask.url && item.source && !ask.blocked) parts.push('URL');
-  return parts.length ? `出るもの：${parts.join('、')}` : '出るもの：まだありません';
+  return parts.length ? t('出るもの：{0}', { 0: parts.join('、') }) : t('出るもの：まだありません');
 }
 
 // 読んだ文字の行。隠した行と、チェックを外した行は送らない（0 の部分は書かない）
 function ocrSendNote(lines: readonly CaptureOcrLine[]) {
   const hidden = lines.filter((line) => line.text === HIDDEN_TEXT).length;
   const off = lines.filter((line) => !line.on && line.text !== HIDDEN_TEXT).length;
-  if (hidden > 0 && off > 0) return `読んだ文字：隠した ${hidden} 行は送りません。外した ${off} 行も送りません`;
-  if (hidden > 0) return `読んだ文字：隠した ${hidden} 行は送りません`;
-  if (off > 0) return `読んだ文字：外した ${off} 行は送りません`;
+  if (hidden > 0 && off > 0) return t('読んだ文字：隠した {0} 行は送りません。外した {1} 行も送りません', { 0: hidden, 1: off });
+  if (hidden > 0) return t('読んだ文字：隠した {0} 行は送りません', { 0: hidden });
+  if (off > 0) return t('読んだ文字：外した {0} 行は送りません', { 0: off });
   return '';
 }
 
@@ -2187,17 +2188,17 @@ function candidateSummary(kinds: readonly CandidateKind[]) {
   const parts = CANDIDATE_ORDER.map((kind) => ({ kind, count: kinds.filter((one) => one === kind).length }))
     .filter((row) => row.count > 0)
     .map((row) => `${CANDIDATE_LABEL[row.kind]} ${row.count}`);
-  return `隠す候補 ${kinds.length} 行（${parts.join('・')}）`;
+  return t('隠す候補 {0} 行（{1}）', { 0: kinds.length, 1: parts.join('・') });
 }
 
 function hideFailure(reason: Extract<HideResult, { ok: false }>['reason']) {
-  if (reason === 'limit') return '隠す場所は 20 までです。読む画面で広く囲ってから、もう一度どうぞ';
+  if (reason === 'limit') return t('隠す場所は 20 までです。読む画面で広く囲ってから、もう一度どうぞ');
   if (reason === 'readonly') return READONLY_SHORT;
-  if (reason === 'missing') return 'この撮影が見つかりませんでした';
-  if (reason === 'image') return '画像を読めなかったので、隠せませんでした';
-  if (reason === 'write') return '保存できなかったので、隠せませんでした';
-  if (reason === 'none') return '隠す行がありません（もう隠してあります）';
-  return '画像が先に変わっていたので、隠せませんでした。もう一度どうぞ';
+  if (reason === 'missing') return t('この撮影が見つかりませんでした');
+  if (reason === 'image') return t('画像を読めなかったので、隠せませんでした');
+  if (reason === 'write') return t('保存できなかったので、隠せませんでした');
+  if (reason === 'none') return t('隠す行がありません（もう隠してあります）');
+  return t('画像が先に変わっていたので、隠せませんでした。もう一度どうぞ');
 }
 
 // 縮図の上に重ねる枠。rect は画像に対する割合
@@ -2212,12 +2213,12 @@ function rectBox(className: string, rect: { x: number; y: number; w: number; h: 
 
 // 拡大の帯の文。送ったあとは、送った写しが隠れないことを言う
 function lightboxNote(item: CaptureItem) {
-  return item.askedAt ? `${whenOf(item.askedAt)} に送っています。送った写しは隠れません` : 'この画像は、まだ外に送っていません';
+  return item.askedAt ? t('{0} に送っています。送った写しは隠れません', { 0: whenOf(item.askedAt) }) : t('この画像は、まだ外に送っていません');
 }
 
 function countLabel(text: string) {
   const count = [...text].length;
-  return count > COMMENT_HINT ? `${count} / ${COMMENT_HINT}（長め）` : `${count} / ${COMMENT_HINT}`;
+  return count > COMMENT_HINT ? t('{0} / {1}（長め）', { 0: count, 1: COMMENT_HINT }) : `${count} / ${COMMENT_HINT}`;
 }
 
 function whenOf(ms: number) {
@@ -2227,16 +2228,16 @@ function whenOf(ms: number) {
 }
 
 function scopeLabel(item: CaptureItem) {
-  if (item.video) return `録画 · ${item.video.seconds}秒`;
+  if (item.video) return t('録画 · {0}秒', { 0: item.video.seconds });
   if (item.from) return CAPTURE_FROM_LABEL[item.from.kind];
-  if (item.scope === 'window') return 'ブラウザの窓';
-  if (item.scope === 'desktop') return 'この画面';
-  if (item.scope === 'region') return '囲んだ範囲';
-  return '中央のページ';
+  if (item.scope === 'window') return t('ブラウザの窓');
+  if (item.scope === 'desktop') return t('この画面');
+  if (item.scope === 'region') return t('囲んだ範囲');
+  return t('中央のページ');
 }
 
 function recLabel(seconds: number, limit: number) {
-  return `● 録画中 ${seconds} / ${limit}秒`;
+  return t('● 録画中 {0} / {1}秒', { 0: seconds, 1: limit });
 }
 
 function clockLabel(ms: number) {
@@ -2247,63 +2248,63 @@ function clockLabel(ms: number) {
 }
 
 function addFailure(reason: 'full' | 'write' | 'readonly') {
-  if (reason === 'full') return `撮影は ${CAPTURE_LIMIT} 件までです。古いカードを消してから撮ってください`;
+  if (reason === 'full') return t('撮影は {0} 件までです。古いカードを消してから撮ってください', { 0: CAPTURE_LIMIT });
   if (reason === 'readonly') return READONLY_SHORT;
-  return '撮影を保存できませんでした';
+  return t('撮影を保存できませんでした');
 }
 
 // 台帳の目次（captures.json）を読めなかったときの注記。理由は failure ごと
 function readonlyText(failure: CaptureLoadFailure | null) {
   const why =
-    failure === 'timeout' ? '返事が来ませんでした' : failure === 'broken' ? '中身が壊れています' : failure === 'version' ? '新しい版の形です' : failure === 'unreadable' ? 'ファイルを開けませんでした' : '理由は分かりません';
+    failure === 'timeout' ? t('返事が来ませんでした') : failure === 'broken' ? t('中身が壊れています') : failure === 'version' ? t('新しい版の形です') : failure === 'unreadable' ? t('ファイルを開けませんでした') : t('理由は分かりません');
   // 返事が来ないだけなら開き直せば読めることがある。中身やファイルの問題は、開き直しても同じなので置き場を伝える
   const fix =
     failure === 'timeout'
-      ? 'アプリを開き直してください'
-      : 'ui-data の captures.json を別の場所へ移してから開き直すと、空の一覧から始められます（撮った画像は ui-data\\captures に残ります）';
-  return `撮影の一覧（captures.json）を読めませんでした（${why}）。上書きしないように、撮影の保存を止めています。${fix}`;
+      ? t('アプリを開き直してください')
+      : t('ui-data の captures.json を別の場所へ移してから開き直すと、空の一覧から始められます（撮った画像は ui-data\\captures に残ります）');
+  return t('撮影の一覧（captures.json）を読めませんでした（{0}）。上書きしないように、撮影の保存を止めています。{1}', { 0: why, 1: fix });
 }
 
 function ocrFailure(error: string | undefined) {
-  if (error === 'unavailable') return 'このパソコンでは文字を読めません';
-  if (error === 'busy') return 'いまは文字を読めません。録画か、ほかの読み取りが終わってからもう一度押してください';
-  if (error === 'decode') return '画像を文字用に読み取れませんでした';
-  if (error === 'engine') return '文字認識を始められませんでした';
-  return '文字を読めませんでした';
+  if (error === 'unavailable') return t('このパソコンでは文字を読めません');
+  if (error === 'busy') return t('いまは文字を読めません。録画か、ほかの読み取りが終わってからもう一度押してください');
+  if (error === 'decode') return t('画像を文字用に読み取れませんでした');
+  if (error === 'engine') return t('文字認識を始められませんでした');
+  return t('文字を読めませんでした');
 }
 
 function recordFailure(error: string | undefined) {
-  if (error === 'unavailable') return 'このパソコンでは録画できません';
-  if (error === 'busy') return 'すでに録画しています';
-  if (error === 'popout') return '小窓に出しているページは録画できません';
-  if (error === 'noPage') return '中央にページが無いので録画できません';
-  if (error === 'empty') return 'フレームが無かったので、録画は残しませんでした';
-  if (error === 'write' || error === 'badId') return '動画を書けませんでした';
-  if (error === 'shot') return '中央のページを録画できませんでした';
-  return '録画を始められませんでした';
+  if (error === 'unavailable') return t('このパソコンでは録画できません');
+  if (error === 'busy') return t('すでに録画しています');
+  if (error === 'popout') return t('小窓に出しているページは録画できません');
+  if (error === 'noPage') return t('中央にページが無いので録画できません');
+  if (error === 'empty') return t('フレームが無かったので、録画は残しませんでした');
+  if (error === 'write' || error === 'badId') return t('動画を書けませんでした');
+  if (error === 'shot') return t('中央のページを録画できませんでした');
+  return t('録画を始められませんでした');
 }
 
 function scopeNotes(item: CaptureItem) {
   const lines: string[] = [];
-  if (item.scope === 'window') lines.push('別の窓に出しているアプリのセルは、写っていないことがあります');
-  if (item.scope === 'desktop') lines.push('ほかのアプリも写ります');
-  if (item.via === 'gdi') lines.push('画面のコピーで撮りました。黄色い枠は出ていません');
+  if (item.scope === 'window') lines.push(t('別の窓に出しているアプリのセルは、写っていないことがあります'));
+  if (item.scope === 'desktop') lines.push(t('ほかのアプリも写ります'));
+  if (item.via === 'gdi') lines.push(t('画面のコピーで撮りました。黄色い枠は出ていません'));
   if (item.blur.length > 0 && (item.ocr ?? []).some((line) => typeof line.at === 'number')) {
-    lines.push('隠す前に読んだ録画の行は、隠した場所と同じ位置の行しか隠していません（スクロールした時刻の行は残ることがあります）。行ごとの「隠す」で文字だけ隠せます。「文字を読む」で、代表の画面だけを読み直すこともできます');
+    lines.push(t('隠す前に読んだ録画の行は、隠した場所と同じ位置の行しか隠していません（スクロールした時刻の行は残ることがあります）。行ごとの「隠す」で文字だけ隠せます。「文字を読む」で、代表の画面だけを読み直すこともできます'));
   }
-  if (item.video && item.blur.length > 0) lines.push('mp4 の動画は隠れていません（「mp4 だけ消す」で消せます）');
+  if (item.video && item.blur.length > 0) lines.push(t('mp4 の動画は隠れていません（「mp4 だけ消す」で消せます）'));
   return lines;
 }
 
 function screenFailure(reply: HostMessage | null, scope: 'window' | 'desktop') {
-  const which = scope === 'desktop' ? 'この画面' : 'ブラウザの窓';
-  if (!reply || reply.type !== 'capture') return `${which}の返事が来ませんでした`;
-  if (reply.error === 'busy') return '録画中です。止めてから撮ってください';
-  if (reply.error === 'hidden') return '窓が見えていないので撮れませんでした';
-  if (reply.error === 'tooBig') return '画像が大きすぎて渡せませんでした';
-  if (reply.error === 'grab') return `${which}を撮れませんでした`;
-  if (reply.ok) return `${which}を画像にできませんでした`;
-  return `撮れませんでした（${reply.error ?? '理由なし'}）`;
+  const which = scope === 'desktop' ? t('この画面') : t('ブラウザの窓');
+  if (!reply || reply.type !== 'capture') return t('{0}の返事が来ませんでした', { 0: which });
+  if (reply.error === 'busy') return t('録画中です。止めてから撮ってください');
+  if (reply.error === 'hidden') return t('窓が見えていないので撮れませんでした');
+  if (reply.error === 'tooBig') return t('画像が大きすぎて渡せませんでした');
+  if (reply.error === 'grab') return t('{0}を撮れませんでした', { 0: which });
+  if (reply.ok) return t('{0}を画像にできませんでした', { 0: which });
+  return t('撮れませんでした（{0}）', { 0: reply.error ?? '理由なし' });
 }
 
 function paintWait() {
@@ -2311,7 +2312,7 @@ function paintWait() {
 }
 
 function imageLost(why: string) {
-  return `画像の場所が分からないので撮りませんでした（${why}）`;
+  return t('画像の場所が分からないので撮りませんでした（{0}）', { 0: why });
 }
 
 // URL の # から後ろを外す（画像の URL・タブの URL の照合用）
@@ -2321,17 +2322,17 @@ function withoutHash(url: string) {
 }
 
 function captureFailure(reply: HostMessage | null): string {
-  if (!reply || reply.type !== 'capture') return '中央からの返事が来ませんでした（撮る：返事なし）';
-  if (reply.error === 'rect') return '画像が見えている所にほとんど無いので撮れませんでした（撮る：rect）';
-  if (reply.error === 'popout') return '小窓に出しているページは、ここからは撮れません（撮る：popout）';
-  if (reply.error === 'notActive') return '今、中央に出ているページではないので撮れませんでした（撮る：notActive）';
-  if (reply.error === 'noPage') return '中央にページが無いので撮れませんでした（撮る：noPage）';
-  if (reply.error === 'tooBig') return '画像が大きすぎて渡せませんでした（撮る：tooBig）';
-  if (reply.error === 'metrics') return '見えている範囲を聞けませんでした（撮る：metrics）';
-  if (reply.error === 'viewport') return '見えている範囲の大きさが変なので撮れませんでした（撮る：viewport）';
-  if (reply.error === 'shot' || reply.error === 'capture') return `中央のページを画像にできませんでした（撮る：${reply.error}）`;
-  if (reply.ok) return '中央のページを画像にできませんでした（撮る：画像が空）';
-  return `撮れませんでした（ページが眠っていることがあります。撮る：${reply.error ?? '理由なし'}）`;
+  if (!reply || reply.type !== 'capture') return t('中央からの返事が来ませんでした（撮る：返事なし）');
+  if (reply.error === 'rect') return t('画像が見えている所にほとんど無いので撮れませんでした（撮る：rect）');
+  if (reply.error === 'popout') return t('小窓に出しているページは、ここからは撮れません（撮る：popout）');
+  if (reply.error === 'notActive') return t('今、中央に出ているページではないので撮れませんでした（撮る：notActive）');
+  if (reply.error === 'noPage') return t('中央にページが無いので撮れませんでした（撮る：noPage）');
+  if (reply.error === 'tooBig') return t('画像が大きすぎて渡せませんでした（撮る：tooBig）');
+  if (reply.error === 'metrics') return t('見えている範囲を聞けませんでした（撮る：metrics）');
+  if (reply.error === 'viewport') return t('見えている範囲の大きさが変なので撮れませんでした（撮る：viewport）');
+  if (reply.error === 'shot' || reply.error === 'capture') return t('中央のページを画像にできませんでした（撮る：{0}）', { 0: reply.error });
+  if (reply.ok) return t('中央のページを画像にできませんでした（撮る：画像が空）');
+  return t('撮れませんでした（ページが眠っていることがあります。撮る：{0}）', { 0: reply.error ?? '理由なし' });
 }
 
 function loadFolded() {

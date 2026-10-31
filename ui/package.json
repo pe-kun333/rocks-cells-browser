@@ -1,13 +1,14 @@
 {
   "name": "honeycomb-ui",
   "private": true,
-  "version": "0.0.31-beta",
+  "version": "0.0.31-beta.1",
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173 --strictPort",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "i18n:check": "node scripts/i18n-check.ts"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

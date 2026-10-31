@@ -1,6 +1,7 @@
 // 下のメモの区画の、左サイドバー側の世話役
 //   台帳を書くのは左だけ。下の面は写しを見て、本文を変えてほしいときは左に頼む
 //   開く・閉じる（見える・隠す）を C++ に言うのも左だけ。高さは下の面が直接送る
+import { t } from './i18n';
 import { send } from './bridge';
 import { isSpecialCell, type MemoCell, type MemoStore, toMemoIndexItem } from './memocells';
 import { MAIN_SHEET, type SheetStore } from './sheets';
@@ -181,7 +182,7 @@ export class MemoPaneHost {
     if (!this.o.memos.get(this.current)) {
       this.close();
       // 消した直後の「消しました」より後に出す（同じ場所のお知らせは、あとから来た方が残る）
-      window.setTimeout(() => this.o.toast('メモが消されたので、下の区画を閉じました'), 0);
+      window.setTimeout(() => this.o.toast(t('メモが消されたので、下の区画を閉じました')), 0);
       return;
     }
     this.pushSoon();
@@ -246,7 +247,7 @@ export class MemoPaneHost {
     this.boardMemo = null;
     writeMemoPanePrefs({ boardMemo: null });
     this.pushBoard();
-    window.setTimeout(() => this.o.toast('ボードで見ていたメモが消されたので、下の区画と同じ見方に戻しました'), 0);
+    window.setTimeout(() => this.o.toast(t('ボードで見ていたメモが消されたので、下の区画と同じ見方に戻しました')), 0);
   }
 
   private listPayload() {
@@ -264,7 +265,7 @@ export class MemoPaneHost {
       .filter((m): m is MemoCell => !!m && !isSpecialCell(m))
       .slice(0, RECENT_MEMOS)
       .map(toMemoIndexItem);
-    const sheetName = sheet !== MAIN_SHEET ? this.o.sheets.get(sheet)?.name || 'シート' : 'メイン';
+    const sheetName = sheet !== MAIN_SHEET ? this.o.sheets.get(sheet)?.name || t('シート') : t('メイン');
     return { kind: 'memoPaneList' as const, items, recent, sheetName };
   }
 

@@ -14,6 +14,7 @@ import { BOT_FEATURES } from '../features';
 //   保存に失敗したら（カードは）元の位置に戻し、理由を出す。読めないボード・読み込み中は動かさない・書かない。Esc：つまむのを取り消す→選びを外す→縮める→メモへ
 //   B1-3 のとおり、［拡大］［縮小］は高さの道（PaneHeightApi。つまみと同じ道）。計算は memo-card-board-view.ts・memo-card-board-select.ts・memo-pane-expand.ts（試験あり）
 //   画面の文字は textContent だけで入れる
+import { t as tr } from '../i18n';
 import { el } from '../util';
 import { CellMenu, type MenuEntry } from '../panels/cell-menu';
 import { tagArea } from '../panels/tag-pad';
@@ -111,7 +112,7 @@ export class MemoBoardPanel {
   private readonly count = el('span', 'memo-board-count');
   private readonly orphanEl = el('span', 'memo-board-orphan'); // 台帳から消えたカードの位置が残っているときだけ出す（B4-1）
   private readonly search = el('input', 'memo-board-search');
-  private readonly fitBtn = el('button', 'memo-board-fit', '全体');
+  private readonly fitBtn = el('button', 'memo-board-fit', tr('全体'));
   private readonly zoomLabel = el('span', 'memo-board-zoom', '100%');
   private readonly filterBox = el('div', 'memo-board-filter');
   private readonly note = el('div', 'memo-board-note');
@@ -147,16 +148,16 @@ export class MemoBoardPanel {
   private viewTouchedAt: number | null = null; // 見ている位置を最後に変えた時刻（保存していないとき）
   private viewTimer = 0;
   private readonly tools = el('div', 'memo-board-tools');
-  private readonly addBtn = el('button', 'memo-board-tool', '＋カード');
-  private readonly editBtn = el('button', 'memo-board-tool', '書き直す');
-  private readonly removeBtn = el('button', 'memo-board-tool is-danger', '削除');
-  private readonly linkAddBtn = el('button', 'memo-board-tool', '線を足す');
-  private readonly linkRemoveBtn = el('button', 'memo-board-tool', '線を外す…');
-  private readonly templateBtn = el('button', 'memo-board-tool', '型にする…');
-  private readonly askBtn = el('button', 'memo-board-tool', 'Grok に頼む');
-  private readonly pasteBtn = el('button', 'memo-board-tool', '型を貼る ▾');
-  private readonly undoBtn = el('button', 'memo-board-tool', '元に戻す');
-  private readonly redoBtn = el('button', 'memo-board-tool', 'やり直す');
+  private readonly addBtn = el('button', 'memo-board-tool', tr('＋カード'));
+  private readonly editBtn = el('button', 'memo-board-tool', tr('書き直す'));
+  private readonly removeBtn = el('button', 'memo-board-tool is-danger', tr('削除'));
+  private readonly linkAddBtn = el('button', 'memo-board-tool', tr('線を足す'));
+  private readonly linkRemoveBtn = el('button', 'memo-board-tool', tr('線を外す…'));
+  private readonly templateBtn = el('button', 'memo-board-tool', tr('型にする…'));
+  private readonly askBtn = el('button', 'memo-board-tool', tr('Grok に頼む'));
+  private readonly pasteBtn = el('button', 'memo-board-tool', tr('型を貼る ▾'));
+  private readonly undoBtn = el('button', 'memo-board-tool', tr('元に戻す'));
+  private readonly redoBtn = el('button', 'memo-board-tool', tr('やり直す'));
   private readonly tidyBtn = el('button', 'memo-board-tool', TIDY_LABEL); // 消えたカードの位置を整理する（B4-1。孤児があるときだけ押せる）
   private readonly tidyBar = el('div', 'memo-board-tidybar');
   private readonly tidyText = el('span', 'memo-board-tidybar-text');
@@ -198,17 +199,17 @@ export class MemoBoardPanel {
     this.memoTag.dataset.key = 'board-memo-tag';
     this.memoTag.hidden = true;
     this.memoTag.addEventListener('click', () => this.openPickMenu());
-    bar.append(el('span', 'memo-board-title', 'ボード'), this.memoTag, this.count, this.orphanEl);
+    bar.append(el('span', 'memo-board-title', tr('ボード')), this.memoTag, this.count, this.orphanEl);
     this.orphanEl.hidden = true;
     this.search.type = 'search';
-    this.search.placeholder = '検索';
+    this.search.placeholder = tr('検索');
     this.search.setAttribute('aria-label', 'カードを検索（合わないカードは薄くなります）');
     this.search.addEventListener('input', () => {
       this.words = searchWords(this.search.value);
       this.paintDim();
     });
     this.fitBtn.type = 'button';
-    this.fitBtn.title = '全部のカードが入るように見ている位置を合わせます';
+    this.fitBtn.title = tr('全部のカードが入るように見ている位置を合わせます');
     this.fitBtn.addEventListener('click', () => this.fit());
     this.btn.type = 'button';
     this.btn.dataset.key = 'board-expand';
@@ -390,7 +391,7 @@ export class MemoBoardPanel {
     const on = this.expanded;
     this.btn.textContent = expandLabel(on);
     this.btn.setAttribute('aria-pressed', String(on));
-    this.btn.title = on ? '区画の高さを元に戻します（Esc でも戻ります）' : '区画の高さを広げます';
+    this.btn.title = on ? tr('区画の高さを元に戻します（Esc でも戻ります）') : tr('区画の高さを広げます');
   }
 
   // ---------- 読み込みと描画（読むだけ） ----------
@@ -1065,7 +1066,7 @@ export class MemoBoardPanel {
     }
     const first = planMoves(this.loaded, snap.replies, moves, Date.now());
     if (!first.ok) {
-      if (first.why === 'blocked') this.flash(moveBlockedNote(this.loaded) ?? 'カードを動かせませんでした', 'warn');
+      if (first.why === 'blocked') this.flash(moveBlockedNote(this.loaded) ?? tr('カードを動かせませんでした'), 'warn');
       this.render();
       after?.(false);
       return;
@@ -1160,13 +1161,13 @@ export class MemoBoardPanel {
     this.composeText.rows = 3;
     this.composeText.maxLength = 2000;
     this.composeText.setAttribute('aria-label', 'カードの文');
-    const ok = el('button', 'memo-board-tool is-primary', '決める');
+    const ok = el('button', 'memo-board-tool is-primary', tr('決める'));
     ok.type = 'submit';
-    const cancel = el('button', 'memo-board-tool', 'やめる');
+    const cancel = el('button', 'memo-board-tool', tr('やめる'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => this.closeCompose());
     const actions = el('div', 'memo-board-compose-actions');
-    actions.append(ok, cancel, el('span', 'memo-board-compose-hint', 'Ctrl+Enter でも決められます（足すときは Ctrl+Enter で選んだカードの右・Shift+Enter で下に）'));
+    actions.append(ok, cancel, el('span', 'memo-board-compose-hint', tr('Ctrl+Enter でも決められます（足すときは Ctrl+Enter で選んだカードの右・Shift+Enter で下に）')));
     this.compose.append(this.composeLabel, this.composeText, actions);
     this.compose.hidden = true;
     this.compose.addEventListener('submit', (e) => {
@@ -1189,17 +1190,17 @@ export class MemoBoardPanel {
       }
     });
 
-    const cancelLink = el('button', 'memo-board-tool', 'やめる');
+    const cancelLink = el('button', 'memo-board-tool', tr('やめる'));
     cancelLink.type = 'button';
     cancelLink.addEventListener('click', () => this.cancelLink());
     this.linkBar.setAttribute('role', 'status');
     this.linkBar.append(this.linkBarText, cancelLink);
     this.linkBar.hidden = true;
 
-    const tidyOk = el('button', 'memo-board-tool is-primary', '決める');
+    const tidyOk = el('button', 'memo-board-tool is-primary', tr('決める'));
     tidyOk.type = 'button';
     tidyOk.addEventListener('click', () => this.runTidy());
-    const tidyCancel = el('button', 'memo-board-tool', 'やめる');
+    const tidyCancel = el('button', 'memo-board-tool', tr('やめる'));
     tidyCancel.type = 'button';
     tidyCancel.addEventListener('click', () => this.closeTidy(true));
     this.tidyOk = tidyOk;
@@ -1296,7 +1297,7 @@ export class MemoBoardPanel {
     set(this.linkAddBtn, st.linkAdd);
     set(this.linkRemoveBtn, st.linkRemove);
     set(this.templateBtn, st.template);
-    const askNote = this.selected.size === 0 ? '先にカードを選んでください' : '選んだカードを材料にして、依頼の小窓を開きます（直接つながるカードは印を外して足します）';
+    const askNote = this.selected.size === 0 ? tr('先にカードを選んでください') : tr('選んだカードを材料にして、依頼の小窓を開きます（直接つながるカードは印を外して足します）');
     this.askBtn.disabled = this.selected.size === 0;
     if (!BOT_FEATURES) this.askBtn.style.display = 'none'; // 公開版（rebuild-public.ps1）
     this.askBtn.title = askNote;
@@ -1333,12 +1334,12 @@ export class MemoBoardPanel {
     const area = tagArea(
       {
         tags,
-        what: ids.length > 1 ? `選んだ ${ids.length} 枚のカード` : 'このカード',
+        what: ids.length > 1 ? tr('選んだ {0} 枚のカード', { 0: ids.length }) : tr('このカード'),
         change: (add, remove) => this.changeTags(ids, add, remove),
       },
       { editable: true, focusKey: 'board:', toast: (text) => this.flash(text, 'warn'), candidates: cardTagCandidates(replies, [], registeredTagNames()) },
     );
-    this.tagRow.replaceChildren(el('span', 'memo-board-tagrow-label', 'タグ'), area);
+    this.tagRow.replaceChildren(el('span', 'memo-board-tagrow-label', tr('タグ')), area);
   }
 
   // 送った命令の結果が、左の写しに現れるのを待つ（100 ミリ秒おきに見る）。memo が替わったら false で終える
@@ -1373,7 +1374,7 @@ export class MemoBoardPanel {
     }
     this.cancelLink();
     this.composing = mode;
-    this.composeLabel.textContent = mode.kind === 'add' ? '新しいカードの文（見ている場所の真ん中に足します。Ctrl+Enter で選んだカードの右・Shift+Enter で下に）' : 'カードの文を書き直す';
+    this.composeLabel.textContent = mode.kind === 'add' ? tr('新しいカードの文（見ている場所の真ん中に足します。Ctrl+Enter で選んだカードの右・Shift+Enter で下に）') : tr('カードの文を書き直す');
     this.composeText.value = text;
     this.compose.hidden = false;
     this.composeText.focus();
@@ -1407,7 +1408,7 @@ export class MemoBoardPanel {
     const id = makeReplyId(snap.replies);
     const cmd = id ? addCommand(memoId, id, text) : null;
     if (!id || !cmd) {
-      this.flash(id ? '文が空です' : 'カードの id を決められませんでした。もう一度お試しください', 'warn');
+      this.flash(id ? tr('文が空です') : tr('カードの id を決められませんでした。もう一度お試しください'), 'warn');
       return;
     }
     const anchorId = dir && this.selected.size === 1 ? [...this.selected][0] : undefined;
@@ -1415,7 +1416,7 @@ export class MemoBoardPanel {
     const taken = [...this.pos.values()];
     const spot = (anchor && dir ? spotBeside(anchor, dir, taken) : null) ?? spotForNewCard(this.view, this.viewport(), taken);
     if (!spot) {
-      this.flash('置ける空きが見つかりませんでした（見ている場所を動かしてからお試しください）', 'warn');
+      this.flash(tr('置ける空きが見つかりませんでした（見ている場所を動かしてからお試しください）'), 'warn');
       return;
     }
     this.closeCompose();
@@ -1426,7 +1427,7 @@ export class MemoBoardPanel {
       if (!ok) {
         if (this.pending.get(id)?.seq === token) this.pending.delete(id);
         if (this.memoId === memoId) {
-          if (!this.quietAfterNotice()) this.flash('カードを足せませんでした（左が断ったか、時間がかかっています。足せていなければ、もう一度お試しください）', 'warn');
+          if (!this.quietAfterNotice()) this.flash(tr('カードを足せませんでした（左が断ったか、時間がかかっています。足せていなければ、もう一度お試しください）'), 'warn');
           this.render();
         }
         return;
@@ -1439,15 +1440,15 @@ export class MemoBoardPanel {
           const base = this.known.get(memoId);
           const plan = planMoves(base ?? null, replies, [{ ref: id, x: spot.x, y: spot.y }], Date.now());
           if (!base || !plan.ok) {
-            if (this.memoId === memoId) this.flash('カードは足しましたが、位置は保存できませんでした', 'warn');
+            if (this.memoId === memoId) this.flash(tr('カードは足しましたが、位置は保存できませんでした'), 'warn');
             return;
           }
           const result = await saveBoard(boardPaneIo, base, plan.board);
           this.settle(memoId, result);
           const note = moveResultNote(result);
-          if (this.memoId === memoId) this.flash(result.ok ? 'カードを足しました' : `カードは足しましたが、${note.text}`, result.ok ? 'info' : 'warn');
+          if (this.memoId === memoId) this.flash(result.ok ? tr('カードを足しました') : tr('カードは足しましたが、{0}', { 0: note.text }), result.ok ? 'info' : 'warn');
         } catch {
-          if (this.memoId === memoId) this.flash('カードは足しましたが、位置は保存できませんでした', 'warn');
+          if (this.memoId === memoId) this.flash(tr('カードは足しましたが、位置は保存できませんでした'), 'warn');
         } finally {
           if (this.pending.get(id)?.seq === token) this.pending.delete(id);
           if (this.memoId === memoId) this.render();
@@ -1473,7 +1474,7 @@ export class MemoBoardPanel {
     const reply = snap?.replies.find((r) => r.id === id && r.parent === null);
     if (!snap || !memoId || !reply) {
       this.closeCompose();
-      this.flash('カードがもうありません', 'warn');
+      this.flash(tr('カードがもうありません'), 'warn');
       return;
     }
     const made = editCommand(memoId, reply, text);
@@ -1485,8 +1486,8 @@ export class MemoBoardPanel {
     this.ask(made.command);
     this.watch(memoId, (rs) => cardTextIs(rs, id, text), (ok) => {
       if (this.memoId !== memoId) return;
-      if (ok) this.flash('書き直しました', 'info');
-      else if (!this.quietAfterNotice()) this.flash('書き直せませんでした', 'warn');
+      if (ok) this.flash(tr('書き直しました'), 'info');
+      else if (!this.quietAfterNotice()) this.flash(tr('書き直せませんでした'), 'warn');
     });
   }
 
@@ -1511,8 +1512,8 @@ export class MemoBoardPanel {
       if (this.memoId !== memoId) return;
       const gone = ids.filter((id) => cardsGone(this.source?.get()?.replies ?? [], [id]));
       if (gone.length > 0) this.pushUndo({ kind: 'remove', ids: gone, at, token });
-      if (ok) this.flash(ids.length > 1 ? `${ids.length}枚を削除しました（Ctrl+Z で戻せます）` : '削除しました（Ctrl+Z で戻せます）', 'info');
-      else if (!this.quietAfterNotice()) this.flash('消せなかったカードがあります', 'warn');
+      if (ok) this.flash(ids.length > 1 ? tr('{0}枚を削除しました（Ctrl+Z で戻せます）', { 0: ids.length }) : tr('削除しました（Ctrl+Z で戻せます）'), 'info');
+      else if (!this.quietAfterNotice()) this.flash(tr('消せなかったカードがあります'), 'warn');
     });
   }
 
@@ -1525,7 +1526,7 @@ export class MemoBoardPanel {
     const cmds = tagCommands(memoId, snap.replies, ids, add, remove);
     if (cmds.length === 0) return;
     const full = add.reduce((n, tag) => Math.max(n, tagFullCount(snap.replies, ids, tag, MAX_TAGS_PER_TAB)), 0);
-    if (full > 0) this.flash(`タグは 1 つに ${MAX_TAGS_PER_TAB} 個までです（${full} 枚には付けられません。ほかのタグを外してから付けてください）`, 'warn');
+    if (full > 0) this.flash(tr('タグは 1 つに {0} 個までです（{1} 枚には付けられません。ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB, 1: full }), 'warn');
     for (const cmd of cmds) this.ask(cmd);
     if (full > 0) return;
     this.watch(
@@ -1536,8 +1537,8 @@ export class MemoBoardPanel {
       }),
       (ok) => {
         if (this.memoId !== memoId) return;
-        if (ok) this.flash('タグを変えました', 'info');
-        else if (!this.quietAfterNotice()) this.flash('タグを変えられませんでした', 'warn');
+        if (ok) this.flash(tr('タグを変えました'), 'info');
+        else if (!this.quietAfterNotice()) this.flash(tr('タグを変えられませんでした'), 'warn');
       },
     );
   }
@@ -1549,14 +1550,14 @@ export class MemoBoardPanel {
     if (!snap) return;
     const ids = liveSelection(snap.replies, [...this.selected]);
     if (ids.length !== 1) {
-      this.flash(ids.length === 0 ? '先にカードを 1 枚選んでください' : '1 枚だけ選んでください', 'warn');
+      this.flash(ids.length === 0 ? tr('先にカードを 1 枚選んでください') : tr('1 枚だけ選んでください'), 'warn');
       return;
     }
     this.closeCompose();
     const from = snap.replies.find((r) => r.id === ids[0]);
     if (!from) return;
     this.linkFrom = ids[0];
-    this.linkBarText.textContent = `「${cardLabel(from, 16)}」の相手のカードを押してください（Esc でやめる）`;
+    this.linkBarText.textContent = tr('「{0}」の相手のカードを押してください（Esc でやめる）', { 0: cardLabel(from, 16) });
     this.linkBar.hidden = false;
     this.stage.classList.add('is-linking');
     this.paintLinkSource();
@@ -1591,12 +1592,12 @@ export class MemoBoardPanel {
     const a = snap?.replies.find((r) => r.id === from);
     const b = snap?.replies.find((r) => r.id === to);
     if (!snap || !choices || !a || !b) {
-      this.flash('そのカードとは結べません', 'warn');
+      this.flash(tr('そのカードとは結べません'), 'warn');
       return;
     }
-    const entries: MenuEntry[] = [{ section: `「${cardLabel(a, 12)}」は「${cardLabel(b, 12)}」の…` }];
+    const entries: MenuEntry[] = [{ section: tr('「{0}」は「{1}」の…', { 0: cardLabel(a, 12), 1: cardLabel(b, 12) }) }];
     for (const c of choices) entries.push({ label: c.name, hint: c.hint, disabled: c.disabled, run: () => this.chooseKind(from, to, c.kind) });
-    entries.push('sep', { label: 'やめる', run: () => this.cancelLink() });
+    entries.push('sep', { label: tr('やめる'), run: () => this.cancelLink() });
     this.getMenu().open(x, y, entries);
     this.getMenu().focusFirst();
   }
@@ -1622,8 +1623,8 @@ export class MemoBoardPanel {
     this.watch(memoId, (rs) => linkIs(rs, from, to, kind), (ok) => {
       if (this.memoId !== memoId) return;
       if (ok) this.pushUndo({ kind: 'link', from, to, before, after: kind });
-      if (ok) this.flash(`関連「${name}」を付けました`, 'info');
-      else if (!this.quietAfterNotice()) this.flash('関連を付けられませんでした', 'warn');
+      if (ok) this.flash(tr('関連「{0}」を付けました', { 0: name }), 'info');
+      else if (!this.quietAfterNotice()) this.flash(tr('関連を付けられませんでした'), 'warn');
     });
   }
 
@@ -1640,13 +1641,13 @@ export class MemoBoardPanel {
     const self = ids[0];
     const rels = relationsOf(snap.replies, self);
     if (rels.length === 0) {
-      this.flash('このカードにつながる線はありません', 'info');
+      this.flash(tr('このカードにつながる線はありません'), 'info');
       return;
     }
     const at = this.linkRemoveBtn.getBoundingClientRect();
-    const entries: MenuEntry[] = [{ section: 'どの線を外しますか' }];
+    const entries: MenuEntry[] = [{ section: tr('どの線を外しますか') }];
     for (const rel of rels) entries.push({ label: rel.sentence, run: () => this.removeLink(self, rel) });
-    entries.push('sep', { label: 'やめる', run: () => undefined });
+    entries.push('sep', { label: tr('やめる'), run: () => undefined });
     this.getMenu().open(at.left, at.bottom + 2, entries);
     this.getMenu().focusFirst();
   }
@@ -1698,21 +1699,21 @@ export class MemoBoardPanel {
     const loaded = await hook.list().catch(() => null);
     if (seq !== this.pasteSeq || this.hidden || this.memoId !== memoId) return;
     if (!loaded || loaded.state === 'unreadable') {
-      this.flash('型の保存ファイルを読めませんでした（ファイルは変えていません）', 'warn');
+      this.flash(tr('型の保存ファイルを読めませんでした（ファイルは変えていません）'), 'warn');
       return;
     }
     const replies = this.source?.get()?.replies ?? snap.replies;
-    const entries: MenuEntry[] = [{ section: '貼る型を選んでください（見ている場所の真ん中に貼ります）' }];
-    if (loaded.templates.length === 0) entries.push({ note: loaded.skipped > 0 ? `読める型がありません（読めない型が ${loaded.skipped} 件あります）` : TEMPLATE_EMPTY_HINT });
+    const entries: MenuEntry[] = [{ section: tr('貼る型を選んでください（見ている場所の真ん中に貼ります）') }];
+    if (loaded.templates.length === 0) entries.push({ note: loaded.skipped > 0 ? tr('読める型がありません（読めない型が {0} 件あります）', { 0: loaded.skipped }) : TEMPLATE_EMPTY_HINT });
     for (const group of templateMenuGroups(loaded.templates)) {
       entries.push({ section: group.folder });
       for (const t of group.items) {
         const full = pasteBlocked(replies.length, t.cards.length);
-        entries.push({ label: templateMenuLabel(t), hint: full ? '入りきりません' : undefined, disabled: full !== null, run: () => this.startPaste(t) });
+        entries.push({ label: templateMenuLabel(t), hint: full ? tr('入りきりません') : undefined, disabled: full !== null, run: () => this.startPaste(t) });
       }
     }
-    if (loaded.templates.length > 0 && loaded.skipped > 0) entries.push({ note: `読めない型が ${loaded.skipped} 件あります（出していません）` });
-    entries.push('sep', { label: 'やめる', run: () => undefined });
+    if (loaded.templates.length > 0 && loaded.skipped > 0) entries.push({ note: tr('読めない型が {0} 件あります（出していません）', { 0: loaded.skipped }) });
+    entries.push('sep', { label: tr('やめる'), run: () => undefined });
     const at = this.pasteBtn.getBoundingClientRect();
     this.getMenu().open(at.left, at.bottom + 2, entries);
     this.getMenu().focusFirst();
@@ -1757,7 +1758,7 @@ export class MemoBoardPanel {
       if (!ok) {
         clearPending();
         if (this.memoId === memoId) {
-          if (!this.quietAfterNotice()) this.flash('型を貼れませんでした（左が断ったか、時間がかかっています。貼れていなければ、もう一度お試しください）', 'warn');
+          if (!this.quietAfterNotice()) this.flash(tr('型を貼れませんでした（左が断ったか、時間がかかっています。貼れていなければ、もう一度お試しください）'), 'warn');
           this.render();
         }
         return;
@@ -1770,15 +1771,15 @@ export class MemoBoardPanel {
           const base = this.known.get(memoId);
           const saved = planMoves(base ?? null, replies, moves, Date.now());
           if (!base || !saved.ok) {
-            if (this.memoId === memoId) this.flash('型は貼りましたが、位置は保存できませんでした', 'warn');
+            if (this.memoId === memoId) this.flash(tr('型は貼りましたが、位置は保存できませんでした'), 'warn');
             return;
           }
           const result = await saveBoard(boardPaneIo, base, saved.board);
           this.settle(memoId, result);
           const note = moveResultNote(result);
-          if (this.memoId === memoId) this.flash(result.ok ? doneText : `型は貼りましたが、${note.text}`, result.ok ? 'info' : 'warn');
+          if (this.memoId === memoId) this.flash(result.ok ? doneText : tr('型は貼りましたが、{0}', { 0: note.text }), result.ok ? 'info' : 'warn');
         } catch {
-          if (this.memoId === memoId) this.flash('型は貼りましたが、位置は保存できませんでした', 'warn');
+          if (this.memoId === memoId) this.flash(tr('型は貼りましたが、位置は保存できませんでした'), 'warn');
         } finally {
           clearPending();
           if (this.memoId === memoId) this.render();
@@ -1795,8 +1796,8 @@ export class MemoBoardPanel {
     this.watch(memoId, (rs) => !linkIs(rs, rel.source, to, rel.kind), (ok) => {
       if (this.memoId !== memoId) return;
       if (ok) this.pushUndo({ kind: 'link', from: rel.source, to, before: rel.kind, after: null });
-      if (ok) this.flash('関連を外しました', 'info');
-      else if (!this.quietAfterNotice()) this.flash('関連を外せませんでした', 'warn');
+      if (ok) this.flash(tr('関連を外しました'), 'info');
+      else if (!this.quietAfterNotice()) this.flash(tr('関連を外せませんでした'), 'warn');
     });
   }
   // ---------- 元に戻す・やり直す（B3-3b） ----------
@@ -1884,7 +1885,7 @@ export class MemoBoardPanel {
     }
     const op = this.undo.take(dir);
     if (!op) {
-      this.flash(dir === 'undo' ? '戻せる操作がありません' : 'やり直せる操作がありません', 'info');
+      this.flash(dir === 'undo' ? tr('戻せる操作がありません') : tr('やり直せる操作がありません'), 'info');
       return;
     }
     this.cancelLink();
@@ -1910,7 +1911,7 @@ export class MemoBoardPanel {
       } else if (!res.quiet) this.flash(res.note ?? (dir === 'undo' ? UNDO_STALE_NOTE : REDO_STALE_NOTE), 'warn');
       this.paintTools();
     };
-    this.undoAbort = (text) => finish({ ok: false, note: text.includes('そのあとにメモが変わっています') ? undefined : '戻せませんでした（左が断りました。取り消しの控えが残っていないかもしれません）' });
+    this.undoAbort = (text) => finish({ ok: false, note: text.includes('そのあとにメモが変わっています') ? undefined : tr('戻せませんでした（左が断りました。取り消しの控えが残っていないかもしれません）') });
     const replies = snap.replies;
     switch (op.kind) {
       case 'move': {
@@ -1944,7 +1945,7 @@ export class MemoBoardPanel {
           }
           this.setSelected(new Set([op.id]));
           finish({ ok: true, text: null });
-          this.savePlaced(memoId, [{ ref: op.id, x: op.at.x, y: op.at.y }], token, undoDoneText(op, dir), 'カードは足しましたが、位置は保存できませんでした');
+          this.savePlaced(memoId, [{ ref: op.id, x: op.at.x, y: op.at.y }], token, undoDoneText(op, dir), tr('カードは足しましたが、位置は保存できませんでした'));
         });
         return;
       }
@@ -1962,7 +1963,7 @@ export class MemoBoardPanel {
             }
             this.setSelected(new Set(op.ids));
             finish({ ok: true, text: null });
-            this.savePlaced(memoId, moves, token, undoDoneText(op, dir), 'カードは戻しましたが、位置は保存できませんでした');
+            this.savePlaced(memoId, moves, token, undoDoneText(op, dir), tr('カードは戻しましたが、位置は保存できませんでした'));
           });
           return;
         }
@@ -1989,7 +1990,7 @@ export class MemoBoardPanel {
       }
       case 'paste': {
         if (dir === 'undo') {
-          if (op.token === null) return finish({ ok: false, note: '元に戻せませんでした（左からの取り消しの印が届いていません）' });
+          if (op.token === null) return finish({ ok: false, note: tr('元に戻せませんでした（左からの取り消しの印が届いていません）') });
           this.ask(pasteUndoCommand(op.token));
           this.watch(memoId, (rs) => cardsGone(rs, op.ids), (ok) => finish(ok ? { ok: true, next: { ...op, token: null } } : { ok: false }));
           return;
@@ -2014,7 +2015,7 @@ export class MemoBoardPanel {
           this.trackSendToken(next, memoId, askedAt);
           this.setSelected(new Set(ids));
           finish({ ok: true, next, text: null });
-          this.savePlaced(memoId, moves, token, `${undoDoneText(op, dir)}（${ids.length} 枚）`, '型は貼りましたが、位置は保存できませんでした');
+          this.savePlaced(memoId, moves, token, tr('{0}（{1} 枚）', { 0: undoDoneText(op, dir), 1: ids.length }), tr('型は貼りましたが、位置は保存できませんでした'));
         });
         return;
       }

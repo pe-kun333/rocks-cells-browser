@@ -1,5 +1,6 @@
 // タブの一覧（UI 側の「台帳」）。ハニカム上の位置と、大きい表示での番号を持つ
 //   ・タブはどれか1枚のシートに置く（sheet）。位置と番号はシートごと（別のシートの同じ位置には、別のタブを置ける）
+import { t as tr } from './i18n';
 import type { TabInfo } from './bridge';
 import { type Hex, hexKey, nearestFree } from './hex';
 import type { TabTrail } from './routes';
@@ -12,11 +13,11 @@ import type { TabNote } from './types';
 // タブのセルの見え方（おまかせ・アイコン・画像・コメント・ページの画面）
 export type TabLook = 'auto' | 'icon' | 'image' | 'comment' | 'page';
 export const TAB_LOOKS: readonly { id: TabLook; label: string; hint: string }[] = [
-  { id: 'auto', label: 'おまかせ', hint: '付けた画像とコメントを見せる（無ければアイコン）' },
-  { id: 'icon', label: 'アイコン', hint: 'サイトのアイコン（無ければ頭の1文字）' },
-  { id: 'image', label: '画像', hint: '付けた画像（無ければアイコン）' },
-  { id: 'comment', label: 'コメント', hint: 'コメントを文字で（無ければ題名を薄く）' },
-  { id: 'page', label: 'ページの画面', hint: '表示したページの縮図（まだ無ければアイコン）' },
+  { id: 'auto', label: tr('おまかせ'), hint: tr('付けた画像とコメントを見せる（無ければアイコン）') },
+  { id: 'icon', label: tr('アイコン'), hint: tr('サイトのアイコン（無ければ頭の1文字）') },
+  { id: 'image', label: tr('画像'), hint: tr('付けた画像（無ければアイコン）') },
+  { id: 'comment', label: tr('コメント'), hint: tr('コメントを文字で（無ければ題名を薄く）') },
+  { id: 'page', label: tr('ページの画面'), hint: tr('表示したページの縮図（まだ無ければアイコン）') },
 ];
 export const isTabLook = (value: unknown): value is TabLook => TAB_LOOKS.some((l) => l.id === value);
 export const MAX_TAB_COMMENT = 40;

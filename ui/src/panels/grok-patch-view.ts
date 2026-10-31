@@ -3,6 +3,7 @@
 //   ・書き出したあとに変わったメモ・カードには ⚠ の印（チェックは付いたまま。外すかは使う人が決める）
 //   ・チェックが変わるたびに onChecked（盤面の点線の見本を描き直す）
 //   ・取り込み（hcb-memo-interchange）は openInterchange：まとまり（島）ごとのチェック・メモ単位・ミニ盤面（設計 §9）
+import { t } from '../i18n';
 import type { GrokPatch, PlanItem } from '../grok-patch';
 import { PATCH_REASON_TEXT } from '../grok-patch';
 import { el } from '../util';
@@ -64,7 +65,7 @@ export interface PatchViewOptions {
   onClose(): void;
 }
 
-const STATUS_TEXT: Record<PlanItem['status'], string> = { ok: '', same: 'もうそうなっています', missing: '相手が見つかりません', refused: 'できません' };
+const STATUS_TEXT: Record<PlanItem['status'], string> = { ok: '', same: t('もうそうなっています'), missing: t('相手が見つかりません'), refused: t('できません') };
 
 export class GrokPatchView {
   private root: HTMLElement | null = null;
@@ -80,13 +81,13 @@ export class GrokPatchView {
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-label', 'Grok の提案');
     const head = el('div', 'grok-patch-head');
-    head.append(el('div', 'grok-patch-title', `Grok の提案：${o.patch.title}`));
-    head.append(el('div', 'grok-patch-meta', `${o.source}・${o.patch.ops.length} 件${o.patch.basedOn ? `・書き出し ${new Date(o.patch.basedOn).toLocaleString()} をもとに` : ''}`));
+    head.append(el('div', 'grok-patch-title', t('Grok の提案：{0}', { 0: o.patch.title })));
+    head.append(el('div', 'grok-patch-meta', t('{0}・{1} 件{2}', { 0: o.source, 1: o.patch.ops.length, 2: o.patch.basedOn ? `・書き出し ${new Date(o.patch.basedOn).toLocaleString()} をもとに` : '' })));
     if (o.patch.note) head.append(el('p', 'grok-patch-note', o.patch.note));
     if (o.staleNote) head.append(el('p', 'grok-patch-warn', o.staleNote));
     if (o.dropped.length > 0) {
-      const why = [...new Set(o.dropped.map((d) => PATCH_REASON_TEXT[d.reason] ?? d.reason))].join('・');
-      head.append(el('p', 'grok-patch-warn', `読めない指示 ${o.dropped.length} 件は使いません（${why}）`));
+      const why = [...new Set(o.dropped.map((d) => PATCH_REASON_TEXT[d.reason] ?? d.reason))].join(t('・'));
+      head.append(el('p', 'grok-patch-warn', t('読めない指示 {0} 件は使いません（{1}）', { 0: o.dropped.length, 1: why })));
     }
     const list = el('ol', 'grok-patch-list');
     const boxes: { item: PlanItem; box: HTMLInputElement }[] = [];
@@ -106,7 +107,7 @@ export class GrokPatchView {
         diff.append(el('span', 'grok-patch-after', item.after));
         body.append(diff);
       }
-      const notes = [...(item.status !== 'ok' ? [STATUS_TEXT[item.status]] : []), ...item.notes, ...(item.changedSince ? ['⚠ 書き出したあとに変わっています'] : [])].filter(Boolean);
+      const notes = [...(item.status !== 'ok' ? [STATUS_TEXT[item.status]] : []), ...item.notes, ...(item.changedSince ? [t('⚠ 書き出したあとに変わっています')] : [])].filter(Boolean);
       for (const n of [...new Set(notes)]) body.append(el('div', item.changedSince && n.startsWith('⚠') ? 'grok-patch-warn' : 'grok-patch-why', n));
       label.append(box, body);
       li.append(label);
@@ -115,26 +116,26 @@ export class GrokPatchView {
     }
     const foot = el('div', 'grok-patch-foot');
     const count = el('span', 'grok-patch-count');
-    const all = el('button', 'cell-menu-small', '全部選ぶ');
-    const none = el('button', 'cell-menu-small', '全部外す');
-    const apply = el('button', 'cell-menu-small grok-patch-apply', '反映する');
-    const cancel = el('button', 'cell-menu-small', 'やめる');
+    const all = el('button', 'cell-menu-small', t('全部選ぶ'));
+    const none = el('button', 'cell-menu-small', t('全部外す'));
+    const apply = el('button', 'cell-menu-small grok-patch-apply', t('反映する'));
+    const cancel = el('button', 'cell-menu-small', t('やめる'));
     // 盤面を見る：一覧を畳んで下に寄せ、点線の見本（島・線）が見えるようにする。もう一度押すと戻る
-    const peek = el('button', 'cell-menu-small', '盤面を見る');
+    const peek = el('button', 'cell-menu-small', t('盤面を見る'));
     peek.setAttribute('aria-pressed', 'false');
-    peek.title = 'チェックした島・線を、盤面に点線で見せています。一覧を畳んで盤面を見ます';
+    peek.title = t('チェックした島・線を、盤面に点線で見せています。一覧を畳んで盤面を見ます');
     peek.addEventListener('click', () => {
       const on = root.classList.toggle('is-peek');
       peek.setAttribute('aria-pressed', String(on));
-      peek.textContent = on ? '一覧に戻る' : '盤面を見る';
+      peek.textContent = on ? t('一覧に戻る') : t('盤面を見る');
     });
     for (const b of [all, none, apply, cancel, peek]) b.type = 'button';
     const checked = () => boxes.filter((b) => b.box.checked).map((b) => b.item);
     const update = () => {
       const n = checked().length;
-      count.textContent = `${n} / ${boxes.filter((b) => !b.box.disabled).length} 件を選んでいます`;
+      count.textContent = t('{0} / {1} 件を選んでいます', { 0: n, 1: boxes.filter((b) => !b.box.disabled).length });
       apply.disabled = n === 0;
-      apply.textContent = n > 0 ? `反映する（${n}）` : '反映する';
+      apply.textContent = n > 0 ? t('反映する（{0}）', { 0: n }) : t('反映する');
       o.onChecked(checked());
     };
     for (const b of boxes) b.box.addEventListener('change', update);
@@ -154,7 +155,7 @@ export class GrokPatchView {
     });
     cancel.addEventListener('click', () => this.close());
     foot.append(count, all, none, peek, apply, cancel);
-    foot.append(el('div', 'grok-patch-why', '反映する前に控えを取ります。シートの名前 ▾ →「Grok の提案の記録…」から元に戻せます'));
+    foot.append(el('div', 'grok-patch-why', t('反映する前に控えを取ります。シートの名前 ▾ →「Grok の提案の記録…」から元に戻せます')));
     root.append(head, list, foot);
     document.body.append(root);
     this.root = root;
@@ -182,11 +183,11 @@ export class GrokPatchView {
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-label', 'Grok の取り込み');
     const head = el('div', 'grok-patch-head');
-    head.append(el('div', 'grok-patch-title', `Grok の取り込み：「${o.title}」`));
+    head.append(el('div', 'grok-patch-title', t('Grok の取り込み：「{0}」', { 0: o.title })));
     head.append(el('div', 'grok-patch-meta', o.meta));
     const summary = el('p', 'grok-patch-note ix-summary');
     head.append(summary);
-    if (o.note) head.append(el('p', 'grok-patch-note ix-request', `Grok のメモ：${o.note}`));
+    if (o.note) head.append(el('p', 'grok-patch-note ix-request', t('Grok のメモ：{0}', { 0: o.note })));
     const warnings = el('div', 'ix-warnings');
     const board = el('div', 'ix-board');
     head.append(warnings, board);
@@ -206,15 +207,15 @@ export class GrokPatchView {
       list.append(li);
       return { li, box, body: label.lastChild as HTMLElement };
     };
-    fixedRow(`シート「${o.sheetName}」を作る（外せません）`, true, true);
+    fixedRow(t('シート「{0}」を作る（外せません）', { 0: o.sheetName }), true, true);
     if (o.portalText) {
       fixedRow(o.portalText, choice.portal, false, (on) => {
         choice.portal = on;
         update();
       });
     } else {
-      const row = fixedRow('今のシートに入口を置く', false, true);
-      row.body.append(el('div', 'grok-patch-why', '今のシートに空いた場所が見つかりません（あとで手で置けます）'));
+      const row = fixedRow(t('今のシートに入口を置く'), false, true);
+      row.body.append(el('div', 'grok-patch-why', t('今のシートに空いた場所が見つかりません（あとで手で置けます）')));
     }
 
     const memoBoxes = new Map<string, HTMLInputElement>();
@@ -232,7 +233,7 @@ export class GrokPatchView {
         dot.style.setProperty('--data', group.color);
         what.append(dot);
       }
-      what.append(document.createTextNode(`${group.key === null ? group.name : `島「${group.name}」`}　メモ ${group.rows.length}`));
+      what.append(document.createTextNode(t('{0}　メモ {1}', { 0: group.key === null ? group.name : `島「${group.name}」`, 1: group.rows.length })));
       body.append(what);
       if (group.note) body.append(el('div', 'grok-patch-warn', group.note));
       label.append(box, body);
@@ -241,14 +242,14 @@ export class GrokPatchView {
       if (group.key !== null && !group.note) {
         // 島の行だけ外す（メモは残し、島なしで取り込む）
         const key = group.key;
-        skip = el('button', 'cell-menu-small ix-skip', '島を作らない');
+        skip = el('button', 'cell-menu-small ix-skip', t('島を作らない'));
         skip.type = 'button';
         skip.setAttribute('aria-pressed', String(choice.skipIslands.has(key)));
         skip.addEventListener('click', () => {
           if (choice.skipIslands.has(key)) choice.skipIslands.delete(key);
           else choice.skipIslands.add(key);
           skip?.setAttribute('aria-pressed', String(choice.skipIslands.has(key)));
-          if (skip) skip.textContent = choice.skipIslands.has(key) ? '島を作る' : '島を作らない';
+          if (skip) skip.textContent = choice.skipIslands.has(key) ? t('島を作る') : t('島を作らない');
           update();
         });
         li.append(skip);
@@ -271,7 +272,7 @@ export class GrokPatchView {
         item.append(rl);
         if (row.cards.length > 0) {
           const more = el('details', 'ix-cards');
-          more.append(el('summary', '', `カードの題（${row.cards.length}）`));
+          more.append(el('summary', '', t('カードの題（{0}）', { 0: row.cards.length })));
           const ul = el('ul');
           for (const c of row.cards) ul.append(el('li', '', c));
           more.append(ul);
@@ -293,23 +294,23 @@ export class GrokPatchView {
       });
       groupBoxes.push({ group, box, skip });
     }
-    const links = fixedRow('盤面の線', true, true);
+    const links = fixedRow(t('盤面の線'), true, true);
     const linksWhy = el('div', 'grok-patch-why');
     links.body.append(linksWhy);
 
     const foot = el('div', 'grok-patch-foot');
     const count = el('span', 'grok-patch-count');
-    const all = el('button', 'cell-menu-small', '全部選ぶ');
-    const none = el('button', 'cell-menu-small', '全部外す');
-    const big = el('button', 'cell-menu-small', 'ミニ盤面を大きく');
+    const all = el('button', 'cell-menu-small', t('全部選ぶ'));
+    const none = el('button', 'cell-menu-small', t('全部外す'));
+    const big = el('button', 'cell-menu-small', t('ミニ盤面を大きく'));
     big.setAttribute('aria-pressed', 'false');
-    const apply = el('button', 'cell-menu-small grok-patch-apply', '反映する');
-    const cancel = el('button', 'cell-menu-small', 'やめる');
+    const apply = el('button', 'cell-menu-small grok-patch-apply', t('反映する'));
+    const cancel = el('button', 'cell-menu-small', t('やめる'));
     for (const b of [all, none, big, apply, cancel]) b.type = 'button';
     big.addEventListener('click', () => {
       const on = root.classList.toggle('is-big-board');
       big.setAttribute('aria-pressed', String(on));
-      big.textContent = on ? 'ミニ盤面を小さく' : 'ミニ盤面を大きく';
+      big.textContent = on ? t('ミニ盤面を小さく') : t('ミニ盤面を大きく');
     });
     const allKeys = o.groups.flatMap((g) => g.rows.map((r) => r.key));
     all.addEventListener('click', () => {
@@ -334,7 +335,7 @@ export class GrokPatchView {
       warnings.replaceChildren(...last.warnings.map((w) => el('p', 'grok-patch-warn', `⚠ ${w}`)));
       board.replaceChildren(miniBoard(last.board));
       linksWhy.textContent = last.links;
-      count.textContent = last.blocked ?? `メモ ${choice.memos.size} / ${allKeys.length} 個を選んでいます`;
+      count.textContent = last.blocked ?? t('メモ {0} / {1} 個を選んでいます', { 0: choice.memos.size, 1: allKeys.length });
       count.classList.toggle('grok-patch-warn', !!last.blocked);
       apply.disabled = !!last.blocked;
       apply.textContent = last.applyLabel;
@@ -347,7 +348,7 @@ export class GrokPatchView {
     });
     cancel.addEventListener('click', () => this.close());
     foot.append(count, all, none, big, apply, cancel);
-    foot.append(el('div', 'grok-patch-why', '反映する前に控えを取ります。シートの名前 ▾ →「Grok の提案の記録…」から 1 回で元に戻せます'));
+    foot.append(el('div', 'grok-patch-why', t('反映する前に控えを取ります。シートの名前 ▾ →「Grok の提案の記録…」から 1 回で元に戻せます')));
     root.append(head, list, foot);
     document.body.append(root);
     this.root = root;

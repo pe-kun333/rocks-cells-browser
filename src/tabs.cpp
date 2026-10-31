@@ -8,6 +8,7 @@
 
 #include "browser.h"
 #include "storage.h"
+#include "l10n.h"
 #include "strings.h"
 
 using Microsoft::WRL::Callback;
@@ -145,8 +146,10 @@ bool NavigationCanceled(ICoreWebView2NavigationCompletedEventArgs* args) {
 constexpr wchar_t kFitImageScript[] = LR"HC((function(){var tries=0;function run(){var img=document.images&&document.images[0];if(!img){if(tries++<12)setTimeout(run,50);return;}if(img.dataset.honeycombFit)return;img.dataset.honeycombFit='1';var zoom=0;function apply(){var nw=img.naturalWidth||1;var nh=img.naturalHeight||1;var fit=Math.min(window.innerWidth/nw,window.innerHeight/nh,1);var factor=zoom<=0?fit:zoom;img.style.maxWidth='none';img.style.maxHeight='none';img.style.width=Math.max(1,Math.round(nw*factor))+'px';img.style.height='auto';}document.body.style.margin='0';document.body.style.background='#1c1a17';document.body.style.minHeight='100vh';document.body.style.display='flex';document.body.style.alignItems='center';document.body.style.justifyContent='center';img.style.cursor='zoom-in';img.title='クリックで拡大。Ctrl+ホイールでも拡大できます';window.addEventListener('resize',apply);img.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();zoom=zoom<=0?1:(zoom<4?zoom*1.5:0);apply();},true);img.addEventListener('wheel',function(e){if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();var nw=img.naturalWidth||1;var nh=img.naturalHeight||1;var fit=Math.min(window.innerWidth/nw,window.innerHeight/nh,1);var current=zoom<=0?fit:zoom;zoom=Math.min(8,Math.max(0.2,current*(e.deltaY<0?1.12:0.89)));apply();},{passive:false,capture:true});if(img.complete&&img.naturalWidth)apply();else img.addEventListener('load',apply);}run();})())HC";
 
 constexpr wchar_t kMissingImageScript[] = LR"HC((function(){if(document.getElementById('honeycomb-image-missing'))return;document.documentElement.innerHTML='<head><meta charset="utf-8"><title>画像</title></head><body id="honeycomb-image-missing" style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#1c1a17;color:#f3eee6;font:16px sans-serif"><p>この画像ファイルは、もうありません</p></body>';})())HC";
+constexpr wchar_t kMissingImageScriptEn[] = LR"HC((function(){if(document.getElementById('honeycomb-image-missing'))return;document.documentElement.innerHTML='<head><meta charset="utf-8"><title>Image</title></head><body id="honeycomb-image-missing" style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#1c1a17;color:#f3eee6;font:16px sans-serif"><p>This image file no longer exists</p></body>';})())HC";
 
 constexpr wchar_t kUnopenableImageScript[] = LR"HC((function(){if(document.getElementById('honeycomb-image-missing'))return;document.documentElement.innerHTML='<head><meta charset="utf-8"><title>画像</title></head><body id="honeycomb-image-missing" style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#1c1a17;color:#f3eee6;font:16px sans-serif"><p>この画像ファイルは、開けません</p></body>';})())HC";
+constexpr wchar_t kUnopenableImageScriptEn[] = LR"HC((function(){if(document.getElementById('honeycomb-image-missing'))return;document.documentElement.innerHTML='<head><meta charset="utf-8"><title>Image</title></head><body id="honeycomb-image-missing" style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#1c1a17;color:#f3eee6;font:16px sans-serif"><p>This image file can\'t be opened</p></body>';})())HC";
 
 // ページで言葉を拾う。右クリックは単語と前後の文を覚えておき、Alt+クリックは「単語帳へ」を出す。
 //   fetch も file: も使わない。ホストへは chrome.webview.postMessage だけ（CSP の connect-src を通らない）
@@ -429,7 +432,7 @@ void Browser::WatchTab(int id) {
                     } else if (!success && IsFileUri(imageUri) && !NavigationCanceled(args)) {
                         const std::wstring path = PathOfFileUri(imageUri);
                         const bool present = !path.empty() && ImageFilePresent(path);
-                        sender->ExecuteScript(present ? kUnopenableImageScript : kMissingImageScript, nullptr);
+                        sender->ExecuteScript(present ? (l10n::English() ? kUnopenableImageScriptEn : kUnopenableImageScript) : (l10n::English() ? kMissingImageScriptEn : kMissingImageScript), nullptr);
                     }
                 }
                 sender->ExecuteScript(kVocabHookScript, nullptr);
@@ -662,10 +665,9 @@ void Browser::WatchContextMenu(int id) {
                         target->get_PageUri(page.put());
                         const std::wstring pageUrl = IsOpenableUrl(page.str()) ? page.str() : std::wstring();  // http / https だけ
 #ifdef ROCKSCELLS_BOT_FEATURES
-                        add(L"🔍 Grok に調べてもらう", "askGrok", pageUrl, CutText(full, kAskGrokMaxText));
-#endif
-                        // 下の区画が開いているときだけ。文を選んでいなければ出さない（空白だけも出さない）
-                        if (surfaces_["memo"].visible) add(L"📝 下のメモに引用", "memoQuote", pageUrl, CutText(full, kMemoQuoteMaxText));
+                        add(l10n::Tr(L"🔍 Grok に調べてもらう"), "askGrok", pageUrl, CutText(full, kAskGrokMaxText));
+#endif                        // 下の区画が開いているときだけ。文を選んでいなければ出さない（空白だけも出さない）
+                        if (surfaces_["memo"].visible) add(l10n::Tr(L"📝 下のメモに引用"), "memoQuote", pageUrl, CutText(full, kMemoQuoteMaxText));
                     }
                 }
 
@@ -675,7 +677,7 @@ void Browser::WatchContextMenu(int id) {
                     target->get_PageUri(pageUri.put());
                     std::wstring pageUrl = pageUri.str();
                     if (pageUrl.size() > 8192) pageUrl.clear();
-                    add(L"単語帳のカードにする", "vocabCard", pageUrl, vocabText);
+                    add(l10n::Tr(L"単語帳のカードにする"), "vocabCard", pageUrl, vocabText);
                 }
 
                 // 画像の上（依頼① I1）：「🖼 画像を撮影に送る」。url は画像の URL（http / https・8,192 字までのときだけ。data:・blob:・file: は空で、右は照合を飛ばす）
@@ -688,7 +690,7 @@ void Browser::WatchContextMenu(int id) {
                             CoString source;
                             if (SUCCEEDED(target->get_SourceUri(source.put())) && IsOpenableUrl(source.str())) imageUrl = source.str();
                         }
-                        add(L"🖼 画像を撮影に送る", "captureImage", imageUrl, L"");
+                        add(l10n::Tr(L"🖼 画像を撮影に送る"), "captureImage", imageUrl, L"");
                     }
                 }
 
@@ -697,11 +699,11 @@ void Browser::WatchContextMenu(int id) {
                     CoString pageUri;
                     target->get_PageUri(pageUri.put());
                     const std::wstring shownUrl = IsOpenableUrl(pageUri.str()) ? pageUri.str() : std::wstring();
-                    add(L"中央の見えている所", "captureCenter", shownUrl, L"");
-                    if (record::Available()) add(L"中央を録画", "captureRecord", shownUrl, L"");
-                    add(L"ブラウザの窓全体", "captureWindow", shownUrl, L"");
-                    add(L"この画面のデスクトップ", "captureDesktop", shownUrl, L"");
-                    add(L"範囲を指定…", "captureRegion", shownUrl, L"");
+                    add(l10n::Tr(L"中央の見えている所"), "captureCenter", shownUrl, L"");
+                    if (record::Available()) add(l10n::Tr(L"中央を録画"), "captureRecord", shownUrl, L"");
+                    add(l10n::Tr(L"ブラウザの窓全体"), "captureWindow", shownUrl, L"");
+                    add(l10n::Tr(L"この画面のデスクトップ"), "captureDesktop", shownUrl, L"");
+                    add(l10n::Tr(L"範囲を指定…"), "captureRegion", shownUrl, L"");
                 }
 
                 // リンク（http / https）の上：今までの2つ
@@ -721,8 +723,8 @@ void Browser::WatchContextMenu(int id) {
                             target->get_LinkText(linkText.put());
                             text = linkText.str().substr(0, 300);
                         }
-                        add(L"セルに追加（ページはこのまま）", "background", url, text);
-                        add(L"六角スクショを表紙にして、セルに追加", "shotCover", url, text);
+                        add(l10n::Tr(L"セルに追加（ページはこのまま）"), "background", url, text);
+                        add(l10n::Tr(L"六角スクショを表紙にして、セルに追加"), "shotCover", url, text);
                     }
                 }
                 ComPtr<ICoreWebView2ContextMenuItem> separator;

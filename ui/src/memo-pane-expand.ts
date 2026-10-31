@@ -2,6 +2,7 @@
 //   区画は別の面なので、窓の高さは分からない。広げる先は「画面の使える高さ（screen.availHeight）の 7 割」（計画 §10 案 A）
 //   高さを変える道は、つまみと同じ（setSidebar と writeMemoPanePrefs。呼ぶのは memo-pane.ts）
 //   拡大前の高さは、画面（この関数の状態）だけで覚える。保存しない。保存されるのは今の高さだけ（開き直しても保たれる）
+import { t } from './i18n';
 import { clampMemoPaneHeight, MEMO_PANE_DEFAULT } from './memo-pane-limits';
 
 export const EXPAND_RATIO = 0.7;
@@ -49,5 +50,5 @@ export function leaveExpand(state: ExpandState, availHeight: number): ExpandStat
 }
 
 export function expandLabel(expanded: boolean): string {
-  return expanded ? '縮小' : '拡大';
+  return expanded ? t('縮小') : t('拡大');
 }

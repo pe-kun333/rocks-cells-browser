@@ -3,6 +3,7 @@
 //   戻し方（QB8・計画書 §9）：移動＝座標を戻す／足す＝そのカード（事前に決めた id）を removeReply（undoToken なし）／消す＝restoreReplies（B3-3a。削除のたびの undoToken）／
 //   線＝逆の changeReplyLinks／型の貼り付け＝undoSendReplies（既存）。やり直し：移動＝座標／足す＝同じ id で足し直す／消す＝新しい undoToken で消し直す／線＝もう一度／貼り付け＝貼り直し（id は新しい）
 //   ここで決めるのは：積みの動き・命令の中身・確かめ（写しにどうなれば成功か）・ボタンの文。台帳を書くのは左だけ（命令を送るだけ）。画面は app/memo-board-tab.ts
+import { t } from './i18n';
 import type { NodeMove } from './memo-card-board';
 import type { LoadBoardResult } from './memo-card-board-store';
 import type { Pt } from './memo-card-board-select';
@@ -14,10 +15,10 @@ import type { RelayCommand } from './types';
 
 export const UNDO_LIMIT = 50; // 戻せる回数（やり直しの積みも同じ数まで）
 
-export const UNDO_STALE_NOTE = '戻せませんでした（そのあとにメモが変わっています）';
-export const REDO_STALE_NOTE = 'やり直せませんでした（そのあとにメモが変わっています）';
-export const UNDO_EMPTY_NOTE = '戻せる操作がありません';
-export const REDO_EMPTY_NOTE = 'やり直せる操作がありません';
+export const UNDO_STALE_NOTE = t('戻せませんでした（そのあとにメモが変わっています）');
+export const REDO_STALE_NOTE = t('やり直せませんでした（そのあとにメモが変わっています）');
+export const UNDO_EMPTY_NOTE = t('戻せる操作がありません');
+export const REDO_EMPTY_NOTE = t('やり直せる操作がありません');
 
 export type UndoOp =
   | { kind: 'move'; moves: { ref: string; from: Pt; to: Pt }[] }
@@ -116,22 +117,22 @@ export function mapOpIds(op: UndoOp, map: ReadonlyMap<string, string>): UndoOp {
 export function opLabel(op: UndoOp): string {
   switch (op.kind) {
     case 'move':
-      return op.moves.length > 1 ? `カードの移動（${op.moves.length}枚）` : 'カードの移動';
+      return op.moves.length > 1 ? t('カードの移動（{0}枚）', { 0: op.moves.length }) : t('カードの移動');
     case 'add':
-      return 'カードを足す';
+      return t('カードを足す');
     case 'remove':
-      return op.ids.length > 1 ? `削除（${op.ids.length}枚）` : '削除';
+      return op.ids.length > 1 ? t('削除（{0}枚）', { 0: op.ids.length }) : t('削除');
     case 'link':
-      return op.before === null ? '関連を付ける' : op.after === null ? '関連を外す' : '関連の種類を変える';
+      return op.before === null ? t('関連を付ける') : op.after === null ? t('関連を外す') : t('関連の種類を変える');
     case 'paste':
-      return `型「${op.template.name}」の貼り付け`;
+      return t('型「{0}」の貼り付け', { 0: op.template.name });
   }
 }
 
 // ボードに書けないとき（読み込み中・読めない）の文。書けるなら null。戻す・やり直すは座標も書くので、どの操作でもボードに書けることを求める
 export function undoBlockedNote(load: LoadBoardResult | null): string | null {
-  if (load === null) return loadingNote('操作して');
-  if (load.state === 'unreadable') return unreadableBlockNote('元に戻せません', load.why);
+  if (load === null) return loadingNote(t('操作して'));
+  if (load.state === 'unreadable') return unreadableBlockNote(t('元に戻せません'), load.why);
   return null;
 }
 
@@ -142,16 +143,16 @@ export interface UndoButtons {
 
 // 道具の列の「元に戻す」「やり直す」の押せるか・ツールチップ（押せない理由か、何を戻すか）
 export function undoButtons(input: { undo: UndoOp | null; redo: UndoOp | null; busy: boolean; load: LoadBoardResult | null }): UndoButtons {
-  if (input.busy) return { undo: { enabled: false, note: '元に戻している途中です' }, redo: { enabled: false, note: '元に戻している途中です' } };
+  if (input.busy) return { undo: { enabled: false, note: t('元に戻している途中です') }, redo: { enabled: false, note: t('元に戻している途中です') } };
   const blocked = undoBlockedNote(input.load);
   return {
-    undo: input.undo === null ? { enabled: false, note: UNDO_EMPTY_NOTE } : blocked ? { enabled: false, note: blocked } : { enabled: true, note: `「${opLabel(input.undo)}」を元に戻します（Ctrl+Z）` },
-    redo: input.redo === null ? { enabled: false, note: REDO_EMPTY_NOTE } : blocked ? { enabled: false, note: blocked } : { enabled: true, note: `「${opLabel(input.redo)}」をやり直します（Ctrl+Shift+Z／Ctrl+Y）` },
+    undo: input.undo === null ? { enabled: false, note: UNDO_EMPTY_NOTE } : blocked ? { enabled: false, note: blocked } : { enabled: true, note: t('「{0}」を元に戻します（Ctrl+Z）', { 0: opLabel(input.undo) }) },
+    redo: input.redo === null ? { enabled: false, note: REDO_EMPTY_NOTE } : blocked ? { enabled: false, note: blocked } : { enabled: true, note: t('「{0}」をやり直します（Ctrl+Shift+Z／Ctrl+Y）', { 0: opLabel(input.redo) }) },
   };
 }
 
 // 成功の一言
-export const undoDoneText = (op: UndoOp, dir: UndoDir): string => `「${opLabel(op)}」を${dir === 'undo' ? '元に戻しました' : 'やり直しました'}`;
+export const undoDoneText = (op: UndoOp, dir: UndoDir): string => t('「{0}」を{1}', { 0: opLabel(op), 1: dir === 'undo' ? '元に戻しました' : 'やり直しました' });
 
 // ---------- 命令・確かめ ----------
 

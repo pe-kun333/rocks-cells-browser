@@ -4,6 +4,7 @@ import { BOT_FEATURES } from '../features';
 //   ・いいね1・2・3（タブとメモの ♥ の段階。押すと、その段階だけを目立たせる。タグとは同時に付かない）
 //   ・AI でタグを付ける / 島を提案する → 案を確かめてから反映（島の案は、盤面に点線で寄せた後の形を見せる）
 //   ・島の一覧（解散できる）。「この島を頼む」は、盤面と同じ材料つきの小窓を左に頼む（送らない。台帳は書かない）
+import { t as tr } from '../i18n';
 import { checkBatch, type OrganizeKind, type OrganizeSettings, type PendingBatch, type Proposal, proposeLater, proposeNow } from '../ai/organize';
 import type { Tab } from '../tabs';
 import { LIKE_COLOR, LIKE_LABEL, type LikeLevel, likeLevel } from '../likes';
@@ -24,7 +25,7 @@ export interface OrganizeHost {
 
 const BATCH_KEY = 'honeycomb.organize.batch';
 const BATCH_CHECK_MS = 30_000;
-const KIND_LABELS: Record<OrganizeKind, string> = { tags: 'タグ付け', islands: '島の提案' };
+const KIND_LABELS: Record<OrganizeKind, string> = { tags: tr('タグ付け'), islands: tr('島の提案') };
 
 export class OrganizePanel {
   readonly element = el('section', 'panel-section organize-panel');
@@ -41,19 +42,19 @@ export class OrganizePanel {
   private pending: PendingBatch | null = loadPending();
 
   constructor(private readonly host: OrganizeHost) {
-    const tagsButton = el('button', 'ai-small', 'AI でタグを付ける');
+    const tagsButton = el('button', 'ai-small', tr('AI でタグを付ける'));
     tagsButton.addEventListener('click', () => void this.propose('tags'));
-    const islandsButton = el('button', 'ai-small', 'AI で島を提案');
+    const islandsButton = el('button', 'ai-small', tr('AI で島を提案'));
     islandsButton.addEventListener('click', () => void this.propose('islands'));
     this.buttons.push(tagsButton, islandsButton);
     const row = el('div', 'ai-row');
     row.append(tagsButton, islandsButton);
     this.later.type = 'checkbox';
     const laterLabel = el('label', 'ai-check');
-    laterLabel.append(this.later, document.createTextNode('急がない（バッチで半額。数分〜1時間ほど）'));
+    laterLabel.append(this.later, document.createTextNode(tr('急がない（バッチで半額。数分〜1時間ほど）')));
 
     this.element.append(
-      el('div', 'panel-subtitle', '整理（タグと島）'),
+      el('div', 'panel-subtitle', tr('整理（タグと島）')),
       this.cloud,
       row,
       laterLabel,
@@ -72,7 +73,7 @@ export class OrganizePanel {
     this.renderIslands();
     for (const b of this.buttons) b.disabled = this.busy || this.pending !== null;
     if (this.pending && !this.busy) {
-      this.status.textContent = `${KIND_LABELS[this.pending.kind]}をバッチで頼んでいます（${timeOf(this.pending.createdAt)} から。終わると、ここに案が出ます）`;
+      this.status.textContent = tr('{0}をバッチで頼んでいます（{1} から。終わると、ここに案が出ます）', { 0: KIND_LABELS[this.pending.kind], 1: timeOf(this.pending.createdAt) });
     }
   }
 
@@ -95,7 +96,7 @@ export class OrganizePanel {
     });
     const current = this.host.highlightTag();
     if (counts.size === 0 && likes.length === 0) {
-      this.cloud.replaceChildren(el('div', 'reminder-empty', 'タグはまだありません。拡大表示のカードの「＋タグ」か、下のボタンで付けられます'));
+      this.cloud.replaceChildren(el('div', 'reminder-empty', tr('タグはまだありません。拡大表示のカードの「＋タグ」か、下のボタンで付けられます')));
       return;
     }
     const chips = [...counts]
@@ -103,7 +104,7 @@ export class OrganizePanel {
       .map(([tag, n]) => {
         const chip = el('button', tag === current ? 'tag-chip tag-button selected' : 'tag-chip tag-button', `${tag} ${n}`);
         chip.style.setProperty('--tag', tagColor(tag));
-        chip.title = tag === current ? '絞り込みをやめる' : `「${tag}」のタブだけを盤面で目立たせる`;
+        chip.title = tag === current ? tr('絞り込みをやめる') : tr('「{0}」のタブだけを盤面で目立たせる', { 0: tag });
         chip.setAttribute('aria-pressed', String(tag === current));
         chip.addEventListener('click', () => this.host.askLeft({ command: 'highlightTag', tag: tag === current ? null : tag }));
         return chip;
@@ -119,7 +120,7 @@ export class OrganizePanel {
     chip.type = 'button';
     chip.dataset.like = String(level);
     chip.style.setProperty('--tag', LIKE_COLOR);
-    chip.title = on ? '絞り込みをやめる' : `「${label}」のタブとメモだけを盤面で目立たせる`;
+    chip.title = on ? tr('絞り込みをやめる') : tr('「{0}」のタブとメモだけを盤面で目立たせる', { 0: label });
     chip.setAttribute('aria-pressed', String(on));
     chip.addEventListener('click', () => this.host.askLeft({ command: 'highlightLike', level: on ? null : level }));
     return chip;
@@ -139,17 +140,16 @@ export class OrganizePanel {
       const row = el('div', 'organize-row');
       const swatch = el('span', 'island-swatch');
       swatch.style.setProperty('--data', island.color);
-      const ask = el('button', 'ai-small', 'この島を頼む');
+      const ask = el('button', 'ai-small', tr('この島を頼む'));
       if (!BOT_FEATURES) ask.style.display = 'none'; // 公開版（rebuild-public.ps1）
-      ask.title = 'この島の名前と、入っているメモを、依頼の小窓の材料にします。となりのメモは集めません。アプリは開きません';
-      ask.addEventListener('click', () => this.host.askLeft({ command: 'askIsland', islandId: island.id }));
-      const remove = el('button', 'ai-small', '解散');
-      remove.title = '島をなくす（タブはそのまま残ります）';
+      ask.title = tr('この島の名前と、入っているメモを、依頼の小窓の材料にします。となりのメモは集めません。アプリは開きません');      ask.addEventListener('click', () => this.host.askLeft({ command: 'askIsland', islandId: island.id }));
+      const remove = el('button', 'ai-small', tr('解散'));
+      remove.title = tr('島をなくす（タブはそのまま残ります）');
       remove.addEventListener('click', () => this.host.askLeft({ command: 'removeIsland', id: island.id }));
-      row.append(swatch, el('span', 'organize-name', island.name), el('span', 'organize-count', `${counts.get(island.id)} 個`), ask, remove);
+      row.append(swatch, el('span', 'organize-name', island.name), el('span', 'organize-count', tr('{0} 個', { 0: counts.get(island.id) })), ask, remove);
       return row;
     });
-    this.islandList.replaceChildren(el('div', 'organize-heading', '島'), ...rows);
+    this.islandList.replaceChildren(el('div', 'organize-heading', tr('島')), ...rows);
   }
 
   // ---------- AI に案を頼む ----------
@@ -157,12 +157,12 @@ export class OrganizePanel {
   private async propose(kind: OrganizeKind) {
     const tabs = this.host.tabs();
     if (tabs.length < (kind === 'islands' ? 2 : 1)) {
-      this.status.textContent = kind === 'islands' ? '島に分けるには、タブが2つ以上必要です' : 'タブがありません';
+      this.status.textContent = kind === 'islands' ? tr('島に分けるには、タブが2つ以上必要です') : tr('タブがありません');
       return;
     }
     const settings = this.host.settings();
     if (!settings.practice && !settings.apiKey) {
-      this.status.textContent = 'AI の ⚙ で API キーを設定するか、練習モードにしてください';
+      this.status.textContent = tr('AI の ⚙ で API キーを設定するか、練習モードにしてください');
       return;
     }
     this.clearProposal();
@@ -171,15 +171,15 @@ export class OrganizePanel {
     try {
       const registered = kind === 'tags' ? await this.host.registeredTags() : [];
       if (this.later.checked && !settings.practice) {
-        this.status.textContent = 'バッチで頼んでいます…';
+        this.status.textContent = tr('バッチで頼んでいます…');
         this.pending = await proposeLater(kind, tabs, registered, settings);
         savePending(this.pending);
       } else {
-        this.status.textContent = `${KIND_LABELS[kind]}の案を考えています…（タブ ${tabs.length} 個）`;
+        this.status.textContent = tr('{0}の案を考えています…（タブ {1} 個）', { 0: KIND_LABELS[kind], 1: tabs.length });
         this.show(await proposeNow(kind, tabs, registered, settings));
       }
     } catch (error) {
-      this.status.textContent = `うまくいきませんでした：${error instanceof Error ? error.message : String(error)}`;
+      this.status.textContent = tr('うまくいきませんでした：{0}', { 0: error instanceof Error ? error.message : String(error) });
     } finally {
       this.busy = false;
       this.render();
@@ -199,7 +199,7 @@ export class OrganizePanel {
     } catch (error) {
       this.pending = null;
       savePending(null);
-      this.status.textContent = `バッチがうまくいきませんでした：${error instanceof Error ? error.message : String(error)}`;
+      this.status.textContent = tr('バッチがうまくいきませんでした：{0}', { 0: error instanceof Error ? error.message : String(error) });
     }
     this.render();
   }
@@ -209,14 +209,14 @@ export class OrganizePanel {
   private show(proposal: Proposal) {
     this.proposal = proposal;
     this.rejected.clear();
-    const cost = proposal.cost > 0 ? `（約 $${proposal.cost.toFixed(3)}${proposal.batch ? '・バッチで半額' : ''}）` : '';
+    const cost = proposal.cost > 0 ? tr('（約 ${0}{1}）', { 0: proposal.cost.toFixed(3), 1: proposal.batch ? '・バッチで半額' : '' }) : '';
     if (proposal.kind === 'tags') {
-      this.status.textContent = proposal.items.length > 0 ? `タグの案ができました${cost}。外したいものは印を消してください` : `足すタグはありませんでした${cost}`;
+      this.status.textContent = proposal.items.length > 0 ? tr('タグの案ができました{0}。外したいものは印を消してください', { 0: cost }) : tr('足すタグはありませんでした{0}', { 0: cost });
     } else {
       const used = new Set(this.host.islands().map((i) => i.color));
       const colors = [...TAG_PALETTE.filter((c) => !used.has(c)), ...TAG_PALETTE];
       this.drafts = proposal.islands.map((island, i) => ({ name: island.name, color: colors[i % colors.length], tabIds: island.tabIds, reason: island.reason }));
-      this.status.textContent = this.drafts.length > 0 ? `島の案ができました${cost}。盤面に点線で、まとめた後の形を出しています` : `島に分ける案はありませんでした${cost}`;
+      this.status.textContent = this.drafts.length > 0 ? tr('島の案ができました{0}。盤面に点線で、まとめた後の形を出しています', { 0: cost }) : tr('島に分ける案はありませんでした{0}', { 0: cost });
       this.previewDrafts();
     }
     this.renderProposal();
@@ -250,17 +250,17 @@ export class OrganizePanel {
         swatch.style.setProperty('--data', draft.color);
         const titles = draft.tabIds.map((id) => byId.get(id)?.title || byId.get(id)?.url || '').filter(Boolean);
         const text = el('span', 'organize-name');
-        text.append(el('strong', '', draft.name), el('span', 'organize-count', ` ${draft.tabIds.length} 個`));
-        const detail = el('div', 'organize-detail', `${draft.reason ? `${draft.reason}\n` : ''}${titles.map((t) => `・${t}`).join('\n')}`);
+        text.append(el('strong', '', draft.name), el('span', 'organize-count', tr(' {0} 個', { 0: draft.tabIds.length })));
+        const detail = el('div', 'organize-detail', `${draft.reason ? `${draft.reason}\n` : ''}${titles.map((t) => tr('・{0}', { 0: t })).join('\n')}`);
         const body = el('div', 'organize-island-body');
         body.append(text, detail);
         row.append(this.checkbox(i), swatch, body);
         rows.push(row);
       });
     }
-    const apply = el('button', 'ai-small ai-yes', proposal.kind === 'tags' ? 'タグを付ける' : '島にする');
+    const apply = el('button', 'ai-small ai-yes', proposal.kind === 'tags' ? tr('タグを付ける') : tr('島にする'));
     apply.addEventListener('click', () => this.apply());
-    const cancel = el('button', 'ai-small', 'やめる');
+    const cancel = el('button', 'ai-small', tr('やめる'));
     cancel.addEventListener('click', () => {
       this.clearProposal();
       this.status.textContent = '';
@@ -293,11 +293,11 @@ export class OrganizePanel {
     if (proposal.kind === 'tags') {
       const changes = proposal.items.filter((i) => !this.rejected.has(i.id));
       if (changes.length > 0) this.host.askLeft({ command: 'addTags', changes });
-      this.status.textContent = `${changes.length} 個のタブにタグを付けました`;
+      this.status.textContent = tr('{0} 個のタブにタグを付けました', { 0: changes.length });
     } else {
       const chosen = this.drafts.filter((_, i) => !this.rejected.has(i));
       if (chosen.length > 0) this.host.askLeft({ command: 'createIslands', islands: chosen });
-      this.status.textContent = `${chosen.length} 個の島を作りました`;
+      this.status.textContent = tr('{0} 個の島を作りました', { 0: chosen.length });
     }
     this.proposal = null;
     this.drafts = [];

@@ -2,6 +2,7 @@
 //   「拡大表示」「休眠」のパネルと、これから追加するパネルの置き場所。いちばん下に AI の相棒と、その下に Grok Bot（6体まで）。
 //   タブの情報は左サイドバーから写しをもらう（自分では台帳を持たない）。
 //   台帳や設定を変えたいときは、左サイドバーに頼む（relay の command）
+import { t as tr } from '../i18n';
 import { MemoryStore } from '../ai/memory';
 import { newTopic, TopicStore } from '../ai/research';
 import { BLOCK_NOTE, pageIsBlocked } from '../blocklist';
@@ -148,10 +149,10 @@ export function startSecondary() {
 
   const header = el('header', 'panel-header');
   const closeButton = el('button', '', '×');
-  closeButton.title = '右サイドバーを閉じる';
+  closeButton.title = tr('右サイドバーを閉じる');
   closeButton.setAttribute('aria-label', '右サイドバーを閉じる');
   closeButton.addEventListener('click', () => send({ type: 'setSidebar', side: 'right', visible: false }));
-  header.append(el('span', 'panel-title', 'パネル'), closeButton);
+  header.append(el('span', 'panel-title', tr('パネル')), closeButton);
 
   // 右のタグのボタン（6つ・セット・その他）：右のカードと、メモの区画のコメントに出す。左のボタンとは別
   const menu = new CellMenu();
@@ -167,7 +168,7 @@ export function startSecondary() {
     return [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, 'ja'));
   }
   const rightToast = (text: string) => showToast(document.body, text, 4500);
-  const tagPad = new TagPad({ store: tagButtons, menu, side: '右サイドバー', used: usedTags, toast: rightToast });
+  const tagPad = new TagPad({ store: tagButtons, menu, side: tr('右サイドバー'), used: usedTags, toast: rightToast });
 
   const previewSection = el('section', 'panel-section');
   const sleepPanel = new SleepPanel(store, (settings) => askLeft({ command: 'setSleep', settings }));
@@ -180,7 +181,7 @@ export function startSecondary() {
   function openReminderLink(link: VocabLink) {
     if (link.kind === 'tab' && !findVocabTab(store.all(), link)) {
       if (link.url) askLeft({ command: 'openUrl', url: link.url, background: false });
-      else rightToast('そのタブのセルは、もうありません');
+      else rightToast(tr('そのタブのセルは、もうありません'));
       return;
     }
     askLeft({ command: 'openVocabCell', link });
@@ -196,31 +197,31 @@ export function startSecondary() {
   // 鳴ったものを単語カードに（K3）：単語帳の「＋カード」を、表にその文を入れて開く
   function reminderToCard(text: string) {
     sectionShelf?.show('vocab');
-    if (!vocabPanel.startAdd({ front: text })) rightToast('単語帳の復習の途中です。終えてからどうぞ');
+    if (!vocabPanel.startAdd({ front: text })) rightToast(tr('単語帳の復習の途中です。終えてからどうぞ'));
   }
   // 延ばす（K2。計画書 §5 の 12）：同じ文・指す先・置いた人で、新しい id と時刻で置き直す
   function snoozeReminder(reminder: Reminder, dueAt: number): boolean {
     const ok = toolHost.addReminder(snoozedCopy(reminder, dueAt, Date.now()));
-    if (ok) rightToast(`リマインダーを ${clockOf(dueAt)} に延ばしました`);
+    if (ok) rightToast(tr('リマインダーを {0} に延ばしました', { 0: clockOf(dueAt) }));
     return ok;
   }
   // リマインダーの吹き出しのボタン（K2）：10 分延ばす・1 時間延ばす・そのセルへ（指す先があるとき）
   function reminderBubbleActions(reminder: Reminder): ReminderAction[] {
     const actions: ReminderAction[] = [
-      { label: '10 分延ばす', title: '10 分後にもう一度知らせます', run: () => void snoozeReminder(reminder, Date.now() + 10 * 60_000) },
-      { label: '1 時間延ばす', title: '1 時間後にもう一度知らせます', run: () => void snoozeReminder(reminder, Date.now() + 60 * 60_000) },
-      { label: '済み', title: '済みにします（「鳴ったもの」に残ります）', run: () => doneReminder(reminder.id, true) },
+      { label: tr('10 分延ばす'), title: tr('10 分後にもう一度知らせます'), run: () => void snoozeReminder(reminder, Date.now() + 10 * 60_000) },
+      { label: tr('1 時間延ばす'), title: tr('1 時間後にもう一度知らせます'), run: () => void snoozeReminder(reminder, Date.now() + 60 * 60_000) },
+      { label: tr('済み'), title: tr('済みにします（「鳴ったもの」に残ります）'), run: () => doneReminder(reminder.id, true) },
     ];
     const link = reminderLink(reminder);
-    if (link) actions.push({ label: 'そのセルへ', title: reminder.title ? `「${reminder.title}」へ` : '指しているセルへ', run: () => openReminderLink(link) });
+    if (link) actions.push({ label: tr('そのセルへ'), title: reminder.title ? tr('「{0}」へ', { 0: reminder.title }) : tr('指しているセルへ'), run: () => openReminderLink(link) });
     const card = reminder.card;
-    if (typeof card === 'string') actions.push({ label: '単語帳で開く', title: '右の「単語帳」で、このカードを開きます', run: () => openReminderCard(card) });
+    if (typeof card === 'string') actions.push({ label: tr('単語帳で開く'), title: tr('右の「単語帳」で、このカードを開きます'), run: () => openReminderCard(card) });
     return actions;
   }
   // カードから置いたリマインダーの「単語帳で開く」（K4）
   function openReminderCard(id: string) {
     if (!vocab.cards.some((c) => c.id === id)) {
-      rightToast('そのカードは、もう単語帳にありません');
+      rightToast(tr('そのカードは、もう単語帳にありません'));
       return;
     }
     sectionShelf?.show('vocab');
@@ -274,9 +275,9 @@ export function startSecondary() {
     settings: () => ai.organizeSettings(),
     hexMemoTarget: () => ai.hexMemoTarget(),
     activeTabId: () => store.activeId,
-    tabs: () => store.all().map((tab) => ({ id: tab.id, title: tab.title || hostOf(tab.url) || '新しいタブ', url: tab.url, sheet: tab.sheet })),
+    tabs: () => store.all().map((tab) => ({ id: tab.id, title: tab.title || hostOf(tab.url) || tr('新しいタブ'), url: tab.url, sheet: tab.sheet })),
     memos: () => memoIndex?.map((memo) => ({ id: memo.id, title: memo.title, sheet: memo.sheet })) ?? null,
-    sheetName: (id) => (id === MAIN_SHEET ? 'メイン' : (sheets.find((sheet) => sheet.id === id)?.name ?? '')),
+    sheetName: (id) => (id === MAIN_SHEET ? tr('メイン') : (sheets.find((sheet) => sheet.id === id)?.name ?? '')),
     openUrl: (url) => askLeft({ command: 'openUrl', url, background: false }),
     announce: (text) => void ai.announce(text),
     toVault: (draft) => vaultPanel.add(draft),
@@ -324,7 +325,7 @@ export function startSecondary() {
   const searchPanel = new SearchPanel({
     ask: (seq, query, sort, limit) => askLeft({ command: 'searchMemos', seq, query, sort, limit }),
     memoKnown: (id) => (memoIndex ? memoIndex.some((m) => m.id === id) : null),
-    sheetName: (id) => (id === MAIN_SHEET ? null : (sheets.find((s) => s.id === id)?.name ?? 'シート')),
+    sheetName: (id) => (id === MAIN_SHEET ? null : (sheets.find((s) => s.id === id)?.name ?? tr('シート'))),
     openMemo: (item) => askLeft({ command: 'openMemoPane', id: item.memoId, ...(item.replyId ? { replyId: item.replyId } : {}), from: 'search' }),
     showMemo: (id) => askLeft({ command: 'showMemo', id }),
     local: (query, kinds) => {
@@ -333,23 +334,23 @@ export function startSecondary() {
       const src: LocalSources = {};
       if (kinds.includes('tab')) {
         if (gotState) src.tabs = store.all();
-        else notes.push('タブはまだ届いていません');
+        else notes.push(tr('タブはまだ届いていません'));
       }
       if (kinds.includes('capture')) {
         if (captureStore.state === 'ready') src.captures = captureStore.items;
-        else notes.push(captureStore.state === 'loading' ? '撮影は読み込み中です' : '撮影の台帳を読めていません');
+        else notes.push(captureStore.state === 'loading' ? tr('撮影は読み込み中です') : tr('撮影の台帳を読めていません'));
       }
       if (kinds.includes('vault')) {
         if (vaultStore.isLoaded) src.vault = vaultStore.items;
-        else notes.push('データ置き場は読み込み中です');
+        else notes.push(tr('データ置き場は読み込み中です'));
       }
       if (kinds.includes('vocab')) {
         if (gotVocab) src.vocab = vocab.cards;
-        else notes.push('単語帳はまだ届いていません');
+        else notes.push(tr('単語帳はまだ届いていません'));
       }
       if (kinds.includes('reminder')) {
         if (gotState) src.reminders = reminders;
-        else notes.push('リマインダーはまだ届いていません');
+        else notes.push(tr('リマインダーはまだ届いていません'));
       }
       return { items: searchLocal(src, query), notes };
     },
@@ -387,7 +388,7 @@ export function startSecondary() {
     tagIndex.render();
   });
   const placeholder = el('section', 'panel-section panel-placeholder');
-  placeholder.append(el('p', 'sidebar-placeholder-note', 'ここに今後、メモなどのパネルを追加できます'));
+  placeholder.append(el('p', 'sidebar-placeholder-note', tr('ここに今後、メモなどのパネルを追加できます')));
   const scroll = el('div', 'panels-scroll');
   scroll.append(
     memoPad.element,
@@ -448,15 +449,15 @@ export function startSecondary() {
     async addTopic(fields) {
       await topics.ready;
       const name = [...fields.name.trim()].slice(0, 30).join('');
-      if (!name || !fields.query.trim()) return { ok: false, message: '名前と、調べたいことが要ります' };
-      if (topics.find(name)?.name === name) return { ok: false, message: `「${name}」はもう登録してあります` };
+      if (!name || !fields.query.trim()) return { ok: false, message: tr('名前と、調べたいことが要ります') };
+      if (topics.find(name)?.name === name) return { ok: false, message: tr('「{0}」はもう登録してあります', { 0: name }) };
       await topics.save(newTopic({ name, query: fields.query.trim().slice(0, 600), everyHours: fields.everyHours }));
-      return { ok: true, message: `情報収集のトピック「${name}」を登録しました` };
+      return { ok: true, message: tr('情報収集のトピック「{0}」を登録しました', { 0: name }) };
     },
     async runTopic(name) {
       await topics.ready;
       const topic = topics.find(name);
-      if (!topic) return { ok: false, message: `「${name}」というトピックはありません`, items: [] };
+      if (!topic) return { ok: false, message: tr('「{0}」というトピックはありません', { 0: name }), items: [] };
       const r = await infoPanel.run(topic, false);
       const items = topics
         .resultsOf(topic.id)
@@ -476,10 +477,10 @@ export function startSecondary() {
       if (page.error || !page.text) {
         const error =
           page.error === 'noPage'
-            ? 'そのタブは休眠中か、ページがありません（使う人がタブを開いてから、もう一度）'
+            ? tr('そのタブは休眠中か、ページがありません（使う人がタブを開いてから、もう一度）')
             : page.error === 'timeout'
-              ? 'ページの本文を取り出すのに時間がかかりすぎました'
-              : 'このページからは文章を取り出せませんでした';
+              ? tr('ページの本文を取り出すのに時間がかかりすぎました')
+              : tr('このページからは文章を取り出せませんでした');
         return { ok: false, title: '', url: '', text: '', truncated: false, error };
       }
       const chars = [...page.text];
@@ -496,7 +497,7 @@ export function startSecondary() {
       const limit = triggered ? MAX_TRIGGERS : MAX_REMINDERS;
       const same = reminders.filter((r) => !!reminderTrigger(r) === triggered);
       if (!reminders.some((r) => r.id === reminder.id) && same.length >= limit) {
-        rightToast(`${triggered ? '引き金のリマインダー' : 'リマインダー'}がいっぱいです（${limit} 件）。古いものを取り消してください`);
+        rightToast(tr('{0}がいっぱいです（{1} 件）。古いものを取り消してください', { 0: triggered ? '引き金のリマインダー' : 'リマインダー', 1: limit }));
         return false;
       }
       reminders = [...reminders.filter((r) => r.id !== reminder.id), reminder].sort((a, b) => a.dueAt - b.dueAt); // 左から写しが届くまでの間も、一覧に出す
@@ -586,7 +587,7 @@ export function startSecondary() {
     blocked: (url) => pageIsBlocked(url),
     target: () => botDock.cueTarget(),
     openForm: (input) => botDock.openCue(input),
-    saveMemo: (text) => askLeft({ command: 'addMemoCell', text, label: '合図' }),
+    saveMemo: (text) => askLeft({ command: 'addMemoCell', text, label: tr('合図') }),
     toast: (text) => showToast(document.body, text, 5000),
   });
   // Grok Visions（S3.7b）：左が残した Vision の写し（relay の visions）と、巣の設定「月の窓に Visions を出す」（relay の bots の nest.visions）
@@ -641,7 +642,7 @@ export function startSecondary() {
       openReply: (vision) => {
         const missing = () => {
           moonWindow.showVisionPoints(vision.id);
-          rightToast('もとの返事は、いまのボットの欄には出ていません（古いやり取りか、ボットが台帳にいません）。要点を開きました');
+          rightToast(tr('もとの返事は、いまのボットの欄には出ていません（古いやり取りか、ボットが台帳にいません）。要点を開きました'));
         };
         if (!botPanel.openMessage(vision.botId, vision.source.fileId, missing)) missing();
       },
@@ -734,17 +735,17 @@ export function startSecondary() {
     };
     shelf.adopt({
       id: 'moon',
-      title: '月の窓',
+      title: tr('月の窓'),
       element: moonWindow.element,
       header: '.moon-head',
       collapsed: () => moonWindow.isCollapsed(),
       expand: () => moonWindow.expand(),
       available: () => !moonWindow.element.hidden,
-      unavailable: '月の窓は、いま出すものがありません',
+      unavailable: tr('月の窓は、いま出すものがありません'),
     });
     shelf.adopt({
       id: 'memo',
-      title: 'メモ',
+      title: tr('メモ'),
       element: memoPad.element,
       header: memoPad.header,
       collapsed: () => memoPad.isCollapsed(),
@@ -752,7 +753,7 @@ export function startSecondary() {
     });
     shelf.adopt({
       id: 'vault',
-      title: 'データ置き場',
+      title: tr('データ置き場'),
       element: vaultPanel.element,
       header: vaultPanel.header,
       collapsed: () => vaultPanel.isCollapsed(),
@@ -760,17 +761,17 @@ export function startSecondary() {
     });
     shelf.adopt({
       id: 'capture',
-      title: '撮影',
+      title: tr('撮影'),
       element: capturePanel.element,
       header: capturePanel.header,
       collapsed: () => capturePanel.isCollapsed(),
       expand: () => capturePanel.expand(),
     });
     const cueHead = head(cue.element, '.cue-head');
-    if (cueHead) shelf.fold({ id: 'cue', title: '合図', element: cue.element, keep: cueHead });
+    if (cueHead) shelf.fold({ id: 'cue', title: tr('合図'), element: cue.element, keep: cueHead });
     shelf.adopt({
       id: 'bot',
-      title: '受け取り箱',
+      title: tr('受け取り箱'),
       element: botPanel.element,
       header: botPanel.header,
       collapsed: () => botPanel.isCollapsed(),
@@ -778,7 +779,7 @@ export function startSecondary() {
     });
     shelf.adopt({
       id: 'search',
-      title: '検索',
+      title: tr('検索'),
       element: searchPanel.element,
       header: searchPanel.header,
       collapsed: () => searchPanel.isCollapsed(),
@@ -786,30 +787,30 @@ export function startSecondary() {
     });
     shelf.adopt({
       id: 'tags',
-      title: 'タグごとの一覧',
+      title: tr('タグごとの一覧'),
       element: tagIndex.element,
       header: tagIndex.header,
       collapsed: () => tagIndex.isCollapsed(),
       expand: () => tagIndex.expand(),
     });
-    shelf.wrap({ id: 'preview', title: '拡大表示', element: previewSection });
+    shelf.wrap({ id: 'preview', title: tr('拡大表示'), element: previewSection });
     const routeHead = head(routePanel.element, '.info-head');
     const routeTitle = head(routePanel.element, '.info-head .panel-subtitle');
-    if (routeHead && routeTitle) shelf.fold({ id: 'route', title: '順路', element: routePanel.element, keep: routeHead, foldHost: routeTitle });
-    shelf.barOn({ id: 'vocab', title: '単語帳', element: vocabPanel.element });
+    if (routeHead && routeTitle) shelf.fold({ id: 'route', title: tr('順路'), element: routePanel.element, keep: routeHead, foldHost: routeTitle });
+    shelf.barOn({ id: 'vocab', title: tr('単語帳'), element: vocabPanel.element });
     const infoHead = head(infoPanel.element, '.info-head');
     const infoTitle = head(infoPanel.element, '.info-head .panel-subtitle');
-    if (infoHead && infoTitle) shelf.fold({ id: 'info', title: '情報収集', element: infoPanel.element, keep: infoHead, foldHost: infoTitle });
+    if (infoHead && infoTitle) shelf.fold({ id: 'info', title: tr('情報収集'), element: infoPanel.element, keep: infoHead, foldHost: infoTitle });
     const organizeHead = head(organizePanel.element, ':scope > .panel-subtitle');
-    if (organizeHead) shelf.fold({ id: 'organize', title: '整理（タグと島）', element: organizePanel.element, keep: organizeHead });
+    if (organizeHead) shelf.fold({ id: 'organize', title: tr('整理（タグと島）'), element: organizePanel.element, keep: organizeHead });
     const memoryHead = head(memoryPanel.element, ':scope > .panel-subtitle');
-    if (memoryHead) shelf.fold({ id: 'memory', title: '相棒が覚えていること', element: memoryPanel.element, keep: memoryHead });
+    if (memoryHead) shelf.fold({ id: 'memory', title: tr('相棒が覚えていること'), element: memoryPanel.element, keep: memoryHead });
     const sleepHead = head(sleepPanel.element, ':scope > .panel-subtitle');
-    if (sleepHead) shelf.fold({ id: 'sleep', title: '休眠', element: sleepPanel.element, keep: sleepHead });
+    if (sleepHead) shelf.fold({ id: 'sleep', title: tr('休眠'), element: sleepPanel.element, keep: sleepHead });
     const reminderHead = head(reminderPanel.element, ':scope > .panel-subtitle');
-    if (reminderHead) shelf.fold({ id: 'reminder', title: 'リマインダー', element: reminderPanel.element, keep: reminderHead });
-    shelf.barOn({ id: 'later', title: 'これからの区画', element: placeholder });
-    shelf.barOn({ id: 'ai', title: '相棒', element: ai.element });
+    if (reminderHead) shelf.fold({ id: 'reminder', title: tr('リマインダー'), element: reminderPanel.element, keep: reminderHead });
+    shelf.barOn({ id: 'later', title: tr('これからの区画'), element: placeholder });
+    shelf.barOn({ id: 'ai', title: tr('相棒'), element: ai.element });
     shelf.finish();
   }
 
@@ -821,7 +822,7 @@ export function startSecondary() {
     }
     if (placement !== 'right') {
       previewSection.replaceChildren(
-        el('div', 'preview-empty', '拡大表示をここに出すには、左のサイドバーの虫めがねのメニューで「右サイドバー」を選びます'),
+        el('div', 'preview-empty', tr('拡大表示をここに出すには、左のサイドバーの虫めがねのメニューで「右サイドバー」を選びます')),
       );
       return;
     }
@@ -844,7 +845,7 @@ export function startSecondary() {
             tagPad,
             toast: rightToast,
           })
-        : el('div', 'preview-empty', 'タブがありません'),
+        : el('div', 'preview-empty', tr('タブがありません')),
     );
     if (active) previewSection.querySelector<HTMLElement>(`[data-focus-key="${CSS.escape(active)}"]`)?.focus({ preventScroll: true });
   }
@@ -1034,7 +1035,7 @@ export function startSecondary() {
           if (!msg.payload.bubble) showToast(document.body, msg.payload.text, 6000);
           else if (!botPanel.isShowing(msg.payload.botId)) void ai.announce(msg.payload.text);
         } else if (msg.payload.kind === 'vocabDue') {
-          void ai.announce(`📇 単語帳に、今日復習するカードが ${msg.payload.count} 枚あります（右の「単語帳」パネルの「復習する」から）`);
+          void ai.announce(tr('📇 単語帳に、今日復習するカードが {0} 枚あります（右の「単語帳」パネルの「復習する」から）', { 0: msg.payload.count }));
         } else if (msg.payload.kind === 'captureReveal') {
           sectionShelf?.show('capture');
           capturePanel.reveal(msg.payload.id);

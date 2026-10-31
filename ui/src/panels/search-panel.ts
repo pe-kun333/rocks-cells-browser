@@ -6,6 +6,7 @@
 //   ・並べ方：新しい順（作った時刻）／更新順（メモの変更・コメントの書き直し・♥ の新しいほう）。タブは時刻が無いので下にまとめる
 //   ・行の大きいボタン：メモ・コメントは下の区画で開く（コメントなら、そのカードへ）。ほかは、その区画で開く。小さいボタン：左の盤面で見る（メモ・コメントだけ）
 //   ・手本は tag-index.ts（見出し・▾ でたたむ・prefs・押したボタンの位置を残す）
+import { t as tr } from '../i18n';
 import { type LocalItem, type LocalKind, mergeRows, type PanelRow, SEARCH_TARGETS, type SearchTarget } from '../right-search';
 import { queryWords, type SearchItem, type SearchSort } from '../search';
 import { el } from '../util';
@@ -59,32 +60,32 @@ const MAX_LIMIT = 300;
 const TYPING_MS = 250; // 字を打ち終わるのを待つ
 const SILENT_MS = 3000; // 左から返事が無いと知らせるまで
 const SORTS: [SearchSort, string][] = [
-  ['created', '新しい順'],
-  ['updated', '更新順'],
+  ['created', tr('新しい順')],
+  ['updated', tr('更新順')],
 ];
 const KIND_BUTTONS: [SearchTarget, string, string][] = [
-  ['memo', 'メモ', 'メモとコメント'],
-  ['tab', 'タブ', ''],
-  ['capture', '撮影', ''],
-  ['vault', '置き場', 'データ置き場（目次だけ）'],
-  ['vocab', '単語帳', ''],
-  ['reminder', '⏰ リマインダー', 'まだ鳴っていないリマインダー'],
+  ['memo', tr('メモ'), tr('メモとコメント')],
+  ['tab', tr('タブ'), ''],
+  ['capture', tr('撮影'), ''],
+  ['vault', tr('置き場'), tr('データ置き場（目次だけ）')],
+  ['vocab', tr('単語帳'), ''],
+  ['reminder', tr('⏰ リマインダー'), tr('まだ鳴っていないリマインダー')],
 ];
 // 右の中の行：アイコン・押したときの title・押したときにもう無かった知らせ
 const LOCAL_ICON: Record<LocalKind, string> = { tab: '🌐', capture: '📷', vault: '🗄', vocab: '📇', reminder: '⏰' };
 const LOCAL_TITLE: Record<LocalKind, string> = {
-  tab: 'このタブを表示する',
-  capture: '撮影の区画で、このカードを出す',
-  vault: 'データ置き場で、これを開く',
-  vocab: '単語帳で、このカードを開く',
-  reminder: 'リマインダーの区画を開く',
+  tab: tr('このタブを表示する'),
+  capture: tr('撮影の区画で、このカードを出す'),
+  vault: tr('データ置き場で、これを開く'),
+  vocab: tr('単語帳で、このカードを開く'),
+  reminder: tr('リマインダーの区画を開く'),
 };
 const LOCAL_GONE: Record<LocalKind, string> = {
-  tab: 'そのタブは、もうありません',
-  capture: 'その撮影は、もうありません',
-  vault: 'それは、もうデータ置き場にありません',
-  vocab: 'そのカードは、もう単語帳にありません',
-  reminder: 'そのリマインダーは、もうありません（鳴ったか、取り消されました）',
+  tab: tr('そのタブは、もうありません'),
+  capture: tr('その撮影は、もうありません'),
+  vault: tr('それは、もうデータ置き場にありません'),
+  vocab: tr('そのカードは、もう単語帳にありません'),
+  reminder: tr('そのリマインダーは、もうありません（鳴ったか、取り消されました）'),
 };
 
 export class SearchPanel {
@@ -112,7 +113,7 @@ export class SearchPanel {
 
   constructor(private readonly deps: SearchPanelDeps) {
     this.element.setAttribute('aria-label', '検索');
-    this.head.append(el('h2', 'search-panel-title', '検索'), this.sub, this.fold);
+    this.head.append(el('h2', 'search-panel-title', tr('検索')), this.sub, this.fold);
     this.fold.type = 'button';
     this.fold.addEventListener('click', () => {
       this.prefs.collapsed = !this.prefs.collapsed;
@@ -124,7 +125,7 @@ export class SearchPanel {
 
     const controls = el('div', 'search-panel-controls');
     this.input.type = 'search';
-    this.input.placeholder = 'メモ・タブ・撮影などを探す';
+    this.input.placeholder = tr('メモ・タブ・撮影などを探す');
     this.input.setAttribute('aria-label', '探す字');
     this.input.autocomplete = 'off';
     this.input.spellcheck = false;
@@ -283,7 +284,7 @@ export class SearchPanel {
       this.waiting = seq;
       this.deps.ask(seq, query, this.prefs.sort, this.limit);
       this.silentTimer = window.setTimeout(() => {
-        if (this.waiting === seq) this.renderStatus('左の準備ができていません。少し待ってから探してください');
+        if (this.waiting === seq) this.renderStatus(tr('左の準備ができていません。少し待ってから探してください'));
       }, SILENT_MS);
     } else {
       // メモを選んでいないときは左に頼まない（古い返事は waiting が null なので捨てられる）
@@ -300,7 +301,7 @@ export class SearchPanel {
     const asked = this.asked;
     const kinds = asked.kinds.filter((k): k is LocalKind => k !== 'memo');
     const local = kinds.length > 0 ? this.deps.local(asked.query, kinds) : { items: [], notes: [] };
-    const notes = [...(memo.ready ? [] : ['メモ・コメントは準備中です（左がメモを読み込んでいます）']), ...local.notes];
+    const notes = [...(memo.ready ? [] : [tr('メモ・コメントは準備中です（左がメモを読み込んでいます）')]), ...local.notes];
     this.shown = {
       rows: mergeRows(memo.items, local.items, asked.limit),
       total: memo.total + local.items.length,
@@ -312,7 +313,7 @@ export class SearchPanel {
     };
     this.renderRows();
     this.renderStatus(this.statusOf(this.shown));
-    this.sub.textContent = this.shown.recent || this.shown.total === 0 ? '' : `${this.shown.total} 件`;
+    this.sub.textContent = this.shown.recent || this.shown.total === 0 ? '' : tr('{0} 件', { 0: this.shown.total });
   }
 
   // ---------- 描く ----------
@@ -321,7 +322,7 @@ export class SearchPanel {
   private renderFrame() {
     const collapsed = this.prefs.collapsed;
     this.fold.textContent = collapsed ? '▸' : '▾';
-    this.fold.title = collapsed ? '検索を開く' : '検索をたたむ';
+    this.fold.title = collapsed ? tr('検索を開く') : tr('検索をたたむ');
     this.fold.setAttribute('aria-label', this.fold.title);
     this.fold.setAttribute('aria-expanded', String(!collapsed));
     this.body.hidden = collapsed;
@@ -346,13 +347,13 @@ export class SearchPanel {
     let main = '';
     if (shown.recent) {
       const updated = shown.sort === 'updated';
-      if (shown.kinds.every((k) => k === 'tab')) main = 'タブは、字を入れると探せます';
-      else if (shown.kinds.length === 1 && shown.kinds[0] === 'memo') main = updated ? '最近のメモ（更新順）' : '最近のメモ（新しい順）';
-      else main = updated ? '最近のもの（更新順）' : '最近のもの（新しい順）';
+      if (shown.kinds.every((k) => k === 'tab')) main = tr('タブは、字を入れると探せます');
+      else if (shown.kinds.length === 1 && shown.kinds[0] === 'memo') main = updated ? tr('最近のメモ（更新順）') : tr('最近のメモ（新しい順）');
+      else main = updated ? tr('最近のもの（更新順）') : tr('最近のもの（新しい順）');
     } else if (shown.total === 0) {
-      main = '見つかりませんでした';
+      main = tr('見つかりませんでした');
     } else if (shown.limit >= MAX_LIMIT && shown.total > MAX_LIMIT) {
-      main = `${MAX_LIMIT} 件まで出します。字を足して絞ってください`;
+      main = tr('{0} 件まで出します。字を足して絞ってください', { 0: MAX_LIMIT });
     }
     return [main, ...shown.notes].filter(Boolean).join('　');
   }
@@ -367,7 +368,7 @@ export class SearchPanel {
     if (active) this.list.querySelector<HTMLElement>(`[data-focus-key="${CSS.escape(active)}"]`)?.focus({ preventScroll: true });
     const rest = shown ? shown.total - shown.rows.length : 0;
     this.more.hidden = !shown || rest <= 0 || shown.limit >= MAX_LIMIT;
-    if (!this.more.hidden) this.more.textContent = `ほか ${rest} 件を見る ▾`;
+    if (!this.more.hidden) this.more.textContent = tr('ほか {0} 件を見る ▾', { 0: rest });
   }
 
   private rowNode(item: SearchItem): HTMLElement {
@@ -377,24 +378,24 @@ export class SearchPanel {
     const key = `${item.kind}:${item.memoId}:${item.replyId ?? ''}`;
     // もう無いメモなら開かずに知らせる（ここを押した時点の有無で見る）
     const guard = (act: () => void) => () => {
-      if (this.deps.memoKnown(item.memoId) === false) this.renderStatus('そのメモは、もうありません');
+      if (this.deps.memoKnown(item.memoId) === false) this.renderStatus(tr('そのメモは、もうありません'));
       else act();
     };
 
     const main = el('button', 'search-row-main');
     main.type = 'button';
     main.dataset.focusKey = `${key}:main`;
-    main.title = item.kind === 'reply' ? 'このコメントを下の区画で開く' : 'このメモを下の区画で開く';
+    main.title = item.kind === 'reply' ? tr('このコメントを下の区画で開く') : tr('このメモを下の区画で開く');
     main.append(el('span', 'search-row-icon', item.kind === 'reply' ? '💬' : item.image ? '🖼' : '📝'), el('span', 'search-row-title', item.title));
-    if (item.kind === 'reply') main.append(el('span', 'search-row-kind', 'コメント'));
+    if (item.kind === 'reply') main.append(el('span', 'search-row-kind', tr('コメント')));
     main.append(el('span', 'search-row-meta', this.metaOf(item)));
     if (item.snippet) main.append(snippetNode(item.snippet));
     main.addEventListener('click', guard(() => this.deps.openMemo(item)));
 
-    const board = el('button', 'search-row-board', '盤面で見る');
+    const board = el('button', 'search-row-board', tr('盤面で見る'));
     board.type = 'button';
     board.dataset.focusKey = `${key}:board`;
-    board.title = '左の盤面で、このメモのセルを見る';
+    board.title = tr('左の盤面で、このメモのセルを見る');
     board.addEventListener('click', guard(() => this.deps.showMemo(item.memoId)));
 
     row.append(main, board);
@@ -446,9 +447,9 @@ export class SearchPanel {
     if (sheet) parts.push(sheet);
     if (item.by) parts.push(item.by);
     if (item.liked) parts.push(`♥${item.liked}`);
-    if (item.where === 'tags') parts.push('タグ');
-    else if (item.where === 'quote') parts.push('引用');
-    else if (item.where === 'quoteTitle') parts.push('引用元の題名');
+    if (item.where === 'tags') parts.push(tr('タグ'));
+    else if (item.where === 'quote') parts.push(tr('引用'));
+    else if (item.where === 'quoteTitle') parts.push(tr('引用元の題名'));
     return parts.join(' · ');
   }
 

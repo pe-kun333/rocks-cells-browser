@@ -3,6 +3,7 @@
 //   ・帯の上の位置を秒に当てる（overviewTime）と、位置が 900 マスの外かを見る（overviewInCut）
 //   ・900 マスの知らせの文（capNotice）
 //   ・読み込むのは reader-ai-card.ts の secLabel だけ。純粋な関数だけ（DOM・window・Date.now・Math.random を使わない）。外へ送らない
+import { t } from './i18n';
 import { secLabel } from './reader-ai-card';
 
 // 点の種類（heart＝♥、note＝マスのメモ、card＝この動画と結んだカード、ai＝AI のカード）
@@ -170,10 +171,10 @@ export function overviewInCut(model: OverviewModel, fraction: number): boolean {
 // 900 マスの知らせの文（side は end＝字幕を後ろで切った、start＝聞き取りで古いマスを外した）
 export function capNotice(c: { side: 'end' | 'start'; at: number; duration: number; total: number; kept: number }): string {
   if (c.side === 'start') {
-    return `聞き取りの区間セルは ${c.kept} マスまでなので、${secLabel(c.at)} より前の ${c.total - c.kept} マスを外しました（外したマスは記録にも残りません。全体の地図の斜線の所）`;
+    return t('聞き取りの区間セルは {0} マスまでなので、{1} より前の {2} マスを外しました（外したマスは記録にも残りません。全体の地図の斜線の所）', { 0: c.kept, 1: secLabel(c.at), 2: c.total - c.kept });
   }
   if (usable(c.duration) && c.duration > 0) {
-    return `この動画は ${secLabel(c.duration)} ありますが、区間セルは ${c.kept} マスまでなので、${secLabel(c.at)} から後ろは入っていません（字幕は全部で ${c.total} マス分。全体の地図の斜線の所）`;
+    return t('この動画は {0} ありますが、区間セルは {1} マスまでなので、{2} から後ろは入っていません（字幕は全部で {3} マス分。全体の地図の斜線の所）', { 0: secLabel(c.duration), 1: c.kept, 2: secLabel(c.at), 3: c.total });
   }
-  return `区間セルは ${c.kept} マスまでなので、${secLabel(c.at)} から後ろは入っていません（字幕は全部で ${c.total} マス分。全体の地図の斜線の所）`;
+  return t('区間セルは {0} マスまでなので、{1} から後ろは入っていません（字幕は全部で {2} マス分。全体の地図の斜線の所）', { 0: c.kept, 1: secLabel(c.at), 2: c.total });
 }

@@ -4,6 +4,7 @@
 //   popup : マウスを乗せたセルのすぐ近く
 // 何を表示するか：最後にマウスを乗せたタブ（かメモのセル）。サイドバーの外へマウスが出たら、表示中のタブに戻る
 //   ボットのセルを外した直後は、ほかのセルに乗るまで「置き直す」のカードを出す
+import { t } from '../i18n';
 import type { AppEntry } from '../apps';
 import type { BotEntry, BotFullState } from '../bots';
 import type { PortalInfo } from '../cellface';
@@ -80,12 +81,12 @@ export class PreviewHost {
   private readonly cardWinEls = new Map<string, HTMLElement>();
 
   constructor(private readonly o: PreviewHostOptions) {
-    const grip = el('div', 'preview-grip', '⠿ 拡大表示');
-    grip.title = 'ドラッグで移動';
+    const grip = el('div', 'preview-grip', t('⠿ 拡大表示'));
+    grip.title = t('ドラッグで移動');
     this.floating.append(grip, this.floatSlot);
     this.bindFloatDrag(grip);
     this.popupClose.setAttribute('type', 'button');
-    this.popupClose.title = '固定をやめる（Esc）';
+    this.popupClose.title = t('固定をやめる（Esc）');
     this.popupClose.setAttribute('aria-label', '固定をやめる');
     this.popupClose.addEventListener('click', () => this.unpinTab());
     o.store.onChange(() => this.render());
@@ -293,7 +294,7 @@ export class PreviewHost {
     const popupFocusKey = active && this.popup.contains(active) ? active.dataset.focusKey : undefined; // 固定したポップアップの中のボタン
     const popupScroll = this.popup.scrollTop; // 描き直しても、ポップアップの中のスクロールを残す
     const memo = this.focusMemo;
-    const main = () => (memo ? this.memoCard(memo, false) : (this.removedCard() ?? this.card(this.focusId, false))) ?? el('div', 'preview-empty', 'タブがありません');
+    const main = () => (memo ? this.memoCard(memo, false) : (this.removedCard() ?? this.card(this.focusId, false))) ?? el('div', 'preview-empty', t('タブがありません'));
     if (this.placement === 'dock') {
       dock.replaceChildren(main());
     } else {
@@ -378,7 +379,7 @@ export class PreviewHost {
     const pos = { x: 12 + (n % 4) * 18, y: Math.max(this.o.topInset(), 12) + (n % 4) * 22 }; // 重ならないよう少しずつずらす
     const next = openWin(this.cardWins, { kind, key, ...pos }, (w) => this.cardWinAlive(w));
     if (!next) {
-      this.o.toast(`小窓は ${MAX_CARD_WINS} 個までです。どれかを × で閉じてください`);
+      this.o.toast(t('小窓は {0} 個までです。どれかを × で閉じてください', { 0: MAX_CARD_WINS }));
       return false;
     }
     this.cardWins = next;
@@ -415,14 +416,14 @@ export class PreviewHost {
         win = this.makeCardWin(w);
         this.cardWinEls.set(id, win);
       }
-      const title = tab ? tab.title || tab.url || 'タブ' : (memo?.text.trim().split('\n')[0] || (memo?.portal ? '入口' : memo?.bot ? 'ボット' : memo?.app ? 'アプリ' : memo?.capture ? '撮ったもの' : 'メモ')).slice(0, 40);
+      const title = tab ? tab.title || tab.url || t('タブ') : (memo?.text.trim().split('\n')[0] || (memo?.portal ? t('入口') : memo?.bot ? t('ボット') : memo?.app ? t('アプリ') : memo?.capture ? t('撮ったもの') : t('メモ'))).slice(0, 40);
       const label = win.querySelector<HTMLElement>('.card-win-title');
       if (label && label.textContent !== title) label.textContent = title;
       const body = win.querySelector<HTMLElement>('.card-win-body')!;
       if (!isWritingIn(body)) {
         const scroll = body.scrollTop;
         const card = tab ? this.card(tab.id, false, true) : this.memoCard(w.key, false, true);
-        body.replaceChildren(card ?? el('div', 'preview-empty', '見つかりません'));
+        body.replaceChildren(card ?? el('div', 'preview-empty', t('見つかりません')));
         body.scrollTop = scroll;
       }
       win.style.zIndex = String(20 + index);
@@ -442,7 +443,7 @@ export class PreviewHost {
     const title = el('span', 'card-win-title');
     const close = el('button', 'card-win-close', '×');
     close.type = 'button';
-    close.title = '小窓を閉じる';
+    close.title = t('小窓を閉じる');
     close.setAttribute('aria-label', '小窓を閉じる');
     close.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -450,7 +451,7 @@ export class PreviewHost {
     });
     head.append(title, close);
     win.append(head, el('div', 'card-win-body'));
-    head.title = 'ドラッグで移動';
+    head.title = t('ドラッグで移動');
     let start: { x: number; y: number; left: number; top: number } | null = null;
     const current = () => this.cardWins.find((x) => sameWin(x, w));
     head.addEventListener('pointerdown', (e) => {

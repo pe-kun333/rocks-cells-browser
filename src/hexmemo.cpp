@@ -10,6 +10,7 @@
 
 #include "storage.h"
 #include "strings.h"
+#include "l10n.h"
 
 using nlohmann::json;
 namespace fs = std::filesystem;
@@ -138,7 +139,7 @@ json Catalog() {
     if (root.empty() || !fs::exists(root / L"boards.json", error)) return {{"available", false}, {"apps", json::array()}};
 
     json apps = json::array();
-    apps.push_back({{"id", nullptr}, {"name", "六角メモ"}, {"status", Status(root)}, {"boards", BoardsOf(root)}});
+    apps.push_back({{"id", nullptr}, {"name", l10n::TrU8("六角メモ")}, {"status", Status(root)}, {"boards", BoardsOf(root)}});
     const json registry = ReadJsonFile(root / L"apps.json");
     if (registry.is_object() && registry.contains("apps") && registry["apps"].is_array()) {
         for (const json& app : registry["apps"]) {
@@ -174,12 +175,12 @@ std::string BoardFile(const fs::path& dir, const std::string& boardId) {
 }
 
 json ReadBoard(const json& appId, const std::string& boardId) {
-    if (!ValidAppId(appId) || !std::regex_match(boardId, kBoardIdPattern)) return {{"ok", false}, {"error", "ノートの指定が正しくありません"}};
+    if (!ValidAppId(appId) || !std::regex_match(boardId, kBoardIdPattern)) return {{"ok", false}, {"error", l10n::TrU8("ノートの指定が正しくありません")}};
     const fs::path dir = DataDir(appId);
     const std::string file = BoardFile(dir, boardId);
-    if (file.empty()) return {{"ok", false}, {"error", "ノートが見つかりません"}};
+    if (file.empty()) return {{"ok", false}, {"error", l10n::TrU8("ノートが見つかりません")}};
     const json data = ReadJsonFile(dir / ToWide(file));
-    if (!data.is_object()) return {{"ok", false}, {"error", "ノートを読めませんでした"}};
+    if (!data.is_object()) return {{"ok", false}, {"error", l10n::TrU8("ノートを読めませんでした")}};
 
     constexpr size_t kMaxMemos = 300;
     json memos = json::array();
@@ -246,11 +247,11 @@ static json CheckedOffsets(const json& offsets, size_t count) {
 json Send(const json& appId, const std::string& boardId, const json& records, const json& offsets) {
     if (!ValidAppId(appId) || !std::regex_match(boardId, kBoardIdPattern) || !records.is_array() || records.empty() ||
         records.size() > 50) {
-        return {{"ok", false}, {"error", "送り先か内容の形が正しくありません"}};
+        return {{"ok", false}, {"error", l10n::TrU8("送り先か内容の形が正しくありません")}};
     }
     const fs::path dir = DataDir(appId);
     std::error_code error;
-    if (!fs::exists(dir, error)) return {{"ok", false}, {"error", "送り先のメモアプリが見つかりません"}};
+    if (!fs::exists(dir, error)) return {{"ok", false}, {"error", l10n::TrU8("送り先のメモアプリが見つかりません")}};
 
     // 書きかけを読まれないよう、<id>.part に書いてから名前を変える（六角メモの約束どおり）
     const std::string status = Status(dir);
@@ -267,14 +268,14 @@ json Send(const json& appId, const std::string& boardId, const json& records, co
     fs::create_directories(part / L"files", error);
     if (error || !WriteFileAtomically(part / L"payload.json", payload.dump(-1, ' ', false, json::error_handler_t::replace))) {
         fs::remove_all(part, error);
-        return {{"ok", false}, {"error", "六角メモの受け取り口に置けませんでした"}};
+        return {{"ok", false}, {"error", l10n::TrU8("六角メモの受け取り口に置けませんでした")}};
     }
     for (int attempt = 0;; ++attempt) {
         fs::rename(part, inbox / ToWide(id), error);
         if (!error) break;
         if (attempt >= 9) {
             fs::remove_all(part, error);
-            return {{"ok", false}, {"error", "六角メモの受け取り口に置けませんでした"}};
+            return {{"ok", false}, {"error", l10n::TrU8("六角メモの受け取り口に置けませんでした")}};
         }
         Sleep(60);
     }

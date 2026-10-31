@@ -4,6 +4,7 @@
 //   ・読み込んでも貼らない：空欄の小窓の入力欄に先に入れるだけ（貼るのは、使う人が小窓で「貼る」を押したとき）
 //   ・空欄名は穴あきの決まり（1〜30 字・波かっこと改行なし）。型に無い空欄名は無視。値は 40 個まで・1 つ 2,000 字まで・制御文字は除く
 //   ・タグ・機械タグ（宛て:・送った:・貼った:）を運ぶ欄は無い（あっても読まない）。値は文字として入れる（HTML にしない。{{…}} に見える値も、あとで fillTemplate が再び埋めない）
+import { t as tr } from './i18n';
 import { cleanTemplateName, type CardTemplate, extractHoles } from './memo-card-templates';
 import { MAX_REPLY_TEXT } from './threads';
 
@@ -93,17 +94,17 @@ export function parseFillText(text: string): FillParse {
 export function fillFailText(why: FillFail): string {
   switch (why) {
     case 'json':
-      return '穴埋めのファイルとして読めません（JSON ではありません）。何も変えていません';
+      return tr('穴埋めのファイルとして読めません（JSON ではありません）。何も変えていません');
     case 'format':
-      return '穴埋めのファイルではありません（format が honeycomb-cardtpl-fill ではありません）。何も変えていません';
+      return tr('穴埋めのファイルではありません（format が honeycomb-cardtpl-fill ではありません）。何も変えていません');
     case 'version':
-      return 'このファイルの版は読めません（version が 1 ではありません）。何も変えていません';
+      return tr('このファイルの版は読めません（version が 1 ではありません）。何も変えていません');
     case 'shape':
-      return '穴埋めのファイルの形が違います（template か values がありません）。何も変えていません';
+      return tr('穴埋めのファイルの形が違います（template か values がありません）。何も変えていません');
     case 'template':
-      return '穴埋めのファイルに、どの型か（template の id か name）がありません。何も変えていません';
+      return tr('穴埋めのファイルに、どの型か（template の id か name）がありません。何も変えていません');
     case 'empty':
-      return '入れられる値が 1 つもありません（空欄名が決まりに合わない・値が空）。何も変えていません';
+      return tr('入れられる値が 1 つもありません（空欄名が決まりに合わない・値が空）。何も変えていません');
   }
 }
 
@@ -119,7 +120,7 @@ export function findFillTemplate(list: readonly CardTemplate[], ref: { id: strin
 
 export function findFailText(why: 'missing' | 'no-holes', ref: { id: string; name: string }): string {
   const label = ref.name || ref.id;
-  return why === 'missing' ? `「${label}」という型が見つかりません。何も開いていません（型の名前が変わっていないか見てください）` : `「${label}」は穴あきの型ではありません（入れる空欄がありません）。何も開いていません`;
+  return why === 'missing' ? tr('「{0}」という型が見つかりません。何も開いていません（型の名前が変わっていないか見てください）', { 0: label }) : tr('「{0}」は穴あきの型ではありません（入れる空欄がありません）。何も開いていません', { 0: label });
 }
 
 export interface FillPlan {
@@ -144,9 +145,9 @@ export function planFill(template: Pick<CardTemplate, 'cards'>, file: Pick<FillF
 
 // 先入れしたあとの知らせ
 export function fillPlanText(plan: FillPlan, ignored: number): string {
-  const parts = [`空欄に値を ${plan.used} 個入れました。内容を確かめて、よければ「貼る」を押してください（押すまで貼りません）`];
-  if (plan.missing.length > 0) parts.push(`値のない ${plan.missing.length} 個は空のままです`);
+  const parts = [tr('空欄に値を {0} 個入れました。内容を確かめて、よければ「貼る」を押してください（押すまで貼りません）', { 0: plan.used })];
+  if (plan.missing.length > 0) parts.push(tr('値のない {0} 個は空のままです', { 0: plan.missing.length }));
   const skipped = plan.unknown.length + ignored;
-  if (skipped > 0) parts.push(`${skipped} 個は入れませんでした（型に無い空欄名・空の値・決まりに合わないもの）`);
+  if (skipped > 0) parts.push(tr('{0} 個は入れませんでした（型に無い空欄名・空の値・決まりに合わないもの）', { 0: skipped }));
   return parts.join('。');
 }

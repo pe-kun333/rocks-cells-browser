@@ -1,6 +1,7 @@
 // 右サイドバーの区画：全部たためる・見出しの右クリックでタグ1〜6に登録・上のボタンからそこへ移動する
 //   覚え方はこの画面の localStorage（右の WebView だけ。再起動しても残る）
 //   もともと ▾ がある区画（メモ・データ置き場・受け取り箱・タグごとの一覧・月の窓）は、その ▾ と保存のまま使う
+import { t } from '../i18n';
 import { type MenuEntry, type CellMenu } from './cell-menu';
 import { el } from '../util';
 
@@ -112,7 +113,7 @@ export class SectionShelf {
       if (!blockFold) return;
       event.preventDefault();
       event.stopPropagation();
-      this.toast('書いている途中です。書き終えてからたためます');
+      this.toast(t('書いている途中です。書き終えてからたためます'));
     });
     fold.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -160,19 +161,19 @@ export class SectionShelf {
     for (let i = 0; i < SLOT_COUNT; i++) {
       const occupant = this.slots[i];
       const name = occupant ? this.sections.find((item) => item.id === occupant)?.title : undefined;
-      const hint = occupant === section.id ? 'この区画' : name;
+      const hint = occupant === section.id ? t('この区画') : name;
       const slot = i;
-      items.push({ label: `タグ${i + 1}に登録`, hint, run: () => this.register(section.id, slot) });
+      items.push({ label: t('タグ{0}に登録', { 0: i + 1 }), hint, run: () => this.register(section.id, slot) });
     }
-    items.push('sep', { label: 'その他…', run: () => this.openList() });
+    items.push('sep', { label: t('その他…'), run: () => this.openList() });
     return items;
   }
 
   private openList() {
-    const entries: MenuEntry[] = [{ section: '区画へ移動' }];
+    const entries: MenuEntry[] = [{ section: t('区画へ移動') }];
     for (const section of this.sections) {
       const slot = this.slots.indexOf(section.id);
-      const hint = slot >= 0 ? `タグ${slot + 1}` : section.collapsed() ? 'たたんでいます' : undefined;
+      const hint = slot >= 0 ? t('タグ{0}', { 0: slot + 1 }) : section.collapsed() ? t('たたんでいます') : undefined;
       entries.push({ label: section.title, hint, run: () => this.jump(section) });
     }
     this.menu.open(this.at.x, this.at.y, entries);
@@ -193,7 +194,7 @@ export class SectionShelf {
 
   private jump(section: Section) {
     if (section.available && !section.available()) {
-      this.toast(section.unavailable ?? 'いまは出せません');
+      this.toast(section.unavailable ?? t('いまは出せません'));
       return;
     }
     section.expand();
@@ -212,7 +213,7 @@ export class SectionShelf {
     if (!fold) return;
     fold.element.classList.toggle('sidebar-collapsed', collapsed);
     fold.fold.textContent = collapsed ? '▸' : '▾';
-    const action = collapsed ? `${fold.title}を開く` : `${fold.title}をたたむ`;
+    const action = collapsed ? t('{0}を開く', { 0: fold.title }) : t('{0}をたたむ', { 0: fold.title });
     fold.fold.title = action;
     fold.fold.setAttribute('aria-label', action);
     fold.fold.setAttribute('aria-expanded', String(!collapsed));
@@ -226,13 +227,13 @@ export class SectionShelf {
       if (!section) return;
       const button = el('button', 'sidebar-tag', section.title);
       button.type = 'button';
-      button.title = `タグ${index + 1}：${section.title}。押すと開いて、そこへ移動します`;
+      button.title = t('タグ{0}：{1}。押すと開いて、そこへ移動します', { 0: index + 1, 1: section.title });
       button.setAttribute('aria-label', button.title);
       button.addEventListener('click', () => this.jump(section));
       buttons.push(button);
     });
     if (buttons.length === 0) {
-      this.bar.replaceChildren(el('p', 'sidebar-tags-hint', '見出しを右クリックすると、ここにタグとして登録できます'));
+      this.bar.replaceChildren(el('p', 'sidebar-tags-hint', t('見出しを右クリックすると、ここにタグとして登録できます')));
       return;
     }
     this.bar.replaceChildren(...buttons);

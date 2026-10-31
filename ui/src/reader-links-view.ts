@@ -1,6 +1,7 @@
 // 結んだカードの写し（左が読む画面へ押すもの。段 V0d。plan-reader-video §6・§7.1）を組む純粋な関数
 //   ・台帳（メモの一覧）から、その動画に結んだ一番上のカード（items）と、結ぶ先のメモ（target）を組む。保存はしない（D16）
 //   ・押すのは V2a-1。ここは組むだけ。入力の配列もメモも変えない。DOM・window は使わない
+import { t } from './i18n';
 import { cardLabel } from './memo-card-links';
 import { isSpecialCell } from './memocells';
 import type { ReaderLinkItem, ReaderLinksView, ReaderLinkTop } from './reader-links';
@@ -25,7 +26,7 @@ const HEAD_CHARS = 40; // メモの題・カードの題の字数（コードポ
 // メモの題：最初の空でない行の前後を取ったもの。40 字を超えたら 40 字＋「…」。空なら（無題のメモ）
 export function memoHead(text: string): string {
   const line = text.split('\n').find((s) => s.trim() !== '')?.trim() ?? '';
-  if (!line) return '（無題のメモ）';
+  if (!line) return t('（無題のメモ）');
   const chars = [...line];
   return chars.length > HEAD_CHARS ? `${chars.slice(0, HEAD_CHARS).join('')}…` : line;
 }

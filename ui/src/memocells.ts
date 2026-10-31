@@ -9,6 +9,7 @@
 //     入口・ボットが付いているセルでは app は残さない
 //   ・撮ったもののセルも、メモのセルの一種（capture に撮影の id。画像は ui-data\captures\<id>.json。
 //     入口・ボット・アプリとは同じセルに付けない。返信・スクショ・元のページは持たない。version は 1 のまま）
+import { t } from './i18n';
 import { isAppId } from './apps';
 import { isBotId } from './bots';
 import { isCaptureId } from './captures';
@@ -108,7 +109,7 @@ export function memosCitingPage(list: readonly MemoCell[], pageUrl: string): { i
   return list
     .filter((m) => !isSpecialCell(m) && (m.replies ?? []).some((r) => r.quote && samePage(r.quote.url, pageUrl)))
     .sort((a, b) => b.updatedAt - a.updatedAt)
-    .map((m) => ({ id: m.id, title: memoTitle(m) || '（空のメモ）' }));
+    .map((m) => ({ id: m.id, title: memoTitle(m) || t('（空のメモ）') }));
 }
 
 export function toMemoIndexItem(m: MemoCell): MemoIndexItem {
@@ -116,7 +117,7 @@ export function toMemoIndexItem(m: MemoCell): MemoIndexItem {
   return {
     id: m.id,
     sheet: m.sheet,
-    title: memoTitle(m, 40) || (m.image ? '（画像のメモ）' : '（空のメモ）'),
+    title: memoTitle(m, 40) || (m.image ? t('（画像のメモ）') : t('（空のメモ）')),
     tags: visibleTags(m.tags),
     createdAt: m.createdAt,
     updatedAt: m.updatedAt,
@@ -389,7 +390,7 @@ export class MemoStore {
   //     元のメモは無い（fromId は null）。updatedAt は変えない（addReply と同じ）。関連を初めて書く前に 1 回だけ写す。
   //     覚えておく取り消しは 1 件だけ（次の送り・型の貼り付け・カードにすると入れ替わる）。
   placeReplyCard(id: string, originReplyId: string, text: string): { ok: true; token: string; replyId: string } | { ok: false; note: string } {
-    if (!this.loaded || this.loadState === 'unreadable') return { ok: false, note: '台帳を読めませんでした' };
+    if (!this.loaded || this.loadState === 'unreadable') return { ok: false, note: t('台帳を読めませんでした') };
     const memo = this.memos.get(id);
     const usable = !!memo && !isSpecialCell(memo);
     const plan = planReplyCard({
@@ -397,7 +398,7 @@ export class MemoStore {
       origin: { memo: id, reply: originReplyId },
       memo: usable && memo ? { id: memo.id, replies: memo.replies ?? [] } : null,
     });
-    if (!plan.ok || !memo) return plan.ok ? { ok: false, note: '元のカードが見つかりません' } : plan;
+    if (!plan.ok || !memo) return plan.ok ? { ok: false, note: t('元のカードが見つかりません') } : plan;
     const replies = memo.replies ?? [];
     const before = structuredClone(replies) as Reply[];
     const beforeUpdated = memo.updatedAt;
@@ -442,8 +443,8 @@ export class MemoStore {
   //   取り消しは placeReplyCard と同じ（sendUndo / undoSendReplies）。足す前の返信全体を控え、updatedAt は変えない。
   //   画像を初めて書く前と、関連を初めて書く前に、それぞれ 1 回だけ写す。
   placeAnnotatedCard(id: string, imageId: string, text: string, fromReply?: string): { ok: true; token: string; replyId: string } | { ok: false; note: string } {
-    if (!this.loaded || this.loadState === 'unreadable') return { ok: false, note: '台帳を読めませんでした' };
-    if (!isShotImageId(imageId)) return { ok: false, note: 'その画像は、もうありません' };
+    if (!this.loaded || this.loadState === 'unreadable') return { ok: false, note: t('台帳を読めませんでした') };
+    if (!isShotImageId(imageId)) return { ok: false, note: t('その画像は、もうありません') };
     const memo = this.memos.get(id);
     const usable = !!memo && !isSpecialCell(memo);
     const plan = planAnnotatedCard({
@@ -454,7 +455,7 @@ export class MemoStore {
       memoId: id,
       memo: usable && memo ? { id: memo.id, replies: memo.replies ?? [] } : null,
     });
-    if (!plan.ok || !memo) return plan.ok ? { ok: false, note: '元のカードが見つかりません' } : plan;
+    if (!plan.ok || !memo) return plan.ok ? { ok: false, note: t('元のカードが見つかりません') } : plan;
     const replies = memo.replies ?? [];
     const before = structuredClone(replies) as Reply[];
     const beforeUpdated = memo.updatedAt;

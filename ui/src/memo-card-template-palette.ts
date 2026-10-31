@@ -3,6 +3,7 @@
 //   ・選び方：矢印・Home・End で、見えている並びの中を動く
 //   ・ゴースト：貼ると入る番地を、実際の貼り付けと同じ計算（buildPasteDraft ＋ topSlots）で予告する
 //   ・サムネイル：カードの位置（dx・dy）を、小さな箱に収めた四角と線にする
+import { t as tr } from './i18n';
 import { linkKindInfo, type LinkKind } from './memo-card-links';
 import { buildPasteDraft, type CardTemplate, MODE_LABELS, TEMPLATE_GRID, type TemplateFolder } from './memo-card-templates';
 import { templateMenuGroups } from './memo-card-template-store';
@@ -161,17 +162,17 @@ export function thumbLayout(template: CardTemplate, box: { w: number; h: number;
 
 // 一覧の 2 行目：フォルダ・枚数・関連の本数
 export function paletteMeta(t: CardTemplate): string {
-  return `${t.folder}・${t.cards.length}枚・関連 ${t.links.length}本・${MODE_LABELS[t.mode]}`;
+  return tr('{0}・{1}枚・関連 {2}本・{3}', { 0: t.folder, 1: t.cards.length, 2: t.links.length, 3: MODE_LABELS[t.mode] });
 }
 
 // ゴーストの文：入る番地を、行と列で言う（読み上げにも使う）
 export function ghostSummary(result: GhostResult): string {
   if (!result.ok) {
-    return result.why === 'full' ? `このメモには入りきりません（あと ${result.room ?? 0} 枚まで、型は ${result.need ?? 0} 枚です）` : '型の中身を読めません';
+    return result.why === 'full' ? tr('このメモには入りきりません（あと {0} 枚まで、型は {1} 枚です）', { 0: result.room ?? 0, 1: result.need ?? 0 }) : tr('型の中身を読めません');
   }
-  const at = (slot: number) => `${Math.floor(slot / 3) + 1} 行目の ${(slot % 3) + 1} 列目`;
+  const at = (slot: number) => tr('{0} 行目の {1} 列目', { 0: Math.floor(slot / 3) + 1, 1: (slot % 3) + 1 });
   const last = result.slots[result.slots.length - 1];
-  return result.slots.length === 1 ? `${at(result.first)}に入ります` : `${at(result.first)}から ${at(last)}まで、${result.slots.length} 枚が入ります`;
+  return result.slots.length === 1 ? tr('{0}に入ります', { 0: at(result.first) }) : tr('{0}から {1}まで、{2} 枚が入ります', { 0: at(result.first), 1: at(last), 2: result.slots.length });
 }
 
 // ---------- 窓の型を、カードの区画へドラッグして貼る（Phase 2 の残り。つまみは pointer-grab.ts） ----------
@@ -186,8 +187,8 @@ export function dropAction(over: boolean, blocked: string | null): DropAction {
 
 // つまんでいる間の知らせ：札（ポインターの横）・窓の下の行・赤字にするか
 export function dragNote(t: Pick<CardTemplate, 'name' | 'cards'>, over: boolean, blocked: string | null): { chip: string; info: string; error: boolean } {
-  const head = `＋ ${t.name}（${t.cards.length}枚）`;
-  if (!over) return { chip: head, info: 'カードの区画の上で離すと貼ります。ここで離しても何もしません（Esc でやめます）', error: false };
-  if (blocked) return { chip: `${head}：貼れません`, info: blocked, error: true };
-  return { chip: `${head}：離すと貼る`, info: `離すと「${t.name}」を貼ります（点線の所に入ります）`, error: false };
+  const head = tr('＋ {0}（{1}枚）', { 0: t.name, 1: t.cards.length });
+  if (!over) return { chip: head, info: tr('カードの区画の上で離すと貼ります。ここで離しても何もしません（Esc でやめます）'), error: false };
+  if (blocked) return { chip: tr('{0}：貼れません', { 0: head }), info: blocked, error: true };
+  return { chip: tr('{0}：離すと貼る', { 0: head }), info: tr('離すと「{0}」を貼ります（点線の所に入ります）', { 0: t.name }), error: false };
 }

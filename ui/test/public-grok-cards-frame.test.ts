@@ -26,10 +26,17 @@ describe('公開版の既定：Grok 機能はオフ、Grok Cards の枠は出る
   });
   it('「この島を頼む」「🔍 Grok に頼む」は BOT_FEATURES のときだけ（依頼の小窓は Grok Bot とつなぐ機能）', () => {
     const primary = readFileSync(new URL('../src/app/primary.ts', import.meta.url), 'utf8');
-    const menuLines = primary.split(/\r?\n/).filter((l) => /label: '(この島を頼む|🔍 Grok に頼む)'/.test(l));
+    const menuLines = primary.split(/\r?\n/).filter((l) => /label: (?:tr?\()?'(この島を頼む|🔍 Grok に頼む)'/.test(l));
     expect(menuLines.length).toBeGreaterThanOrEqual(3);
     for (const l of menuLines) expect(l).toContain('BOT_FEATURES');
     const organize = readFileSync(new URL('../src/panels/organize-panel.ts', import.meta.url), 'utf8');
     expect(organize).toMatch(/if \(!BOT_FEATURES\) ask\.style\.display = 'none';/);
+    const pane = readFileSync(new URL('../src/app/memo-pane.ts', import.meta.url), 'utf8');
+    expect(pane).toMatch(/reply\.parent === null && BOT_FEATURES/);
+    expect(pane).toMatch(/if \(!BOT_FEATURES\) pickAsk\.style\.display = 'none';/);
+    const board = readFileSync(new URL('../src/app/memo-board-tab.ts', import.meta.url), 'utf8');
+    expect(board).toMatch(/if \(!BOT_FEATURES\) this\.askBtn\.style\.display = 'none';/);
+    const cards = readFileSync(new URL('../src/app/grok-cards.ts', import.meta.url), 'utf8');
+    expect(cards).toMatch(/if \(!BOT_FEATURES\) write\.style\.display = 'none';/);
   });
 });

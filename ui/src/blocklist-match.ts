@@ -1,5 +1,6 @@
 // 渡し止めの照合（ファイルは読まない）。文の中のアドレスの置き換えもここ。
 //   blocklist.ts が送る直前に一覧を読み、材料を組む makeMaterial も、同じ関数を使う。
+import { t } from './i18n';
 
 function acceptHost(host: string): string | null {
   const h = host.toLowerCase().replace(/\.$/, '');
@@ -63,6 +64,6 @@ export function redactBlockedUrlText(text: string, hosts: readonly string[]): st
   if (!text || hosts.length === 0) return text;
   return text.replace(/https?:\/\/[^\s<>)\]]+/gi, (url) => {
     const clean = url.replace(/[.,。、]+$/g, '');
-    return isBlockedUrl(clean, hosts) ? '（渡し止めのアドレス）' : url;
+    return isBlockedUrl(clean, hosts) ? t('（渡し止めのアドレス）') : url;
   });
 }

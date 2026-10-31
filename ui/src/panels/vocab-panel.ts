@@ -2,6 +2,7 @@
 //   ・カードの一覧（覚えた度合いは六角形の辺）と、手で入れる・このページから AI で作る・六角メモへ送る
 //   ・復習：時期が来たカードを1枚ずつ。答えを見て「もう一度 / 難しい / できた / かんたん」（キーは Space と 1〜4）
 //   台帳は左サイドバーが持つので、変えたいときは左に頼む（askLeft）
+import { t } from '../i18n';
 import { makeCards } from '../ai/cards';
 import { BUDGET_NEAR_NOTE } from '../ai/budget';
 import { formatLesson, lessonFailure, makeLesson } from '../ai/lesson';
@@ -77,10 +78,10 @@ const UNDO_MS = 5000; // 評価の「元に戻す」を出す間（K5b）
 const LIST_STEP = 20;
 const DUE_KEY = 'honeycomb.vocab.hexDue';
 const GRADES: [Grade, string][] = [
-  ['again', 'もう一度'],
-  ['hard', '難しい'],
-  ['good', 'できた'],
-  ['easy', 'かんたん'],
+  ['again', t('もう一度')],
+  ['hard', t('難しい')],
+  ['good', t('できた')],
+  ['easy', t('かんたん')],
 ];
 
 interface Session {
@@ -103,9 +104,9 @@ interface Session {
 
 type AnswerBy = 'see' | 'type' | 'choose'; // 答え方：見る・打つ・選ぶ
 const ANSWER_BY: [AnswerBy, string, string][] = [
-  ['see', '見る', '答えを見てから、自分で評価します'],
-  ['type', '打つ', '答えを打ってから見ます。合った文字は金、違う文字は赤（評価は自分で付けます）'],
-  ['choose', '選ぶ', '4 つから選びます（練習。正しければ評価は付けず、違えば「もう一度」にします）'],
+  ['see', t('見る'), t('答えを見てから、自分で評価します')],
+  ['type', t('打つ'), t('答えを打ってから見ます。合った文字は金、違う文字は赤（評価は自分で付けます）')],
+  ['choose', t('選ぶ'), t('4 つから選びます（練習。正しければ評価は付けず、違えば「もう一度」にします）')],
 ];
 
 interface PendingLesson {
@@ -218,7 +219,7 @@ export class VocabPanel {
     if (!link) return null;
     const found = this.lookup(link);
     if (found === 'missing') return null;
-    return { title: found === 'pending' ? 'メモ' : found.title, open: () => this.openLink(link) };
+    return { title: found === 'pending' ? t('メモ') : found.title, open: () => this.openLink(link) };
   }
 
   private isTyping() {
@@ -235,7 +236,7 @@ export class VocabPanel {
     if (this.session) this.body.replaceChildren(this.reviewView(this.session));
     else this.body.replaceChildren(...this.homeView());
     if (this.state.readFailed === true) {
-      this.body.prepend(el('div', 'panel-note field-error', '単語帳の台帳を読めませんでした。いま入れたカードや復習の記録は保存されません。ブラウザを開き直してください'));
+      this.body.prepend(el('div', 'panel-note field-error', t('単語帳の台帳を読めませんでした。いま入れたカードや復習の記録は保存されません。ブラウザを開き直してください')));
     }
   }
 
@@ -251,55 +252,55 @@ export class VocabPanel {
     const learned = cards.filter((c) => c.level >= 6).length;
 
     const head = el('div', 'info-head');
-    const add = el('button', 'ai-small', '＋カード');
+    const add = el('button', 'ai-small', t('＋カード'));
     add.addEventListener('click', () => {
       this.adding = this.adding ? null : { kind: 'word', front: '', back: '', example: '' };
       this.render();
       this.body.querySelector<HTMLInputElement>('.vocab-form input')?.focus();
     });
-    head.append(el('div', 'panel-subtitle', '単語帳'), add);
+    head.append(el('div', 'panel-subtitle', t('単語帳')), add);
 
     const summary = el('div', 'vocab-summary');
     summary.append(
-      el('span', `vocab-due${due.length > 0 ? ' has' : ''}`, `今日の復習 ${due.length} 枚`),
-      el('span', 'organize-count', `全 ${cards.length} 枚・問い ${quizzes.length}・覚えた ${learned}・苦手 ${weak.length}`),
+      el('span', `vocab-due${due.length > 0 ? ' has' : ''}`, t('今日の復習 {0} 枚', { 0: due.length })),
+      el('span', 'organize-count', t('全 {0} 枚・問い {1}・覚えた {2}・苦手 {3}', { 0: cards.length, 1: quizzes.length, 2: learned, 3: weak.length })),
     );
 
     const buttons = el('div', 'route-actions');
-    const review = el('button', 'ai-small vocab-start', `復習する（${Math.min(due.length, SESSION_MAX)} 枚）`);
+    const review = el('button', 'ai-small vocab-start', t('復習する（{0} 枚）', { 0: Math.min(due.length, SESSION_MAX) }));
     review.disabled = due.length === 0;
     review.addEventListener('click', () => this.start(due, 'review'));
-    const weakButton = el('button', 'ai-small', `苦手だけ（${weak.length}）`);
+    const weakButton = el('button', 'ai-small', t('苦手だけ（{0}）', { 0: weak.length }));
     weakButton.disabled = weak.length === 0;
-    weakButton.title = '「もう一度」が多いカードだけを、時期に関係なく復習する';
+    weakButton.title = t('「もう一度」が多いカードだけを、時期に関係なく復習する');
     weakButton.addEventListener('click', () => this.start(weak, 'review'));
     const quizQueue = quizDue.length > 0 ? quizDue : quizzes;
-    const quiz = el('button', 'ai-small', `クイズ（${Math.min(quizQueue.length, SESSION_MAX)} 問）`);
+    const quiz = el('button', 'ai-small', t('クイズ（{0} 問）', { 0: Math.min(quizQueue.length, SESSION_MAX) }));
     quiz.disabled = quizzes.length === 0 || this.making || this.lessonBusy;
     quiz.title =
       quizzes.length === 0
-        ? '問いのカードがありません。記事を教材にするか、返事の「教材にする」「クイズにする」で作れます'
+        ? t('問いのカードがありません。記事を教材にするか、返事の「教材にする」「クイズにする」で作れます')
         : quizDue.length > 0
-          ? '時期が来た問いだけを出します'
-          : '時期が来た問いは無いので、問いのカードを全部出します';
+          ? t('時期が来た問いだけを出します')
+          : t('時期が来た問いは無いので、問いのカードを全部出します');
     quiz.addEventListener('click', () => this.start(quizQueue, 'quiz'));
-    const fromPage = el('button', 'ai-small', this.making ? '作っています…' : 'このページから作る（AI）');
-    fromPage.title = '表示中のページから、覚えておくとよい言葉と、理解を確かめる問いのカードを AI が作る（入れる前に選べます）';
+    const fromPage = el('button', 'ai-small', this.making ? t('作っています…') : t('このページから作る（AI）'));
+    fromPage.title = t('表示中のページから、覚えておくとよい言葉と、理解を確かめる問いのカードを AI が作る（入れる前に選べます）');
     fromPage.disabled = this.making || this.lessonBusy;
     fromPage.addEventListener('click', () => void this.makeFromPage());
-    const toLesson = el('button', 'ai-small', this.lessonBusy ? '作っています…' : '記事を教材にする');
-    toLesson.title = '表示中のページから、要点と問いを作ります。作る前に確認します。渡し止めのページの本文は送りません';
+    const toLesson = el('button', 'ai-small', this.lessonBusy ? t('作っています…') : t('記事を教材にする'));
+    toLesson.title = t('表示中のページから、要点と問いを作ります。作る前に確認します。渡し止めのページの本文は送りません');
     toLesson.disabled = this.making || this.lessonBusy;
     toLesson.addEventListener('click', () => void this.prepareLesson());
     const unsent = cards.filter((c) => !c.sent);
-    const hex = el('button', 'ai-small', this.sending ? '送っています…' : `六角メモへ（${unsent.length}）`);
-    hex.title = 'まだ送っていないカードを、六角メモの送り先のノートへ送る（覚えた度合いは六角形の進み具合として）';
+    const hex = el('button', 'ai-small', this.sending ? t('送っています…') : t('六角メモへ（{0}）', { 0: unsent.length }));
+    hex.title = t('まだ送っていないカードを、六角メモの送り先のノートへ送る（覚えた度合いは六角形の進み具合として）');
     hex.disabled = this.sending || unsent.length === 0;
     hex.addEventListener('click', () => void this.sendToHexMemo(unsent));
     buttons.append(review, weakButton, quiz, fromPage, toLesson, hex);
     if (this.host.openRotate) {
-      const rotate = el('button', 'ai-small', '⟳ 月の窓に映す…');
-      rotate.title = '右サイドバーの上の月の窓で、カードを決めた間で1枚ずつ映す設定を開きます（AI は使いません）';
+      const rotate = el('button', 'ai-small', t('⟳ 月の窓に映す…'));
+      rotate.title = t('右サイドバーの上の月の窓で、カードを決めた間で1枚ずつ映す設定を開きます（AI は使いません）');
       const openRotate = this.host.openRotate;
       rotate.addEventListener('click', () => openRotate());
       buttons.append(rotate);
@@ -325,7 +326,7 @@ export class VocabPanel {
         el(
           'div',
           'reminder-empty',
-          'まだカードがありません。「＋カード」で入れるほか、相棒の返事の「単語帳へ」、六角で読む画面の「単語帳へ」、「このページから作る（AI）」、「記事を教材にする」でも入れられます。',
+          t('まだカードがありません。「＋カード」で入れるほか、相棒の返事の「単語帳へ」、六角で読む画面の「単語帳へ」、「このページから作る（AI）」、「記事を教材にする」でも入れられます。'),
         ),
       );
     }
@@ -335,20 +336,20 @@ export class VocabPanel {
     notifyBox.type = 'checkbox';
     notifyBox.checked = this.state.notify;
     notifyBox.addEventListener('change', () => this.host.askLeft({ command: 'setVocabNotify', notify: notifyBox.checked }));
-    notify.append(notifyBox, document.createTextNode(`復習の時期を相棒が知らせる（1日1回、${NOTIFY_HOUR}時から）`));
+    notify.append(notifyBox, document.createTextNode(t('復習の時期を相棒が知らせる（1日1回、{0}時から）', { 0: NOTIFY_HOUR })));
     const withDue = el('label', 'ai-check');
     const dueBox = el('input');
     dueBox.type = 'checkbox';
     dueBox.checked = loadFlag(DUE_KEY);
     dueBox.addEventListener('change', () => saveFlag(DUE_KEY, dueBox.checked));
-    withDue.append(dueBox, document.createTextNode('六角メモへ送るとき、次の復習日を期限として付ける'));
+    withDue.append(dueBox, document.createTextNode(t('六角メモへ送るとき、次の復習日を期限として付ける')));
     parts.push(
       notify,
       withDue,
       el(
         'p',
         'panel-note',
-        '覚えた度合いは六角形の辺で表します（6本で「覚えた」）。答えるたびに、次の復習までの間があきます（1日 → 2日 → 4日 → 1週間 → 2週間 → 1か月）。カードはこのパソコンの中に保存します。「記事を教材にする」は、作るを押すまで本文を送りません。練習モードでは送りません。渡し止めのページの本文は教材にしません。',
+        t('覚えた度合いは六角形の辺で表します（6本で「覚えた」）。答えるたびに、次の復習までの間があきます（1日 → 2日 → 4日 → 1週間 → 2週間 → 1か月）。カードはこのパソコンの中に保存します。「記事を教材にする」は、作るを押すまで本文を送りません。練習モードでは送りません。渡し止めのページの本文は教材にしません。'),
       ),
     );
     return parts;
@@ -358,8 +359,8 @@ export class VocabPanel {
     const form = el('form', 'vocab-form');
     const kind = el('div', 'seg vocab-kind');
     for (const [k, label] of [
-      ['word', '言葉'],
-      ['quiz', '問い'],
+      ['word', t('言葉')],
+      ['quiz', t('問い')],
     ] as const) {
       const b = el('button', 'ai-small', label);
       b.type = 'button';
@@ -371,24 +372,24 @@ export class VocabPanel {
       kind.append(b);
     }
     const front = el('input');
-    front.placeholder = draft.kind === 'word' ? '言葉（例：ドーパミン）' : '問い';
+    front.placeholder = draft.kind === 'word' ? t('言葉（例：ドーパミン）') : t('問い');
     front.value = draft.front;
     front.maxLength = 400;
     front.addEventListener('input', () => (draft.front = front.value));
     const back = el('textarea', 'info-textarea');
-    back.placeholder = draft.kind === 'word' ? '意味・説明' : '答え';
+    back.placeholder = draft.kind === 'word' ? t('意味・説明') : t('答え');
     back.rows = 3;
     back.value = draft.back;
     back.maxLength = 1000;
     back.addEventListener('input', () => (draft.back = back.value));
     const example = el('input');
-    example.placeholder = '例文・メモ（なくてもよい）';
+    example.placeholder = t('例文・メモ（なくてもよい）');
     example.value = draft.example;
     example.maxLength = 300;
     example.addEventListener('input', () => (draft.example = example.value));
-    const ok = el('button', 'ai-small', '入れる');
+    const ok = el('button', 'ai-small', t('入れる'));
     ok.type = 'submit';
-    const cancel = el('button', 'ai-small', 'やめる');
+    const cancel = el('button', 'ai-small', t('やめる'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => {
       this.adding = null;
@@ -400,7 +401,7 @@ export class VocabPanel {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       if (!draft.front.trim() || !draft.back.trim()) {
-        this.setStatus('言葉（問い）と、意味（答え）の両方を書いてください');
+        this.setStatus(t('言葉（問い）と、意味（答え）の両方を書いてください'));
         return;
       }
       this.addCards([{ kind: draft.kind, front: draft.front, back: draft.back, example: draft.example || undefined }]);
@@ -413,7 +414,7 @@ export class VocabPanel {
 
   private proposalView(list: NonNullable<VocabPanel['proposals']>): HTMLElement {
     const box = el('div', 'vocab-proposals');
-    box.append(el('div', 'route-list-label', 'AI のカードの案（入れるものに印）'));
+    box.append(el('div', 'route-list-label', t('AI のカードの案（入れるものに印）')));
     for (const p of list) {
       const row = el('label', 'vocab-proposal');
       const check = el('input');
@@ -425,13 +426,13 @@ export class VocabPanel {
       row.append(check, text);
       box.append(row);
     }
-    const ok = el('button', 'ai-small', '印を付けたものを入れる');
+    const ok = el('button', 'ai-small', t('印を付けたものを入れる'));
     ok.addEventListener('click', () => {
       this.addCards(list.filter((p) => p.checked).map(({ checked: _, ...d }) => d));
       this.proposals = null;
       this.render();
     });
-    const cancel = el('button', 'ai-small', 'やめる');
+    const cancel = el('button', 'ai-small', t('やめる'));
     cancel.addEventListener('click', () => {
       this.proposals = null;
       this.render();
@@ -441,11 +442,11 @@ export class VocabPanel {
     const toVault = this.host.toVault;
     if (toVault) {
       // AI が作ったカードの案を、データ置き場に残す（印を付けたもの。単語帳に入れるかどうかとは別）
-      const vault = el('button', 'ai-small', 'データ置き場へ');
-      vault.title = 'AI が作ったカードの案（印を付けたもの）を、データ置き場（右サイドバーのメモの区画の下）に残す';
+      const vault = el('button', 'ai-small', t('データ置き場へ'));
+      vault.title = t('AI が作ったカードの案（印を付けたもの）を、データ置き場（右サイドバーのメモの区画の下）に残す');
       vault.addEventListener('click', () => {
         const picked = list.filter((p) => p.checked);
-        if (picked.length === 0) return this.setStatus('残すカードに印を付けてください');
+        if (picked.length === 0) return this.setStatus(t('残すカードに印を付けてください'));
         void toVault(vocabDraft(picked.map(({ checked: _, ...d }) => d), this.proposalPage));
       });
       row.append(vault);
@@ -457,7 +458,7 @@ export class VocabPanel {
   private listView(cards: VocabCard[]): HTMLElement {
     const box = el('div', 'vocab-list-box');
     const search = el('input', 'vocab-search');
-    search.placeholder = 'カードを探す';
+    search.placeholder = t('カードを探す');
     search.value = this.query;
     search.addEventListener('input', () => {
       this.query = search.value;
@@ -475,8 +476,8 @@ export class VocabPanel {
   private filterBar(filter: { ids: Set<string>; label: string }, cards: VocabCard[]): HTMLElement {
     const bar = el('div', 'vocab-filter');
     const n = cards.filter((c) => filter.ids.has(c.id)).length;
-    bar.append(el('span', '', `${filter.label}の ${n} 枚`));
-    const clear = el('button', 'ai-small', '絞りを外す');
+    bar.append(el('span', '', t('{0}の {1} 枚', { 0: filter.label, 1: n })));
+    const clear = el('button', 'ai-small', t('絞りを外す'));
     clear.type = 'button';
     clear.addEventListener('click', () => {
       this.filter = null;
@@ -494,7 +495,7 @@ export class VocabPanel {
       .sort((a, b) => b.createdAt - a.createdAt);
     const rows = hits.slice(0, this.shown).map((c) => this.row(c));
     if (hits.length > this.shown) {
-      const more = el('button', 'route-link', `もっと見る（あと ${hits.length - this.shown} 枚）`);
+      const more = el('button', 'route-link', t('もっと見る（あと {0} 枚）', { 0: hits.length - this.shown }));
       more.addEventListener('click', () => {
         this.shown += LIST_STEP;
         this.render();
@@ -512,7 +513,7 @@ export class VocabPanel {
       // 枯れかけ：時期を過ぎたまま長く放ってある（K5a）。見た目と説明を変える
       hex.classList.add('wilt');
       const title = hex.querySelector('title');
-      if (title) title.textContent = `時期を ${overdueDays(card)} 日過ぎています（覚えた度合い ${card.level} / 6）`;
+      if (title) title.textContent = t('時期を {0} 日過ぎています（覚えた度合い {1} / 6）', { 0: overdueDays(card), 1: card.level });
     }
     line.append(hex, el('span', 'vocab-front', `${card.kind === 'quiz' ? 'Q. ' : ''}${card.front}`), el('span', 'vocab-when', whenLabel(card)));
     line.addEventListener('click', () => {
@@ -530,7 +531,7 @@ export class VocabPanel {
     mark.type = 'button';
     mark.setAttribute('aria-pressed', String(card.rotate === true));
     mark.setAttribute('aria-label', 'めぐる表示の印');
-    mark.title = card.rotate === true ? 'めぐる表示に出しています（押すと外す）' : 'めぐる表示に出す（月の窓の ⚙ で「⟳ の印だけ」を選ぶと、印のカードだけが映ります）';
+    mark.title = card.rotate === true ? t('めぐる表示に出しています（押すと外す）') : t('めぐる表示に出す（月の窓の ⚙ で「⟳ の印だけ」を選ぶと、印のカードだけが映ります）');
     mark.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleRotate(card);
@@ -556,7 +557,7 @@ export class VocabPanel {
     if (picture) item.append(picture);
     // メモ（K5b）：例文の下。文は textContent で入れ、改行はそのまま見せる（CSS の pre-wrap）
     if (card.note) item.append(el('div', 'vocab-note', card.note));
-    const meta = el('div', 'organize-count', `復習 ${card.reviews} 回・もう一度 ${card.lapses} 回${card.sent ? '・六角メモへ送った' : ''}`);
+    const meta = el('div', 'organize-count', t('復習 {0} 回・もう一度 {1} 回{2}', { 0: card.reviews, 1: card.lapses, 2: card.sent ? '・六角メモへ送った' : '' }));
     item.append(meta);
     const actions = el('div', 'ai-row vocab-actions');
     if (card.kind === 'word') {
@@ -565,19 +566,19 @@ export class VocabPanel {
       if (speak) actions.append(speak);
     }
     if (card.source) {
-      const page = el('button', 'ai-small', 'ページを開く');
+      const page = el('button', 'ai-small', t('ページを開く'));
       page.title = card.source.title || card.source.url;
       page.addEventListener('click', () => this.host.openUrl(card.source?.url ?? ''));
       actions.append(page);
     }
     // めぐる表示の印の付け外し（K1b）。「ページを開く」の後ろ（無ければ 🔊 の後ろ、それも無ければ先頭）
-    const rotate = el('button', 'ai-small', card.rotate === true ? '⟳ めぐるから外す' : '⟳ めぐるに出す');
+    const rotate = el('button', 'ai-small', card.rotate === true ? t('⟳ めぐるから外す') : t('⟳ めぐるに出す'));
     rotate.setAttribute('aria-pressed', String(card.rotate === true));
     rotate.addEventListener('click', () => this.toggleRotate(card));
     actions.append(rotate);
     if (this.host.addReminder) {
       // 復習を思い出す（K4b）：「直す」の前。押すと、ボタンの列の下に置く行を開く・閉じる
-      const remind = el('button', 'ai-small', '🔔 復習を思い出す…');
+      const remind = el('button', 'ai-small', t('🔔 復習を思い出す…'));
       remind.type = 'button';
       remind.setAttribute('aria-expanded', String(this.remindFor === card.id));
       remind.addEventListener('click', () => {
@@ -587,7 +588,7 @@ export class VocabPanel {
       actions.append(remind);
     }
     // 次は □ 日後（K5b）：「直す」の前。押すと、ボタンの列のすぐ後ろの欄を開く・閉じる
-    const next = el('button', 'ai-small', '次は □ 日後…');
+    const next = el('button', 'ai-small', t('次は □ 日後…'));
     next.type = 'button';
     next.setAttribute('aria-expanded', String(this.nextFor === card.id));
     next.addEventListener('click', () => {
@@ -597,7 +598,7 @@ export class VocabPanel {
     actions.append(next);
     if (this.host.imageChoices) {
       // 画像を付ける・替える（K6c-1）：「次は □ 日後」の後ろ・「直す」の前。押すと、ボタンの列のすぐ後ろの欄を開く・閉じる
-      const pick = el('button', 'ai-small', card.image ? '🖼 画像を替える…' : '🖼 画像を付ける…');
+      const pick = el('button', 'ai-small', card.image ? t('🖼 画像を替える…') : t('🖼 画像を付ける…'));
       pick.type = 'button';
       pick.setAttribute('aria-expanded', String(this.imageFor === card.id));
       pick.addEventListener('click', () => {
@@ -606,12 +607,12 @@ export class VocabPanel {
       });
       actions.append(pick);
     }
-    const edit = el('button', 'ai-small', '直す');
+    const edit = el('button', 'ai-small', t('直す'));
     edit.addEventListener('click', () => {
       this.editing = card.id;
       this.render();
     });
-    const remove = el('button', 'ai-small route-remove', '消す');
+    const remove = el('button', 'ai-small route-remove', t('消す'));
     remove.addEventListener('click', () => {
       this.host.askLeft({ command: 'removeCard', id: card.id });
       this.state = { ...this.state, cards: this.state.cards.filter((c) => c.id !== card.id) };
@@ -631,7 +632,7 @@ export class VocabPanel {
   // 「復習を思い出す」の行（K4b）：時刻の押しボタン（5 つまで）と「次に起動したとき」。置けたら行を閉じる
   private remindRow(card: VocabCard): HTMLElement {
     const row = el('div', 'vocab-remind');
-    const text = `復習：${clipText(card.front, 40)}`;
+    const text = t('復習：{0}', { 0: clipText(card.front, 40) });
     // 時刻は押したときに作る（行を開いたまま置いても「10 分後」がずれないように）
     for (const preset of presetTimes(Date.now()).slice(0, 5)) {
       const button = el('button', 'ai-small', preset.label);
@@ -641,14 +642,14 @@ export class VocabPanel {
         const dueAt = presetTimes(now).find((p) => p.key === preset.key)?.dueAt ?? preset.dueAt;
         const at = new Date(dueAt);
         const reminder: Reminder = { id: newReminderId(now), text, dueAt, createdAt: now, by: 'user', card: card.id };
-        this.remindCard(card, reminder, `を ${at.getMonth() + 1}/${at.getDate()} ${clockOf(dueAt)} に思い出させます`);
+        this.remindCard(card, reminder, t('を {0}/{1} {2} に思い出させます', { 0: at.getMonth() + 1, 1: at.getDate(), 2: clockOf(dueAt) }));
       });
       row.append(button);
     }
-    const startup = el('button', 'ai-small', '次に起動したとき');
+    const startup = el('button', 'ai-small', t('次に起動したとき'));
     startup.type = 'button';
     startup.addEventListener('click', () =>
-      this.remindCard(card, triggeredReminder(text, { kind: 'startup' }, Date.now(), { by: 'user', card: card.id }), 'を次に起動したときに思い出させます'),
+      this.remindCard(card, triggeredReminder(text, { kind: 'startup' }, Date.now(), { by: 'user', card: card.id }), t('を次に起動したときに思い出させます')),
     );
     row.append(startup);
     return row;
@@ -673,15 +674,15 @@ export class VocabPanel {
     // 今の時期までの日数。上限を超えるときは上限に合わせる（超えたままだと、決める前に欄が入力エラーになる）
     days.value = String(Math.min(NEXT_DAYS_MAX, Math.max(1, Math.round((card.due - Date.now()) / (24 * 60 * 60_000)))));
     days.setAttribute('aria-label', '何日後');
-    const ok = el('button', 'ai-small', '決める');
+    const ok = el('button', 'ai-small', t('決める'));
     ok.type = 'submit';
-    const cancel = el('button', 'ai-small', 'やめる');
+    const cancel = el('button', 'ai-small', t('やめる'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => {
       this.nextFor = null;
       this.render();
     });
-    form.append(el('span', '', '次の復習は'), days, el('span', '', '日後'), ok, cancel);
+    form.append(el('span', '', t('次の復習は')), days, el('span', '', t('日後')), ok, cancel);
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const due = dueInDays(Number(days.value));
@@ -689,7 +690,7 @@ export class VocabPanel {
       card.due = due;
       this.nextFor = null;
       const at = new Date(due);
-      this.setStatus(`「${clipText(card.front, 24)}」の次の復習を ${at.getMonth() + 1}/${at.getDate()} にしました`);
+      this.setStatus(t('「{0}」の次の復習を {1}/{2} にしました', { 0: clipText(card.front, 24), 1: at.getMonth() + 1, 2: at.getDate() }));
       this.render();
     });
     return form;
@@ -701,7 +702,7 @@ export class VocabPanel {
     if (!image || !this.host.image) return null;
     const url = this.host.image(image);
     if (url === undefined) return null;
-    if (url === null) return el('div', 'panel-note vocab-missing', '（消えた画像）');
+    if (url === null) return el('div', 'panel-note vocab-missing', t('（消えた画像）'));
     const img = el('img', 'vocab-image');
     img.src = url;
     img.alt = '';
@@ -713,10 +714,10 @@ export class VocabPanel {
   private imageChooser(card: VocabCard): HTMLElement {
     const box = el('div', 'vocab-image-chooser');
     const choices = this.host.imageChoices?.() ?? { captures: [], shots: [] };
-    box.append(el('div', 'organize-count', '撮影か画像のセルを選んでください（画像は写さず、指すだけです）'));
-    box.append(el('div', 'panel-subtitle', '撮影'));
+    box.append(el('div', 'organize-count', t('撮影か画像のセルを選んでください（画像は写さず、指すだけです）')));
+    box.append(el('div', 'panel-subtitle', t('撮影')));
     if (choices.captures.length === 0) {
-      box.append(el('div', 'panel-note vocab-missing', '撮影はありません'));
+      box.append(el('div', 'panel-note vocab-missing', t('撮影はありません')));
     } else {
       const row = el('div', 'ai-row');
       for (const capture of choices.captures.slice(0, 12)) {
@@ -725,25 +726,25 @@ export class VocabPanel {
       }
       box.append(row);
     }
-    box.append(el('div', 'organize-count', '撮影は 80 件まで。古いものから消えます'));
-    box.append(el('div', 'panel-subtitle', '画像のセル'));
+    box.append(el('div', 'organize-count', t('撮影は 80 件まで。古いものから消えます')));
+    box.append(el('div', 'panel-subtitle', t('画像のセル')));
     if (choices.shots.length === 0) {
-      box.append(el('div', 'panel-note vocab-missing', '画像のセルはありません'));
+      box.append(el('div', 'panel-note vocab-missing', t('画像のセルはありません')));
     } else {
       const row = el('div', 'ai-row');
       for (const shot of choices.shots.slice(0, 12)) {
-        row.append(this.imageButton(card, { kind: 'shot', id: shot.id }, clipText(shot.label.trim(), 20) || '画像のセル'));
+        row.append(this.imageButton(card, { kind: 'shot', id: shot.id }, clipText(shot.label.trim(), 20) || t('画像のセル')));
       }
       box.append(row);
     }
     const actions = el('div', 'ai-row');
     if (card.image) {
-      const off = el('button', 'ai-small', '画像を外す');
+      const off = el('button', 'ai-small', t('画像を外す'));
       off.type = 'button';
       off.addEventListener('click', () => this.clearImage(card));
       actions.append(off);
     }
-    const close = el('button', 'ai-small', '閉じる');
+    const close = el('button', 'ai-small', t('閉じる'));
     close.type = 'button';
     close.addEventListener('click', () => {
       this.imageFor = null;
@@ -768,7 +769,7 @@ export class VocabPanel {
     this.host.askLeft({ command: 'updateCard', id: card.id, image });
     card.image = image;
     this.imageFor = null;
-    this.setStatus('画像を付けました');
+    this.setStatus(t('画像を付けました'));
     this.render();
   }
 
@@ -777,7 +778,7 @@ export class VocabPanel {
     this.host.askLeft({ command: 'updateCard', id: card.id, image: null });
     delete card.image;
     this.imageFor = null;
-    this.setStatus('画像を外しました');
+    this.setStatus(t('画像を外しました'));
     this.render();
   }
 
@@ -787,7 +788,7 @@ export class VocabPanel {
     this.host.askLeft({ command: 'updateCard', id: card.id, rotate: on });
     if (on) card.rotate = true;
     else delete card.rotate;
-    this.setStatus(on ? `「${clipText(card.front, 24)}」をめぐる表示に出します` : `「${clipText(card.front, 24)}」をめぐる表示から外しました`);
+    this.setStatus(on ? t('「{0}」をめぐる表示に出します', { 0: clipText(card.front, 24) }) : t('「{0}」をめぐる表示から外しました', { 0: clipText(card.front, 24) }));
     this.render();
   }
 
@@ -801,7 +802,7 @@ export class VocabPanel {
         const role = el('button', 'vocab-link-role', roleLabel(link.role));
         role.type = 'button';
         role.dataset.role = link.role ?? '';
-        role.title = '役目を変えます（押すたびに 役目なし → 出典 → 関連 → 役目なし）';
+        role.title = t('役目を変えます（押すたびに 役目なし → 出典 → 関連 → 役目なし）');
         role.addEventListener('click', () => this.setRole(card, index, nextRole(link.role)));
         row.append(role);
       } else if (link.role) {
@@ -811,24 +812,24 @@ export class VocabPanel {
       }
       const found = this.lookup(link);
       const missing = found === 'missing';
-      const reason = link.kind === 'memo' ? 'そのメモのセルは、もうありません' : 'そのタブのセルは、もうありません';
-      const goLabel = missing ? 'セルへ（見つかりません）' : found === 'pending' ? 'セルへ（メモ）' : `セルへ：${found.title}`;
+      const reason = link.kind === 'memo' ? 'そのメモのセルは、もうありません' : t('そのタブのセルは、もうありません');
+      const goLabel = missing ? t('セルへ（見つかりません）') : found === 'pending' ? t('セルへ（メモ）') : t('セルへ：{0}', { 0: found.title });
       const goTitle = missing
         ? reason
         : found === 'pending'
-          ? 'メモの一覧がまだ届いていません。押すと、左の盤面で探します'
-          : `${found.kind === 'memo' ? 'メモ' : 'タブ'}「${found.title}」${found.sheet ? `（${found.sheet}）` : ''}。押すと、そのシートに移ってセルを目立たせます${found.kind === 'memo' ? '。下の区画でも開きます' : ''}`;
+          ? t('メモの一覧がまだ届いていません。押すと、左の盤面で探します')
+          : t('{0}「{1}」{2}。押すと、そのシートに移ってセルを目立たせます{3}', { 0: found.kind === 'memo' ? 'メモ' : 'タブ', 1: found.title, 2: found.sheet ? `（${found.sheet}）` : '', 3: found.kind === 'memo' ? '。下の区画でも開きます' : '' });
       row.append(linkButton(goLabel, goTitle, () => this.openLink(link)));
       if (missing && link.kind === 'tab' && link.url && (!card.source || !samePage(card.source.url, link.url))) {
         const url = link.url;
-        row.append(linkButton('ページを開く', url, () => this.host.openUrl(url)));
+        row.append(linkButton(t('ページを開く'), url, () => this.host.openUrl(url)));
       }
       if (editable) {
         const remove = el('button', 'vocab-link-remove', '×');
         remove.type = 'button';
-        remove.title = 'このリンクを外す';
+        remove.title = t('このリンクを外す');
         remove.setAttribute('aria-label', 'このリンクを外す');
-        remove.addEventListener('click', () => this.sendLinks(card, links.filter((_, j) => j !== index), 'セルを 1 つ外しました'));
+        remove.addEventListener('click', () => this.sendLinks(card, links.filter((_, j) => j !== index), t('セルを 1 つ外しました')));
         row.append(remove);
       }
       wrap.append(row);
@@ -841,7 +842,7 @@ export class VocabPanel {
         wrap.append(row);
       } else if (links.length < MAX_LINKS) {
         const row = el('div', 'ai-row');
-        row.append(linkButton('＋ セルを足す…', `左の盤面のタブか、メモのセルを、このカードにもう1つ結びます（${MAX_LINKS} つまで）`, () => this.startLinking(card.id)));
+        row.append(linkButton(t('＋ セルを足す…'), t('左の盤面のタブか、メモのセルを、このカードにもう1つ結びます（{0} つまで）', { 0: MAX_LINKS }), () => this.startLinking(card.id)));
         wrap.append(row);
       }
     }
@@ -849,7 +850,7 @@ export class VocabPanel {
   }
 
   private registerButton(card: VocabCard): HTMLButtonElement {
-    return linkButton('セルを登録…', '左の盤面のタブか、メモのセルを、このカードに1つ登録します', () => this.startLinking(card.id));
+    return linkButton(t('セルを登録…'), t('左の盤面のタブか、メモのセルを、このカードに1つ登録します'), () => this.startLinking(card.id));
   }
 
   private startLinking(id: string) {
@@ -863,19 +864,19 @@ export class VocabPanel {
     if (link.kind === 'tab') {
       const tab = findVocabTab(this.host.tabs(), link); // AR0：番号と URL で探す
       if (!tab) return 'missing';
-      return { kind: 'tab', title: tab.title || hostOf(tab.url) || 'タブ', sheet: this.host.sheetName(tab.sheet) };
+      return { kind: 'tab', title: tab.title || hostOf(tab.url) || t('タブ'), sheet: this.host.sheetName(tab.sheet) };
     }
     const memos = this.host.memos();
     if (!memos) return 'pending';
     const memo = memos.find((item) => item.id === link.id);
     if (!memo) return 'missing';
-    return { kind: 'memo', title: memo.title || '（空のメモ）', sheet: this.host.sheetName(memo.sheet) };
+    return { kind: 'memo', title: memo.title || t('（空のメモ）'), sheet: this.host.sheetName(memo.sheet) };
   }
 
   private openLink(link: VocabLink) {
     const found = this.lookup(link);
     if (found === 'missing') {
-      this.setStatus(link.kind === 'memo' ? 'そのメモのセルは、もうありません' : 'そのタブのセルは、もうありません');
+      this.setStatus(link.kind === 'memo' ? 'そのメモのセルは、もうありません' : t('そのタブのセルは、もうありません'));
       return;
     }
     this.host.askLeft({ command: 'openVocabCell', link: plainLink(link) });
@@ -899,31 +900,31 @@ export class VocabPanel {
   // 役目を回す（K6b）：役目なし → 出典 → 関連 → 役目なし
   private setRole(card: VocabCard, index: number, role: LinkRole | undefined) {
     const links = cardLinks(card).map((link, j) => (j === index ? withRole(link, role) : link));
-    this.sendLinks(card, links, role ? `役目を「${roleLabel(role)}」にしました` : '役目を外しました');
+    this.sendLinks(card, links, role ? t('役目を「{0}」にしました', { 0: roleLabel(role) }) : t('役目を外しました'));
   }
 
   // 選んだセルを足す（K6b）：同じセルが既にあれば何もしない。1 つ目は「出典」、2 つ目からは「関連」
   private saveLink(card: VocabCard, link: VocabLink, title: string) {
     const links = cardLinks(card);
     if (links.some((l) => sameCell(l, link))) {
-      this.setStatus(`「${clipText(title, 24)}」はもう登録してあります`);
+      this.setStatus(t('「{0}」はもう登録してあります', { 0: clipText(title, 24) }));
       return;
     }
     if (links.length >= MAX_LINKS) {
-      this.setStatus(`1 枚のカードに結べるセルは ${MAX_LINKS} つまでです`);
+      this.setStatus(t('1 枚のカードに結べるセルは {0} つまでです', { 0: MAX_LINKS }));
       return;
     }
     const role: LinkRole = links.length === 0 ? 'source' : 'related';
     this.linking = null;
     this.cellQuery = '';
-    this.sendLinks(card, [...links, { ...link, role }], `「${clipText(title, 24)}」を、このカードに登録しました`);
+    this.sendLinks(card, [...links, { ...link, role }], t('「{0}」を、このカードに登録しました', { 0: clipText(title, 24) }));
   }
 
   // タブとメモを、名前で絞って選ぶ（カードの中。一覧の検索と同じ）
   private cellChooser(card: VocabCard): HTMLElement {
     const box = el('div', 'vocab-cells');
     const search = el('input', 'vocab-search');
-    search.placeholder = 'タブやメモの名前';
+    search.placeholder = t('タブやメモの名前');
     search.value = this.cellQuery;
     search.setAttribute('aria-label', '登録するセルを名前で探す');
     const list = el('div', 'vocab-cell-list');
@@ -933,14 +934,14 @@ export class VocabPanel {
       paint();
     });
     paint();
-    const cancel = el('button', 'ai-small', 'やめる');
+    const cancel = el('button', 'ai-small', t('やめる'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => {
       this.linking = null;
       this.cellQuery = '';
       this.render();
     });
-    box.append(el('div', 'panel-note', 'タブか、メモのセルを1つ選びます。別のものを選ぶと入れかわります'), search, list, cancel);
+    box.append(el('div', 'panel-note', t('タブか、メモのセルを1つ選びます。別のものを選ぶと入れかわります')), search, list, cancel);
     return box;
   }
 
@@ -948,35 +949,35 @@ export class VocabPanel {
     const q = query.trim().toLowerCase();
     const tabs = this.host.tabs().map((tab) => ({
       link: { kind: 'tab' as const, id: tab.id, url: tab.url },
-      title: tab.title || hostOf(tab.url) || '新しいタブ',
-      kind: 'タブ',
+      title: tab.title || hostOf(tab.url) || t('新しいタブ'),
+      kind: t('タブ'),
       sheet: this.host.sheetName(tab.sheet),
     }));
     const memos = this.host.memos();
     const notes =
       memos?.map((memo) => ({
         link: { kind: 'memo' as const, id: memo.id },
-        title: memo.title || '（空のメモ）',
-        kind: 'メモ',
+        title: memo.title || t('（空のメモ）'),
+        kind: t('メモ'),
         sheet: this.host.sheetName(memo.sheet),
       })) ?? [];
     const hits = [...tabs, ...notes].filter((item) => !q || `${item.title}\n${item.sheet}`.toLowerCase().includes(q));
     const rows: HTMLElement[] = [];
-    if (!memos) rows.push(el('div', 'panel-note vocab-missing', 'メモの一覧は、まだ届いていません（タブは選べます）'));
+    if (!memos) rows.push(el('div', 'panel-note vocab-missing', t('メモの一覧は、まだ届いていません（タブは選べます）')));
     if (hits.length === 0) {
-      rows.push(el('div', 'panel-note vocab-missing', memos && tabs.length === 0 ? 'タブもメモのセルもありません' : '見つかりません'));
+      rows.push(el('div', 'panel-note vocab-missing', memos && tabs.length === 0 ? t('タブもメモのセルもありません') : t('見つかりません')));
       return rows;
     }
     for (const item of hits.slice(0, 30)) {
       const button = el('button', 'vocab-cell');
       button.type = 'button';
-      button.title = `${item.kind}「${item.title}」を、このカードに登録します`;
+      button.title = t('{0}「{1}」を、このカードに登録します', { 0: item.kind, 1: item.title });
       button.append(el('span', 'vocab-cell-kind', item.kind), el('span', 'vocab-cell-name', item.title));
       if (item.sheet) button.append(el('span', 'vocab-cell-sheet', item.sheet));
       button.addEventListener('click', () => this.saveLink(card, item.link, item.title));
       rows.push(button);
     }
-    if (hits.length > 30) rows.push(el('div', 'panel-note vocab-missing', `ほか ${hits.length - 30} 件は、名前を入れて絞ってください`));
+    if (hits.length > 30) rows.push(el('div', 'panel-note vocab-missing', t('ほか {0} 件は、名前を入れて絞ってください', { 0: hits.length - 30 })));
     return rows;
   }
 
@@ -991,17 +992,17 @@ export class VocabPanel {
     back.maxLength = 1000;
     const example = el('input');
     example.value = card.example ?? '';
-    example.placeholder = '例文・メモ';
+    example.placeholder = t('例文・メモ');
     example.maxLength = 300;
     const memo = el('textarea');
     memo.value = card.note ?? '';
-    memo.placeholder = 'メモ（なくてもよい）';
+    memo.placeholder = t('メモ（なくてもよい）');
     memo.maxLength = 500;
     memo.rows = 2;
     memo.setAttribute('aria-label', 'メモ');
-    const ok = el('button', 'ai-small', '決める');
+    const ok = el('button', 'ai-small', t('決める'));
     ok.type = 'submit';
-    const cancel = el('button', 'ai-small', 'やめる');
+    const cancel = el('button', 'ai-small', t('やめる'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => {
       this.editing = null;
@@ -1031,7 +1032,7 @@ export class VocabPanel {
   private start(cards: VocabCard[], mode: Session['mode']) {
     const queue = [...cards].sort((a, b) => a.due - b.due || a.level - b.level).slice(0, SESSION_MAX).map((c) => c.id);
     if (queue.length === 0) {
-      if (mode === 'quiz') this.setStatus('問いのカードがありません。先に「記事を教材にする」で作れます');
+      if (mode === 'quiz') this.setStatus(t('問いのカードがありません。先に「記事を教材にする」で作れます'));
       return;
     }
     this.session = {
@@ -1059,10 +1060,10 @@ export class VocabPanel {
     const box = el('div', 'vocab-review');
     const card = this.card(s.queue[s.index]);
     const head = el('div', 'info-head');
-    const heading = s.mode === 'quiz' ? 'クイズ' : '復習';
+    const heading = s.mode === 'quiz' ? t('クイズ') : t('復習');
     head.append(el('div', 'panel-subtitle', `${heading} ${Math.min(s.index + 1, s.queue.length)} / ${s.queue.length}`));
-    const stop = el('button', 'ai-small', 'やめる');
-    stop.title = 'ここでやめる（Esc）';
+    const stop = el('button', 'ai-small', t('やめる'));
+    stop.title = t('ここでやめる（Esc）');
     stop.addEventListener('click', () => this.finish());
     head.append(stop);
     box.append(head);
@@ -1074,7 +1075,7 @@ export class VocabPanel {
     const side = promptSide(card, s.reverse);
     const face = el('div', `vocab-card${s.revealed ? ' revealed' : ''}`);
     const top = el('div', 'vocab-card-top');
-    top.append(levelHex(card.level, 22), el('span', 'ai-tag', card.kind === 'quiz' ? '問い' : side.reversed ? '言葉（逆向き）' : '言葉'));
+    top.append(levelHex(card.level, 22), el('span', 'ai-tag', card.kind === 'quiz' ? t('問い') : side.reversed ? t('言葉（逆向き）') : t('言葉')));
     // 読み上げるのは表の言葉。逆向きでは表が答えなので、答えを見てから
     const speak = card.kind === 'word' && (!side.reversed || s.revealed) ? speakButton(card.front) : null;
     if (speak) top.append(speak);
@@ -1108,14 +1109,14 @@ export class VocabPanel {
   // この回だけの見せ方（K5a）：向きと答え方。答えを見る前だけ変えられ、今のカードから効く
   private reviewOptions(s: Session): HTMLElement {
     const row = el('div', 'vocab-review-options');
-    const reverse = el('button', 'ai-small', '⇄ 逆向き');
+    const reverse = el('button', 'ai-small', t('⇄ 逆向き'));
     reverse.type = 'button';
     reverse.disabled = s.revealed || s.mode === 'quiz';
     reverse.setAttribute('aria-pressed', String(s.reverse));
     reverse.title =
       s.mode === 'quiz'
-        ? '問いのカードは向きを変えません'
-        : '意味を見て言葉を答えます（この回だけ。問いのカードは変わりません）。答えを見る前に切り替えられます';
+        ? t('問いのカードは向きを変えません')
+        : t('意味を見て言葉を答えます（この回だけ。問いのカードは変わりません）。答えを見る前に切り替えられます');
     reverse.addEventListener('click', () => this.setReviewOption(s, { reverse: !s.reverse }));
     const group = el('div', 'vocab-answer-by');
     group.setAttribute('role', 'group');
@@ -1129,7 +1130,7 @@ export class VocabPanel {
       b.addEventListener('click', () => this.setReviewOption(s, { answerBy: key }));
       group.append(b);
     }
-    row.append(reverse, el('span', 'organize-count', '答え方'), group);
+    row.append(reverse, el('span', 'organize-count', t('答え方')), group);
     return row;
   }
 
@@ -1166,19 +1167,19 @@ export class VocabPanel {
       });
       if (s.revealed) {
         const right = s.picked === choices.answer;
-        buttons.append(el('div', 'panel-note', right ? '正解です（練習なので評価は付けません）' : '違いました。「もう一度」にしました'));
-        const next = el('button', 'ai-small vocab-show', '次へ（Space）');
+        buttons.append(el('div', 'panel-note', right ? t('正解です（練習なので評価は付けません）') : t('違いました。「もう一度」にしました')));
+        const next = el('button', 'ai-small vocab-show', t('次へ（Space）'));
         next.addEventListener('click', () => this.next());
         buttons.append(next);
       }
       return buttons;
     }
     if (!s.revealed) {
-      if (s.answerBy === 'choose') buttons.append(el('div', 'panel-note', '選ぶには、答えの違うカードがあと 3 枚要ります（このカードは「見る」で）'));
+      if (s.answerBy === 'choose') buttons.append(el('div', 'panel-note', t('選ぶには、答えの違うカードがあと 3 枚要ります（このカードは「見る」で）')));
       if (s.answerBy === 'type') {
         buttons.append(this.typeForm(s, card));
       } else {
-        const show = el('button', 'ai-small vocab-show', '答えを見る（Space）');
+        const show = el('button', 'ai-small vocab-show', t('答えを見る（Space）'));
         show.addEventListener('click', () => this.revealAnswer());
         buttons.append(show);
       }
@@ -1201,15 +1202,15 @@ export class VocabPanel {
     input.value = s.draft;
     input.autocomplete = 'off';
     input.spellcheck = false;
-    input.placeholder = promptSide(card, s.reverse).reversed ? '言葉を打つ' : '答えを打つ';
+    input.placeholder = promptSide(card, s.reverse).reversed ? t('言葉を打つ') : t('答えを打つ');
     input.setAttribute('aria-label', '答えを打つ');
     input.addEventListener('input', () => (s.draft = input.value));
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') input.blur(); // もう一度 Esc で、復習をやめる
     });
-    const check = el('button', 'ai-small vocab-show', '答え合わせ（Enter）');
+    const check = el('button', 'ai-small vocab-show', t('答え合わせ（Enter）'));
     check.type = 'submit';
-    const skip = el('button', 'ai-small', '分からない');
+    const skip = el('button', 'ai-small', t('分からない'));
     skip.type = 'button';
     skip.addEventListener('click', () => this.revealAnswer());
     form.addEventListener('submit', (e) => {
@@ -1284,7 +1285,7 @@ export class VocabPanel {
     } else if (!s) {
       this.finished = null; // 終えたあとに戻した：まとめの数が合わなくなるので消す
     }
-    this.setStatus(`「${clipText(u.front, 24)}」の評価を元に戻しました`);
+    this.setStatus(t('「{0}」の評価を元に戻しました', { 0: clipText(u.front, 24) }));
     this.render();
   }
 
@@ -1293,11 +1294,11 @@ export class VocabPanel {
     if (!u) return null;
     const row = el('div', 'vocab-undo');
     const label = GRADES.find(([g]) => g === u.grade)?.[1] ?? '';
-    const button = el('button', 'ai-small', this.session ? '元に戻す（Z）' : '元に戻す'); // Z は復習の途中だけ効く
+    const button = el('button', 'ai-small', this.session ? t('元に戻す（Z）') : t('元に戻す')); // Z は復習の途中だけ効く
     button.type = 'button';
-    button.title = 'この評価を取り消して、前の時期と度合いに戻します';
+    button.title = t('この評価を取り消して、前の時期と度合いに戻します');
     button.addEventListener('click', () => this.undoGrade());
-    row.append(el('span', 'vocab-undo-text', `「${clipText(u.front, 20)}」を「${label}」にしました`), button);
+    row.append(el('span', 'vocab-undo-text', t('「{0}」を「{1}」にしました', { 0: clipText(u.front, 20), 1: label })), button);
     return row;
   }
 
@@ -1352,10 +1353,10 @@ export class VocabPanel {
     this.session = null;
     if (s && s.index > 0) {
       const ok = s.counts.good + s.counts.easy;
-      const name = s.mode === 'quiz' ? 'クイズ' : '単語帳の復習';
-      const practice = s.practiced > 0 ? `、選んで正しかった ${s.practiced}` : '';
-      this.finished = `${name}を ${s.index} 回答えました（できた・かんたん ${ok}、難しい ${s.counts.hard}、もう一度 ${s.counts.again}${practice}）。おつかれさまでした`;
-      this.host.announce(`📇 ${name}：${s.index} 回答えました（できた ${ok}・もう一度 ${s.counts.again}）。おつかれさまでした`);
+      const name = s.mode === 'quiz' ? t('クイズ') : t('単語帳の復習');
+      const practice = s.practiced > 0 ? t('、選んで正しかった {0}', { 0: s.practiced }) : '';
+      this.finished = t('{0}を {1} 回答えました（できた・かんたん {2}、難しい {3}、もう一度 {4}{5}）。おつかれさまでした', { 0: name, 1: s.index, 2: ok, 3: s.counts.hard, 4: s.counts.again, 5: practice });
+      this.host.announce(t('📇 {0}：{1} 回答えました（できた {2}・もう一度 {3}）。おつかれさまでした', { 0: name, 1: s.index, 2: ok, 3: s.counts.again }));
     }
   }
 
@@ -1395,29 +1396,29 @@ export class VocabPanel {
     const fresh = drafts.filter((d) => !known.has(cardKey(d.kind, d.front)));
     if (fresh.length > 0) this.host.askLeft({ command: 'addCards', cards: fresh });
     const skipped = drafts.length - fresh.length;
-    this.setStatus(fresh.length > 0 ? `単語帳に ${fresh.length} 枚入れました${skipped > 0 ? `（同じものがある ${skipped} 枚は入れません）` : ''}` : '同じカードがもうあります');
+    this.setStatus(fresh.length > 0 ? t('単語帳に {0} 枚入れました{1}', { 0: fresh.length, 1: skipped > 0 ? `（同じものがある ${skipped} 枚は入れません）` : '' }) : t('同じカードがもうあります'));
   }
 
   private confirmView(pending: PendingLesson): HTMLElement {
     const box = el('div', 'vocab-lesson');
     const practice = this.host.settings().practice;
-    box.append(el('div', 'route-list-label', '記事を教材にする'));
-    box.append(el('p', 'panel-note', pending.title || '無題'));
+    box.append(el('div', 'route-list-label', t('記事を教材にする')));
+    box.append(el('p', 'panel-note', pending.title || t('無題')));
     box.append(el('p', 'panel-note', hostLabel(pending.url)));
     box.append(
       el(
         'p',
         'panel-note',
         practice
-          ? '練習モードです。本文は Anthropic に送りません。決まった形の教材を、この画面に出します。'
-          : '作るを押すと、このページの本文を送って要点と問いを作ります。作るまで送りません。渡し止めのページは送りません。',
+          ? t('練習モードです。本文は Anthropic に送りません。決まった形の教材を、この画面に出します。')
+          : t('作るを押すと、このページの本文を送って要点と問いを作ります。作るまで送りません。渡し止めのページは送りません。'),
       ),
     );
-    const go = el('button', 'ai-small', this.lessonBusy ? '作っています…' : '作る');
+    const go = el('button', 'ai-small', this.lessonBusy ? t('作っています…') : t('作る'));
     go.type = 'button';
     go.disabled = this.lessonBusy;
     go.addEventListener('click', () => void this.runLesson());
-    const cancel = el('button', 'ai-small', 'やめる');
+    const cancel = el('button', 'ai-small', t('やめる'));
     cancel.type = 'button';
     cancel.disabled = this.lessonBusy;
     cancel.addEventListener('click', () => {
@@ -1432,7 +1433,7 @@ export class VocabPanel {
 
   private lessonView(lesson: LessonView): HTMLElement {
     const box = el('div', 'vocab-lesson');
-    box.append(el('div', 'route-list-label', lesson.title || '教材'));
+    box.append(el('div', 'route-list-label', lesson.title || t('教材')));
     if (lesson.summary) box.append(el('p', 'panel-note', lesson.summary));
     if (lesson.points.length > 0) {
       const list = el('ul', 'vocab-points');
@@ -1450,19 +1451,19 @@ export class VocabPanel {
       row.append(check, text);
       box.append(row);
     }
-    box.append(el('p', 'panel-note', '問いは今の単語帳に入ります。要点は、今見ているシートのメモに残ります。新しい入れ物は作りません。'));
-    const save = el('button', 'ai-small', '選んだ問いを単語帳へ');
+    box.append(el('p', 'panel-note', t('問いは今の単語帳に入ります。要点は、今見ているシートのメモに残ります。新しい入れ物は作りません。')));
+    const save = el('button', 'ai-small', t('選んだ問いを単語帳へ'));
     save.type = 'button';
     save.disabled = lesson.cards.length === 0;
     save.addEventListener('click', () => {
       const picked = lesson.cards.filter((card) => card.checked).map(({ checked: _, ...card }) => card);
       if (picked.length === 0) {
-        this.setStatus('入れる問いに印を付けてください');
+        this.setStatus(t('入れる問いに印を付けてください'));
         return;
       }
       this.addCards(picked);
     });
-    const keep = el('button', 'ai-small', '盤面に残す');
+    const keep = el('button', 'ai-small', t('盤面に残す'));
     keep.type = 'button';
     keep.disabled = !lesson.summary && lesson.points.length === 0 && lesson.cards.length === 0;
     keep.addEventListener('click', () => {
@@ -1472,10 +1473,10 @@ export class VocabPanel {
         points: lesson.points,
         cards: lesson.cards.filter((card) => card.checked),
       });
-      this.host.askLeft({ command: 'addMemoCell', text, label: '教材' });
-      this.setStatus('今見ているシートのメモに残すよう頼みました。盤面に「教材：…」のセルが出ます', 8000);
+      this.host.askLeft({ command: 'addMemoCell', text, label: t('教材') });
+      this.setStatus(t('今見ているシートのメモに残すよう頼みました。盤面に「教材：…」のセルが出ます'), 8000);
     });
-    const cancel = el('button', 'ai-small', '閉じる');
+    const cancel = el('button', 'ai-small', t('閉じる'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => {
       this.lesson = null;
@@ -1503,13 +1504,13 @@ export class VocabPanel {
         return;
       }
       if (page.error || !page.text?.trim()) {
-        this.setStatus('表示中のページの文章を取り出せませんでした', 6000);
+        this.setStatus(t('表示中のページの文章を取り出せませんでした'), 6000);
         return;
       }
       this.pendingLesson = { title: page.title ?? '', url: page.url ?? '', text: page.text };
       this.lesson = null;
     } catch (error) {
-      this.setStatus(`取り出せませんでした：${lessonFailure(error)}`, 8000);
+      this.setStatus(t('取り出せませんでした：{0}', { 0: lessonFailure(error) }), 8000);
     } finally {
       this.lessonBusy = false;
       this.render();
@@ -1532,12 +1533,12 @@ export class VocabPanel {
       const cards = result.cards.filter((card) => !known.has(cardKey(card.kind, card.front))).map((card) => ({ ...card, checked: true }));
       this.lesson = { title: result.title, summary: result.summary, points: result.points, cards };
       this.pendingLesson = null;
-      const cost = result.cost > 0 ? `（約 $${result.cost.toFixed(3)}）` : '';
+      const cost = result.cost > 0 ? t('（約 ${0}）', { 0: result.cost.toFixed(3) }) : '';
       const near = result.near ? ` ${BUDGET_NEAR_NOTE}` : '';
-      this.setStatus(cards.length > 0 || result.summary ? `教材ができました${cost}${near}` : `教材は作れませんでした${cost}`, 8000);
+      this.setStatus(cards.length > 0 || result.summary ? t('教材ができました{0}{1}', { 0: cost, 1: near }) : t('教材は作れませんでした{0}', { 0: cost }), 8000);
     } catch (error) {
       this.pendingLesson = null;
-      this.setStatus(`作れませんでした：${lessonFailure(error)}`, 8000);
+      this.setStatus(t('作れませんでした：{0}', { 0: lessonFailure(error) }), 8000);
     } finally {
       this.lessonBusy = false;
       this.render();
@@ -1554,7 +1555,7 @@ export class VocabPanel {
         return;
       }
       if (page.error || !page.text) {
-        this.setStatus('表示中のページの文章を取り出せませんでした', 6000);
+        this.setStatus(t('表示中のページの文章を取り出せませんでした'), 6000);
         return;
       }
       const result = await makeCards(
@@ -1567,11 +1568,11 @@ export class VocabPanel {
       this.proposals = fresh.map((c) => ({ ...c, checked: true }));
       this.proposalPage = { title: page.title ?? '', url: page.url ?? '' };
       this.setStatus(
-        fresh.length > 0 ? `${fresh.length} 枚の案ができました${result.cost > 0 ? `（約 $${result.cost.toFixed(3)}）` : ''}` : 'このページから新しいカードは作れませんでした',
+        fresh.length > 0 ? t('{0} 枚の案ができました{1}', { 0: fresh.length, 1: result.cost > 0 ? `（約 $${result.cost.toFixed(3)}）` : '' }) : t('このページから新しいカードは作れませんでした'),
         8000,
       );
     } catch (error) {
-      this.setStatus(`作れませんでした：${error instanceof Error ? error.message : String(error)}`, 8000);
+      this.setStatus(t('作れませんでした：{0}', { 0: error instanceof Error ? error.message : String(error) }), 8000);
     } finally {
       this.making = false;
       this.render();
@@ -1581,7 +1582,7 @@ export class VocabPanel {
   private async sendToHexMemo(cards: VocabCard[]) {
     const target = this.host.hexMemoTarget();
     if (!target) {
-      this.setStatus('相棒の ⚙ で「六角メモの送り先」を選んでから、もう一度押してください', 6000);
+      this.setStatus(t('相棒の ⚙ で「六角メモの送り先」を選んでから、もう一度押してください'), 6000);
       return;
     }
     const withDue = loadFlag(DUE_KEY);
@@ -1594,21 +1595,21 @@ export class VocabPanel {
         const records: HexMemoRecord[] = part.map((c) => ({
           text: c.kind === 'quiz' ? `Q. ${c.front}\nA. ${c.back}` : `${c.front}\n${c.back}${c.example ? `\n\n「${c.example}」` : ''}`,
           createdAt: new Date(c.createdAt).toISOString(),
-          tags: c.kind === 'quiz' ? ['単語帳', '問い'] : ['単語帳'],
+          tags: c.kind === 'quiz' ? [t('単語帳'), t('問い')] : [t('単語帳')],
           urls: c.source ? [{ url: c.source.url, title: c.source.title }] : undefined,
           progress: c.level > 0 ? c.level : undefined,
           due: withDue && c.level < 6 ? dayOf(new Date(c.due)) : undefined,
         }));
         const outcome = await sendToHexMemo(target, records);
         if (!outcome.ok) {
-          this.setStatus(`送れませんでした：${outcome.error}`, 8000);
+          this.setStatus(t('送れませんでした：{0}', { 0: outcome.error }), 8000);
           return;
         }
         this.host.askLeft({ command: 'markCardsSent', ids: part.map((c) => c.id) });
         for (const c of part) c.sent = true;
       }
-      const more = cards.length > list.length ? `（残り ${cards.length - list.length} 枚は、もう一度押すと送ります）` : '';
-      this.setStatus(`${list.length} 枚を、六角メモ「${target.label}」へ送りました${more}`, 8000);
+      const more = cards.length > list.length ? t('（残り {0} 枚は、もう一度押すと送ります）', { 0: cards.length - list.length }) : '';
+      this.setStatus(t('{0} 枚を、六角メモ「{1}」へ送りました{2}', { 0: list.length, 1: target.label, 2: more }), 8000);
     } finally {
       this.sending = false;
       this.render();
@@ -1643,29 +1644,29 @@ function levelHex(level: number, size = 18): SVGSVGElement {
     svg.append(edges);
   }
   const title = document.createElementNS(NS, 'title');
-  title.textContent = level >= 6 ? '覚えた' : `覚えた度合い ${level} / 6`;
+  title.textContent = level >= 6 ? t('覚えた') : t('覚えた度合い {0} / 6', { 0: level });
   svg.append(title);
   return svg;
 }
 
 // 暦の予報（K5a）：これから 14 日の復習の枚数を、日ごとの六角形で並べる（今日の分には、時期を過ぎたカードも入る）
 function forecastRow(cards: readonly VocabCard[]): HTMLElement {
-  const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
+  const WEEK = [t('日'), t('月'), t('火'), t('水'), t('木'), t('金'), t('土')];
   const row = el('div', 'vocab-forecast');
-  row.title = 'これから 14 日の復習の予報（今日の分には、時期を過ぎたカードも入ります）';
+  row.title = t('これから 14 日の復習の予報（今日の分には、時期を過ぎたカードも入ります）');
   row.setAttribute('role', 'img');
   const labels: string[] = [];
   forecastDays(cards).forEach((day, i) => {
     const date = new Date(day.start);
     const md = `${date.getMonth() + 1}/${date.getDate()}（${WEEK[date.getDay()]}）`;
-    const short = i === 0 ? '今日' : i === 1 ? '明日' : md;
-    const lead = i === 0 ? '今日 ' : i === 1 ? '明日 ' : '';
+    const short = i === 0 ? '今日' : i === 1 ? t('明日') : md;
+    const lead = i === 0 ? t('今日 ') : i === 1 ? t('明日 ') : '';
     const n = day.count;
     const level = n === 0 ? 'n0' : n <= 4 ? 'n1' : n <= 14 ? 'n2' : 'n3';
     const cell = el('span', `vocab-forecast-day ${level}`, n > 0 ? String(n) : '');
-    cell.title = `${lead}${md}${n} 枚`;
+    cell.title = t('{0}{1}{2} 枚', { 0: lead, 1: md, 2: n });
     row.append(cell);
-    labels.push(`${short} ${n} 枚`);
+    labels.push(t('{0} {1} 枚', { 0: short, 1: n }));
   });
   row.setAttribute('aria-label', labels.join('、'));
   return row;
@@ -1679,7 +1680,7 @@ function speakButton(text: string): HTMLButtonElement | null {
   if (!voice) return null;
   const button = el('button', 'ai-small vocab-speak', '🔊');
   button.type = 'button';
-  button.title = `読み上げる（この端末の声：${voice.name}）`;
+  button.title = t('読み上げる（この端末の声：{0}）', { 0: voice.name });
   button.setAttribute('aria-label', '読み上げる');
   button.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1706,7 +1707,7 @@ function clozeExample(parts: readonly ClozePart[]): HTMLElement {
     word.setAttribute('role', 'button');
     word.setAttribute('aria-pressed', 'false');
     word.setAttribute('aria-label', '伏せた言葉（押すと見える）'); // 伏せている間は、読み上げソフトにも言葉を出さない
-    word.title = '伏せた言葉（押すと見える）';
+    word.title = t('伏せた言葉（押すと見える）');
     const toggle = (e: Event) => {
       e.stopPropagation(); // 復習の Space・Enter に渡さない
       const shown = word.classList.toggle('show');
@@ -1730,10 +1731,10 @@ function clozeExample(parts: readonly ClozePart[]): HTMLElement {
 function typedView(typed: string, answer: string): HTMLElement {
   const { parts, exact } = compareTyped(typed, answer);
   const row = el('div', 'vocab-typed');
-  row.append(el('span', 'organize-count', '打った答え：'));
-  if (parts.length === 0) row.append(el('span', 'organize-count', '（空）'));
+  row.append(el('span', 'organize-count', t('打った答え：')));
+  if (parts.length === 0) row.append(el('span', 'organize-count', t('（空）')));
   for (const part of parts) row.append(el('span', part.ok ? 'vocab-typed-ok' : 'vocab-typed-ng', part.text));
-  if (exact) row.append(el('span', 'vocab-typed-exact', '✓ ぴったり'));
+  if (exact) row.append(el('span', 'vocab-typed-exact', t('✓ ぴったり')));
   return row;
 }
 
@@ -1750,7 +1751,7 @@ function linkButton(label: string, title: string, run: () => void): HTMLButtonEl
 
 // 役目の名前（K6b）
 function roleLabel(role: LinkRole | undefined): string {
-  return role === 'source' ? '出典' : role === 'related' ? '関連' : '役目なし';
+  return role === 'source' ? '出典' : role === 'related' ? t('関連') : t('役目なし');
 }
 
 // 役目を次へ回す（K6b）：役目なし → 出典 → 関連 → 役目なし
@@ -1777,14 +1778,14 @@ function clipText(text: string, max = 16) {
 
 function whenLabel(card: VocabCard): string {
   const now = Date.now();
-  if (card.due <= now) return card.reviews === 0 ? '新しい' : '今日';
+  if (card.due <= now) return card.reviews === 0 ? t('新しい') : '今日';
   const ms = card.due - now;
-  if (ms < 60 * 60_000) return `${Math.max(1, Math.round(ms / 60_000))}分後`;
+  if (ms < 60 * 60_000) return t('{0}分後', { 0: Math.max(1, Math.round(ms / 60_000)) });
   if (dayOf(new Date(card.due)) === dayOf(new Date(now))) return '今日';
   const days = Math.round(ms / (24 * 60 * 60_000));
-  if (days <= 1) return '明日';
-  if (days < 14) return `${days}日後`;
-  return `${Math.round(days / 7)}週間後`;
+  if (days <= 1) return t('明日');
+  if (days < 14) return t('{0}日後', { 0: days });
+  return t('{0}週間後', { 0: Math.round(days / 7) });
 }
 
 // 撮影の時刻（K6c-1）：「M/D H:MM」。分だけ 0 埋めする
@@ -1795,9 +1796,9 @@ function captureStamp(at: number): string {
 
 function hostLabel(url: string): string {
   try {
-    return new URL(url).hostname || 'このページ';
+    return new URL(url).hostname || t('このページ');
   } catch {
-    return 'このページ';
+    return t('このページ');
   }
 }
 
@@ -1819,7 +1820,7 @@ function saveFlag(key: string, on: boolean) {
 
 // データ置き場に入れる形（AI が作った単語帳のカードの案）
 function vocabDraft(cards: CardDraft[], page: { title: string; url: string } | null): VaultDraft {
-  const lines = [`単語帳のカードの案${page?.title ? `：${page.title}` : ''}`, ''];
+  const lines = [t('単語帳のカードの案{0}', { 0: page?.title ? `：${page.title}` : '' }), ''];
   for (const c of cards) {
     lines.push(c.kind === 'quiz' ? `Q. ${c.front}` : c.front, c.kind === 'quiz' ? `A. ${c.back}` : c.back);
     if (c.example) lines.push(`「${c.example}」`);
@@ -1827,7 +1828,7 @@ function vocabDraft(cards: CardDraft[], page: { title: string; url: string } | n
   }
   return {
     kind: 'vocab',
-    title: `単語帳の案${page?.title ? `：${page.title}` : ''}（${cards.length} 枚）`,
+    title: t('単語帳の案{0}（{1} 枚）', { 0: page?.title ? `：${page.title}` : '', 1: cards.length }),
     text: lines.join('\n').trim(),
     data: { version: 1, cards, page },
     source: page?.url ? { pageTitle: page.title, pageUrl: page.url } : {},

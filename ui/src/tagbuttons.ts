@@ -2,6 +2,7 @@
 //   ・相棒の頼みごとのボタン（ai/phrases.ts）と同じ考え：セットを切り替えると6つのボタンが入れかわるだけ（タグもタブも動かない）
 //   ・左サイドバーと右サイドバーは別々に持つ（左はタブのセル・盤面のメモ、右はコメントと右のカード）
 //   ・保存先：ui-data\tag-buttons-left.json・tag-buttons-right.json（書くのは、それぞれのサイドバーだけ。下の区画は、右のファイルを読むだけ〈カードの「＋タグ」の候補の上に出す。PinnedTagFeed〉）
+import { t as tr } from './i18n';
 import { request } from './bridge';
 import { readData, writeData } from './data';
 import { normalizeTag } from './tags';
@@ -56,7 +57,7 @@ export function normalizeTagBook(v: unknown): TagButtonBook {
     const o = s as Record<string, unknown>;
     let id = typeof o.id === 'string' && /^[0-9a-z_-]{1,40}$/i.test(o.id) ? o.id : `t${i}`;
     if (sets.some((x) => x.id === id)) id = newTagSetId();
-    sets.push({ id, name: cleanSetName(o.name) || `セット${sets.length + 1}`, tags: normalizeSlots(o.tags) });
+    sets.push({ id, name: cleanSetName(o.name) || tr('セット{0}', { 0: sets.length + 1 }), tags: normalizeSlots(o.tags) });
     if (sets.length >= MAX_TAG_SETS) break;
   }
   if (sets.length === 0) return defaultTagBook();
@@ -255,7 +256,7 @@ export class TagButtonStore {
   // 新しいセット（tags があれば、その並びで）を作って、使うセットにする
   addSet(name: string, tags?: (string | null)[]): TagButtonSet | null {
     if (!this.canAddSet) return null;
-    const set: TagButtonSet = { id: newTagSetId(), name: cleanSetName(name) || `セット${this.state.sets.length + 1}`, tags: tags ? normalizeSlots(tags) : emptySlots() };
+    const set: TagButtonSet = { id: newTagSetId(), name: cleanSetName(name) || tr('セット{0}', { 0: this.state.sets.length + 1 }), tags: tags ? normalizeSlots(tags) : emptySlots() };
     this.state.sets = [...this.state.sets, set];
     this.state.current = set.id;
     this.changed();
@@ -339,7 +340,7 @@ export function applyTagOp(book: TagButtonBook, op: TagButtonsOp): TagButtonBook
       };
     case 'addSet': {
       if (b.sets.length >= MAX_TAG_SETS) return b;
-      const set: TagButtonSet = { id: newTagSetId(), name: cleanSetName(op.name) || `セット${b.sets.length + 1}`, tags: op.tags ? normalizeSlots(op.tags) : emptySlots() };
+      const set: TagButtonSet = { id: newTagSetId(), name: cleanSetName(op.name) || tr('セット{0}', { 0: b.sets.length + 1 }), tags: op.tags ? normalizeSlots(op.tags) : emptySlots() };
       return { ...b, sets: [...b.sets, set], current: set.id };
     }
     case 'removeSet': {

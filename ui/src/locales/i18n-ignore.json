@@ -1,0 +1,13 @@
+{
+  "note": "英語にしないファイル（正規表現。src からの相対パス）。公開版で既定オフの Grok Bot 用の画面と、日本語そのものがデータのもの",
+  "patterns": [
+    "^bot-",
+    "^panels/bot-",
+    "^bots\\.ts$",
+    "^grok-patch\\.ts$",
+    "^grok-export\\.ts$",
+    "^memo-filter-words\\.ts$",
+    "^mock/",
+    "^ai/"
+  ]
+}

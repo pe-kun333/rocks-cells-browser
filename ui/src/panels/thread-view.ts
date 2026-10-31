@@ -4,6 +4,7 @@
 //   ・カードは何度も描き直すので、開閉・書きかけの返信は、ここに覚えておく
 //   ・開閉などで見た目を変えるときは、カードの持ち主に描き直してもらう（refresh）。書いている間は描き直しが
 //     止まるので、手元の古い返信の一覧から作り直すと、その間に届いた返信が抜けてしまう
+import { t } from '../i18n';
 import { armConfirm } from '../confirm-arm';
 import { CHARACTER_IDS, type CharacterId, HAIKU_UNIT_NAME, isHaiku, nameOf, parseCast, slotsOf, teamOf } from '../ai/characters';
 import { childrenOf, countUnder, MAX_REPLIES, MAX_REPLY_TEXT, pathTo, type PendingReply, quoteFragmentUrl, quoteSourceLabel, REPLY_FOLD, type Reply, type ThreadRef, threadKey } from '../threads';
@@ -147,7 +148,7 @@ export function threadBlock(ref: ThreadRef, replies: readonly Reply[], ui: Threa
   block.dataset.thread = key;
   const count = replies.length;
   if (compact || !ui) {
-    if (count > 0) block.append(el('div', 'thread-count', `💬 返信 ${count}件`));
+    if (count > 0) block.append(el('div', 'thread-count', t('💬 返信 {0}件', { 0: count })));
     return block;
   }
   const open = !collapsedRoots.has(key);
@@ -160,11 +161,11 @@ export function threadBlock(ref: ThreadRef, replies: readonly Reply[], ui: Threa
       redraw(ui, toggleKey);
     });
     toggle.classList.add('thread-toggle');
-    toggle.title = open ? '返信をたたむ' : `返信 ${count}件を見る`;
+    toggle.title = open ? t('返信をたたむ') : t('返信 {0}件を見る', { 0: count });
     toggle.setAttribute('aria-expanded', String(open));
     bar.append(toggle);
   }
-  bar.append(...commonActions(ref, null, ui, 'コメントを追加', replies.length));
+  bar.append(...commonActions(ref, null, ui, t('コメントを追加'), replies.length));
   block.append(bar, ...openPanels(ref, null, ui));
   if (open) {
     const list = el('div', 'thread-replies');
@@ -172,7 +173,7 @@ export function threadBlock(ref: ThreadRef, replies: readonly Reply[], ui: Threa
     list.append(...pendingRows(key, null, ui));
     if (list.childElementCount > 0) block.append(list);
   } else if (ui.pending.some((p) => p.key === key)) {
-    block.append(el('div', 'reply pending', '相棒が返信を書いています…'));
+    block.append(el('div', 'reply pending', t('相棒が返信を書いています…')));
   }
   return block;
 }
@@ -189,13 +190,13 @@ function quoteBits(reply: Reply, ui: ThreadUi): HTMLElement[] {
     if (long && openQuotes.has(textKey)) block.classList.add('open');
     nodes.push(block);
     if (long) {
-      const more = el('button', 'preview-note-toggle', openQuotes.has(textKey) ? 'たたむ ▴' : '…続き ▾');
+      const more = el('button', 'preview-note-toggle', openQuotes.has(textKey) ? t('たたむ ▴') : t('…続き ▾'));
       more.type = 'button';
       more.addEventListener('click', () => {
         if (openQuotes.has(textKey)) openQuotes.delete(textKey);
         else openQuotes.add(textKey);
         block.classList.toggle('open', openQuotes.has(textKey));
-        more.textContent = openQuotes.has(textKey) ? 'たたむ ▴' : '…続き ▾';
+        more.textContent = openQuotes.has(textKey) ? t('たたむ ▴') : t('…続き ▾');
       });
       nodes.push(more);
     }
@@ -204,7 +205,7 @@ function quoteBits(reply: Reply, ui: ThreadUi): HTMLElement[] {
   if (ui.openSource) {
     const src = el('button', 'reply-source', label);
     src.type = 'button';
-    src.title = 'この文の所を開く';
+    src.title = t('この文の所を開く');
     src.addEventListener('click', () => ui.openSource?.(quote.url, quoteFragmentUrl(quote.url, quote.text)));
     nodes.push(src);
   } else {
@@ -216,7 +217,7 @@ function quoteBits(reply: Reply, ui: ThreadUi): HTMLElement[] {
 function shotImage(src: string): HTMLImageElement {
   const img = el('img', 'reply-shot');
   img.src = src;
-  img.alt = 'カードの画像';
+  img.alt = t('カードの画像');
   return img;
 }
 
@@ -230,17 +231,17 @@ function replyNode(ref: ThreadRef, replies: readonly Reply[], reply: Reply, dept
   const who = reply.by?.who ?? 'user';
   // 取り込んだカード（by.who が import。memo-interchange.ts）は使う人の色にしない（灰色の印）
   const avatar = CHARACTER_IDS.includes(who as CharacterId) ? who : who === 'import' ? 'import' : 'user';
-  head.append(el('span', `reply-avatar ${avatar}`), el('span', 'reply-name', reply.by ? reply.by.name : 'あなた'));
+  head.append(el('span', `reply-avatar ${avatar}`), el('span', 'reply-name', reply.by ? reply.by.name : t('あなた')));
   // 字下げしない深い段では、だれへの返信かを出す
   if (depth > MAX_INDENT && reply.parent) {
     const parent = replies.find((r) => r.id === reply.parent);
-    if (parent) head.append(el('span', 'reply-to', `↳ ${parent.by ? parent.by.name : 'あなた'}へ`));
+    if (parent) head.append(el('span', 'reply-to', t('↳ {0}へ', { 0: parent.by ? parent.by.name : 'あなた' })));
   }
   head.append(el('time', 'reply-time', dateOf(reply.createdAt)));
-  if (reply.editedAt) head.append(el('span', 'reply-edited', '書き直し済み'));
+  if (reply.editedAt) head.append(el('span', 'reply-edited', t('書き直し済み')));
   if (reply.by) {
-    const cost = reply.by.cost ? `・約 $${reply.by.cost.toFixed(3)}` : '';
-    head.title = reply.by.who === 'import' ? `${reply.by.name}（取り込んだファイルのカード）` : `${reply.by.name}（AI の相棒${reply.by.model ? `・${reply.by.model}` : ''}${cost}）`;
+    const cost = reply.by.cost ? t('・約 ${0}', { 0: reply.by.cost.toFixed(3) }) : '';
+    head.title = reply.by.who === 'import' ? t('{0}（取り込んだファイルのカード）', { 0: reply.by.name }) : t('{0}（AI の相棒{1}{2}）', { 0: reply.by.name, 1: reply.by.model ? `・${reply.by.model}` : '', 2: cost });
   }
   const editKey = nodeKey(key, reply.id);
   node.append(head, ...quoteBits(reply, ui));
@@ -256,9 +257,9 @@ function replyNode(ref: ThreadRef, replies: readonly Reply[], reply: Reply, dept
         if (openTexts.has(textKey)) openTexts.delete(textKey);
         else openTexts.add(textKey);
         body.classList.toggle('open', openTexts.has(textKey));
-        more.textContent = openTexts.has(textKey) ? 'たたむ ▴' : '続きを読む ▾';
+        more.textContent = openTexts.has(textKey) ? t('たたむ ▴') : t('続きを読む ▾');
       };
-      const more = el('button', 'preview-note-toggle', openTexts.has(textKey) ? 'たたむ ▴' : '続きを読む ▾');
+      const more = el('button', 'preview-note-toggle', openTexts.has(textKey) ? t('たたむ ▴') : t('続きを読む ▾'));
       more.type = 'button';
       body.classList.add('clickable');
       body.classList.toggle('open', openTexts.has(textKey));
@@ -270,7 +271,7 @@ function replyNode(ref: ThreadRef, replies: readonly Reply[], reply: Reply, dept
     }
   }
   const shot = reply.image ? ui.shot?.(reply.image) : undefined;
-  if (reply.image) node.append(shot ? shotImage(shot) : el('div', 'reply-shot-wait', '画像'));
+  if (reply.image) node.append(shot ? shotImage(shot) : el('div', 'reply-shot-wait', t('画像')));
 
   const children = childrenOf(replies, reply.id);
   const isOpen = expanded.has(nodeKey(key, reply.id));
@@ -284,30 +285,30 @@ function replyNode(ref: ThreadRef, replies: readonly Reply[], reply: Reply, dept
       redraw(ui, toggleKey);
     });
     toggle.classList.add('thread-toggle');
-    toggle.title = isOpen ? '返信をたたむ' : `返信 ${total}件を見る`;
+    toggle.title = isOpen ? t('返信をたたむ') : t('返信 {0}件を見る', { 0: total });
     toggle.setAttribute('aria-expanded', String(isOpen));
     bar.append(toggle);
   }
   // 使う人の返信だけ書き直せる（メモのスレッド。タブのメモは、この計画では断る。K5）
   if (!edits.has(editKey) && ref.kind === 'memo' && !reply.by) {
-    const edit = action('書き直す', `${editKey}|edit`, () => {
+    const edit = action(t('書き直す'), `${editKey}|edit`, () => {
       if (!edits.has(editKey)) edits.set(editKey, reply.text);
       redraw(ui);
       document.querySelector<HTMLTextAreaElement>(`[data-edit="${CSS.escape(editKey)}"] textarea`)?.focus();
     });
-    edit.title = 'このコメントの文を書き直す（引用と画像は書き直せません）';
+    edit.title = t('このコメントの文を書き直す（引用と画像は書き直せません）');
     bar.append(edit);
   }
-  bar.append(...commonActions(ref, reply.id, ui, '返信', replies.length));
+  bar.append(...commonActions(ref, reply.id, ui, t('返信'), replies.length));
   const below = countUnder(replies, reply.id);
-  const label = below > 0 ? `この返信を消す（その下の返信 ${below} 件も消えます）` : 'この返信を消す';
+  const label = below > 0 ? t('この返信を消す（その下の返信 {0} 件も消えます）', { 0: below }) : t('この返信を消す');
   const remove = action('×', undefined, () => {
     if (!remove.classList.contains('danger')) {
       // 1回目は確かめるだけ（読み上げにも伝わるように、名前も変える）
       armConfirm(remove);
-      const armed = below > 0 ? `もう一度押すと、この返信とその下の返信 ${below} 件を消します` : 'もう一度押すと、この返信を消します';
+      const armed = below > 0 ? t('もう一度押すと、この返信とその下の返信 {0} 件を消します', { 0: below }) : t('もう一度押すと、この返信を消します');
       remove.classList.add('danger');
-      remove.textContent = '消す？';
+      remove.textContent = t('消す？');
       remove.title = armed;
       remove.setAttribute('aria-label', armed);
       return;
@@ -342,17 +343,17 @@ function commonActions(ref: ThreadRef, target: string | null, ui: ThreadUi, writ
     document.querySelector<HTMLTextAreaElement>(`[data-form="${CSS.escape(formKey)}"] textarea`)?.focus();
   });
   write.disabled = full;
-  write.title = full ? `返信は1つのスレッドに ${MAX_REPLIES} 件までです` : target === null ? 'このコメントに返信を書く' : 'この返信に返信を書く';
-  const copy = action('コピー', undefined, () => ui.actions.copy(ref, target));
-  copy.title = '盤面の空いたセルに貼ると（Ctrl+V・右クリック →「貼り付け」）、メモのセルになります（下の返信も一緒に）';
+  write.title = full ? t('返信は1つのスレッドに {0} 件までです', { 0: MAX_REPLIES }) : target === null ? t('このコメントに返信を書く') : t('この返信に返信を書く');
+  const copy = action(t('コピー'), undefined, () => ui.actions.copy(ref, target));
+  copy.title = t('盤面の空いたセルに貼ると（Ctrl+V・右クリック →「貼り付け」）、メモのセルになります（下の返信も一緒に）');
   const aiKey = `${formKey}|ai`;
-  const ai = action('相棒 ▾', aiKey, () => {
+  const ai = action(t('相棒 ▾'), aiKey, () => {
     if (aiMenus.has(formKey)) aiMenus.delete(formKey);
     else aiMenus.add(formKey);
     redraw(ui, aiKey);
   });
   ai.disabled = full;
-  ai.title = '相棒（今の会話のメンバー）に返信してもらう';
+  ai.title = t('相棒（今の会話のメンバー）に返信してもらう');
   ai.setAttribute('aria-expanded', String(aiMenus.has(formKey)));
   return [write, copy, ai];
 }
@@ -380,7 +381,7 @@ function editForm(ref: ThreadRef, reply: Reply, ui: ThreadUi): HTMLElement {
     const n = [...text.value].length;
     meter.textContent = `${n} / ${REPLY_FOLD}`;
     meter.classList.toggle('long', n > REPLY_FOLD);
-    meter.title = n > REPLY_FOLD ? '長め：カードでは 280字まで見せて、続きは開きます' : '';
+    meter.title = n > REPLY_FOLD ? t('長め：カードでは 280字まで見せて、続きは開きます') : '';
   };
   paintMeter();
   const close = () => {
@@ -419,9 +420,9 @@ function editForm(ref: ThreadRef, reply: Reply, ui: ThreadUi): HTMLElement {
     e.preventDefault();
     save();
   });
-  const send = el('button', 'preview-button', '残す');
+  const send = el('button', 'preview-button', t('残す'));
   send.type = 'submit';
-  const cancel = el('button', 'preview-button', 'やめる');
+  const cancel = el('button', 'preview-button', t('やめる'));
   cancel.type = 'button';
   cancel.addEventListener('click', close);
   const row = el('div', 'reply-form-row');
@@ -438,11 +439,11 @@ function replyForm(ref: ThreadRef, target: string | null, ui: ThreadUi): HTMLEle
   text.rows = 2;
   text.maxLength = 2000;
   text.value = drafts.get(formKey) ?? '';
-  text.placeholder = target === null ? 'コメントを書く（Ctrl+Enter で追加・Esc でやめる）' : '返信を書く（Ctrl+Enter で返信・Esc でやめる）';
-  text.setAttribute('aria-label', target === null ? 'コメントを書く' : '返信を書く');
-  const send = el('button', 'preview-button', target === null ? '追加する' : '返信する');
+  text.placeholder = target === null ? t('コメントを書く（Ctrl+Enter で追加・Esc でやめる）') : t('返信を書く（Ctrl+Enter で返信・Esc でやめる）');
+  text.setAttribute('aria-label', target === null ? t('コメントを書く') : t('返信を書く'));
+  const send = el('button', 'preview-button', target === null ? t('追加する') : t('返信する'));
   send.type = 'submit';
-  const cancel = el('button', 'preview-button', 'やめる');
+  const cancel = el('button', 'preview-button', t('やめる'));
   cancel.type = 'button';
   const close = () => {
     drafts.delete(formKey);
@@ -492,7 +493,7 @@ function aiMenu(ref: ThreadRef, target: string | null, ui: ThreadUi): HTMLElemen
     });
     menu.append(b);
   }
-  const cancel = el('button', 'reply-ai-choice cancel', 'やめる');
+  const cancel = el('button', 'reply-ai-choice cancel', t('やめる'));
   cancel.type = 'button';
   cancel.addEventListener('click', () => {
     aiMenus.delete(formKey);
@@ -516,7 +517,7 @@ export function aiChoices(): { who: string; name: string }[] {
   const team = teamOf(cast.members);
   const list: { who: string; name: string }[] = cast.members.filter((id) => !isHaiku(id)).map((id) => ({ who: id, name: nameOf(cast, id) }));
   if (team.length > 0) list.push({ who: 'team', name: HAIKU_UNIT_NAME });
-  if (slotsOf(cast.members) > 1) list.push({ who: 'all', name: list.length === 2 && team.length === 0 ? '二人とも' : 'みんな' });
+  if (slotsOf(cast.members) > 1) list.push({ who: 'all', name: list.length === 2 && team.length === 0 ? t('二人とも') : t('みんな') });
   return list;
 }
 
@@ -525,7 +526,7 @@ function pendingRows(key: string, parent: string | null, ui: ThreadUi): HTMLElem
     .filter((p) => p.key === key && p.parent === parent)
     .map((p) => {
       const row = el('div', 'reply pending');
-      row.append(el('span', `reply-avatar ${CHARACTER_IDS.includes(p.who as CharacterId) ? p.who : 'main'}`), el('span', '', `${p.name}が返信を書いています…`));
+      row.append(el('span', `reply-avatar ${CHARACTER_IDS.includes(p.who as CharacterId) ? p.who : 'main'}`), el('span', '', t('{0}が返信を書いています…', { 0: p.name })));
       return row;
     });
 }

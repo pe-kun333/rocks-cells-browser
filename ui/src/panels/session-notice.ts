@@ -1,5 +1,6 @@
 // 盤面の上の帯：盤面の台帳（session.json）を読めなかったときの決めごとと、保存できていないことの知らせ
 //   文は session-guard.ts。帯は消えず（知らせの toast と違う）、使う人が選ぶまで残る
+import { t } from '../i18n';
 import type { SessionNoticeText } from '../session-guard';
 import { el } from '../util';
 
@@ -34,12 +35,12 @@ export class SessionNotice {
 
   // 保存しないで続ける：小さな帯にして、あとから保存を始められる
   showHeld(onResume: () => void) {
-    const resume = el('button', '', '保存を始める');
+    const resume = el('button', '', t('保存を始める'));
     resume.type = 'button';
     resume.addEventListener('click', () => onResume());
     const actions = el('div', 'session-notice-actions');
     actions.append(resume);
-    this.recovery.replaceChildren(el('p', '', 'この起動では盤面（session.json）を保存しません。閉じたあと、データフォルダの session.json を確かめてください。'), actions);
+    this.recovery.replaceChildren(el('p', '', t('この起動では盤面（session.json）を保存しません。閉じたあと、データフォルダの session.json を確かめてください。')), actions);
     this.recovery.hidden = false;
     this.sync();
   }

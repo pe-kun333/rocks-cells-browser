@@ -2,6 +2,7 @@
 //   ui-data\captures.json … 目次（画像の中身は入れない）
 //   ui-data\captures\<id>.json … { version: 1, data: "data:image/jpeg;base64,..." }
 //   画像の data URL は fetch しない（UI の CSP が data: への接続を止める。メモの分割 M3 と同じ）
+import { t } from './i18n';
 import { request } from './bridge';
 import { HIDDEN_TEXT, paintHide, type HideMode } from './capture-hide';
 import { deleteData, readData, writeData } from './data';
@@ -101,9 +102,9 @@ export interface CaptureFrom {
 }
 export const FROM_NAME_MAX = 80;
 export const CAPTURE_FROM_LABEL: Record<CaptureFromKind, string> = {
-  memoCard: '下の区画のカードの画像',
-  cellImage: '盤面のセルの画像',
-  tabImage: 'タブの見た目の画像',
+  memoCard: t('下の区画のカードの画像'),
+  cellImage: t('盤面のセルの画像'),
+  tabImage: t('タブの見た目の画像'),
 };
 
 // 空白のかたまり（改行も）を 1 つの空白にして、80 字まで
@@ -614,9 +615,9 @@ export function placeholderRecordImage(seconds: number): string | null {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = 'bold 40px "Yu Gothic UI", "Meiryo UI", sans-serif';
-    ctx.fillText(`録画 ${shown} 秒`, canvas.width / 2, 150);
+    ctx.fillText(t('録画 {0} 秒', { 0: shown }), canvas.width / 2, 150);
     ctx.font = '26px "Yu Gothic UI", "Meiryo UI", sans-serif';
-    ctx.fillText('代表の画像を作れませんでした', canvas.width / 2, 214);
+    ctx.fillText(t('代表の画像を作れませんでした'), canvas.width / 2, 214);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
     return jpegUrl(dataUrl) ? dataUrl : null;
   } catch {

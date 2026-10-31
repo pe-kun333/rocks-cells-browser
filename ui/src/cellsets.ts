@@ -3,6 +3,7 @@
 //     なので、六角メモに貼るとリンク付きのマスが同じ並びで並び、六角メモでコピーしたマスもここに貼れる
 //   ・ほかのアプリでコピーした URL の一覧も貼れる（1行に1つ）。URL の無い文章・六角メモの URL の無いマスは、メモのセルになる
 //   ・セットの保存先：ui-data\cellsets.json
+import { t as tr } from './i18n';
 import { request } from './bridge';
 import { readData, writeData } from './data';
 import type { Hex } from './hex';
@@ -289,7 +290,7 @@ export class CellSetStore {
   }
 
   add(name: string, cells: CellItem[], island?: CellSet['island']): CellSet {
-    const set: CellSet = { id: `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name: cleanName(name) || 'セット', createdAt: Date.now(), uses: 0, island, cells: cells.slice(0, MAX_CELLS) };
+    const set: CellSet = { id: `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name: cleanName(name) || tr('セット'), createdAt: Date.now(), uses: 0, island, cells: cells.slice(0, MAX_CELLS) };
     this.sets = [set, ...this.sets].slice(0, MAX_SETS);
     this.save();
     return set;
@@ -376,7 +377,7 @@ function parseSet(raw: unknown): CellSet | null {
   const island = s.island as { name?: unknown; color?: unknown } | undefined;
   return {
     id: s.id,
-    name: typeof s.name === 'string' ? cleanName(s.name) || 'セット' : 'セット',
+    name: typeof s.name === 'string' ? cleanName(s.name) || tr('セット') : tr('セット'),
     createdAt: typeof s.createdAt === 'number' ? s.createdAt : Date.now(),
     uses: typeof s.uses === 'number' ? s.uses : 0,
     lastUsedAt: typeof s.lastUsedAt === 'number' ? s.lastUsedAt : undefined,

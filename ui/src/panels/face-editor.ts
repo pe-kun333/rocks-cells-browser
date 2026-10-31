@@ -2,6 +2,7 @@
 //   画像：パソコンの画像を選ぶ・ページの画面から・六角形に切り取る・Ctrl+V で貼る。小さくしてから残す（長い辺 256px）
 //   コメント：1行・40文字まで。見え方：全体に合わせる・おまかせ・アイコン・画像・コメント・ページの画面（タブだけ）
 //   ボットのセル：画像とコメントだけ（見本はボットの顔。名前とリンクは台帳のもので、ここでは変えない）
+import { t as tr } from '../i18n';
 import { type BotFaceInfo, drawBotFace, drawPortalFace, drawTabFace, type FaceSources, type PortalInfo, resolveFace, svgEl } from '../cellface';
 import { hexCorners } from '../hex';
 import { MAX_TAB_COMMENT, type Tab, TAB_LOOKS, type TabLook } from '../tabs';
@@ -147,7 +148,7 @@ export class FaceEditor {
 
   private save() {
     if (this.loading > 0) {
-      this.status.textContent = '画像を読み込んでいます。終わってから「残す」を押してください';
+      this.status.textContent = tr('画像を読み込んでいます。終わってから「残す」を押してください');
       return;
     }
     const save = this.onSave;
@@ -160,50 +161,50 @@ export class FaceEditor {
     const t = this.target;
     if (!t) return;
     const head = el('div', 'face-head');
-    const title = el('strong', '', t.kind === 'tab' ? 'タブの見た目' : t.kind === 'bot' ? 'ボットのセルの見た目' : '入口の見た目');
+    const title = el('strong', '', t.kind === 'tab' ? tr('タブの見た目') : t.kind === 'bot' ? tr('ボットのセルの見た目') : tr('入口の見た目'));
     title.id = 'face-editor-title';
-    head.append(title, el('span', 'face-sub', t.kind === 'tab' ? t.tab.title || t.tab.url : t.kind === 'bot' ? `ボット「${t.name}」` : `シート「${t.name}」へ`));
+    head.append(title, el('span', 'face-sub', t.kind === 'tab' ? t.tab.title || t.tab.url : t.kind === 'bot' ? tr('ボット「{0}」', { 0: t.name }) : tr('シート「{0}」へ', { 0: t.name })));
 
     const top = el('div', 'face-top');
     const preview = el('div', 'face-preview');
     preview.append(this.previewSvg());
     const imageBox = el('div', 'face-image-box');
-    imageBox.append(el('div', 'face-label', '画像'));
+    imageBox.append(el('div', 'face-label', tr('画像')));
     const row = el('div', 'face-row');
-    row.append(this.button('画像を選ぶ…', () => this.file.click(), 'パソコンの画像を選ぶ'));
+    row.append(this.button(tr('画像を選ぶ…'), () => this.file.click(), tr('パソコンの画像を選ぶ')));
     if (t.kind === 'tab') {
-      const fromPage = this.button('ページの画面から', () => void this.useUrl(t.thumb ?? ''), 'このタブのページの画面を画像にする');
+      const fromPage = this.button(tr('ページの画面から'), () => void this.useUrl(t.thumb ?? ''), tr('このタブのページの画面を画像にする'));
       fromPage.disabled = !t.thumb;
-      if (!t.thumb) fromPage.title = '一度表示したページだけ（眠ったまま開いていないタブは、開いてから）';
-      const crop = this.button('六角形に切り取る…', () => {
+      if (!t.thumb) fromPage.title = tr('一度表示したページだけ（眠ったまま開いていないタブは、開いてから）');
+      const crop = this.button(tr('六角形に切り取る…'), () => {
         const run = this.onCrop;
         const result = this.result();
         this.close();
         run?.(result);
-      }, 'ページを六角形に切り取って、このタブの画像にする');
+      }, tr('ページを六角形に切り取って、このタブの画像にする'));
       crop.disabled = !t.canCrop || !this.onCrop;
-      if (!t.canCrop) crop.title = '表示中のタブだけ切り取れます';
+      if (!t.canCrop) crop.title = tr('表示中のタブだけ切り取れます');
       row.append(fromPage, crop);
     }
-    const clear = this.button('外す', () => {
+    const clear = this.button(tr('外す'), () => {
       this.draft.href = undefined;
       this.draft.imageChanged = true;
       this.refresh();
-    }, '画像を外す');
+    }, tr('画像を外す'));
     clear.disabled = !this.draft.href;
     clear.dataset.key = 'clear';
     row.append(clear);
-    imageBox.append(row, el('div', 'face-hint', 'Ctrl+V で画像を貼れます'));
+    imageBox.append(row, el('div', 'face-hint', tr('Ctrl+V で画像を貼れます')));
     top.append(preview, imageBox);
 
-    const commentLabel = el('label', 'face-label', 'コメント');
+    const commentLabel = el('label', 'face-label', tr('コメント'));
     commentLabel.htmlFor = 'face-comment';
     const commentRow = el('div', 'face-comment-row');
     const input = el('input', 'face-comment');
     input.id = 'face-comment';
     input.maxLength = MAX_TAB_COMMENT;
     input.value = this.draft.comment;
-    input.placeholder = t.kind === 'tab' ? '短いひとこと（40文字まで）' : t.kind === 'bot' ? 'セルのコメント（40文字まで）' : '入口のコメント（40文字まで）';
+    input.placeholder = t.kind === 'tab' ? tr('短いひとこと（40文字まで）') : t.kind === 'bot' ? tr('セルのコメント（40文字まで）') : tr('入口のコメント（40文字まで）');
     input.spellcheck = false;
     const count = el('span', 'face-count', `${[...this.draft.comment].length}/${MAX_TAB_COMMENT}`);
     input.addEventListener('input', () => {
@@ -225,7 +226,7 @@ export class FaceEditor {
       looks.setAttribute('role', 'group');
       looks.setAttribute('aria-label', 'このタブの見え方');
       const options: { id: TabLook | null; label: string; hint: string }[] = [
-        { id: null, label: '全体に合わせる', hint: `盤面の左上の ▾ で選んだ見え方（今は「${TAB_LOOKS.find((l) => l.id === t.globalLook)?.label ?? 'おまかせ'}」）` },
+        { id: null, label: tr('全体に合わせる'), hint: tr('盤面の左上の ▾ で選んだ見え方（今は「{0}」）', { 0: TAB_LOOKS.find((l) => l.id === t.globalLook)?.label ?? 'おまかせ' }) },
         ...TAB_LOOKS,
       ];
       for (const o of options) {
@@ -238,12 +239,12 @@ export class FaceEditor {
         b.setAttribute('aria-pressed', String(this.draft.look === o.id));
         looks.append(b);
       }
-      parts.push(el('div', 'face-label', 'このタブの見え方'), looks);
+      parts.push(el('div', 'face-label', tr('このタブの見え方')), looks);
     }
     const actions = el('div', 'face-actions');
-    const save = el('button', 'preview-button primary', '残す');
+    const save = el('button', 'preview-button primary', tr('残す'));
     save.type = 'submit';
-    actions.append(this.status, save, this.button('やめる', () => this.close()));
+    actions.append(this.status, save, this.button(tr('やめる'), () => this.close()));
     parts.push(actions);
     this.element.replaceChildren(...parts);
   }
@@ -268,7 +269,7 @@ export class FaceEditor {
 
   private previewSvg(): SVGElement {
     const t = this.target;
-    const svg = svgEl('svg', { class: 'face-preview-svg', viewBox: '-23 -23 46 47', role: 'img', 'aria-label': '盤面ではこう見えます' });
+    const svg = svgEl('svg', { class: 'face-preview-svg', viewBox: '-23 -23 46 47', role: 'img', 'aria-label': tr('盤面ではこう見えます') });
     if (!t) return svg;
     const c = { x: 0, y: 0 };
     if (t.kind === 'tab') {
@@ -302,12 +303,12 @@ export class FaceEditor {
 
   private async useBlob(blob: Blob) {
     if (!blob.type.startsWith('image/')) {
-      this.status.textContent = '画像のファイルを選んでください';
+      this.status.textContent = tr('画像のファイルを選んでください');
       return;
     }
     const target = this.target;
     this.loading++;
-    this.status.textContent = '読み込んでいます…';
+    this.status.textContent = tr('読み込んでいます…');
     // blob: の URL は画面の決まり（CSP）で画像に使えないので、data: の URL にして読む
     const url = await new Promise<string>((resolve) => {
       const reader = new FileReader();
@@ -318,7 +319,7 @@ export class FaceEditor {
     if (this.target !== target) return; // 読んでいる間に欄を閉じた・ほかのタブの欄を開いた
     this.loading--;
     if (!url) {
-      this.status.textContent = 'この画像は読めませんでした';
+      this.status.textContent = tr('この画像は読めませんでした');
       return;
     }
     await this.useUrl(url);
@@ -328,12 +329,12 @@ export class FaceEditor {
     const target = this.target;
     if (!src || !target) return;
     this.loading++;
-    this.status.textContent = '読み込んでいます…';
+    this.status.textContent = tr('読み込んでいます…');
     const small = await shrinkImage(src, IMAGE_MAX).catch(() => null);
     if (this.target !== target) return; // 読んでいる間に欄を閉じた・ほかのタブの欄を開いた
     this.loading--;
     if (!small) {
-      this.status.textContent = 'この画像は読めませんでした';
+      this.status.textContent = tr('この画像は読めませんでした');
       return;
     }
     this.draft.href = small;

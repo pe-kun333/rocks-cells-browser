@@ -2,7 +2,9 @@
 // テーマを六角の並び（上の段に明るい 8、下の段に中間と暗い 5）で選ぶ。押すとすぐ全部の面が変わる（保存すると storage で届く）。
 // 自動のときは、上の段が「明るいとき」、下の段が「暗いとき」のテーマ。いつも同じのときは 13 から 1 つ。
 // 六角の見本は data-theme-swatch でそのテーマの語を受けて描く（色の値は themes.css だけにある）
+import { send } from './bridge';
 import { svgEl } from './cellface';
+import { lang, loadLangPref, type LangPref, resolveLang, saveLangPref, t } from './i18n';
 import { currentTheme, DEFAULT_THEME_PREF, loadThemePref, saveThemePref, type ThemePref, type ThemeRef } from './theme';
 import { THEMES, type ThemeInfo } from './themes';
 import { el } from './util';
@@ -23,13 +25,13 @@ export function startThemeMenu(button: HTMLButtonElement, menu: HTMLElement) {
     dark: menu.querySelector<HTMLElement>('[data-row="dark"]') as HTMLElement,
   };
 
-  const swatches = THEMES.map((t) => {
+  const swatches = THEMES.map((info) => {
     const item = el('button', 'theme-swatch');
     item.setAttribute('role', 'menuitemradio');
-    item.dataset.id = t.id;
-    item.title = t.ja;
+    item.dataset.id = info.id;
+    item.title = t(info.ja);
     const paint = el('span', 'theme-swatch-paint');
-    paint.dataset.themeSwatch = t.id;
+    paint.dataset.themeSwatch = info.id;
     const svg = svgEl('svg', { viewBox: '0 0 24 24.5', 'aria-hidden': 'true' });
     svg.append(
       svgEl('polygon', { class: 'sw-sel', points: SEL }),
@@ -38,17 +40,17 @@ export function startThemeMenu(button: HTMLButtonElement, menu: HTMLElement) {
     );
     paint.append(svg);
     item.append(paint);
-    item.addEventListener('click', () => choose(t));
-    (t.kind === 'dark' ? rows.dark : rows.light).append(item);
-    return { info: t, item };
+    item.addEventListener('click', () => choose(info));
+    (info.kind === 'dark' ? rows.dark : rows.light).append(item);
+    return { info, item };
   });
 
   // 自動では、その明暗の欄を替える。いつも同じでは、そのテーマにする
-  function choose(t: ThemeInfo) {
+  function choose(info: ThemeInfo) {
     const pref = loadThemePref();
-    const ref: ThemeRef = { id: t.id, kind: t.kind };
+    const ref: ThemeRef = { id: info.id, kind: info.kind };
     if (pref.mode === 'fixed') save({ ...pref, fixed: ref });
-    else if (t.kind === 'dark') save({ ...pref, dark: ref });
+    else if (info.kind === 'dark') save({ ...pref, dark: ref });
     else save({ ...pref, light: ref });
   }
 
@@ -71,28 +73,52 @@ export function startThemeMenu(button: HTMLButtonElement, menu: HTMLElement) {
   });
   reset.addEventListener('click', () => save(DEFAULT_THEME_PREF));
 
-  const nameOf = (r: ThemeRef) => THEMES.find((t) => t.id === r.id)?.ja ?? r.id;
+  // 言語（英語版 E0）：自動（Windows の言語）・日本語・English。切り替えは次に起動したときから
+  const langButtons = [...menu.querySelectorAll<HTMLButtonElement>('[data-lang]')];
+  const langNote = menu.querySelector<HTMLElement>('.lang-note');
+  for (const b of langButtons) {
+    b.addEventListener('click', () => {
+      const pref = (b.dataset.lang ?? 'auto') as LangPref;
+      saveLangPref(pref);
+      send({ type: 'setLang', pref }); // C++ 側の言葉（ダイアログ・右クリックなど）も次の起動から合わせる
+      renderLang();
+    });
+  }
+  function renderLang() {
+    const pref = loadLangPref();
+    for (const b of langButtons) b.setAttribute('aria-checked', String(b.dataset.lang === pref));
+    if (!langNote) return;
+    const next = resolveLang(pref, typeof navigator === 'undefined' ? undefined : navigator.languages);
+    langNote.textContent = next !== lang() ? t('次に起動したときから切り替わります') : t('今の言語：{lang}', { lang: lang() === 'en' ? 'English' : '日本語' });
+  }
+
+  const nameOf = (r: ThemeRef) => {
+    const found = THEMES.find((x) => x.id === r.id);
+    return found ? t(found.ja) : r.id;
+  };
 
   function render() {
     const pref = loadThemePref();
     const shown = currentTheme();
-    now.textContent = `今：${nameOf(shown)}`;
+    now.textContent = t('今：{name}', { name: nameOf(shown) });
     for (const b of modes) b.setAttribute('aria-checked', String(b.dataset.themeMode === pref.mode));
     const fixed = pref.mode === 'fixed';
-    rows.light.setAttribute('aria-label', fixed ? 'テーマ（明るい）' : '明るいときのテーマ');
-    rows.dark.setAttribute('aria-label', fixed ? 'テーマ（暗い）' : '暗いときのテーマ');
+    rows.light.setAttribute('aria-label', fixed ? t('テーマ（明るい）') : t('明るいときのテーマ'));
+    rows.dark.setAttribute('aria-label', fixed ? t('テーマ（暗い）') : t('暗いときのテーマ'));
     for (const { info, item } of swatches) {
       const chosen = fixed ? pref.fixed.id === info.id : (info.kind === 'dark' ? pref.dark : pref.light).id === info.id;
       item.setAttribute('aria-checked', String(chosen));
       item.classList.toggle('shown', shown.id === info.id);
-      item.setAttribute('aria-label', `${info.ja}（${info.kind === 'dark' ? '暗い' : info.kind === 'hc' ? '明るい・線が濃い' : '明るい'}）`);
+      const name = t(info.ja);
+      item.setAttribute('aria-label', info.kind === 'dark' ? t('{name}（暗い）', { name }) : info.kind === 'hc' ? t('{name}（明るい・線が濃い）', { name }) : t('{name}（明るい）', { name }));
     }
-    slots.textContent = fixed ? `いつも：${nameOf(pref.fixed)}` : `明るいとき：${nameOf(pref.light)}　暗いとき：${nameOf(pref.dark)}`;
+    slots.textContent = fixed ? t('いつも：{name}', { name: nameOf(pref.fixed) }) : t('明るいとき：{light}　暗いとき：{dark}', { light: nameOf(pref.light), dark: nameOf(pref.dark) });
     pages.setAttribute('aria-checked', String(pref.pages === 'theme'));
     pages.setAttribute('aria-disabled', String(!fixed));
     pages.title = fixed
-      ? 'ページ（タブ）の明暗も、このテーマの明暗にします。外すと Windows の明暗に従います'
-      : '自動のときは、ページも Windows の明暗に従います（いつも同じテーマのときに選べます）';
+      ? t('ページ（タブ）の明暗も、このテーマの明暗にします。外すと Windows の明暗に従います')
+      : t('自動のときは、ページも Windows の明暗に従います（いつも同じテーマのときに選べます）');
+    renderLang();
   }
 
   function open(show: boolean) {

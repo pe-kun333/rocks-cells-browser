@@ -2,6 +2,7 @@
 //   C++ は起動のあいさつ（hello）に sessionState（ok・missing・unreadable）と、読めないときの sessionRecovery を添える
 //   （src/storage.cpp の LoadSessionForUi）。ここは DOM を使わない決めごとだけ（テストは test/session-guard.test.ts）
 //   メモの台帳の守り（memocells.ts の load。読めなければ書かない）と同じ考え：決めるまでは書かない
+import { t } from './i18n';
 import { parseSession } from './session';
 import type { SessionData } from './types';
 
@@ -81,26 +82,26 @@ export function formatSavedAt(ms: number): string {
 export function sessionNoticeText(recovery: SessionRecovery): SessionNoticeText {
   const why =
     recovery.reason === 'open'
-      ? '盤面の保存ファイル（session.json）を開けませんでした（ほかのアプリが使っている・権限が無い、など）。'
+      ? t('盤面の保存ファイル（session.json）を開けませんでした（ほかのアプリが使っている・権限が無い、など）。')
       : recovery.reason === 'shape'
-        ? '盤面の保存ファイル（session.json）が、この版の知らない形でした（新しい版で保存した、など）。'
-        : '盤面の保存ファイル（session.json）が壊れていて読めませんでした。';
+        ? t('盤面の保存ファイル（session.json）が、この版の知らない形でした（新しい版で保存した、など）。')
+        : t('盤面の保存ファイル（session.json）が壊れていて読めませんでした。');
   const copy = recovery.quarantine
-    ? `元のファイルはそのまま残し、写しを ${recovery.quarantine} に作りました（データフォルダの直下）。`
+    ? t('元のファイルはそのまま残し、写しを {0} に作りました（データフォルダの直下）。', { 0: recovery.quarantine })
     : recovery.reason === 'shape'
-      ? '元のファイルはそのまま残しています。'
-      : '元のファイルはそのまま残しています（写しは作れませんでした）。';
+      ? t('元のファイルはそのまま残しています。')
+      : t('元のファイルはそのまま残しています（写しは作れませんでした）。');
   const now = recovery.backup
-    ? `いまの盤面は、控え ${recovery.backup}${recovery.backupSavedAt ? `（${formatSavedAt(recovery.backupSavedAt)} に保存したもの）` : ''}から戻したものです。`
-    : '使える控えが無いので、いまの盤面は新しいもの（タブ 1 枚）です。';
-  const held = '決めるまでは、盤面を保存しません。';
+    ? t('いまの盤面は、控え {0}{1}から戻したものです。', { 0: recovery.backup, 1: recovery.backupSavedAt ? `（${formatSavedAt(recovery.backupSavedAt)} に保存したもの）` : '' })
+    : t('使える控えが無いので、いまの盤面は新しいもの（タブ 1 枚）です。');
+  const held = t('決めるまでは、盤面を保存しません。');
   // 開けなかっただけなら、ファイルは無事なことが多い：書き直さず、開き直すのをすすめる。写しが無いときも同じ
   const recommend: 'accept' | 'decline' = recovery.reason === 'open' || !recovery.quarantine || !recovery.backup ? 'decline' : 'accept';
   return {
-    title: recovery.backup ? '盤面を控えから戻しました' : '前回の盤面を読めませんでした',
+    title: recovery.backup ? t('盤面を控えから戻しました') : t('前回の盤面を読めませんでした'),
     body: [why, copy, now, held],
-    accept: recovery.backup ? 'この盤面で続ける（保存を始める）' : '新しい盤面で続ける（session.json を書き直す）',
-    decline: '保存しないで続ける（閉じたあと、ファイルを確かめる）',
+    accept: recovery.backup ? t('この盤面で続ける（保存を始める）') : t('新しい盤面で続ける（session.json を書き直す）'),
+    decline: t('保存しないで続ける（閉じたあと、ファイルを確かめる）'),
     recommend,
   };
 }
@@ -118,4 +119,4 @@ export class SaveHealth {
   }
 }
 
-export const SAVE_FAILED_TEXT = '盤面（session.json）を保存できていません。ディスクの空き・フォルダの権限・ほかのアプリがファイルを開いていないかを確かめてください（直ると、この知らせは消えます）。';
+export const SAVE_FAILED_TEXT = t('盤面（session.json）を保存できていません。ディスクの空き・フォルダの権限・ほかのアプリがファイルを開いていないかを確かめてください（直ると、この知らせは消えます）。');

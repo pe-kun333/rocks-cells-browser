@@ -1,4 +1,5 @@
 // 盤面の右クリックのメニュー（コピー・貼り付け・セット）と、短いお知らせ（トースト）
+import { t } from '../i18n';
 import { armConfirm } from '../confirm-arm';
 import { el } from '../util';
 
@@ -138,7 +139,7 @@ export class CellMenu {
       input.spellcheck = false;
     }
     input.setAttribute('aria-label', label);
-    const ok = el('button', 'cell-menu-small', '決める');
+    const ok = el('button', 'cell-menu-small', t('決める'));
     ok.type = 'submit';
     form.append(el('div', 'cell-menu-section', label), input, ok);
     form.addEventListener('submit', (e) => {
@@ -172,15 +173,15 @@ export class CellMenu {
     let rotate = draft.rotate;
     const form = el('form', 'cell-menu-form');
     const kindRow = el('div', 'cell-menu-kind');
-    const word = el('button', 'cell-menu-small cell-menu-toggle', '言葉');
-    const quiz = el('button', 'cell-menu-small cell-menu-toggle', '問い');
-    const rotateButton = el('button', 'cell-menu-small cell-menu-toggle', '⟳ めぐるに出す');
+    const word = el('button', 'cell-menu-small cell-menu-toggle', t('言葉'));
+    const quiz = el('button', 'cell-menu-small cell-menu-toggle', t('問い'));
+    const rotateButton = el('button', 'cell-menu-small cell-menu-toggle', t('⟳ めぐるに出す'));
     word.type = 'button';
     quiz.type = 'button';
     rotateButton.type = 'button';
-    word.title = '言葉と意味のカードにする';
-    quiz.title = '問いと答えのカードにする';
-    rotateButton.title = 'めぐる表示（右の月の窓）に出す印を付けて入れます。既定は月の窓の ⚙ の「新しく入れたカードに ⟳ を付ける」';
+    word.title = t('言葉と意味のカードにする');
+    quiz.title = t('問いと答えのカードにする');
+    rotateButton.title = t('めぐる表示（右の月の窓）に出す印を付けて入れます。既定は月の窓の ⚙ の「新しく入れたカードに ⟳ を付ける」');
     const paint = () => {
       word.setAttribute('aria-pressed', String(kind === 'word'));
       quiz.setAttribute('aria-pressed', String(kind === 'quiz'));
@@ -203,38 +204,38 @@ export class CellMenu {
     const front = el('input');
     front.value = draft.front;
     front.maxLength = 400;
-    front.placeholder = '表（言葉・問い）';
+    front.placeholder = t('表（言葉・問い）');
     front.setAttribute('aria-label', '表');
     const back = el('textarea');
     back.value = draft.back;
     back.maxLength = 1000;
     back.rows = 3;
-    back.placeholder = '裏（意味・答え）';
+    back.placeholder = t('裏（意味・答え）');
     back.setAttribute('aria-label', '裏');
     const example = el('input');
     example.value = draft.example;
     example.maxLength = 300;
-    example.placeholder = '前後の文（なくてもよい）';
+    example.placeholder = t('前後の文（なくてもよい）');
     example.setAttribute('aria-label', '前後の文');
     // メモ（K5b）：左の単語帳のカードに入る。Esc で閉じる（裏の欄と同じ）
     const memo = el('textarea');
-    memo.placeholder = 'メモ（なくてもよい）';
+    memo.placeholder = t('メモ（なくてもよい）');
     memo.maxLength = 500;
     memo.rows = 2;
     memo.setAttribute('aria-label', 'メモ');
     memo.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') this.close();
     });
-    const warn = el('div', 'cell-menu-note', '表と裏の両方を書いてください');
+    const warn = el('div', 'cell-menu-note', t('表と裏の両方を書いてください'));
     warn.hidden = true;
-    const ok = el('button', 'cell-menu-small', '入れる');
+    const ok = el('button', 'cell-menu-small', t('入れる'));
     ok.type = 'submit';
-    const cancel = el('button', 'cell-menu-small', 'やめる');
+    const cancel = el('button', 'cell-menu-small', t('やめる'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => this.close());
     const row = el('div', 'cell-menu-kind');
     row.append(ok, cancel);
-    form.append(el('div', 'cell-menu-section', '単語帳に入れる'), el('div', 'cell-menu-note', draft.note), kindRow, front, back, example, memo, rotateButton, warn, row);
+    form.append(el('div', 'cell-menu-section', t('単語帳に入れる')), el('div', 'cell-menu-note', draft.note), kindRow, front, back, example, memo, rotateButton, warn, row);
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const nextFront = front.value.trim();

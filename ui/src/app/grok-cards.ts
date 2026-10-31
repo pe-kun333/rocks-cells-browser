@@ -1,6 +1,7 @@
 import { BOT_FEATURES } from '../features';
 // 下の区画の「メモ｜Grok Cards」（段 3・4）
 //   段 "3" は常にオン（旗は廃止）なので、この「無いとき」の道は今は通らない。旗 "3" が無いときは、札も列も足さない。メモの升目・ドラッグ・詰めは、このタブを出していないあいだ今までどおり
+import { t } from '../i18n';
 import type { BotCardOrigin } from '../bot-replies';
 import { cardsStageOn, onCardsStore, readCardsDevState, readCardsPlace, readColumnPrefs, readQueue, shownCountLine, writeCardsOpen, writeCardsPlace, writeColumnPrefs } from '../cards-stages';
 import { columnKey, orderColumns, withAddedColumn } from '../grok-cards-columns';
@@ -98,7 +99,7 @@ export function mountGrokCards(o: MountOpts): GrokCardsMount {
   return new GrokCardsView(o);
 }
 
-const BOARD_TAB_TITLE = 'ボード（メモのカードを自由に置く面。今は準備中）';
+const BOARD_TAB_TITLE = t('ボード（メモのカードを自由に置く面。今は準備中）');
 
 class GrokCardsView {
   private tab: PaneTab = 'memo';
@@ -136,7 +137,7 @@ class GrokCardsView {
     this.tabBtn.dataset.key = 'grok-tab';
     this.tabBtn.setAttribute('role', 'tab');
     this.tabBtn.setAttribute('aria-selected', 'false');
-    this.tabBtn.title = 'Grok Cards（ボットへの下書き）';
+    this.tabBtn.title = t('Grok Cards（ボットへの下書き）');
     this.tabBtn.addEventListener('click', () => {
       if (cardsTabClick(this.isUpper()) === 'place-bottom') {
         this.setCardsPlace('bottom');
@@ -358,7 +359,7 @@ class GrokCardsView {
     if (!this.board) {
       const place: BoardPlaceHook = { request: (to) => this.placeBoard(to) };
       const panel = new MemoBoardPanel(this.o.paneHeight, this.o.boardSource, { ask: (action) => (this.o.boardAsk ?? this.o.ask)(action), pick: this.o.boardPick, onNotice: this.o.boardNotices?.onNotice, onUndoSend: this.o.boardNotices?.onUndoSend, template: this.o.boardTemplate, place });
-      const btn = el('button', 'grok-cards-tab board-tab', 'ボード');
+      const btn = el('button', 'grok-cards-tab board-tab', t('ボード'));
       btn.type = 'button';
       btn.dataset.key = 'board-tab';
       btn.setAttribute('role', 'tab');
@@ -394,7 +395,7 @@ class GrokCardsView {
     this.tabBtn.textContent = cardsTabLabel(upper ? 'upper' : 'bottom');
     this.tabBtn.classList.toggle('is-upper', upper);
     this.tabCount.textContent = upper ? '' : line;
-    this.tabBtn.title = upper ? '押すと下の面に戻します' : line ? `Grok Cards（${line}）` : 'Grok Cards（ボットへの下書き）';
+    this.tabBtn.title = upper ? t('押すと下の面に戻します') : line ? `Grok Cards（${line}）` : t('Grok Cards（ボットへの下書き）');
   }
 
   private isUpper(): boolean {
@@ -531,15 +532,15 @@ class GrokCardsView {
     const bar = el('div', 'grok-cards-place');
     bar.setAttribute('role', 'group');
     bar.setAttribute('aria-label', '出す場所');
-    bar.append(el('span', 'grok-cards-place-label', '出す場所'));
+    bar.append(el('span', 'grok-cards-place-label', t('出す場所')));
     for (const [place, label] of [
-      ['bottom', '下の面'],
-      ['upper', '上の半分'],
+      ['bottom', t('下の面')],
+      ['upper', t('上の半分')],
     ] as const) {
       const button = el('button', 'grok-cards-place-btn', label);
       button.type = 'button';
       button.dataset.place = place;
-      if (place === 'upper') button.title = 'メモと一緒に見ます。下のタブから戻れます';
+      if (place === 'upper') button.title = t('メモと一緒に見ます。下のタブから戻れます');
       button.addEventListener('click', () => this.setCardsPlace(place));
       bar.append(button);
     }
@@ -592,7 +593,7 @@ class GrokCardsView {
     for (const column of columns) cols.append(this.column(column.address, column.title));
     if (cardsStageOn('7')) cols.append(this.addColumn(columns.map((column) => column.key), prefs.hidden));
     const note = el('div', 'grok-cards-note');
-    const bits = [this.notice, this.data.refused ? '台帳を読めていないので、下書きは保存できません。書いた文はこの欄に残しています' : ''].filter(Boolean);
+    const bits = [this.notice, this.data.refused ? t('台帳を読めていないので、下書きは保存できません。書いた文はこの欄に残しています') : ''].filter(Boolean);
     note.textContent = bits.join(' ');
     note.hidden = bits.length === 0;
     this.renderHost().replaceChildren(note, cols);
@@ -612,7 +613,7 @@ class GrokCardsView {
     const col = el('section', 'grok-cards-col');
     col.setAttribute('aria-label', title);
     const head = el('h3', 'grok-cards-col-head', title);
-    const add = el('button', 'grok-cards-add', '＋下書き');
+    const add = el('button', 'grok-cards-add', t('＋下書き'));
     add.type = 'button';
     add.addEventListener('click', () => {
       if (!cardsStageOn('4')) {
@@ -624,7 +625,7 @@ class GrokCardsView {
       this.render();
       this.root.querySelector<HTMLTextAreaElement>(`[data-key="compose:${CSS.escape(address)}"]`)?.focus();
     });
-    const write = el('button', 'grok-cards-add', '小窓で書く');
+    const write = el('button', 'grok-cards-add', t('小窓で書く'));
     write.type = 'button';
     if (!BOT_FEATURES) write.style.display = 'none'; // 公開版（rebuild-public.ps1）
     write.addEventListener('click', () => {
@@ -641,7 +642,7 @@ class GrokCardsView {
     });
     const held = cardsStageOn('5') ? heldGroups(this.data.cards) : new Set<number>();
     const queued = this.queue.filter((draft) => draft.botId === address && (draft.group == null || !held.has(draft.group)));
-    if (cards.length === 0 && queued.length === 0) col.append(el('p', 'grok-cards-empty', '下書きはまだありません'));
+    if (cards.length === 0 && queued.length === 0) col.append(el('p', 'grok-cards-empty', t('下書きはまだありません')));
     for (const card of cards) col.append(this.card(card));
     for (const draft of queued) col.append(this.queueCard(draft));
     return col;
@@ -652,10 +653,10 @@ class GrokCardsView {
     const text = el('textarea');
     text.dataset.key = `compose:${address}`;
     text.value = this.compose.get(address) ?? '';
-    text.placeholder = '頼む文';
+    text.placeholder = t('頼む文');
     text.setAttribute('aria-label', '頼む文');
     text.addEventListener('input', () => this.compose.set(address, text.value));
-    const save = el('button', 'grok-cards-save', '下書きにする');
+    const save = el('button', 'grok-cards-save', t('下書きにする'));
     save.type = 'submit';
     form.append(text, save);
     form.addEventListener('submit', (e) => {
@@ -694,10 +695,10 @@ class GrokCardsView {
     if (face.label) box.append(el('p', 'grok-card-meta', face.label));
     const arrived = this.arrivedLine(card.tags);
     if (arrived) box.append(el('p', 'grok-card-meta grok-card-arrived', arrived));
-    if (parsed.duplicate) box.append(el('p', 'grok-card-meta', '宛て先が二つ'));
+    if (parsed.duplicate) box.append(el('p', 'grok-card-meta', t('宛て先が二つ')));
     const reply = this.replies.get(card.id);
     if (open && reply) box.append(el('p', 'grok-card-reply', reply));
-    box.append(this.btn(open ? '閉じる' : '開く', () => this.toggleOpen(card.id)));
+    box.append(this.btn(open ? t('閉じる') : t('開く'), () => this.toggleOpen(card.id)));
     this.actions(box, card, face.kind, parsed.address);
     if (sent?.group != null && cardsStageOn('5')) {
       for (const draft of this.queue.filter((item) => item.group === sent.group)) box.append(this.queueCard(draft));
@@ -740,48 +741,48 @@ class GrokCardsView {
       if (address && address !== EVERYONE_ADDRESS) this.o.ask({ command: 'openGrokCardApp', id: card.id });
     };
     if (kind === 'draft' && cardsStageOn('5')) {
-      box.append(this.btn('コピーして開く ↗', () => this.o.ask({ command: 'copyGrokCard', id: card.id })));
+      box.append(this.btn(t('コピーして開く ↗'), () => this.o.ask({ command: 'copyGrokCard', id: card.id })));
       return;
     }
     if (kind === 'copied' || kind === 'waiting') {
-      if (cardsStageOn('5') && address && address !== EVERYONE_ADDRESS) box.append(this.btn('アプリを開く ↗', openApp));
-      if (cardsStageOn('7') && request?.fileId) box.append(this.btn('回答を開く', () => this.o.ask({ command: 'showGrokReply', id: card.id })));
-      if (cardsStageOn('7') && sent?.group != null) box.append(this.btn('回答を開く', () => this.o.ask({ command: 'botGroupRead', group: sent.group as number })));
+      if (cardsStageOn('5') && address && address !== EVERYONE_ADDRESS) box.append(this.btn(t('アプリを開く ↗'), openApp));
+      if (cardsStageOn('7') && request?.fileId) box.append(this.btn(t('回答を開く'), () => this.o.ask({ command: 'showGrokReply', id: card.id })));
+      if (cardsStageOn('7') && sent?.group != null) box.append(this.btn(t('回答を開く'), () => this.o.ask({ command: 'botGroupRead', group: sent.group as number })));
       return;
     }
     if (kind === 'unpasted') {
-      if (cardsStageOn('5') && address && address !== EVERYONE_ADDRESS) box.append(this.btn('↗ 開く', openApp));
-      if (cardsStageOn('6')) box.append(this.btn('貼った ✓', () => this.o.ask({ command: 'markGrokCardPasted', id: card.id })));
+      if (cardsStageOn('5') && address && address !== EVERYONE_ADDRESS) box.append(this.btn(t('↗ 開く'), openApp));
+      if (cardsStageOn('6')) box.append(this.btn(t('貼った ✓'), () => this.o.ask({ command: 'markGrokCardPasted', id: card.id })));
       return;
     }
     if (kind === 'late') {
-      box.append(this.btn('もう一度コピー', () => this.o.ask({ command: 'copyGrokCard', id: card.id })));
-      if (request) box.append(this.btn('待つのをやめる', () => this.o.ask({ command: 'botStopWaiting', botId: request.botId, requestId: request.requestId })));
+      box.append(this.btn(t('もう一度コピー'), () => this.o.ask({ command: 'copyGrokCard', id: card.id })));
+      if (request) box.append(this.btn(t('待つのをやめる'), () => this.o.ask({ command: 'botStopWaiting', botId: request.botId, requestId: request.requestId })));
       return;
     }
     if (kind === 'replied' && request?.fileId) {
-      box.append(this.btn('回答を開く', () => this.o.ask({ command: 'showGrokReply', id: card.id })));
-      box.append(this.btn('メモにする', () => this.o.ask({ command: 'botToMemo', botId: request.botId, fileId: request.fileId as string, to: 'right' })));
+      box.append(this.btn(t('回答を開く'), () => this.o.ask({ command: 'showGrokReply', id: card.id })));
+      box.append(this.btn(t('メモにする'), () => this.o.ask({ command: 'botToMemo', botId: request.botId, fileId: request.fileId as string, to: 'right' })));
       // 段 D6：出どころがある返事だけ。押すまで台帳は変わらない
       const origins = request.origin ?? [];
       origins.forEach((_, i) => {
         box.append(
           this.btn(
-            origins.length === 1 ? 'カードにする' : `カードにする（${i + 1}）`,
+            origins.length === 1 ? t('カードにする') : t('カードにする（{0}）', { 0: i + 1 }),
             () => this.o.ask({ command: 'botToCard', botId: request.botId, fileId: request.fileId as string, origin: i }),
-            '押すまで台帳は変わりません。新しい一番上のカードを足し、元のカードから関連「補足」を 1 本引きます',
+            t('押すまで台帳は変わりません。新しい一番上のカードを足し、元のカードから関連「補足」を 1 本引きます'),
           ),
         );
       });
       return;
     }
     if (kind === 'error') {
-      box.append(this.btn('見る', () => this.o.ask({ command: 'showGrokReply', id: card.id })));
+      box.append(this.btn(t('見る'), () => this.o.ask({ command: 'showGrokReply', id: card.id })));
       return;
     }
     if (kind === 'expired') {
-      box.append(this.btn('もう一度下書きにする', () => this.o.ask({ command: 'clearGrokCardSent', id: card.id })));
-      box.append(this.btn('外す', () => this.o.ask({ command: 'removeGrokCard', id: card.id })));
+      box.append(this.btn(t('もう一度下書きにする'), () => this.o.ask({ command: 'clearGrokCardSent', id: card.id })));
+      box.append(this.btn(t('外す'), () => this.o.ask({ command: 'removeGrokCard', id: card.id })));
     }
   }
 
@@ -802,7 +803,7 @@ class GrokCardsView {
   private addColumn(current: string[], hidden: string[]): HTMLElement {
     const col = el('section', 'grok-cards-col grok-cards-addcol');
     col.setAttribute('aria-label', '列を足す');
-    const button = el('button', 'grok-cards-add', '＋ 列を足す');
+    const button = el('button', 'grok-cards-add', t('＋ 列を足す'));
     button.type = 'button';
     button.addEventListener('click', () => {
       this.picker = !this.picker;
@@ -813,7 +814,7 @@ class GrokCardsView {
     const have = new Set(current);
     const choices = this.data.bots.filter((bot) => !have.has(columnKey(bot.id)));
     if (!choices.length) {
-      col.append(el('p', 'grok-cards-empty', '足せるボットはいません'));
+      col.append(el('p', 'grok-cards-empty', t('足せるボットはいません')));
       return col;
     }
     for (const bot of choices) {
@@ -832,7 +833,7 @@ class GrokCardsView {
 
   private queueCard(draft: BotDraft): HTMLElement {
     const aged = cardsStageOn('5') || cardsStageOn('7');
-    const note = aged ? queueNote(draft.createdAt, Date.now(), DRAFT_DAYS) : { text: `${DRAFT_DAYS} 日で順番待ちから外れます`, soon: false };
+    const note = aged ? queueNote(draft.createdAt, Date.now(), DRAFT_DAYS) : { text: t('{0} 日で順番待ちから外れます', { 0: DRAFT_DAYS }), soon: false };
     const box = el('article', `grok-card queue${note.soon ? ' is-soon' : ''}`);
     box.append(el('p', 'grok-card-text', draft.text));
     const who = draft.botName ? `${draft.botName}。` : '';

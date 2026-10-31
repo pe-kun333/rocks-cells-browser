@@ -1,5 +1,6 @@
 // 段 D7：書き足した画像を新しい一番上のカードにする計画（ui/src/annotate-card-plan.ts）
 import { readFileSync } from 'node:fs';
+import { unwrapT } from './source-text';
 import { describe, expect, it, vi } from 'vitest';
 import { MAX_LINKS_PER_CARD } from '../src/memo-card-links';
 import { planAnnotatedCard } from '../src/annotate-card-plan';
@@ -78,7 +79,7 @@ describe('planAnnotatedCard', () => {
 });
 
 describe('書き足しの配線', () => {
-  const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
+  const read = (path: string) => unwrapT(readFileSync(new URL(path, import.meta.url), 'utf8'));
 
   it('小窓の決めるボタンの文は今のまま。カード用の文は、渡したときだけ使う', () => {
     const edit = read('../src/panels/bot-image-edit.ts');

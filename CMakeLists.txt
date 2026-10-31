@@ -4,6 +4,11 @@ file(READ "${CMAKE_SOURCE_DIR}/version.json" _rc_version_json)
 string(JSON RC_VERSION GET "${_rc_version_json}" version)
 string(JSON RC_VERSION_LABEL GET "${_rc_version_json}" label)
 project(RocksCellsBrowser VERSION ${RC_VERSION} LANGUAGES CXX RC)
+# 公開版（rebuild-public.ps1）：exe の版の 4 つめ（無ければ 0）
+set(RC_VERSION_TWEAK "${PROJECT_VERSION_TWEAK}")
+if(RC_VERSION_TWEAK STREQUAL "")
+  set(RC_VERSION_TWEAK 0)
+endif()
 # 公開版（rebuild-public.ps1）：VC++ ランタイムを exe に組み込む（/MT。vc_redist が要らない）
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
@@ -47,6 +52,8 @@ add_executable(RocksCellsBrowser WIN32
   src/hexmemo.h
   src/hook.cpp
   src/hook.h
+  src/l10n.cpp
+  src/l10n.h
   src/livecaptions.cpp
   src/livecaptions.h
   src/media.cpp

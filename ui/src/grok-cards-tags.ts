@@ -1,6 +1,7 @@
 // Grok Cards の機械のタグ（計画の段 4。作者 1 の仮の既定）
 //   宛て先はメモのタグの頭に付ける。ふつうのタグの一覧・候補には出さない（付いていなければ、今までと変わらない）
 //   頭の字はここだけ。段 5 の「送った:」も、同じ置き場にする
+import { t } from './i18n';
 
 export const ADDRESS_PREFIX = '宛て:';
 export const SENT_PREFIX = '送った:';
@@ -96,7 +97,7 @@ export function withoutSent(tags: readonly string[]): string[] {
 // 作者 5 の仮の既定。止めない。外へは送らない。型の並びはここだけ
 export const SECRET_PATTERNS: readonly RegExp[] = [/sk-[A-Za-z0-9_-]{8,}/, /password\s*=/i, /[A-Za-z0-9_-]{24,}/];
 
-export const SECRET_NOTICE = '鍵のような字があります';
+export const SECRET_NOTICE = t('鍵のような字があります');
 
 export function looksLikeSecret(text: string): boolean {
   return SECRET_PATTERNS.some((re) => re.test(text));

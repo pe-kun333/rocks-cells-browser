@@ -3,6 +3,7 @@
 //   ・タブのシートを「セットに保存」すると、そのシートはタブから外れてセットの一覧に入り、タブには新しい空のシートが1つ入る
 //   ・セットを開くと、そのシートがタブに戻り、セットは一覧から外れる（シートはタブとセットの間を行き来する）
 //   ・保存先：ui-data\right-sheets.json
+import { t as tr } from './i18n';
 import { readData, writeData } from './data';
 import { isSheetId, RIGHT_MEMO_SHEET } from './sheets';
 
@@ -120,7 +121,7 @@ export class RightSheetStore {
   // 今のタブのシートをセットに保存し、タブには新しい空のシート（freshId）を1つ入れる
   saveSet(name: string, freshId: string): SheetSet | null {
     if (this.state.sets.length >= MAX_SETS) return null;
-    const set: SheetSet = { id: newSetId(), name: cleanName(name) || 'シートのセット', sheets: [...this.state.tabs], at: Date.now() };
+    const set: SheetSet = { id: newSetId(), name: cleanName(name) || tr('シートのセット'), sheets: [...this.state.tabs], at: Date.now() };
     this.state.sets = [set, ...this.state.sets];
     this.state.tabs = [freshId];
     this.state.active = freshId;
@@ -136,7 +137,7 @@ export class RightSheetStore {
     const before = [...this.state.tabs];
     let sets = this.state.sets.filter((s) => s.id !== setId);
     if (saveCurrentAs !== null && this.state.tabs.length > 0) {
-      sets = [{ id: newSetId(), name: cleanName(saveCurrentAs) || 'シートのセット', sheets: [...this.state.tabs], at: Date.now() }, ...sets].slice(0, MAX_SETS);
+      sets = [{ id: newSetId(), name: cleanName(saveCurrentAs) || tr('シートのセット'), sheets: [...this.state.tabs], at: Date.now() }, ...sets].slice(0, MAX_SETS);
     }
     this.state.sets = sets;
     this.state.tabs = set.sheets.slice(0, MAX_TABS);
@@ -207,7 +208,7 @@ function parseState(raw: unknown): State | null {
     const x = s as Record<string, unknown>;
     const sheets = ids(x.sheets, MAX_TABS);
     if (typeof x.id !== 'string' || sheets.length === 0 || sets.some((t) => t.id === x.id)) continue;
-    sets.push({ id: x.id, name: typeof x.name === 'string' ? cleanName(x.name) || 'シートのセット' : 'シートのセット', sheets, at: typeof x.at === 'number' ? x.at : 0 });
+    sets.push({ id: x.id, name: typeof x.name === 'string' ? cleanName(x.name) || tr('シートのセット') : tr('シートのセット'), sheets, at: typeof x.at === 'number' ? x.at : 0 });
   }
   const safeTabs = tabs.length > 0 ? tabs : [RIGHT_MEMO_SHEET];
   const active = typeof r.active === 'string' && safeTabs.includes(r.active) ? r.active : safeTabs[0];

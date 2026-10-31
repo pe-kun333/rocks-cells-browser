@@ -4,17 +4,18 @@
 //   ・はじめは切ってある。AI は使わない（ひとことは R3 から）
 //   ・単語帳の並びは「復習の時期が来たもの → 苦手なもの → ほか」。ほかは混ぜる。混ぜた並びは、カードが増えたり減ったりしたときだけ作り直す
 //   ・ここは DOM を知らない（見せ方は panels/moon-window.ts）
+import { t } from './i18n';
 import type { Reminder } from './types';
 import { isDue, isWeak, type VocabCard } from './vocab';
 
 export type RotateKind = 'vocab' | 'reminder';
 
 export const ROTATE_EVERY: readonly { ms: number; label: string }[] = [
-  { ms: 30_000, label: '30秒' },
-  { ms: 60_000, label: '1分' },
-  { ms: 180_000, label: '3分' },
-  { ms: 300_000, label: '5分' },
-  { ms: 600_000, label: '10分' },
+  { ms: 30_000, label: t('30秒') },
+  { ms: 60_000, label: t('1分') },
+  { ms: 180_000, label: t('3分') },
+  { ms: 300_000, label: t('5分') },
+  { ms: 600_000, label: t('10分') },
 ];
 
 // 単語帳のどのカードを映すか（K1）：全部／⟳ の印だけ／今日の復習と苦手だけ
@@ -56,7 +57,7 @@ export function savedMarkNew(): boolean {
   }
 }
 
-export const everyLabel = (ms: number) => ROTATE_EVERY.find((e) => e.ms === ms)?.label ?? `${Math.round(ms / 1000)}秒`;
+export const everyLabel = (ms: number) => ROTATE_EVERY.find((e) => e.ms === ms)?.label ?? t('{0}秒', { 0: Math.round(ms / 1000) });
 
 export type RotateTag = 'due' | 'weak' | 'other';
 
@@ -143,19 +144,19 @@ const DAY = 24 * HOUR;
 // 「あと 25 分」。時間になったあとも、次に替わるまでは「まもなく」
 export function remainingLabel(dueAt: number, now = Date.now()): string {
   const left = dueAt - now;
-  if (left <= 0) return 'まもなく';
-  if (left < MINUTE) return 'あと 1 分未満';
-  if (left < HOUR) return `あと ${Math.round(left / MINUTE)} 分`;
+  if (left <= 0) return t('まもなく');
+  if (left < MINUTE) return t('あと 1 分未満');
+  if (left < HOUR) return t('あと {0} 分', { 0: Math.round(left / MINUTE) });
   if (left < DAY) {
     const hours = Math.floor(left / HOUR);
     const minutes = Math.round((left % HOUR) / MINUTE);
-    if (minutes >= 60) return `あと ${hours + 1} 時間`;
-    if (minutes === 0) return `あと ${hours} 時間`;
-    return `あと ${hours} 時間 ${minutes} 分`;
+    if (minutes >= 60) return t('あと {0} 時間', { 0: hours + 1 });
+    if (minutes === 0) return t('あと {0} 時間', { 0: hours });
+    return t('あと {0} 時間 {1} 分', { 0: hours, 1: minutes });
   }
   const days = Math.floor(left / DAY);
   const hours = Math.round((left % DAY) / HOUR);
-  if (hours >= 24) return `あと ${days + 1} 日`;
-  if (hours === 0) return `あと ${days} 日`;
-  return `あと ${days} 日 ${hours} 時間`;
+  if (hours >= 24) return t('あと {0} 日', { 0: days + 1 });
+  if (hours === 0) return t('あと {0} 日', { 0: days });
+  return t('あと {0} 日 {1} 時間', { 0: days, 1: hours });
 }

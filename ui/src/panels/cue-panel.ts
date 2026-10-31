@@ -2,6 +2,7 @@
 //   詳しく：下書きと、いつもの依頼の小窓まで。コピーもアプリも開かない。
 //   メモに残す：手元のメモのセルだけ。今は不要：その種類を、そのサイトで控えていく。
 //   渡し止めのサイトと、一時停止中と、見守る、では印を出さない。
+import { t } from '../i18n';
 import type { BotRole } from '../bot-roles';
 import { draftFromForm } from '../bot-send';
 import {
@@ -177,8 +178,8 @@ export class CuePanel {
     const mode = el('select', 'cue-mode');
     mode.setAttribute('aria-label', '合図の話し方');
     for (const [value, label] of [
-      ['cue', '合図だけ'],
-      ['watch', '見守る'],
+      ['cue', t('合図だけ')],
+      ['watch', t('見守る')],
     ] as const) {
       const option = el('option', '', label);
       option.value = value;
@@ -214,10 +215,10 @@ export class CuePanel {
       this.render();
     });
     const limitLabel = el('label', 'cue-limit-label');
-    limitLabel.append(document.createTextNode('1日に'), limit, document.createTextNode('回まで'));
+    limitLabel.append(document.createTextNode(t('1日に')), limit, document.createTextNode(t('回まで')));
     const head = el('div', 'cue-head');
-    head.append(el('span', 'cue-title', '合図'), mode, pause);
-    this.note.textContent = '詳しくを押すまで、コピーもアプリも開きません。渡し止めのサイトと、一時停止中は印を出しません。同じサイトで「今は不要」が3回続くと、その種類は控えます。';
+    head.append(el('span', 'cue-title', t('合図')), mode, pause);
+    this.note.textContent = t('詳しくを押すまで、コピーもアプリも開きません。渡し止めのサイトと、一時停止中は印を出しません。同じサイトで「今は不要」が3回続くと、その種類は控えます。');
     this.element.append(head, this.scope, limitLabel, this.note, this.cardHost);
     mode.dataset.role = 'mode';
     pause.dataset.role = 'pause';
@@ -231,8 +232,8 @@ export class CuePanel {
     const limit = this.element.querySelector<HTMLInputElement>('[data-role="limit"]');
     if (mode) mode.value = this.settings.mode;
     if (pause) {
-      pause.textContent = this.settings.paused ? '再開' : '一時停止';
-      pause.title = this.settings.paused ? '合図を再開します' : '合図を一時停止します（印を出さない）';
+      pause.textContent = this.settings.paused ? t('再開') : t('一時停止');
+      pause.title = this.settings.paused ? t('合図を再開します') : t('合図を一時停止します（印を出さない）');
     }
     if (limit && document.activeElement !== limit) limit.value = String(this.settings.dailyLimit);
     this.scope.textContent = cueScope(this.settings, this.local);
@@ -247,17 +248,17 @@ export class CuePanel {
     const box = el('article', 'cue-card');
     box.append(el('p', 'cue-line', card.line));
     const row = el('div', 'cue-actions');
-    const detail = el('button', 'ai-small', '詳しく');
+    const detail = el('button', 'ai-small', t('詳しく'));
     detail.type = 'button';
-    detail.title = '下書きと依頼の小窓を開きます。コピーするまで、アプリは開きません';
+    detail.title = t('下書きと依頼の小窓を開きます。コピーするまで、アプリは開きません');
     detail.addEventListener('click', () => void this.detail(card));
-    const memo = el('button', 'ai-small', 'メモに残す');
+    const memo = el('button', 'ai-small', t('メモに残す'));
     memo.type = 'button';
-    memo.title = '手元のメモのセルに残します。アプリは開きません';
+    memo.title = t('手元のメモのセルに残します。アプリは開きません');
     memo.addEventListener('click', () => this.keepMemo(card));
-    const skip = el('button', 'ai-small', '今は不要');
+    const skip = el('button', 'ai-small', t('今は不要'));
     skip.type = 'button';
-    skip.title = 'この種類の印を、このサイトでは控えていきます';
+    skip.title = t('この種類の印を、このサイトでは控えていきます');
     skip.addEventListener('click', () => this.skip(card));
     row.append(detail, memo, skip);
     box.append(row);
@@ -270,7 +271,7 @@ export class CuePanel {
     const blocked = !cueHost(card.url) || (await this.host.blocked(card.url));
     if (this.card) return; // 判定のあいだに、次の印が出た
     if (blocked) {
-      this.host.toast('このページは手元だけなので、下書きには残しません');
+      this.host.toast(t('このページは手元だけなので、下書きには残しません'));
       this.render();
       return;
     }
@@ -280,7 +281,7 @@ export class CuePanel {
     const target = this.host.target();
     const selection = card.kind === 'selection' ? card.selection : '';
     if (!target) {
-      this.host.toast('リンクのある Grok Bot がいないので、小窓は開けません。印だけ閉じました');
+      this.host.toast(t('リンクのある Grok Bot がいないので、小窓は開けません。印だけ閉じました'));
       this.render();
       return;
     }
@@ -299,7 +300,7 @@ export class CuePanel {
     };
     await addSingleDraft(draft);
     const opened = this.host.openForm({ text, url: card.url, title: card.title, ...(selection ? { selection } : {}), draftId: id });
-    this.host.toast(opened ? '下書きに残しました。コピーするまで、アプリは開きません' : '下書きに残しました。小窓はいま開けません');
+    this.host.toast(opened ? t('下書きに残しました。コピーするまで、アプリは開きません') : t('下書きに残しました。小窓はいま開けません'));
     this.render();
   }
 
@@ -308,9 +309,9 @@ export class CuePanel {
     this.settings = noteCueAccept(this.settings, card.host, card.kind);
     saveCueSettings(this.settings);
     this.card = null;
-    const lines = [card.line, card.title, card.url, card.selection ? `選んだ文：${card.selection}` : ''].filter(Boolean);
+    const lines = [card.line, card.title, card.url, card.selection ? t('選んだ文：{0}', { 0: card.selection }) : ''].filter(Boolean);
     this.host.saveMemo(lines.join('\n'));
-    this.host.toast('メモのセルに残しました。アプリは開いていません');
+    this.host.toast(t('メモのセルに残しました。アプリは開いていません'));
     this.render();
   }
 
@@ -320,7 +321,7 @@ export class CuePanel {
     saveCueSettings(this.settings);
     this.card = null;
     if (kindQuiet(this.settings, card.host, card.kind)) {
-      this.quietNote = `このサイトの「${CUE_KIND_LABEL[card.kind]}」は、今は不要が ${CUE_SKIP_LIMIT} 回続いたので控えます`;
+      this.quietNote = t('このサイトの「{0}」は、今は不要が {1} 回続いたので控えます', { 0: CUE_KIND_LABEL[card.kind], 1: CUE_SKIP_LIMIT });
     }
     this.render();
   }

@@ -1,5 +1,6 @@
 // Grok Cards の出す場所（段 9）。DOM も localStorage も使わない
 //   段 9 が無いときは、残っていても下の面。ホストへは upper か、戻すときの空だけを渡す
+import { t } from './i18n';
 
 export type CardsPlace = 'bottom' | 'upper';
 
@@ -8,7 +9,7 @@ export function normalizeCardsPlace(stage9: boolean, raw: unknown): CardsPlace {
 }
 
 export function cardsTabLabel(place: CardsPlace): string {
-  return place === 'upper' ? '↑ 上に出ています' : 'Grok Cards';
+  return place === 'upper' ? t('↑ 上に出ています') : 'Grok Cards';
 }
 
 // null は送らない。段 9 が無く、上半分を出したことも無いときは、今までの setSidebar のまま

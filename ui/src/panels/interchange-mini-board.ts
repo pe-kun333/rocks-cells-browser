@@ -1,6 +1,7 @@
 // 取り込みの一覧の「ミニ盤面」：新しいシートの姿を、計画の位置で小さく描く（設計 §9.4）
 //   ・新しいシートはまだ盤面に無いので、左の盤面の点線の見本では見せられない。一覧の中に SVG で描く
 //   ・六角形は島の色でぬる（島なしは灰色）。選んでいないメモは薄く。盤面の線は種類の色の点線。Grok Bot のメモには印
+import { t } from '../i18n';
 import { svgEl, svgText } from '../cellface';
 import { type Hex, hexCorners, hexToPixel } from '../hex';
 import { type LinkKind, linkKindInfo } from '../memo-card-links';
@@ -13,7 +14,7 @@ export interface MiniBoardInput {
 const SIZE = 12; // 六角形の大きさ（中心から頂点まで）
 
 export function miniBoard(input: MiniBoardInput): SVGSVGElement {
-  const svg = svgEl('svg', { class: 'ix-mini-board', role: 'img', 'aria-label': `新しいシートの見本（メモ ${input.memos.filter((m) => m.selected).length}）` });
+  const svg = svgEl('svg', { class: 'ix-mini-board', role: 'img', 'aria-label': t('新しいシートの見本（メモ {0}）', { 0: input.memos.filter((m) => m.selected).length }) });
   const centers = new Map(input.memos.map((m) => [m.key, hexToPixel(m.pos, SIZE)]));
   const xs = [...centers.values()].map((c) => c.x);
   const ys = [...centers.values()].map((c) => c.y);

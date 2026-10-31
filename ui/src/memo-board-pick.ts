@@ -3,6 +3,7 @@
 //   選び口：上に出しているとき（かつ旗が入っているとき）だけメモを選べる。下のボードでは選べない
 //     （ただし別のメモを見たままになっているときは、「下の区画と同じに戻す」だけは押せる。戻れなくなるのを防ぐため）
 //   下の区画の写し（MemoPaneView）の text から見出しを作る（memocells.ts の memoTitle と同じ決まり）。メモの一覧は下の面がすでに持っている（sheetItems・recentItems）
+import { t } from './i18n';
 import type { MenuEntry } from './panels/cell-menu';
 import type { MemoIndexItem } from './memocells'; // 型だけ（memocells は bridge を読むので、実行時には読み込まない）
 
@@ -20,9 +21,9 @@ export interface BoardMemoInfo {
   other: boolean; // 選んでいて、しかも下の区画とは別のメモ
 }
 
-const EMPTY_TITLE = '（空のメモ）';
+const EMPTY_TITLE = t('（空のメモ）');
 export const TAG_MAX = 16;
-export const RESET_LABEL = '下の区画と同じに戻す';
+export const RESET_LABEL = t('下の区画と同じに戻す');
 
 // メモの見出し（最初の空でない行。memocells.ts の memoTitle と同じ決まり）。max 字を超えたら …
 export function titleOf(text: string, max = TAG_MAX): string {
@@ -66,15 +67,15 @@ export function memoTagOf(info: BoardMemoInfo | null, mode: PickMode): MemoTag |
   const arrow = mode === 'static' ? '' : ' ▾';
   if (info.other) {
     return {
-      text: `メモ：${info.shownTitle}${arrow}`,
+      text: t('メモ：{0}{1}', { 0: info.shownTitle, 1: arrow }),
       tone: 'other',
-      title: `ボードは、下の区画（「${info.lowerTitle || 'なし'}」）とは別のメモを見ています。${mode === 'full' ? '押すと選び直せます。' : mode === 'reset' ? '押すと下の区画と同じに戻せます。' : ''}`,
+      title: t('ボードは、下の区画（「{0}」）とは別のメモを見ています。{1}', { 0: info.lowerTitle || 'なし', 1: mode === 'full' ? '押すと選び直せます。' : mode === 'reset' ? '押すと下の区画と同じに戻せます。' : '' }),
       pickable: mode !== 'static',
     };
   }
   return {
-    text: `メモ：${info.shownTitle}${arrow}`,
-    title: mode === 'full' ? 'ボードで見るメモを選べます（いまは下の区画と同じメモです）' : 'ボードは下の区画と同じメモを見ています',
+    text: t('メモ：{0}{1}', { 0: info.shownTitle, 1: arrow }),
+    title: mode === 'full' ? t('ボードで見るメモを選べます（いまは下の区画と同じメモです）') : t('ボードは下の区画と同じメモを見ています'),
     tone: 'same',
     pickable: mode === 'full',
   };
@@ -95,22 +96,22 @@ export interface PickerInput {
 export function pickerEntries(o: PickerInput): MenuEntry[] {
   const reset: MenuEntry = o.info.chosen
     ? { label: RESET_LABEL, hint: o.info.lowerTitle || undefined, run: () => o.run(null) }
-    : { label: RESET_LABEL, hint: 'いまは同じです', disabled: true };
+    : { label: RESET_LABEL, hint: t('いまは同じです'), disabled: true };
   if (o.mode !== 'full') {
-    return [{ section: 'ボードで見るメモ' }, reset, { note: '別のメモを選べるのは、ボードを上に出しているあいだです。' }];
+    return [{ section: t('ボードで見るメモ') }, reset, { note: t('別のメモを選べるのは、ボードを上に出しているあいだです。') }];
   }
   const entry = (item: MemoIndexItem): MenuEntry => {
     const here = item.id === o.info.shownId;
     const lower = item.id === o.info.lowerId;
-    return { label: item.title, hint: here ? '見ています' : lower ? '下の区画' : undefined, disabled: here, run: () => o.run(item.id) };
+    return { label: item.title, hint: here ? t('見ています') : lower ? t('下の区画') : undefined, disabled: here, run: () => o.run(item.id) };
   };
-  const out: MenuEntry[] = [{ section: 'ボードで見るメモ' }, reset];
+  const out: MenuEntry[] = [{ section: t('ボードで見るメモ') }, reset];
   const recent = o.recent.slice(0, MENU_MAX);
   const seen = new Set(recent.map((m) => m.id));
   const sheet = o.items.filter((m) => !seen.has(m.id)).slice(0, MENU_MAX);
-  if (recent.length > 0) out.push('sep', { section: '最近開いたメモ' }, ...recent.map(entry));
-  if (sheet.length > 0) out.push('sep', { section: `${o.sheetName || 'このシート'}のメモ` }, ...sheet.map(entry));
-  if (recent.length === 0 && sheet.length === 0) out.push({ note: '選べるメモがありません。' });
+  if (recent.length > 0) out.push('sep', { section: t('最近開いたメモ') }, ...recent.map(entry));
+  if (sheet.length > 0) out.push('sep', { section: t('{0}のメモ', { 0: o.sheetName || 'このシート' }) }, ...sheet.map(entry));
+  if (recent.length === 0 && sheet.length === 0) out.push({ note: t('選べるメモがありません。') });
   return out;
 }
 

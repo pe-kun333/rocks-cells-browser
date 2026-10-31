@@ -2,6 +2,7 @@
 //   ・動画ごとに組（題の仕切り）、組の中は結んだ区間の早い順。読む画面がその動画を開いていればチャプターの仕切りも入れる
 //   ・結んでいないカードは loose へ（今見えている順のまま、いちばん後ろ）
 //   ・純粋な関数だけ（DOM・window・時計・乱数を使わない）。型だけ reader-links.ts から読む
+import { t } from './i18n';
 import type { ReplyAt } from './reader-links';
 
 // 並べるカード（下の区画の Reply はこれを満たす）
@@ -78,7 +79,7 @@ function groupTitle<T>(entries: readonly Entry<T>[]): string {
     const title = entry.at.title;
     if (typeof title === 'string' && title.trim() !== '') return title.trim();
   }
-  return '動画';
+  return t('動画');
 }
 
 // チャプターの区切りを作る：各カードは、始まりが一番大きいチャプターへ（どれも満たさなければ先頭の null の区切り）

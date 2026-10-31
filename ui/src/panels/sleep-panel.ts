@@ -1,4 +1,5 @@
 // 休眠パネル：タブの状態ごとの数と、自動休眠までの時間の設定
+import { t } from '../i18n';
 import { sleepStateOf } from '../sleep';
 import type { TabStore } from '../tabs';
 import type { SleepSettings } from '../types';
@@ -16,7 +17,7 @@ export class SleepPanel {
     private readonly onChange: (settings: SleepSettings) => void,
   ) {
     const form = el('form', 'sleep-form');
-    form.append(field('一時停止まで', this.suspendInput), field('休眠まで', this.discardInput), this.error);
+    form.append(field(t('一時停止まで'), this.suspendInput), field(t('休眠まで'), this.discardInput), this.error);
     form.addEventListener('change', () => this.submit());
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -26,10 +27,10 @@ export class SleepPanel {
       input.addEventListener('input', () => (this.error.textContent = ''));
     }
     this.element.append(
-      el('div', 'panel-subtitle', '休眠'),
+      el('div', 'panel-subtitle', t('休眠')),
       this.counts,
       form,
-      el('div', 'panel-note', '表示中・音が出ている・「休眠させない」にしたタブは眠りません。入力途中の文字があるタブは、一時停止のまま休眠を保留します'),
+      el('div', 'panel-note', t('表示中・音が出ている・「休眠させない」にしたタブは眠りません。入力途中の文字があるタブは、一時停止のまま休眠を保留します')),
     );
     store.onChange(() => this.renderCounts());
     this.renderCounts();
@@ -44,11 +45,11 @@ export class SleepPanel {
     const suspend = Number(this.suspendInput.value);
     const discard = Number(this.discardInput.value);
     if (!Number.isInteger(suspend) || !Number.isInteger(discard) || suspend < 1 || discard < 1) {
-      this.error.textContent = '1以上の整数（分）を入れてください';
+      this.error.textContent = t('1以上の整数（分）を入れてください');
       return;
     }
     if (discard <= suspend) {
-      this.error.textContent = '休眠までの時間は、一時停止までより長くしてください';
+      this.error.textContent = t('休眠までの時間は、一時停止までより長くしてください');
       return;
     }
     this.error.textContent = '';
@@ -59,9 +60,9 @@ export class SleepPanel {
     const counts = { active: 0, awake: 0, suspended: 0, asleep: 0 };
     for (const tab of this.store.all()) counts[sleepStateOf(tab, this.store.activeId)]++;
     this.counts.replaceChildren(
-      stat('起きている', counts.active + counts.awake),
-      stat('一時停止', counts.suspended),
-      stat('休眠', counts.asleep),
+      stat(t('起きている'), counts.active + counts.awake),
+      stat(t('一時停止'), counts.suspended),
+      stat(t('休眠'), counts.asleep),
     );
   }
 }
@@ -78,7 +79,7 @@ function numberInput(name: string) {
 
 function field(label: string, input: HTMLInputElement) {
   const row = el('label', 'field');
-  row.append(el('span', 'field-label', label), input, el('span', 'field-unit', '分'));
+  row.append(el('span', 'field-label', label), input, el('span', 'field-unit', t('分')));
   return row;
 }
 

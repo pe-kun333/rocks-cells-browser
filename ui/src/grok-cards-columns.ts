@@ -2,6 +2,7 @@
 //   既定：みんな → 席の順のボット → 下書きの宛て先で席にいないボット
 //   段 7 の「＋ 列を足す」は withAddedColumn。保存するのは並びと隠しだけ
 //   保存した順があればそれを先に、足りない既定を後ろに足す。隠した列は出さない
+import { t } from './i18n';
 import { EVERYONE_ADDRESS, isCardsBotId } from './grok-cards-tags';
 
 export interface CardColumn {
@@ -46,10 +47,10 @@ export function orderColumns(input: {
   for (const key of input.savedOrder) push(key);
   for (const key of defaults) push(key);
   return keys.map((key) => {
-    if (key === 'all') return { key, address: EVERYONE_ADDRESS, title: 'みんな', missing: false };
+    if (key === 'all') return { key, address: EVERYONE_ADDRESS, title: t('みんな'), missing: false };
     const id = key.slice(4);
     const name = input.names.get(id);
-    if (!name) return { key, address: id, title: `宛て先なし（もと：${id}）`, missing: true };
+    if (!name) return { key, address: id, title: t('宛て先なし（もと：{0}）', { 0: id }), missing: true };
     return { key, address: id, title: name, missing: false };
   });
 }

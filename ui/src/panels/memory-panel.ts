@@ -1,6 +1,7 @@
 // 相棒が覚えていること（右サイドバーのパネル）
 //   ・置き場所：このパソコン / 六角メモのノート（1つのマス＝1つの記憶。直す・消すのは六角メモで）
 //   ・一覧、書き足す、直す・忘れる（このパソコンのときだけ）、会話から覚えることの案を作る
+import { t as tr } from '../i18n';
 import type { ChatEntry } from '../ai/companion';
 import { type Memory, type MemoryStore, type MemorySuggestion, suggestMemories } from '../ai/memory';
 import type { OrganizeSettings } from '../ai/organize';
@@ -19,22 +20,22 @@ export class MemoryPanel {
   private readonly list = el('div', 'memory-list');
   private readonly status = el('div', 'panel-note organize-status');
   private readonly suggestions = el('div', 'organize-proposal');
-  private readonly copyButton = el('button', 'ai-small', 'このパソコンの記憶を送る');
+  private readonly copyButton = el('button', 'ai-small', tr('このパソコンの記憶を送る'));
   private targets: HexMemoTarget[] | null = null;
   private editing: string | null = null; // 直している記憶
 
   constructor(private readonly host: MemoryPanelHost) {
     void this.loadTargets();
     this.place.addEventListener('change', () => void this.changePlace());
-    const reload = el('button', 'ai-small', '読み直す');
-    reload.title = '置き場所から読み直す（六角メモで直したものを取り込む）';
+    const reload = el('button', 'ai-small', tr('読み直す'));
+    reload.title = tr('置き場所から読み直す（六角メモで直したものを取り込む）');
     reload.addEventListener('click', () => void host.store.refresh());
     const placeRow = el('div', 'memory-place');
-    placeRow.append(el('span', 'organize-count', '置き場所'), this.place, reload);
+    placeRow.append(el('span', 'organize-count', tr('置き場所')), this.place, reload);
 
     const form = el('form', 'memory-form');
     const input = el('input', 'memory-input');
-    input.placeholder = '覚えてほしいことを書く（Enter）';
+    input.placeholder = tr('覚えてほしいことを書く（Enter）');
     form.append(input);
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -44,23 +45,23 @@ export class MemoryPanel {
       void this.run(() => host.store.add(text, 'user'));
     });
 
-    const suggest = el('button', 'ai-small', '今の会話から提案');
-    suggest.title = '今の会話から、覚えておくとよいことの案を作る';
+    const suggest = el('button', 'ai-small', tr('今の会話から提案'));
+    suggest.title = tr('今の会話から、覚えておくとよいことの案を作る');
     suggest.addEventListener('click', () => void this.suggest());
-    this.copyButton.title = 'このパソコンに覚えていた記憶を、選んだ六角メモのノートへ送る';
+    this.copyButton.title = tr('このパソコンに覚えていた記憶を、選んだ六角メモのノートへ送る');
     this.copyButton.addEventListener('click', () => void this.run(() => host.store.copyLocalToHexMemo()));
     const buttons = el('div', 'ai-row');
     buttons.append(suggest, this.copyButton);
 
     this.element.append(
-      el('div', 'panel-subtitle', '相棒が覚えていること'),
+      el('div', 'panel-subtitle', tr('相棒が覚えていること')),
       placeRow,
       this.list,
       form,
       buttons,
       this.status,
       this.suggestions,
-      el('p', 'panel-note', '新しい会話を始めるとき、覚えていることを相棒に渡します（Anthropic に送られます）。相棒は、頼まれたときやはっきりした好みがわかったときに、自分で覚えることもあります。'),
+      el('p', 'panel-note', tr('新しい会話を始めるとき、覚えていることを相棒に渡します（Anthropic に送られます）。相棒は、頼まれたときやはっきりした好みがわかったときに、自分で覚えることもあります。')),
     );
     host.store.onChange(() => this.render());
     this.renderPlaceOptions();
@@ -73,7 +74,7 @@ export class MemoryPanel {
     const items = store.list();
     if (this.editing && !items.some((m) => m.id === this.editing)) this.editing = null;
     if (items.length === 0) {
-      this.list.replaceChildren(el('div', 'reminder-empty', 'まだ何も覚えていません。下の欄に書くか、相棒に「〜を覚えて」と頼めます'));
+      this.list.replaceChildren(el('div', 'reminder-empty', tr('まだ何も覚えていません。下の欄に書くか、相棒に「〜を覚えて」と頼めます')));
     } else {
       this.list.replaceChildren(...items.map((m) => this.row(m)));
     }
@@ -102,18 +103,18 @@ export class MemoryPanel {
       return row;
     }
     const text = el('div', 'memory-text', memory.text);
-    if (memory.pending) text.append(el('span', 'organize-count', '（六角メモへ送った。取り込み待ち）'));
+    if (memory.pending) text.append(el('span', 'organize-count', tr('（六角メモへ送った。取り込み待ち）')));
     row.append(text);
     if (store.editable) {
       const edit = el('button', 'reminder-remove', '✎');
-      edit.title = '直す';
+      edit.title = tr('直す');
       edit.setAttribute('aria-label', 'この記憶を直す');
       edit.addEventListener('click', () => {
         this.editing = memory.id;
         this.render();
       });
       const remove = el('button', 'reminder-remove', '×');
-      remove.title = '忘れる';
+      remove.title = tr('忘れる');
       remove.setAttribute('aria-label', 'この記憶を忘れる');
       remove.addEventListener('click', () => void this.run(() => store.remove(memory.id)));
       row.append(edit, remove);
@@ -125,7 +126,7 @@ export class MemoryPanel {
 
   private renderPlaceOptions() {
     const place = this.host.store.place;
-    const options = [new Option('このパソコン', 'local', false, place.kind === 'local')];
+    const options = [new Option(tr('このパソコン'), 'local', false, place.kind === 'local')];
     const targets = this.targets ?? (place.kind === 'hexmemo' ? [place.target] : []);
     targets.forEach((t, i) => {
       const selected = place.kind === 'hexmemo' && place.target.appId === t.appId && place.target.boardId === t.boardId;
@@ -148,33 +149,33 @@ export class MemoryPanel {
     const value = this.place.value;
     if (value === 'local') {
       await this.host.store.setPlace({ kind: 'local' });
-      this.status.textContent = 'このパソコンに置きます';
+      this.status.textContent = tr('このパソコンに置きます');
       return;
     }
     const targets = this.targets ?? [];
     const target = targets[Number(value)];
     if (!target) return;
     await this.host.store.setPlace({ kind: 'hexmemo', target });
-    if (!this.host.store.status) this.status.textContent = `「${target.label}」の1つのマスを、1つの記憶として読みます。直す・消すのは六角メモで`;
+    if (!this.host.store.status) this.status.textContent = tr('「{0}」の1つのマスを、1つの記憶として読みます。直す・消すのは六角メモで', { 0: target.label });
   }
 
   // ---------- 会話から案を作る ----------
 
   private async suggest() {
     const entries = this.host.entries();
-    this.status.textContent = '今の会話から、覚えることを探しています…';
+    this.status.textContent = tr('今の会話から、覚えることを探しています…');
     this.suggestions.replaceChildren();
     try {
       const { items, cost } = await suggestMemories(entries, this.host.store.list(), this.host.settings());
-      const costText = cost > 0 ? `（約 $${cost.toFixed(3)}）` : '';
+      const costText = cost > 0 ? tr('（約 ${0}）', { 0: cost.toFixed(3) }) : '';
       if (items.length === 0) {
-        this.status.textContent = `覚えることは見つかりませんでした${costText}`;
+        this.status.textContent = tr('覚えることは見つかりませんでした{0}', { 0: costText });
         return;
       }
-      this.status.textContent = `覚えることの案です${costText}。外したいものは印を消してください`;
+      this.status.textContent = tr('覚えることの案です{0}。外したいものは印を消してください', { 0: costText });
       this.showSuggestions(items);
     } catch (error) {
-      this.status.textContent = `うまくいきませんでした：${error instanceof Error ? error.message : String(error)}`;
+      this.status.textContent = tr('うまくいきませんでした：{0}', { 0: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -191,7 +192,7 @@ export class MemoryPanel {
       row.append(box, body);
       return row;
     });
-    const save = el('button', 'ai-small ai-yes', '覚える');
+    const save = el('button', 'ai-small ai-yes', tr('覚える'));
     save.addEventListener('click', () => {
       const picked = items.filter((_, i) => chosen.has(i));
       this.suggestions.replaceChildren();
@@ -201,10 +202,10 @@ export class MemoryPanel {
           last = await this.host.store.add(item.text, 'ai');
           if (!last.ok) return last;
         }
-        return { ok: true, message: `${picked.length} 件を覚えました（${this.host.store.placeLabel}）` };
+        return { ok: true, message: tr('{0} 件を覚えました（{1}）', { 0: picked.length, 1: this.host.store.placeLabel }) };
       });
     });
-    const cancel = el('button', 'ai-small', 'やめる');
+    const cancel = el('button', 'ai-small', tr('やめる'));
     cancel.addEventListener('click', () => {
       this.suggestions.replaceChildren();
       this.status.textContent = '';

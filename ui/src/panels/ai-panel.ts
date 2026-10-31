@@ -1,4 +1,5 @@
 // AI の相棒の画面：右サイドバーの下に常駐する六角形のセルと、その上に開く会話
+import { t as tr } from '../i18n';
 import { armConfirm } from '../confirm-arm';
 import {
   blurbOf,
@@ -110,9 +111,9 @@ export interface ReminderAction {
 type TalkLevel = 'off' | 'quiet' | 'normal';
 
 const TALK_LEVELS: [TalkLevel, string][] = [
-  ['off', '話しかけない'],
-  ['quiet', '控えめ（ページを読み終えたときだけ）'],
-  ['normal', 'ふつう（♥×3・メモを書いたときにも）'],
+  ['off', tr('話しかけない')],
+  ['quiet', tr('控えめ（ページを読み終えたときだけ）')],
+  ['normal', tr('ふつう（♥×3・メモを書いたときにも）')],
 ];
 
 // キャラたちの設定（Cast）も、同じ所に並べて保存する
@@ -147,12 +148,12 @@ const BUBBLE_MS = 15_000; // 吹き出しを出しておく時間
 const PENDING_MS = 120_000; // 話している最中に起きた出来事を、あとで話す期限
 
 const STATUS: Record<CompanionState, string> = {
-  noKey: 'API キーを入れると話せます',
-  idle: '待機中 — ページの要約や質問ができます',
-  thinking: '考えています…',
-  speaking: '話しています…',
-  working: 'ブラウザを操作しています…',
-  confirm: 'あなたの確認を待っています',
+  noKey: tr('API キーを入れると話せます'),
+  idle: tr('待機中 — ページの要約や質問ができます'),
+  thinking: tr('考えています…'),
+  speaking: tr('話しています…'),
+  working: tr('ブラウザを操作しています…'),
+  confirm: tr('あなたの確認を待っています'),
   error: 'うまくいきませんでした',
 };
 
@@ -165,14 +166,14 @@ export class AiPanel {
   private readonly log = el('div', 'ai-log');
   private readonly input = el('textarea', 'ai-text');
   private readonly attach = el('input');
-  private readonly sendButton = el('button', 'ai-send', '送る');
+  private readonly sendButton = el('button', 'ai-send', tr('送る'));
   // 六角で見るのやり取りの型（plan-reader-video の V5）：始めた材料と、何問目まで出したか（ふりかえる）。答えを待つ間は、送る文を材料と基準で包む
   private talk: { m: TalkMaterial; round: number } | null = null;
   private readonly talkBar = el('div', 'ai-talk-bar');
   private talkSeq = 0;
   private readonly talkWaiting = new Map<number, number>(); // 「📌 カードへ」の頼みの番号 → 返事の id
   private readonly deepButton = el('button', 'ai-deep'); // さらに考える（フェイブルが確認なしで進化する）
-  private readonly historyButton = el('button', 'ai-small', '履歴');
+  private readonly historyButton = el('button', 'ai-small', tr('履歴'));
   readonly letters = new LetterStore(); // 月の窓（右サイドバーの上）も、同じ一覧を映す
   private readonly openLetters = new Set<string>(); // 全文を開いているレター
   private readonly openChats = new Set<string>(); // 元の会話を開いているレター
@@ -199,8 +200,8 @@ export class AiPanel {
   private readonly phraseBar = new PhraseBar({ run: (p) => this.runPhrase(p), inputText: () => this.input.value });
   private readonly previewHost = el('section', 'send-sheet');
   private readonly previewBody = el('div', 'send-sheet-body');
-  private readonly previewGo = el('button', 'ai-small primary', '送る');
-  private readonly previewStop = el('button', 'ai-small', 'やめる');
+  private readonly previewGo = el('button', 'ai-small primary', tr('送る'));
+  private readonly previewStop = el('button', 'ai-small', tr('やめる'));
   private previewPhrase: Phrase | null = null;
   private readonly keyInput = el('input');
   private readonly keyState = el('div', 'ai-key-state');
@@ -307,7 +308,7 @@ export class AiPanel {
     const first = entries.find((e) => e.role === 'user' && !e.auto) ?? entries.find((e) => e.role === 'user' || e.role === 'assistant');
     if (!first) return null;
     const head = first.text.length > 40 ? `${first.text.slice(0, 40)}…` : first.text;
-    const title = first.pageTitle ? `${head} — ${first.pageTitle}` : head || '相棒との会話';
+    const title = first.pageTitle ? `${head} — ${first.pageTitle}` : head || tr('相棒との会話');
     const members = c.members.map((id) => c.nameOf(id));
     const showing = this.prefs.open && this.view === 'chat' && this.log.clientWidth > 0;
     const width = Math.round(this.log.clientWidth || this.element.clientWidth || 300);
@@ -344,14 +345,14 @@ export class AiPanel {
   captureCompanions(): { target: string; label: string }[] {
     const members = [...this.companion.members];
     const out: { target: string; label: string }[] = [];
-    if (isTrioOnly(members)) out.push({ target: 'all', label: `相棒：${this.companion.trioUnitName()}` });
+    if (isTrioOnly(members)) out.push({ target: 'all', label: tr('相棒：{0}', { 0: this.companion.trioUnitName() }) });
     else {
       for (const id of members) {
         if (isHaiku(id)) continue;
-        out.push({ target: id, label: `相棒：${this.companion.nameOf(id)}` });
+        out.push({ target: id, label: tr('相棒：{0}', { 0: this.companion.nameOf(id) }) });
       }
     }
-    if (teamOf(members).length > 0) out.push({ target: 'team', label: `相棒：${HAIKU_UNIT_NAME}` });
+    if (teamOf(members).length > 0) out.push({ target: 'team', label: tr('相棒：{0}', { 0: HAIKU_UNIT_NAME }) });
     return out;
   }
 
@@ -366,18 +367,18 @@ export class AiPanel {
   // 撮影の確認で「送る」を押したときだけ。ページの本文は取りにいかない。練習モードは API も料金も使わない
   async sendCapture(text: string, images: string[] | undefined, target: string, display: string): Promise<{ ok: true } | { ok: false; message: string }> {
     await this.restored;
-    if (this.companion.busy) return { ok: false, message: '相棒が話し終わってから押してください' };
+    if (this.companion.busy) return { ok: false, message: tr('相棒が話し終わってから押してください') };
     const resolved = this.captureTarget(target);
-    if (!resolved) return { ok: false, message: '送り先が見つかりません' };
+    if (!resolved) return { ok: false, message: tr('送り先が見つかりません') };
     if (!this.prefs.practice) {
       try {
         await assertBudget();
       } catch (error) {
         if (error instanceof BudgetError) return { ok: false, message: error.message };
-        return { ok: false, message: '料金の上限を確認できませんでした' };
+        return { ok: false, message: tr('料金の上限を確認できませんでした') };
       }
     }
-    if (!this.companion.canTalk) return { ok: false, message: 'API キーを設定するか、練習モードにしてください（相棒の ⚙）' };
+    if (!this.companion.canTalk) return { ok: false, message: tr('API キーを設定するか、練習モードにしてください（相棒の ⚙）') };
     this.view = 'chat';
     const shots = images?.filter((src) => src.startsWith('data:image/')).slice(0, 4);
     if (!this.prefs.open) this.setOpen(true);
@@ -423,7 +424,7 @@ export class AiPanel {
   private async askBotFrom(entry: ChatEntry) {
     const raw = (await redactBlockedUrls(entry.text)).trim();
     const chars = [...raw];
-    const text = chars.length > 12_000 ? `${chars.slice(0, 12_000).join('')}\n…（長すぎるので、ここまで）` : raw;
+    const text = chars.length > 12_000 ? tr('{0}\n…（長すぎるので、ここまで）', { 0: chars.slice(0, 12_000).join('') }) : raw;
     if (!text) return;
     this.host.askBot?.(text);
   }
@@ -455,11 +456,11 @@ export class AiPanel {
     if (from === 'shot') {
       const where = pageTitle ? `「${pageTitle}」のページの一部を` : '画面の一部を';
       const input = `${where}六角形に切り取ったスクリーンショットです。何が写っているかを短く説明して、気づいたことや大事そうな点を教えてください。${text ? `\n私のコメント：「${quoted}」` : ''}`;
-      void this.companion.ask('chat', input, false, undefined, { images, display: text ? `📷 スクショ：${quoted}` : '📷 スクショを見せる' });
+      void this.companion.ask('chat', input, false, undefined, { images, display: text ? tr('📷 スクショ：{0}', { 0: quoted }) : tr('📷 スクショを見せる') });
       return;
     }
     const input = `盤面に置いたメモのセルです。内容について、気づいたことや次にできることをコメントしてください。\n「${quoted}」`;
-    void this.companion.ask('chat', input, false, undefined, { images, display: `✎ メモ：${quoted.length > 60 ? `${quoted.slice(0, 60)}…` : quoted}` });
+    void this.companion.ask('chat', input, false, undefined, { images, display: tr('✎ メモ：{0}', { 0: quoted.length > 60 ? `${quoted.slice(0, 60)}…` : quoted }) });
   }
 
   // ---------- 六角で見るのやり取りの型（plan-reader-video の V5。D10・D11） ----------
@@ -478,8 +479,8 @@ export class AiPanel {
       const last = m.context[m.context.length - 1];
       this.companion.announce(
         m.mode === 'tsukkomi'
-          ? `🎬 ${name}：${last.t} の「${last.text}」にツッコんでみてください（本物の返しは隠しています。点は付けず、短さ・型・間で返します）`
-          : `🎬 ${name}：${last.t} の「${last.text}」で止めました。このあと何と続くでしょう。予想を書いて送ってください`,
+          ? tr('🎬 {0}：{1} の「{2}」にツッコんでみてください（本物の返しは隠しています。点は付けず、短さ・型・間で返します）', { 0: name, 1: last.t, 2: last.text })
+          : tr('🎬 {0}：{1} の「{2}」で止めました。このあと何と続くでしょう。予想を書いて送ってください', { 0: name, 1: last.t, 2: last.text }),
       );
       this.render();
       this.input.focus();
@@ -558,25 +559,25 @@ export class AiPanel {
       return;
     }
     const m = t.m;
-    const waiting = '返事を待っています';
+    const waiting = tr('返事を待っています');
     const hint =
       m.mode === 'tsukkomi'
         ? t.round === 0
-          ? 'ツッコミを書いて送る（本物の返しは、送ったあとに出ます）'
+          ? tr('ツッコミを書いて送る（本物の返しは、送ったあとに出ます）')
           : waiting
         : m.mode === 'guess'
           ? t.round === 0
-            ? '予想を書いて送る（本物の続きは、送ったあとに出ます）'
+            ? tr('予想を書いて送る（本物の続きは、送ったあとに出ます）')
             : waiting
           : m.mode === 'socratic'
             ? t.round === 0
               ? waiting
-              : `${t.round} 問目の答えを書いて送る（全部で ${TALK_QUESTIONS} 問）`
+              : tr('{0} 問目の答えを書いて送る（全部で {1} 問）', { 0: t.round, 1: TALK_QUESTIONS })
             : waiting;
     this.input.placeholder = hint;
-    const stop = el('button', 'ai-small', 'やめる');
+    const stop = el('button', 'ai-small', tr('やめる'));
     stop.type = 'button';
-    stop.title = 'やり取りの型をやめて、ふつうの会話に戻る';
+    stop.title = tr('やり取りの型をやめて、ふつうの会話に戻る');
     stop.addEventListener('click', () => {
       this.endTalk();
       this.input.focus();
@@ -587,10 +588,10 @@ export class AiPanel {
   // やり取りの返事の「▶ 時刻」（読む画面のその時刻へ）と「📌 カードへ」（区間と結んだカードを下の区画へ）
   private talkButtons(entry: ChatEntry, talk: NonNullable<ChatEntry['talk']>): HTMLElement[] {
     const play = el('button', 'ai-small', `▶ ${secLabel(talk.m.sec)}`);
-    play.title = '読む画面でこの時刻へ（開いていなければ、その動画を開きます）';
+    play.title = tr('読む画面でこの時刻へ（開いていなければ、その動画を開きます）');
     play.addEventListener('click', () => this.host.askLeft({ command: 'openReaderAt', video: talk.m.video, start: talk.m.sec }));
-    const card = el('button', 'ai-small', talk.card ? 'カードにしました ✓' : '📌 カードへ');
-    card.title = 'このやり取りを、区間と結んだカードにして下の区画へ（読む画面でその動画を開いているときだけ）';
+    const card = el('button', 'ai-small', talk.card ? tr('カードにしました ✓') : tr('📌 カードへ'));
+    card.title = tr('このやり取りを、区間と結んだカードにして下の区画へ（読む画面でその動画を開いているときだけ）');
     if (!talk.card) card.addEventListener('click', () => this.sendTalkCard(entry, talk));
     return [play, card];
   }
@@ -622,15 +623,15 @@ export class AiPanel {
     }
     const why =
       done.reason === 'video'
-        ? '読む画面でその動画を開いているときに押してください'
+        ? tr('読む画面でその動画を開いているときに押してください')
         : done.reason === 'full'
-          ? 'メモのコメントがいっぱい（300）です'
+          ? tr('メモのコメントがいっぱい（300）です')
           : done.reason === 'ledger'
-            ? 'メモの台帳を読めていません'
+            ? tr('メモの台帳を読めていません')
             : done.reason === 'special'
-              ? '下の区画で開いているのが入口やボットのセルです'
-              : '形が合いませんでした';
-    this.companion.announce(`📌 カードにできませんでした：${why}`);
+              ? tr('下の区画で開いているのが入口やボットのセルです')
+              : tr('形が合いませんでした');
+    this.companion.announce(tr('📌 カードにできませんでした：{0}', { 0: why }));
   }
 
   // 月の窓の「会話に残す」。呼び出しはしない。Claude に送らないお知らせとして、いまの会話の下に1行足す
@@ -651,8 +652,8 @@ export class AiPanel {
   // リマインダーの時間になった（左サイドバーから届く。Windows の通知は C++ が出している）
   async onReminder(reminder: Reminder, late: boolean) {
     await this.restored; // 前回の会話に続けて出す（先に出すと、前回の会話が開かれなくなる）
-    const when = late ? `（${formatTime(reminder.dueAt)} の分。起動していない間に過ぎていました）` : '';
-    const entry = this.companion.announce(`⏰ リマインダー：${reminder.text}${reminder.title ? `（${reminder.title}）` : ''}${when}`);
+    const when = late ? tr('（{0} の分。起動していない間に過ぎていました）', { 0: formatTime(reminder.dueAt) }) : '';
+    const entry = this.companion.announce(tr('⏰ リマインダー：{0}{1}{2}', { 0: reminder.text, 1: reminder.title ? `（${reminder.title}）` : '', 2: when }));
     this.bubbleReminder = { entryId: entry.id, reminder };
     window.clearTimeout(this.bubbleTimer); // リマインダーの吹き出しは、閉じるか押すまで出しておく
     this.bubbleId = entry.id;
@@ -695,9 +696,9 @@ export class AiPanel {
 
   private buildChat() {
     const header = el('header', 'ai-chat-header');
-    this.historyButton.title = '過去の会話と、フェイブルレター';
+    this.historyButton.title = tr('過去の会話と、フェイブルレター');
     this.historyButton.addEventListener('click', () => void this.toggleHistory());
-    const newChat = el('button', 'ai-small', '新しい会話');
+    const newChat = el('button', 'ai-small', tr('新しい会話'));
     newChat.addEventListener('click', () => {
       this.revealed.clear();
       this.openAdviceLetters.clear();
@@ -705,7 +706,7 @@ export class AiPanel {
       this.companion.reset();
     });
     const gear = el('button', 'ai-small', '⚙');
-    gear.title = '設定';
+    gear.title = tr('設定');
     gear.setAttribute('aria-label', 'AI の設定');
     gear.addEventListener('click', () => {
       this.settings.hidden = !this.settings.hidden;
@@ -717,7 +718,7 @@ export class AiPanel {
     });
     this.title.type = 'button';
     this.title.append(this.titleNames, el('span', 'ai-chat-caret', '▾'));
-    this.cost.title = 'この会話の料金の目安';
+    this.cost.title = tr('この会話の料金の目安');
     this.membersNote.setAttribute('role', 'status');
     this.title.addEventListener('click', () => {
       this.membersPanel.hidden = !this.membersPanel.hidden;
@@ -726,7 +727,7 @@ export class AiPanel {
       this.render();
     });
     const vaultButton = el('button', 'ai-small', '📥');
-    vaultButton.title = '今の会話を、データ置き場（右サイドバーのメモの区画の下）に残す（見たままの画像と文字のデータ）';
+    vaultButton.title = tr('今の会話を、データ置き場（右サイドバーのメモの区画の下）に残す（見たままの画像と文字のデータ）');
     vaultButton.setAttribute('aria-label', '今の会話をデータ置き場に残す');
     vaultButton.addEventListener('click', () => this.host.conversationToVault());
     header.append(this.title, this.cost, this.historyButton, newChat, vaultButton, gear);
@@ -743,7 +744,7 @@ export class AiPanel {
     });
 
     const form = el('form', 'ai-form');
-    this.input.placeholder = 'Claude に話しかける…（Enter で送る・Shift+Enter で改行）';
+    this.input.placeholder = tr('Claude に話しかける…（Enter で送る・Shift+Enter で改行）');
     this.input.rows = 2;
     this.input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
@@ -758,7 +759,7 @@ export class AiPanel {
       saveAiPrefs(this.prefs);
     });
     const attachLabel = el('label', 'ai-attach');
-    attachLabel.append(this.attach, document.createTextNode('このページについて'));
+    attachLabel.append(this.attach, document.createTextNode(tr('このページについて')));
     this.sendButton.type = 'submit';
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -787,7 +788,7 @@ export class AiPanel {
     }
     this.adviceRow.setAttribute('role', 'group');
     this.adviceRow.setAttribute('aria-label', '先生に聞く（数は今日の残り）');
-    this.adviceRow.append(el('span', 'ai-advice-label', '先生に聞く：'), ...ADVISOR_IDS.map((id) => this.askButtons[id]));
+    this.adviceRow.append(el('span', 'ai-advice-label', tr('先生に聞く：')), ...ADVISOR_IDS.map((id) => this.askButtons[id]));
     form.append(this.targets, this.adviceRow, this.input, row);
 
     this.buildPreview();
@@ -805,7 +806,7 @@ export class AiPanel {
       return;
     }
     if (this.companion.busy) {
-      this.companion.notice('相棒が話し終わってから押してください');
+      this.companion.notice(tr('相棒が話し終わってから押してください'));
       return;
     }
     void this.confirmPhrase(p);
@@ -817,7 +818,7 @@ export class AiPanel {
     const wantsPage = fixed || (p.kind === 'send' && p.page);
     const page = wantsPage ? await requestPageText() : null;
     if (this.companion.busy) {
-      this.companion.notice('相棒が話し終わってから押してください');
+      this.companion.notice(tr('相棒が話し終わってから押してください'));
       return;
     }
     const blocked = !!(page?.url && (await pageIsBlocked(page.url)));
@@ -835,34 +836,34 @@ export class AiPanel {
     const cannot = fixed && (!pageOk || !explainOk);
     const sentChars = count(p.kind === 'send' ? p.text : '') + (pageOk ? count(page?.text) + count(page?.selection) + count(page?.title) : 0);
     renderSendPreview(this.previewBody, {
-      to: `相棒（${nameOf(this.prefs, this.companion.lead)}）`,
+      to: tr('相棒（{0}）', { 0: nameOf(this.prefs, this.companion.lead) }),
       items: [
-        { label: '題名', on: wantsPage && pageOk && !!page?.title, detail: pageOk ? clip(page?.title) : undefined },
-        { label: 'アドレス', on: wantsPage && pageOk && !!page?.url, detail: pageOk ? clip(page?.url) : undefined },
-        { label: '選んだ文', on: wantsPage && pageOk && !!page?.selection, detail: page?.selection ? `${count(page.selection).toLocaleString('ja-JP')} 字` : undefined },
-        { label: '本文', on: wantsPage && pageOk && !!page?.text, detail: page?.text ? `${count(page.text).toLocaleString('ja-JP')} 字` : undefined },
-        { label: '画像', on: false },
+        { label: tr('題名'), on: wantsPage && pageOk && !!page?.title, detail: pageOk ? clip(page?.title) : undefined },
+        { label: tr('アドレス'), on: wantsPage && pageOk && !!page?.url, detail: pageOk ? clip(page?.url) : undefined },
+        { label: tr('選んだ文'), on: wantsPage && pageOk && !!page?.selection, detail: page?.selection ? tr('{0} 字', { 0: count(page.selection).toLocaleString('ja-JP') }) : undefined },
+        { label: '本文', on: wantsPage && pageOk && !!page?.text, detail: page?.text ? tr('{0} 字', { 0: count(page.text).toLocaleString('ja-JP') }) : undefined },
+        { label: tr('画像'), on: false },
       ],
       chars: count(p.kind === 'send' ? p.text : p.label),
       ...(blocked ? { blocked: BLOCK_NOTE } : {}),
-      cost: cannot ? 'この内容では呼び出しません' : companionCostNote(sentChars, this.prefs.model, this.prefs.practice),
+      cost: cannot ? tr('この内容では呼び出しません') : companionCostNote(sentChars, this.prefs.model, this.prefs.practice),
       note: cannot
         ? blocked
-          ? 'ページの文章は付けないので、このボタンでは送りません'
+          ? tr('ページの文章は付けないので、このボタンでは送りません')
           : p.kind === 'explain'
-            ? 'ページで説明してほしい言葉を選んでから押してください'
-            : 'ページの文章が取れないので、このボタンでは送りません'
+            ? tr('ページで説明してほしい言葉を選んでから押してください')
+            : tr('ページの文章が取れないので、このボタンでは送りません')
         : p.kind === 'send'
           ? p.text
           : p.kind === 'summarize'
-            ? 'このページを要約します'
+            ? tr('このページを要約します')
             : p.kind === 'explain'
-              ? '選んだ言葉を解説します'
-              : 'このページからクイズを作ります',
+              ? tr('選んだ言葉を解説します')
+              : tr('このページからクイズを作ります'),
     });
     this.previewPhrase = cannot ? null : p;
     this.previewGo.hidden = cannot;
-    this.previewStop.textContent = cannot ? '閉じる' : 'やめる';
+    this.previewStop.textContent = cannot ? tr('閉じる') : tr('やめる');
     this.previewHost.hidden = false;
   }
 
@@ -885,7 +886,7 @@ export class AiPanel {
     this.previewStop.addEventListener('click', () => this.hidePreview());
     const foot = el('div', 'send-sheet-foot');
     foot.append(this.previewStop, this.previewGo);
-    this.previewHost.append(el('div', 'ai-setting-title', '送る前の確認'), this.previewBody, foot);
+    this.previewHost.append(el('div', 'ai-setting-title', tr('送る前の確認')), this.previewBody, foot);
   }
 
   private dispatchPhrase(p: Phrase) {
@@ -902,17 +903,17 @@ export class AiPanel {
     this.keyInput.spellcheck = false;
     const keyError = el('div', 'field-error');
     this.keyInput.addEventListener('input', () => (keyError.textContent = ''));
-    const save = el('button', 'ai-small', 'キーを保存');
+    const save = el('button', 'ai-small', tr('キーを保存'));
     save.addEventListener('click', () => {
       const key = this.keyInput.value.trim();
       if (!key) {
-        keyError.textContent = 'API キーを入れてください';
+        keyError.textContent = tr('API キーを入れてください');
         return;
       }
       send({ type: 'setApiKey', key });
       this.keyInput.value = '';
     });
-    const remove = el('button', 'ai-small', 'キーを削除');
+    const remove = el('button', 'ai-small', tr('キーを削除'));
     remove.addEventListener('click', () => send({ type: 'deleteApiKey' }));
     const keyRow = el('div', 'ai-row');
     keyRow.append(save, remove);
@@ -940,7 +941,7 @@ export class AiPanel {
       this.companion.setPractice(practice.checked);
     });
     const practiceLabel = el('label', 'ai-check');
-    practiceLabel.append(practice, document.createTextNode('練習モード（API を使わずに、画面の動きだけ試す）'));
+    practiceLabel.append(practice, document.createTextNode(tr('練習モード（API を使わずに、画面の動きだけ試す）')));
 
     const skipPreview = el('input');
     skipPreview.type = 'checkbox';
@@ -950,7 +951,7 @@ export class AiPanel {
       saveAiPrefs(this.prefs);
     });
     const skipLabel = el('label', 'ai-check');
-    skipLabel.append(skipPreview, document.createTextNode('短いボタンの確認を省略（要約・解説・クイズなど）。渡し止めのページでは省略できません'));
+    skipLabel.append(skipPreview, document.createTextNode(tr('短いボタンの確認を省略（要約・解説・クイズなど）。渡し止めのページでは省略できません')));
 
     const tools = el('input');
     tools.type = 'checkbox';
@@ -969,16 +970,16 @@ export class AiPanel {
       this.companion.setWebSearch(search.checked);
     });
     const searchLabel = el('label', 'ai-check');
-    searchLabel.append(search, document.createTextNode('Web 検索を使う（新しい情報が要るときだけ。1回 約 $0.01、1回の返事で3回まで）'));
+    searchLabel.append(search, document.createTextNode(tr('Web 検索を使う（新しい情報が要るときだけ。1回 約 $0.01、1回の返事で3回まで）')));
     const toolsLabel = el('label', 'ai-check');
-    toolsLabel.append(tools, document.createTextNode('ブラウザの操作を任せる（タブを開く・探す・休眠・リマインダー・音楽。閉じる前は確認）'));
+    toolsLabel.append(tools, document.createTextNode(tr('ブラウザの操作を任せる（タブを開く・探す・休眠・リマインダー・音楽。閉じる前は確認）')));
 
     // 六角メモの送り先（メモアプリ › ノート。返事はノートの原点の下の階層に置かれる）
     this.hexSelect.addEventListener('change', () => {
       const target = this.hexTargets?.[Number(this.hexSelect.value)] ?? null;
       this.prefs.hexMemoTarget = target;
       saveAiPrefs(this.prefs);
-      this.hexState.textContent = target ? `「${target.label}」の原点の下に送ります` : '';
+      this.hexState.textContent = target ? tr('「{0}」の原点の下に送ります', { 0: target.label }) : '';
     });
     const talk = el('select');
     for (const [value, label] of TALK_LEVELS) {
@@ -1004,9 +1005,9 @@ export class AiPanel {
       this.render();
     });
     const limitLabel = el('label', 'ai-limit');
-    limitLabel.append(document.createTextNode('1日に'), limit, document.createTextNode('回まで'));
+    limitLabel.append(document.createTextNode(tr('1日に')), limit, document.createTextNode(tr('回まで')));
 
-    const reloadHex = el('button', 'ai-small', '一覧を読み直す');
+    const reloadHex = el('button', 'ai-small', tr('一覧を読み直す'));
     reloadHex.addEventListener('click', () => void this.loadHexTargets());
     this.renderHexOptions();
 
@@ -1015,7 +1016,7 @@ export class AiPanel {
     this.blockInput.spellcheck = false;
     this.blockInput.autocomplete = 'off';
     this.blockInput.setAttribute('aria-label', '渡し止めに足すサイト');
-    const addBlock = el('button', 'ai-small', '足す');
+    const addBlock = el('button', 'ai-small', tr('足す'));
     addBlock.type = 'button';
     addBlock.addEventListener('click', () => void this.addBlockHost());
     this.blockInput.addEventListener('keydown', (e) => {
@@ -1029,7 +1030,7 @@ export class AiPanel {
 
     this.budgetInput.type = 'text';
     this.budgetInput.inputMode = 'decimal';
-    this.budgetInput.placeholder = '空欄なら上限なし';
+    this.budgetInput.placeholder = tr('空欄なら上限なし');
     this.budgetInput.spellcheck = false;
     this.budgetInput.autocomplete = 'off';
     this.budgetInput.setAttribute('aria-label', '今月の料金の上限（ドル）');
@@ -1043,39 +1044,39 @@ export class AiPanel {
     });
 
     this.settings.append(
-      el('div', 'ai-setting-title', 'API キー'),
+      el('div', 'ai-setting-title', tr('API キー')),
       this.keyInput,
       keyError,
       keyRow,
       this.keyState,
-      el('div', 'ai-setting-title', 'モデル'),
+      el('div', 'ai-setting-title', tr('モデル')),
       model,
       practiceLabel,
       skipLabel,
       toolsLabel,
       searchLabel,
       ...this.buildCastSettings(),
-      el('div', 'ai-setting-title', '今月の料金'),
+      el('div', 'ai-setting-title', tr('今月の料金')),
       this.budgetInput,
       this.budgetState,
       el(
         'p',
         'ai-setting-note',
-        '相棒（Claude）の料金の目安を、月ごとに足します。空欄のあいだは上限なしです。0 と入れると、次の呼び出しから止まります。近づいたときと、達したときに知らせます。これは目安で、実際の請求とは一致しません。Grok Bot の使用量は、このブラウザからは見えないので数えていません。練習モードは数えません。月が替わると、合計は 0 に戻ります。',
+        tr('相棒（Claude）の料金の目安を、月ごとに足します。空欄のあいだは上限なしです。0 と入れると、次の呼び出しから止まります。近づいたときと、達したときに知らせます。これは目安で、実際の請求とは一致しません。Grok Bot の使用量は、このブラウザからは見えないので数えていません。練習モードは数えません。月が替わると、合計は 0 に戻ります。'),
       ),
-      el('div', 'ai-setting-title', '相棒から話しかける'),
+      el('div', 'ai-setting-title', tr('相棒から話しかける')),
       talk,
       limitLabel,
       this.dailyState,
-      el('div', 'ai-setting-title', '六角メモの送り先'),
+      el('div', 'ai-setting-title', tr('六角メモの送り先')),
       this.hexSelect,
       reloadHex,
       this.hexState,
-      el('div', 'ai-setting-title', '渡し止め'),
+      el('div', 'ai-setting-title', tr('渡し止め')),
       el(
         'p',
         'ai-setting-note',
-        'ここに書いたサイトの本文・選んだ文・アドレス・画像・字幕は、相棒にも Grok Bot にも添付しません。例：mail.example.com（そのサイトと、その下の名前。www.mail.example.com も止まります）。一覧は空からはじまります。人が自分で書いた頼む文は止まりません。',
+        tr('ここに書いたサイトの本文・選んだ文・アドレス・画像・字幕は、相棒にも Grok Bot にも添付しません。例：mail.example.com（そのサイトと、その下の名前。www.mail.example.com も止まります）。一覧は空からはじまります。人が自分で書いた頼む文は止まりません。'),
       ),
       this.blockList,
       blockRow,
@@ -1083,7 +1084,7 @@ export class AiPanel {
       el(
         'p',
         'ai-setting-note',
-        '要約・解説・クイズや「このページについて」の質問では、表示中のページの文章（最大4万字）が Anthropic に送られます。相棒から話しかける設定のときは、ページを読み終えたとき（「ふつう」では ♥×3・メモのときも）にも、そのページの文章が送られます（1日の上限まで）。ブラウザの操作を任せているときは、道具を使うときにタブの一覧（タイトル・URL・メモ）も送られます。新しい会話の最初には、相棒が覚えていること（右サイドバーの「相棒が覚えていること」）も送られます。Web 検索は Anthropic 側で行われます。キーは Windows の仕組みで暗号化して、このパソコンに保存します。会話はこのパソコンに保存され、「履歴」から開き直せます。',
+        tr('要約・解説・クイズや「このページについて」の質問では、表示中のページの文章（最大4万字）が Anthropic に送られます。相棒から話しかける設定のときは、ページを読み終えたとき（「ふつう」では ♥×3・メモのときも）にも、そのページの文章が送られます（1日の上限まで）。ブラウザの操作を任せているときは、道具を使うときにタブの一覧（タイトル・URL・メモ）も送られます。新しい会話の最初には、相棒が覚えていること（右サイドバーの「相棒が覚えていること」）も送られます。Web 検索は Anthropic 側で行われます。キーは Windows の仕組みで暗号化して、このパソコンに保存します。会話はこのパソコンに保存され、「履歴」から開き直せます。'),
       ),
     );
   }
@@ -1128,10 +1129,10 @@ export class AiPanel {
     const team = teamOf(members);
     const target = this.prefs.target;
     const choices: [Target, string][] = [
-      ...members.filter((id) => !isHaiku(id)).map((id): [Target, string] => [id, `${this.companion.nameOf(id)}へ`]),
-      ...(team.length > 0 ? [['team', `${HAIKU_UNIT_NAME}へ`] as [Target, string]] : []),
-      ...(isHaiku(target) && team.includes(target) ? [[target, `${this.companion.nameOf(target)}へ`] as [Target, string]] : []),
-      ...(team.length === members.length ? [] : [['all', members.length === 2 ? '二人へ' : 'みんなへ'] as [Target, string]]),
+      ...members.filter((id) => !isHaiku(id)).map((id): [Target, string] => [id, tr('{0}へ', { 0: this.companion.nameOf(id) })]),
+      ...(team.length > 0 ? [['team', tr('{0}へ', { 0: HAIKU_UNIT_NAME })] as [Target, string]] : []),
+      ...(isHaiku(target) && team.includes(target) ? [[target, tr('{0}へ', { 0: this.companion.nameOf(target) })] as [Target, string]] : []),
+      ...(team.length === members.length ? [] : [['all', members.length === 2 ? tr('二人へ') : tr('みんなへ')] as [Target, string]]),
     ];
     const key = JSON.stringify(choices);
     if (key === this.targetsKey) {
@@ -1166,13 +1167,13 @@ export class AiPanel {
     banter.checked = this.prefs.banter;
     banter.addEventListener('change', () => this.updateCast({ banter: banter.checked }));
     const banterLabel = el('label', 'ai-check');
-    banterLabel.append(banter, document.createTextNode('掛け合い（だれかが答えたら、ほかのメンバーがひとことずつ返す。料金が増えます）'));
+    banterLabel.append(banter, document.createTextNode(tr('掛け合い（だれかが答えたら、ほかのメンバーがひとことずつ返す。料金が増えます）')));
 
     // 二人目の相棒（役割は決まった中から選ぶ）
     const updateSecond = (patch: Partial<SecondConfig>) => this.updateCast({ second: { ...this.prefs.second, ...patch } });
     const secondName = el('input', 'memory-input');
     secondName.value = this.prefs.second.name;
-    secondName.placeholder = '名前';
+    secondName.placeholder = tr('名前');
     secondName.addEventListener('change', () => {
       const name = cleanName(secondName.value, DEFAULT_SECOND.name);
       secondName.value = name;
@@ -1192,7 +1193,7 @@ export class AiPanel {
     );
     const unitName = el('input', 'memory-input');
     unitName.value = this.prefs.trio.unitName;
-    unitName.placeholder = '三人組の名前';
+    unitName.placeholder = tr('三人組の名前');
     unitName.addEventListener('change', () => {
       const name = cleanName(unitName.value, DEFAULT_TRIO.unitName);
       unitName.value = name;
@@ -1211,24 +1212,24 @@ export class AiPanel {
     );
 
     return [
-      el('div', 'ai-setting-title', 'キャラクター'),
-      el('p', 'ai-setting-note', '会話に参加するキャラは、会話のいちばん上の名前（▾）を押して選びます（Claude も入れて3体まで）。'),
+      el('div', 'ai-setting-title', tr('キャラクター')),
+      el('p', 'ai-setting-note', tr('会話に参加するキャラは、会話のいちばん上の名前（▾）を押して選びます（Claude も入れて3体まで）。')),
       banterLabel,
-      el('div', 'ai-setting-sub', '二人目の相棒（役割を選ぶ）'),
+      el('div', 'ai-setting-sub', tr('二人目の相棒（役割を選ぶ）')),
       secondName,
       secondRole,
       secondModel,
-      el('div', 'ai-setting-sub', `賢者（${FABLE_MODEL.label}）`),
+      el('div', 'ai-setting-sub', tr('賢者（{0}）', { 0: FABLE_MODEL.label })),
       fable,
       ...this.buildEvolveSettings(),
-      el('div', 'ai-setting-sub', '三人組（Claude Sonnet 5.5 が3体）'),
+      el('div', 'ai-setting-sub', tr('三人組（Claude Sonnet 5.5 が3体）')),
       unitName,
       ...trio,
       ...this.buildHaikuSettings(),
       el(
         'p',
         'ai-setting-note',
-        'Claude 以外のキャラは、別の役割を演じる Claude です。ブラウザの操作（開く・閉じる・休眠など）は Claude だけ。フェイブルは見るだけの道具・ほかのタブを読む・Web 検索と取得・考察を残す（確認つき）、ジンは Web 検索、ルカはタブと順路を見る、モモはリマインダーと単語帳（確認つき）を使えます（「ブラウザの操作を任せる」「Web 検索を使う」の設定しだい。キャラがその会話で初めて話すときに決まります。あとで「Web 検索を使う」を切ると、話し始めたキャラには使わないよう頼みます）。名前・性格・モデルを変えると、そのキャラがまだ話していない会話から効きます。',
+        tr('Claude 以外のキャラは、別の役割を演じる Claude です。ブラウザの操作（開く・閉じる・休眠など）は Claude だけ。フェイブルは見るだけの道具・ほかのタブを読む・Web 検索と取得・考察を残す（確認つき）、ジンは Web 検索、ルカはタブと順路を見る、モモはリマインダーと単語帳（確認つき）を使えます（「ブラウザの操作を任せる」「Web 検索を使う」の設定しだい。キャラがその会話で初めて話すときに決まります。あとで「Web 検索を使う」を切ると、話し始めたキャラには使わないよう頼みます）。名前・性格・モデルを変えると、そのキャラがまだ話していない会話から効きます。'),
       ),
     ];
   }
@@ -1238,8 +1239,8 @@ export class AiPanel {
     const speak = el('select');
     speak.setAttribute('aria-label', 'ハイク組が4体以上のときの話し方');
     const modes: [HaikuSpeak, string][] = [
-      ['lead', '4体から：モミジが組を代表して答える'],
-      ['groups', '4体から：2つの班（3体まで）が、順番に答える'],
+      ['lead', tr('4体から：モミジが組を代表して答える')],
+      ['groups', tr('4体から：2つの班（3体まで）が、順番に答える')],
     ];
     for (const [value, label] of modes) speak.append(new Option(label, value, false, value === this.prefs.haiku.speak));
     speak.addEventListener('change', () => this.updateCast({ haiku: { ...this.prefs.haiku, speak: speak.value === 'groups' ? 'groups' : 'lead' } }));
@@ -1276,7 +1277,7 @@ export class AiPanel {
         apply();
       });
       const label = el('label', 'ai-limit');
-      label.title = `${ADVISORS[id].name}（${ADVISORS[id].label}）への相談の許可`;
+      label.title = tr('{0}（{1}）への相談の許可', { 0: ADVISORS[id].name, 1: ADVISORS[id].label });
       label.append(document.createTextNode(`${ADVISORS[id].mark} ${ADVISORS[id].name}：`), select); // 選ぶ欄の文字が切れないよう、名前だけ
       return label;
     };
@@ -1297,47 +1298,47 @@ export class AiPanel {
         apply();
       });
       const label = el('label', 'ai-limit');
-      label.append(document.createTextNode(`${ADVISORS[id].mark} ${ADVISORS[id].quotaName}（${ADVISORS[id].name}）：1日に`), input, document.createTextNode('回まで'));
+      label.append(document.createTextNode(tr('{0} {1}（{2}）：1日に', { 0: ADVISORS[id].mark, 1: ADVISORS[id].quotaName, 2: ADVISORS[id].name })), input, document.createTextNode(tr('回まで')));
       return label;
     };
     return [
-      el('div', 'ai-setting-sub', `${HAIKU_UNIT_NAME}（Claude Haiku 5.5 が${HAIKU_MIN}〜${HAIKU_MAX}体）`),
+      el('div', 'ai-setting-sub', tr('{0}（Claude Haiku 5.5 が{1}〜{2}体）', { 0: HAIKU_UNIT_NAME, 1: HAIKU_MIN, 2: HAIKU_MAX })),
       speak,
-      el('div', 'ai-setting-sub', '道すじ（振り分け）'),
-      routeSelect('routeMode', '道すじ', [
-        ['auto', 'おまかせ（決まり＋迷うときだけハイクの判定）'],
-        ['team', 'いつもハイク組だけ'],
-        ['consult', 'いつも相談つき'],
+      el('div', 'ai-setting-sub', tr('道すじ（振り分け）')),
+      routeSelect('routeMode', tr('道すじ'), [
+        ['auto', tr('おまかせ（決まり＋迷うときだけハイクの判定）')],
+        ['team', tr('いつもハイク組だけ')],
+        ['consult', tr('いつも相談つき')],
       ]),
-      routeSelect('routeStuck', '割れた・詰まったとき', [
-        ['buttons', 'ボタンを出すだけ'],
-        ['auto', 'Claude 先生に自動で聞く（きらりを使う）'],
+      routeSelect('routeStuck', tr('割れた・詰まったとき'), [
+        ['buttons', tr('ボタンを出すだけ')],
+        ['auto', tr('Claude 先生に自動で聞く（きらりを使う）')],
       ]),
-      routeSelect('routeRefusal', '断られたあと', [
-        ['plain', '言い直す・ほかのハイクに聞く、だけ'],
-        ['advisor', '先生に聞く、も出す'],
+      routeSelect('routeRefusal', tr('断られたあと'), [
+        ['plain', tr('言い直す・ほかのハイクに聞く、だけ')],
+        ['advisor', tr('先生に聞く、も出す')],
       ]),
       el(
         'p',
         'ai-setting-note',
-        'ハイク組に話しかけたとき、自分の発言の下に「道すじ」が出ます。短い質問は組だけ、見通しや「本当？」は相談つき、と無料の決まりで分けます。決まりで決まらないときだけ、ハイクに1回聞いて決めます。開くと理由と、もう一方への選び直しが出ます。意見の数字が食い違ったときと、返事が途中で止まったときは、上の「割れた・詰まった」に従います。安全のための判定で断られたときは、自動では先生に回しません。作戦カードは、この段階にはありません。',
+        tr('ハイク組に話しかけたとき、自分の発言の下に「道すじ」が出ます。短い質問は組だけ、見通しや「本当？」は相談つき、と無料の決まりで分けます。決まりで決まらないときだけ、ハイクに1回聞いて決めます。開くと理由と、もう一方への選び直しが出ます。意見の数字が食い違ったときと、返事が途中で止まったときは、上の「割れた・詰まった」に従います。安全のための判定で断られたときは、自動では先生に回しません。作戦カードは、この段階にはありません。'),
       ),
-      el('div', 'ai-setting-sub', `${HAIKU_UNIT_NAME}から先生への相談`),
+      el('div', 'ai-setting-sub', tr('{0}から先生への相談', { 0: HAIKU_UNIT_NAME })),
       modeSelect('opus'),
       modeSelect('fable'),
       limitInput('opus'),
       limitInput('fable'),
-      el('div', 'ai-setting-sub', '相談の記録'),
+      el('div', 'ai-setting-sub', tr('相談の記録')),
       this.consultState,
       el(
         'p',
         'ai-setting-note',
-        'ハイク組の体が、自分だけでは自信が持てないときに先生に相談します（1つの頼みで組全体で1回まで。見送ったときも、その頼みではもう聞きません）。アプリが「相談の手紙」（問い・理由・使う人の頼み・最近の会話・ページのURLと本文の一部）を作って先生に渡し、助言は返事の中のカードに全文が出ます（［相談の手紙を見る］で、渡したものも見られます）。入力欄の上の「先生に聞く」を押すと、ハイク組が答える前に先生に相談します（押す＝許可。枠は使います）。枠はハイク組だけの1日の回数で、フェイブルの進化とは別。0時に戻ります。先生が書き始める前に届かなかった相談の分は戻りますが、時間切れ・止めたときは使ったことになります（途中までの料金がかかることがあります）。1回の目安：Claude 先生 約 $0.02〜0.10、フェイブル先生 約 $0.05〜0.25。フェイブル先生（Fable 5.1）に渡した相談の手紙は、Anthropic 側に30日保存されます。',
+        tr('ハイク組の体が、自分だけでは自信が持てないときに先生に相談します（1つの頼みで組全体で1回まで。見送ったときも、その頼みではもう聞きません）。アプリが「相談の手紙」（問い・理由・使う人の頼み・最近の会話・ページのURLと本文の一部）を作って先生に渡し、助言は返事の中のカードに全文が出ます（［相談の手紙を見る］で、渡したものも見られます）。入力欄の上の「先生に聞く」を押すと、ハイク組が答える前に先生に相談します（押す＝許可。枠は使います）。枠はハイク組だけの1日の回数で、フェイブルの進化とは別。0時に戻ります。先生が書き始める前に届かなかった相談の分は戻りますが、時間切れ・止めたときは使ったことになります（途中までの料金がかかることがあります）。1回の目安：Claude 先生 約 $0.02〜0.10、フェイブル先生 約 $0.05〜0.25。フェイブル先生（Fable 5.1）に渡した相談の手紙は、Anthropic 側に30日保存されます。'),
       ),
       el(
         'p',
         'ai-setting-note',
-        '人数（3〜6体）は、メンバーの欄（会話のいちばん上の名前 ▾）で選びます。ハイク組は何体でも会話のメンバーの1枠。3体までは「みんなへ」「ハイク組へ」で全員が順に答えます。4体からは、モミジが代表して答えるか、2つの班が頼みごとごとに交代で答えます（班は 4体なら2・2、5体なら3・2、6体なら3・3）。顔を押すと、組の中のひとりに話しかけられます。ツクシはタブと順路を見てほかのタブを読み、ホタルは Web 検索、モミジはリマインダーと単語帳（確認してから）、カエルは考察を残す（確認してから）、トンボはタブと順路を見ます。ユキは今は話すだけです。',
+        tr('人数（3〜6体）は、メンバーの欄（会話のいちばん上の名前 ▾）で選びます。ハイク組は何体でも会話のメンバーの1枠。3体までは「みんなへ」「ハイク組へ」で全員が順に答えます。4体からは、モミジが代表して答えるか、2つの班が頼みごとごとに交代で答えます（班は 4体なら2・2、5体なら3・2、6体なら3・3）。顔を押すと、組の中のひとりに話しかけられます。ツクシはタブと順路を見てほかのタブを読み、ホタルは Web 検索、モミジはリマインダーと単語帳（確認してから）、カエルは考察を残す（確認してから）、トンボはタブと順路を見ます。ユキは今は話すだけです。'),
       ),
     ];
   }
@@ -1369,7 +1370,7 @@ export class AiPanel {
       apply();
     });
     const limitLabel = el('label', 'ai-limit');
-    limitLabel.append(document.createTextNode('1日に'), limit, document.createTextNode('回まで（合図とボタンで分け合う。0時に戻る）'));
+    limitLabel.append(document.createTextNode(tr('1日に')), limit, document.createTextNode(tr('回まで（合図とボタンで分け合う。0時に戻る）')));
     const reserve = el('input');
     reserve.type = 'checkbox';
     reserve.checked = this.prefs.evolveReserve;
@@ -1378,9 +1379,9 @@ export class AiPanel {
       apply();
     });
     const reserveLabel = el('label', 'ai-check');
-    reserveLabel.append(reserve, document.createTextNode('フェイブルの合図用に1回残す（ボタンでは最後の1回を使わない。使われなければ、その日のうちに消える）'));
+    reserveLabel.append(reserve, document.createTextNode(tr('フェイブルの合図用に1回残す（ボタンでは最後の1回を使わない。使われなければ、その日のうちに消える）')));
     return [
-      el('div', 'ai-setting-sub', 'フェイブルの進化（深く考えたいときだけ、考える深さを max に上げる）'),
+      el('div', 'ai-setting-sub', tr('フェイブルの進化（深く考えたいときだけ、考える深さを max に上げる）')),
       mode,
       limitLabel,
       reserveLabel,
@@ -1388,7 +1389,7 @@ export class AiPanel {
       el(
         'p',
         'ai-setting-note',
-        '進化すると、ふだんより深く考えます（数分かかることがあります。1回 約 $0.20〜$1.00）。フェイブルの合図のときは許可を聞き、目安の料金が出ます。入力欄の下の「さらに考える」ボタンなら、確認なしで、その返事の初めから進化します。残りの回数は月の満ち欠けで出ます（満月＝まだ全部、新月＝もう無い）。',
+        tr('進化すると、ふだんより深く考えます（数分かかることがあります。1回 約 $0.20〜$1.00）。フェイブルの合図のときは許可を聞き、目安の料金が出ます。入力欄の下の「さらに考える」ボタンなら、確認なしで、その返事の初めから進化します。残りの回数は月の満ち欠けで出ます（満月＝まだ全部、新月＝もう無い）。'),
       ),
     ];
   }
@@ -1426,7 +1427,7 @@ export class AiPanel {
     // 入力が空なら、先生には「答えるときに気をつけること」を聞き、組には続きを頼む（助言は発言の中のかたまりで渡る）
     void this.companion.ask('chat', text || 'ここまでの話について、続けて答えてください。', this.attach.checked, this.prefs.target, {
       advisor: id,
-      display: text || `${advisor.mark} ${advisor.name}に聞いて答えて`,
+      display: text || tr('{0} {1}に聞いて答えて', { 0: advisor.mark, 1: advisor.name }),
       question: text ? undefined : `ここまでの会話について、${HAIKU_UNIT_NAME}が次に答えるときに気をつけることを助言してください`,
     });
   }
@@ -1446,7 +1447,7 @@ export class AiPanel {
       text || 'ここまでの話を、もう一段深く考えてください。新しい見方・前提の問い直し・仮説があれば教えてください。',
       this.attach.checked,
       'fable',
-      { deep: true, display: text || '🌕 さらに考えて' },
+      { deep: true, display: text || tr('🌕 さらに考えて') },
     );
   }
 
@@ -1455,7 +1456,7 @@ export class AiPanel {
     const box = el('div', 'ai-persona');
     const name = el('input', 'memory-input');
     name.value = current().name;
-    name.placeholder = '名前';
+    name.placeholder = tr('名前');
     name.addEventListener('change', () => {
       name.value = cleanName(name.value, fallback.name);
       apply({ ...current(), name: name.value });
@@ -1463,12 +1464,12 @@ export class AiPanel {
     const persona = el('textarea', 'memory-input info-textarea');
     persona.rows = 3;
     persona.value = current().persona;
-    persona.placeholder = '性格と役割';
+    persona.placeholder = tr('性格と役割');
     persona.addEventListener('change', () => {
       persona.value = cleanPersona(persona.value, fallback.persona);
       apply({ ...current(), persona: persona.value });
     });
-    const reset = el('button', 'ai-small', '元に戻す');
+    const reset = el('button', 'ai-small', tr('元に戻す'));
     reset.type = 'button';
     reset.addEventListener('click', () => {
       name.value = fallback.name;
@@ -1506,19 +1507,19 @@ export class AiPanel {
       // モデル：話し始めたキャラは、この会話で使っているモデル（⚙ で変えても、話し始めた会話では変わらない）
       const setting = modelOf(this.prefs, id, this.prefs.model);
       const now = this.companion.modelFor(id);
-      const model = el('span', 'ai-member-model', now === setting ? modelLabel(now) : `${modelLabel(now)}（この会話）`);
-      if (now !== setting) model.title = `⚙ の設定は ${modelLabel(setting)}。次の会話から効きます`;
+      const model = el('span', 'ai-member-model', now === setting ? modelLabel(now) : tr('{0}（この会話）', { 0: modelLabel(now) }));
+      if (now !== setting) model.title = tr('⚙ の設定は {0}。次の会話から効きます', { 0: modelLabel(setting) });
       label.append(check, el('span', `ai-member-dot ${id}`), text, model);
       return label;
     };
     // ハイク組：組で1つの行（印を付けると、組の人数の分だけ入る）と、人数の選択
     const team = teamOf(members);
     const haikuOnly = isHaikuOnly(members);
-    const teamButton = el('button', 'ai-small', haikuOnly ? `${HAIKU_UNIT_NAME}で話しています` : `${HAIKU_UNIT_NAME}で話す`);
+    const teamButton = el('button', 'ai-small', haikuOnly ? tr('{0}で話しています', { 0: HAIKU_UNIT_NAME }) : tr('{0}で話す', { 0: HAIKU_UNIT_NAME }));
     teamButton.type = 'button';
     teamButton.dataset.id = 'haiku-only';
     teamButton.disabled = haikuOnly;
-    teamButton.title = `メンバーを${HAIKU_UNIT_NAME}だけにして、${HAIKU_UNIT_NAME}に話しかける（ほかのキャラは外れる）`;
+    teamButton.title = tr('メンバーを{0}だけにして、{1}に話しかける（ほかのキャラは外れる）', { 0: HAIKU_UNIT_NAME, 1: HAIKU_UNIT_NAME });
     teamButton.addEventListener('click', () => {
       this.membersNote.textContent = '';
       this.updateCast({ members: [...HAIKU_IDS], target: 'team' });
@@ -1534,14 +1535,14 @@ export class AiPanel {
     const teamText = el('span', 'ai-member-text');
     const size = this.prefs.haiku.size;
     teamText.append(
-      el('span', 'ai-member-name', `${HAIKU_UNIT_NAME}（1枠）`),
-      el('span', 'ai-member-blurb', HAIKU_IDS.slice(0, size).map((id) => nameOf(this.prefs, id)).join('・')),
+      el('span', 'ai-member-name', tr('{0}（1枠）', { 0: HAIKU_UNIT_NAME })),
+      el('span', 'ai-member-blurb', HAIKU_IDS.slice(0, size).map((id) => nameOf(this.prefs, id)).join(tr('・'))),
     );
     teamLabel.append(teamCheck, el('span', 'ai-member-dot tsukushi'), teamText, el('span', 'ai-member-model', modelLabel(HAIKU_MODEL.id)));
     const sizeSelect = el('select', 'ai-member-size');
     sizeSelect.dataset.id = 'haiku-size';
     sizeSelect.setAttribute('aria-label', `${HAIKU_UNIT_NAME}の人数`);
-    for (let n = HAIKU_MIN; n <= HAIKU_MAX; n++) sizeSelect.append(new Option(`${n}体`, String(n), false, n === size));
+    for (let n = HAIKU_MIN; n <= HAIKU_MAX; n++) sizeSelect.append(new Option(tr('{0}体', { 0: n }), String(n), false, n === size));
     sizeSelect.addEventListener('change', () => {
       this.membersNote.textContent = '';
       this.updateCast({ haiku: { ...this.prefs.haiku, size: Number(sizeSelect.value) } });
@@ -1549,11 +1550,11 @@ export class AiPanel {
     const teamRow = el('div', 'ai-member-row');
     teamRow.append(teamLabel, sizeSelect);
     const trioOnly = isTrioOnly(members);
-    const trioButton = el('button', 'ai-small', trioOnly ? '三人組で話しています' : '三人組で話す');
+    const trioButton = el('button', 'ai-small', trioOnly ? tr('三人組で話しています') : tr('三人組で話す'));
     trioButton.type = 'button';
     trioButton.dataset.id = 'trio';
     trioButton.disabled = trioOnly;
-    trioButton.title = 'メンバーを三人組の3体にして、みんなに話しかける（ほかのキャラは外れる）';
+    trioButton.title = tr('メンバーを三人組の3体にして、みんなに話しかける（ほかのキャラは外れる）');
     trioButton.addEventListener('click', () => {
       this.membersNote.textContent = '';
       this.updateCast({ members: [...TRIO_IDS], target: 'all' });
@@ -1562,7 +1563,7 @@ export class AiPanel {
     trioHead.append(el('span', 'ai-member-group-name', this.prefs.trio.unitName), trioButton);
     this.title.setAttribute('aria-expanded', String(!this.membersPanel.hidden));
     this.membersPanel.replaceChildren(
-      el('div', 'ai-setting-title', `会話に参加するメンバー（Claude も入れて${MAX_MEMBERS}枠まで。${HAIKU_UNIT_NAME}は1枠）`),
+      el('div', 'ai-setting-title', tr('会話に参加するメンバー（Claude も入れて{0}枠まで。{1}は1枠）', { 0: MAX_MEMBERS, 1: HAIKU_UNIT_NAME })),
       row('main'),
       row('second'),
       row('fable'),
@@ -1574,7 +1575,7 @@ export class AiPanel {
       el(
         'p',
         'ai-setting-note',
-        `ブラウザの操作は Claude だけ（ほかのキャラは、見る・読む・調べるなどの道具を少し持つ）。Claude がいないときは、要約などの頼みごとや出来事に、いちばん上のメンバーが答える。${nameOf(this.prefs, 'fable')}（${FABLE_MODEL.label}）の料金は Opus 5.5 の約2.5倍。${HAIKU_UNIT_NAME}（${HAIKU_MODEL.label}）は 3〜6体で1枠、料金はいちばん安い（Opus 5.5 の約40分の1）。名前と性格・ハイク組の話し方は ⚙ で変えられます。`,
+        tr('ブラウザの操作は Claude だけ（ほかのキャラは、見る・読む・調べるなどの道具を少し持つ）。Claude がいないときは、要約などの頼みごとや出来事に、いちばん上のメンバーが答える。{0}（{1}）の料金は Opus 5.5 の約2.5倍。{2}（{3}）は 3〜6体で1枠、料金はいちばん安い（Opus 5.5 の約40分の1）。名前と性格・ハイク組の話し方は ⚙ で変えられます。', { 0: nameOf(this.prefs, 'fable'), 1: FABLE_MODEL.label, 2: HAIKU_UNIT_NAME, 3: HAIKU_MODEL.label }),
       ),
     );
     if (focused) {
@@ -1594,11 +1595,11 @@ export class AiPanel {
       this.membersNote.textContent = message;
     };
     if (on && !members.includes(id) && slotsOf(members) >= MAX_MEMBERS) {
-      refuse(`会話のメンバーは${MAX_MEMBERS}枠までです（${HAIKU_UNIT_NAME}は1枠）。先にだれかを外してください`);
+      refuse(tr('会話のメンバーは{0}枠までです（{1}は1枠）。先にだれかを外してください', { 0: MAX_MEMBERS, 1: HAIKU_UNIT_NAME }));
       return;
     }
     if (!on && members.length === 1 && members[0] === id) {
-      refuse('1体は残してください');
+      refuse(tr('1体は残してください'));
       return;
     }
     this.membersNote.textContent = '';
@@ -1614,11 +1615,11 @@ export class AiPanel {
       this.membersNote.textContent = message;
     };
     if (on && teamOf(members).length === 0 && slotsOf(members) >= MAX_MEMBERS) {
-      refuse(`会話のメンバーは${MAX_MEMBERS}枠までです（${HAIKU_UNIT_NAME}は1枠）。先にだれかを外してください`);
+      refuse(tr('会話のメンバーは{0}枠までです（{1}は1枠）。先にだれかを外してください', { 0: MAX_MEMBERS, 1: HAIKU_UNIT_NAME }));
       return;
     }
     if (!on && isHaikuOnly(members)) {
-      refuse('1体は残してください');
+      refuse(tr('1体は残してください'));
       return;
     }
     this.membersNote.textContent = '';
@@ -1629,14 +1630,14 @@ export class AiPanel {
   private buildBubble() {
     this.bubble.hidden = true;
     const close = el('button', 'ai-bubble-close', '×');
-    close.title = '吹き出しを閉じる';
+    close.title = tr('吹き出しを閉じる');
     close.setAttribute('aria-label', '吹き出しを閉じる');
     close.addEventListener('click', (e) => {
       e.stopPropagation();
       this.bubbleId = null;
       this.render();
     });
-    this.bubble.title = '押すと会話を開きます';
+    this.bubble.title = tr('押すと会話を開きます');
     this.bubble.addEventListener('click', () => this.setOpen(true));
     // マウスを乗せている間は消さない
     this.bubble.addEventListener('pointerenter', () => window.clearTimeout(this.bubbleTimer));
@@ -1649,7 +1650,7 @@ export class AiPanel {
 
   private onApiKey(key: string | null, error?: string) {
     if (error) {
-      this.keyState.textContent = 'キーを保存できませんでした';
+      this.keyState.textContent = tr('キーを保存できませんでした');
       return;
     }
     this.companion.setApiKey(key);
@@ -1701,7 +1702,7 @@ export class AiPanel {
     const proposal = entry.letter;
     if (!proposal || proposal.state !== 'proposed' || entry.streaming) return; // 返事が終わってから
     if (!this.letters.ready) {
-      this.companion.notice('レターの一覧を読み込んでいます。少し待ってから、もう一度押してください');
+      this.companion.notice(tr('レターの一覧を読み込んでいます。少し待ってから、もう一度押してください'));
       return;
     }
     const speaker = entry.speaker && isCharacterId(entry.speaker) ? entry.speaker : 'fable';
@@ -1717,7 +1718,7 @@ export class AiPanel {
       pageUrl: entry.pageUrl && /^https?:\/\//i.test(entry.pageUrl) ? entry.pageUrl : undefined,
     });
     if (!letter) {
-      this.companion.notice(`レターがいっぱいです（${MAX_LETTERS}通まで）。「履歴」→「✉ フェイブルレター」から古いレターを消してから、もう一度押してください`);
+      this.companion.notice(tr('レターがいっぱいです（{0}通まで）。「履歴」→「✉ フェイブルレター」から古いレターを消してから、もう一度押してください', { 0: MAX_LETTERS }));
       return;
     }
     this.companion.setLetterState(entry.id, 'kept', letter.id);
@@ -1741,11 +1742,11 @@ export class AiPanel {
       const result = await makeCards({ title: letter.pageTitle ?? letter.title, url: letter.pageUrl ?? '', text: `${letter.title}\n${points}${letter.body}` }, letter.studiedFronts ?? [], this.organizeSettings());
       if (this.study?.letterId !== letter.id) return;
       this.study = result.cards.length > 0 ? { letterId: letter.id, making: false, cards: result.cards.map((c) => ({ ...c, checked: true })) } : null;
-      const cost = result.cost > 0 ? `（約 $${result.cost.toFixed(3)}）` : '';
-      this.letterNote = { id: letter.id, text: result.cards.length > 0 ? `カードの案が ${result.cards.length} 枚できました${cost}。入れるものに印を付けてください` : `この手紙から、カードの案は作れませんでした${cost}` };
+      const cost = result.cost > 0 ? tr('（約 ${0}）', { 0: result.cost.toFixed(3) }) : '';
+      this.letterNote = { id: letter.id, text: result.cards.length > 0 ? tr('カードの案が {0} 枚できました{1}。入れるものに印を付けてください', { 0: result.cards.length, 1: cost }) : tr('この手紙から、カードの案は作れませんでした{0}', { 0: cost }) };
     } catch (error) {
       if (this.study?.letterId === letter.id) this.study = null;
-      this.letterNote = { id: letter.id, text: `作れませんでした：${error instanceof Error ? error.message : String(error)}` };
+      this.letterNote = { id: letter.id, text: tr('作れませんでした：{0}', { 0: error instanceof Error ? error.message : String(error) }) };
     }
     this.render();
   }
@@ -1809,8 +1810,8 @@ export class AiPanel {
       return button;
     };
     bar.append(
-      tab('history', '過去の会話', () => void this.showHistory()),
-      tab('letters', `✉ フェイブルレター${count > 0 ? `（${count}）` : ''}`, () => this.showLetters()),
+      tab('history', tr('過去の会話'), () => void this.showHistory()),
+      tab('letters', tr('✉ フェイブルレター{0}', { 0: count > 0 ? `（${count}）` : '' }), () => this.showLetters()),
     );
     return bar;
   }
@@ -1823,13 +1824,13 @@ export class AiPanel {
       this.openAdviceLetters.clear();
       this.companion.load(saved);
     } else {
-      this.companion.notice('その会話は、もう残っていません（履歴から削除されたようです）');
+      this.companion.notice(tr('その会話は、もう残っていません（履歴から削除されたようです）'));
     }
     this.render();
   }
 
   private async removeConversation(item: ConversationSummary) {
-    if (!window.confirm(`「${item.title}」の会話を削除しますか？`)) return;
+    if (!window.confirm(tr('「{0}」の会話を削除しますか？', { 0: item.title }))) return;
     await deleteConversation(item.id);
     if (item.id === this.companion.id) this.companion.reset();
     this.historyItems = await loadIndex();
@@ -1843,20 +1844,20 @@ export class AiPanel {
     const form = el('form', 'ai-card-form vocab-form');
     const front = el('input');
     front.dataset.field = 'front';
-    front.placeholder = draft.kind === 'quiz' ? '問い' : '言葉（覚えたい言葉）';
+    front.placeholder = draft.kind === 'quiz' ? tr('問い') : tr('言葉（覚えたい言葉）');
     front.value = draft.front;
     front.maxLength = 400;
     front.addEventListener('input', () => (draft.front = front.value));
     const back = el('textarea', 'info-textarea');
     back.dataset.field = 'back';
-    back.placeholder = draft.kind === 'quiz' ? '答え' : '意味・説明';
+    back.placeholder = draft.kind === 'quiz' ? tr('答え') : tr('意味・説明');
     back.rows = 4;
     back.value = draft.back;
     back.maxLength = 1000;
     back.addEventListener('input', () => (draft.back = back.value));
-    const ok = el('button', 'ai-small', '単語帳に入れる');
+    const ok = el('button', 'ai-small', tr('単語帳に入れる'));
     ok.type = 'submit';
-    const cancel = el('button', 'ai-small', 'やめる');
+    const cancel = el('button', 'ai-small', tr('やめる'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => {
       this.cardDraft = null;
@@ -1888,7 +1889,7 @@ export class AiPanel {
       text: entry.text,
       createdAt: Date.now(),
       source: 'ai',
-      label: `${entry.speaker && entry.speaker !== 'main' ? `${entry.speakerName}・` : ''}${entry.action ? ACTION_LABELS[entry.action] : 'AI'}`,
+      label: `${entry.speaker && entry.speaker !== 'main' ? tr('{0}・', { 0: entry.speakerName }) : ''}${entry.action ? ACTION_LABELS[entry.action] : 'AI'}`,
     });
     this.companion.markKept(entry.id, { tab: true });
   }
@@ -1896,10 +1897,10 @@ export class AiPanel {
   // 返事をデータ置き場に入れる（文字のデータ。元の会話・話したキャラ・ページも覚えておく）
   private async replyToVault(entry: ChatEntry) {
     const name = entry.speakerName ?? 'Claude';
-    const label = entry.action ? ACTION_LABELS[entry.action] : '返事';
+    const label = entry.action ? ACTION_LABELS[entry.action] : tr('返事');
     const ok = await this.host.toVault({
       kind: 'reply',
-      title: `${name}の${label}${entry.pageTitle ? `：${entry.pageTitle}` : ''}`,
+      title: tr('{0}の{1}{2}', { 0: name, 1: label, 2: entry.pageTitle ? `：${entry.pageTitle}` : '' }),
       text: recordOf(entry).text,
       data: { version: 1, conversationId: this.companion.id, entry: entryData(entry) },
       sourceAt: entry.time,
@@ -1914,7 +1915,7 @@ export class AiPanel {
       // 送り先がまだ無い：設定を開いて選んでもらう
       this.settings.hidden = false;
       if (this.hexTargets === null) await this.loadHexTargets();
-      this.hexState.textContent = '先に、六角メモの送り先を選んでください';
+      this.hexState.textContent = tr('先に、六角メモの送り先を選んでください');
       this.hexSelect.focus();
       return;
     }
@@ -1927,7 +1928,7 @@ export class AiPanel {
     } else if ('pending' in outcome) {
       this.companion.markKept(entry.id, { hexMemo: outcome.message, hexMemoFailed: false });
     } else {
-      this.companion.markKept(entry.id, { hexMemo: `六角メモ「${outcome.where || target.label}」に送りました`, hexMemoFailed: false });
+      this.companion.markKept(entry.id, { hexMemo: tr('六角メモ「{0}」に送りました', { 0: outcome.where || target.label }), hexMemoFailed: false });
     }
   }
 
@@ -1937,9 +1938,9 @@ export class AiPanel {
       this.toldNear = false;
     }
     if (document.activeElement !== this.budgetInput) this.budgetInput.value = view.cap === null ? '' : String(view.cap);
-    const cap = view.cap === null ? '上限なし' : `上限 ${formatUsd(view.cap)}`;
-    const state = view.blocked ? '。上限に達しているので、新しい呼び出しは止まります' : view.near ? '。上限に近づいています' : '';
-    this.budgetState.textContent = `今月の目安：${formatUsd(view.spent)}（${cap}）${state}`;
+    const cap = view.cap === null ? tr('上限なし') : tr('上限 {0}', { 0: formatUsd(view.cap) });
+    const state = view.blocked ? tr('。上限に達しているので、新しい呼び出しは止まります') : view.near ? tr('。上限に近づいています') : '';
+    this.budgetState.textContent = tr('今月の目安：{0}（{1}）{2}', { 0: formatUsd(view.spent), 1: cap, 2: state });
   }
 
   private async loadBudget() {
@@ -1954,11 +1955,11 @@ export class AiPanel {
     }
     const value = Number(raw);
     if (!Number.isFinite(value) || value < 0) {
-      this.budgetState.textContent = '0 以上の数字を入れるか、空欄にしてください（空欄は上限なし）';
+      this.budgetState.textContent = tr('0 以上の数字を入れるか、空欄にしてください（空欄は上限なし）');
       return;
     }
     if (value > MAX_CAP) {
-      this.budgetState.textContent = `上限は ${formatUsd(MAX_CAP)} までです`;
+      this.budgetState.textContent = tr('上限は {0} までです', { 0: formatUsd(MAX_CAP) });
       return;
     }
     this.showBudget(await setBudgetCap(value));
@@ -1974,7 +1975,7 @@ export class AiPanel {
       ...this.blockHosts.map((host) => {
         const row = el('div', 'ai-row');
         const name = el('span', 'ai-block-host', host);
-        const remove = el('button', 'ai-small', '外す');
+        const remove = el('button', 'ai-small', tr('外す'));
         remove.type = 'button';
         remove.addEventListener('click', () => void this.removeBlockHost(host));
         row.append(name, remove);
@@ -1996,13 +1997,13 @@ export class AiPanel {
     const next = [...this.blockHosts];
     for (const host of accepted) if (!next.includes(host)) next.push(host);
     if (next.length > BLOCKLIST_MAX) {
-      this.blockState.textContent = `${BLOCKLIST_MAX}件までです`;
+      this.blockState.textContent = tr('{0}件までです', { 0: BLOCKLIST_MAX });
       return;
     }
     this.blockHosts = await setBlocklist(next);
     this.renderBlockHosts();
     if (!rejected) this.blockInput.value = '';
-    this.blockState.textContent = rejected ? 'サイトの形になっていないものがあります。例：mail.example.com（com だけ、のような短い名前は入れられません）' : accepted.length > 0 ? '足しました' : '';
+    this.blockState.textContent = rejected ? tr('サイトの形になっていないものがあります。例：mail.example.com（com だけ、のような短い名前は入れられません）') : accepted.length > 0 ? tr('足しました') : '';
   }
 
   private async removeBlockHost(host: string) {
@@ -2012,19 +2013,19 @@ export class AiPanel {
   }
 
   private async loadHexTargets() {
-    this.hexState.textContent = '六角メモの一覧を読んでいます…';
+    this.hexState.textContent = tr('六角メモの一覧を読んでいます…');
     const catalog = await loadCatalog();
     this.hexTargets = catalog.available ? targetsOf(catalog) : [];
     this.renderHexOptions();
-    if (!catalog.available) this.hexState.textContent = '六角メモのデータが見つかりませんでした';
-    else if (!catalog.canSignal) this.hexState.textContent = '六角メモのプログラムが見つからないため、送ったものは次に六角メモを開いたときに届きます';
-    else this.hexState.textContent = this.prefs.hexMemoTarget ? `「${this.prefs.hexMemoTarget.label}」の原点の下に送ります` : '';
+    if (!catalog.available) this.hexState.textContent = tr('六角メモのデータが見つかりませんでした');
+    else if (!catalog.canSignal) this.hexState.textContent = tr('六角メモのプログラムが見つからないため、送ったものは次に六角メモを開いたときに届きます');
+    else this.hexState.textContent = this.prefs.hexMemoTarget ? tr('「{0}」の原点の下に送ります', { 0: this.prefs.hexMemoTarget.label }) : '';
   }
 
   private renderHexOptions() {
     const current = this.prefs.hexMemoTarget;
     const options: HTMLOptionElement[] = [];
-    const none = el('option', '', this.hexTargets === null && current ? current.label : '（選んでいません）');
+    const none = el('option', '', this.hexTargets === null && current ? current.label : tr('（選んでいません）'));
     none.value = '';
     options.push(none);
     (this.hexTargets ?? []).forEach((t, i) => {
@@ -2066,7 +2067,7 @@ export class AiPanel {
         this.prefs.open && (members.length === 1 || this.prefs.target === id || this.prefs.target === 'all' || (this.prefs.target === 'team' && isHaiku(id))),
       );
       cell.setAttribute('aria-expanded', String(this.prefs.open));
-      cell.setAttribute('aria-label', closes ? `${name}との会話を閉じる` : members.length === 1 ? `${name}との会話を開く` : `${name}に話しかける`);
+      cell.setAttribute('aria-label', closes ? tr('{0}との会話を閉じる', { 0: name }) : members.length === 1 ? tr('{0}との会話を開く', { 0: name }) : tr('{0}に話しかける', { 0: name }));
       cell.title = `${name}（${blurbOf(this.prefs, id)}）`;
     }
     // フェイブル：進化している間は進化した姿、許可を聞いている間は少しだけ光る。終わったら光が広がって消える
@@ -2081,20 +2082,20 @@ export class AiPanel {
     this.layoutTeam(teamOf(members), slotsOf(members));
     const team = teamOf(members);
     const groups = [...members.filter((id) => !isHaiku(id)).map((id) => c.nameOf(id)), ...(team.length > 0 ? [HAIKU_UNIT_NAME] : [])];
-    const names = isTrioOnly(members) ? this.prefs.trio.unitName : groups.join(groups.length === 2 ? ' と ' : '・');
+    const names = isTrioOnly(members) ? this.prefs.trio.unitName : groups.join(groups.length === 2 ? tr(' と ') : tr('・'));
     this.nameLine.textContent = names;
     this.titleNames.textContent = names;
-    this.title.title = `会話に参加するメンバーを選ぶ（いま ${slotsOf(members)}枠・Claude も入れて${MAX_MEMBERS}枠まで。${HAIKU_UNIT_NAME}は1枠）`;
+    this.title.title = tr('会話に参加するメンバーを選ぶ（いま {0}枠・Claude も入れて{1}枠まで。{2}は1枠）', { 0: slotsOf(members), 1: MAX_MEMBERS, 2: HAIKU_UNIT_NAME });
     const speaking = c.activeSpeaker ?? failed;
-    const who = speaking && c.awake === speaking ? `${c.nameOf(speaking)}（覚醒）：` : members.length > 1 && speaking ? `${c.nameOf(speaking)}：` : '';
-    this.status.textContent = who + STATUS[c.state] + (c.practice ? '（練習モード）' : '');
+    const who = speaking && c.awake === speaking ? tr('{0}（覚醒）：', { 0: c.nameOf(speaking) }) : members.length > 1 && speaking ? `${c.nameOf(speaking)}：` : '';
+    this.status.textContent = who + STATUS[c.state] + (c.practice ? tr('（練習モード）') : '');
     this.renderTargets();
-    this.input.placeholder = `${this.targetLabel(this.prefs.target)}に話しかける…（Enter で送る・Shift+Enter で改行）`;
+    this.input.placeholder = tr('{0}に話しかける…（Enter で送る・Shift+Enter で改行）', { 0: this.targetLabel(this.prefs.target) });
     this.renderTalkBar(); // やり取りの型の間は、上の帯と欄の案内を替える（V5）
     this.chat.hidden = !this.prefs.open;
-    this.cost.textContent = c.practice ? '練習モード' : `約 $${c.totalCost.toFixed(3)}`;
-    this.keyState.textContent = c.hasKey ? '保存済み（暗号化してこのパソコンに保存）' : 'まだ保存されていません';
-    this.sendButton.textContent = c.busy ? '止める' : '送る';
+    this.cost.textContent = c.practice ? tr('練習モード') : tr('約 ${0}', { 0: c.totalCost.toFixed(3) });
+    this.keyState.textContent = c.hasKey ? tr('保存済み（暗号化してこのパソコンに保存）') : tr('まだ保存されていません');
+    this.sendButton.textContent = c.busy ? tr('止める') : tr('送る');
     this.historyButton.setAttribute('aria-pressed', String(this.view === 'history' || this.view === 'letters'));
     if (this.view === 'letters' && !this.lettersShown && this.letters.ready) {
       // レターのタブが無くなった（最後のレターを消した）：過去の会話の一覧へ（一覧を読み直す）
@@ -2104,14 +2105,14 @@ export class AiPanel {
         this.requestRender();
       });
     }
-    this.dailyState.textContent = `今日は ${loadDailyCount()} 回、自分から話しました`;
+    this.dailyState.textContent = tr('今日は {0} 回、自分から話しました', { 0: loadDailyCount() });
     // 進化の枠の残り（月の満ち欠け）と、さらに考えるボタン
     const evolve = this.evolveSettings();
     const remaining = evolveRemaining(evolve);
     const phase = moonSvg(remaining / evolve.dailyLimit);
-    const reserved = evolve.reserve && remaining > 0 ? '（うち1回はフェイブルの合図用）' : '';
+    const reserved = evolve.reserve && remaining > 0 ? tr('（うち1回はフェイブルの合図用）') : '';
     this.evolveState.innerHTML = `${phase} `; // 形だけの SVG
-    this.evolveState.append(document.createTextNode(`今日の残り ${remaining}/${evolve.dailyLimit} 回${reserved}`));
+    this.evolveState.append(document.createTextNode(tr('今日の残り {0}/{1} 回{2}', { 0: remaining, 1: evolve.dailyLimit, 2: reserved })));
     this.deepButton.hidden = !members.includes('fable') || evolve.mode === 'never';
     // 「先生に聞く」：ハイク組に話しかけるとき（組へ・組のひとりへ・みんなへ）だけ出す
     const consult = this.consultSettings();
@@ -2125,16 +2126,16 @@ export class AiPanel {
       b.disabled = c.busy || left === 0;
       const mark = el('span', '', advisor.mark);
       mark.setAttribute('aria-hidden', 'true');
-      b.replaceChildren(mark, ` ${id === 'opus' ? 'Claude' : 'フェイブル'} `, el('span', 'ai-advice-left', String(left)));
-      b.title = `${HAIKU_UNIT_NAME}が答える前に、${advisor.name}（${advisor.label}）に相談します。入力した文（空なら、ここまでの話）について。押すと許可したことになり、今日の${advisor.quotaName}の枠を1回使います（残り ${left}/${limitOf(consult, id)} 回・0時に戻ります）${id === 'fable' ? '。フェイブル先生に渡す相談の手紙は、Anthropic 側に30日保存されます' : ''}`;
+      b.replaceChildren(mark, ` ${id === 'opus' ? 'Claude' : tr('フェイブル')} `, el('span', 'ai-advice-left', String(left)));
+      b.title = tr('{0}が答える前に、{1}（{2}）に相談します。入力した文（空なら、ここまでの話）について。押すと許可したことになり、今日の{3}の枠を1回使います（残り {4}/{5} 回・0時に戻ります）{6}', { 0: HAIKU_UNIT_NAME, 1: advisor.name, 2: advisor.label, 3: advisor.quotaName, 4: left, 5: limitOf(consult, id), 6: id === 'fable' ? '。フェイブル先生に渡す相談の手紙は、Anthropic 側に30日保存されます' : '' });
     }
     this.adviceRow.hidden = ADVISOR_IDS.every((id) => this.askButtons[id].hidden);
     const stats = loadConsultStats();
-    this.consultState.textContent = `今日の残り：${ADVISORS.opus.mark} ${ADVISORS.opus.quotaName} ${consultRemaining(consult, 'opus')}/${consult.opusLimit}・${ADVISORS.fable.mark} ${ADVISORS.fable.quotaName} ${consultRemaining(consult, 'fable')}/${consult.fableLimit}（0時に戻ります）。これまでの相談 ${stats.consults} 回・役に立った ${stats.good}・外れた ${stats.bad}・約 $${stats.cost.toFixed(2)}`;
+    this.consultState.textContent = tr('今日の残り：{0} {1} {2}/{3}・{4} {5} {6}/{7}（0時に戻ります）。これまでの相談 {8} 回・役に立った {9}・外れた {10}・約 ${11}', { 0: ADVISORS.opus.mark, 1: ADVISORS.opus.quotaName, 2: consultRemaining(consult, 'opus'), 3: consult.opusLimit, 4: ADVISORS.fable.mark, 5: ADVISORS.fable.quotaName, 6: consultRemaining(consult, 'fable'), 7: consult.fableLimit, 8: stats.consults, 9: stats.good, 10: stats.bad, 11: stats.cost.toFixed(2) });
     this.deepButton.disabled = c.busy || !canEvolve(evolve, 'button');
-    this.deepButton.innerHTML = `${phase}<span>さらに考える</span>`; // 形だけの SVG と、決まった文字
-    const why = remaining === 0 ? '今日の進化の枠を使い切りました（0時に戻ります）' : !canEvolve(evolve, 'button') ? '残りの1回は、フェイブルの合図用に取ってあります' : '';
-    this.deepButton.title = `${c.nameOf('fable')}が一時的に進化して（考える深さ max）、入力した文（空なら、ここまでの話）を深く考えて答えます。確認なしで、今日の進化の枠を1回使います。今日の残り ${remaining}/${evolve.dailyLimit} 回（0時に戻ります）。${reserved}${why ? `\n${why}` : ''}`;
+    this.deepButton.innerHTML = tr('{0}<span>さらに考える</span>', { 0: phase }); // 形だけの SVG と、決まった文字
+    const why = remaining === 0 ? tr('今日の進化の枠を使い切りました（0時に戻ります）') : !canEvolve(evolve, 'button') ? tr('残りの1回は、フェイブルの合図用に取ってあります') : '';
+    this.deepButton.title = tr('{0}が一時的に進化して（考える深さ max）、入力した文（空なら、ここまでの話）を深く考えて答えます。確認なしで、今日の進化の枠を1回使います。今日の残り {1}/{2} 回（0時に戻ります）。{3}{4}', { 0: c.nameOf('fable'), 1: remaining, 2: evolve.dailyLimit, 3: reserved, 4: why ? `\n${why}` : '' });
     this.deepButton.setAttribute('aria-label', `さらに考える（${c.nameOf('fable')}が進化して答える。今日の残り ${remaining} 回）`);
     this.renderBubble();
 
@@ -2227,7 +2228,7 @@ export class AiPanel {
 
   private targetLabel(target: Target): string {
     if (target === 'team') return HAIKU_UNIT_NAME;
-    if (target === 'all') return this.prefs.members.length === 2 ? '二人' : 'みんな';
+    if (target === 'all') return this.prefs.members.length === 2 ? tr('二人') : tr('みんな');
     return isCharacterId(target) ? this.companion.nameOf(target) : 'Claude';
   }
 
@@ -2242,8 +2243,8 @@ export class AiPanel {
       // 確認を待っている：会話を閉じていても気づけるように
       this.bubble.hidden = false;
       this.bubbleText.textContent = this.evolvePending('fable')
-        ? `🌕 ${this.companion.nameOf('fable')}が進化の許可を待っています（押すと開きます）`
-        : '確認したいことがあります（押すと開きます）';
+        ? tr('🌕 {0}が進化の許可を待っています（押すと開きます）', { 0: this.companion.nameOf('fable') })
+        : tr('確認したいことがあります（押すと開きます）');
       this.bubbleActions.replaceChildren(); // 別の文を出すので、リマインダーのボタンは出さない
       this.bubbleActions.hidden = true;
       return;
@@ -2280,39 +2281,39 @@ export class AiPanel {
 
   private renderWelcome() {
     const text = this.companion.state === 'noKey' && !this.companion.practice
-      ? '上の ⚙ から API キーを入れると、ページの要約や質問ができます。'
-      : 'こんにちは。下の6つのボタンでページの要約・選んだ言葉の解説・クイズなどができます（✎ で自分の頼みごとに変えられ、Alt+1〜6 でも押せます）。気になることを話しかけてもらっても大丈夫です。ページを最後まで読んだときには、こちらからもひとこと声をかけます（⚙ で変えられます）。「作業用の音楽をかけて」「30分後に休憩をリマインドして」「猫の記事のタブはどれ？」のように、ブラウザの操作も頼めます。上の名前（▾）を押すと、賢者のフェイブル・ソネット三人組・ハイク組を会話に呼べます（Claude も入れて3枠まで。ハイク組は3〜6体で1枠）。';
+      ? tr('上の ⚙ から API キーを入れると、ページの要約や質問ができます。')
+      : tr('こんにちは。下の6つのボタンでページの要約・選んだ言葉の解説・クイズなどができます（✎ で自分の頼みごとに変えられ、Alt+1〜6 でも押せます）。気になることを話しかけてもらっても大丈夫です。ページを最後まで読んだときには、こちらからもひとこと声をかけます（⚙ で変えられます）。「作業用の音楽をかけて」「30分後に休憩をリマインドして」「猫の記事のタブはどれ？」のように、ブラウザの操作も頼めます。上の名前（▾）を押すと、賢者のフェイブル・ソネット三人組・ハイク組を会話に呼べます（Claude も入れて3枠まで。ハイク組は3〜6体で1枠）。');
     const members = this.prefs.members;
     if (members.length > 1 || members[0] !== 'main') {
       const team = teamOf(members);
-      const teamNames = team.length > 0 ? [`${HAIKU_UNIT_NAME}（${team.map((id) => nameOf(this.prefs, id)).join('・')}）`] : [];
-      const names = [...members.filter((id) => !isHaiku(id)).map((id) => nameOf(this.prefs, id)), ...teamNames].join('・');
+      const teamNames = team.length > 0 ? [`${HAIKU_UNIT_NAME}（${team.map((id) => nameOf(this.prefs, id)).join(tr('・'))}）`] : [];
+      const names = [...members.filter((id) => !isHaiku(id)).map((id) => nameOf(this.prefs, id)), ...teamNames].join(tr('・'));
       const how =
         team.length === 0
-          ? '入力欄の上で、話しかける相手（ひとり・みんな）を選べます。'
+          ? tr('入力欄の上で、話しかける相手（ひとり・みんな）を選べます。')
           : isHaikuOnly(members)
-            ? `入力欄の上の「${HAIKU_UNIT_NAME}へ」で組に、顔を押すと組のひとりに話しかけられます。`
-            : `入力欄の上で、話しかける相手（ひとり・${HAIKU_UNIT_NAME}・みんな）を選べます。${HAIKU_UNIT_NAME}のひとりへは、顔を押します。`;
-      return el('div', 'ai-notice', `いまのメンバー：${names}。${how}\n\n${text}`);
+            ? tr('入力欄の上の「{0}へ」で組に、顔を押すと組のひとりに話しかけられます。', { 0: HAIKU_UNIT_NAME })
+            : tr('入力欄の上で、話しかける相手（ひとり・{0}・みんな）を選べます。{1}のひとりへは、顔を押します。', { 0: HAIKU_UNIT_NAME, 1: HAIKU_UNIT_NAME });
+      return el('div', 'ai-notice', tr('いまのメンバー：{0}。{1}\n\n{2}', { 0: names, 1: how, 2: text }));
     }
     return el('div', 'ai-notice', text);
   }
 
   private renderHistory(): HTMLElement {
     const list = el('div', 'ai-history');
-    list.append(el('div', 'ai-history-title', '過去の会話（押すと開いて、続きから話せます）'));
-    if (this.historyItems.length === 0) list.append(el('div', 'ai-notice', 'まだ保存された会話はありません'));
+    list.append(el('div', 'ai-history-title', tr('過去の会話（押すと開いて、続きから話せます）')));
+    if (this.historyItems.length === 0) list.append(el('div', 'ai-notice', tr('まだ保存された会話はありません')));
     for (const item of this.historyItems) {
       const row = el('div', 'ai-history-item');
       if (item.id === this.companion.id) row.classList.add('current');
       const main = el('button', 'ai-history-open');
       main.append(
         el('span', 'ai-history-name', item.title),
-        el('span', 'ai-history-meta', `${dateTimeOf(item.updatedAt)}・${item.turns}往復${item.totalCost > 0 ? `・約 $${item.totalCost.toFixed(3)}` : ''}`),
+        el('span', 'ai-history-meta', tr('{0}・{1}往復{2}', { 0: dateTimeOf(item.updatedAt), 1: item.turns, 2: item.totalCost > 0 ? `・約 $${item.totalCost.toFixed(3)}` : '' })),
       );
       main.addEventListener('click', () => void this.openConversation(item.id));
       const remove = el('button', 'ai-history-remove', '×');
-      remove.title = 'この会話を削除';
+      remove.title = tr('この会話を削除');
       remove.setAttribute('aria-label', 'この会話を削除');
       remove.addEventListener('click', () => void this.removeConversation(item));
       row.append(main, remove);
@@ -2329,35 +2330,35 @@ export class AiPanel {
     const advisor = ADVISORS[consult.advisor];
     box.setAttribute('role', 'group');
     box.setAttribute('aria-label', '先生への相談の許可');
-    box.append(el('div', 'ai-consult-q', `${advisor.mark} ${entry.speakerName ?? 'ハイク組'}が${advisor.name}（${advisor.label}）に相談しようとしています`));
-    box.append(el('div', 'ai-consult-line', `問い：${consult.question}`));
-    if (consult.why) box.append(el('div', 'ai-consult-line', `理由：${consult.why}`));
+    box.append(el('div', 'ai-consult-q', tr('{0} {1}が{2}（{3}）に相談しようとしています', { 0: advisor.mark, 1: entry.speakerName ?? 'ハイク組', 2: advisor.name, 3: advisor.label })));
+    box.append(el('div', 'ai-consult-line', tr('問い：{0}', { 0: consult.question })));
+    if (consult.why) box.append(el('div', 'ai-consult-line', tr('理由：{0}', { 0: consult.why })));
     if (consult.sends) box.append(el('div', 'ai-consult-sub', consult.sends));
     box.append(el('div', 'ai-consult-sub', consult.estimate));
     if (!consult.answer && entry.streaming) {
       const settings = this.consultSettings();
-      box.append(el('div', 'ai-consult-sub', `今日の${advisor.quotaName}の残り ${consultRemaining(settings, consult.advisor)}/${limitOf(settings, consult.advisor)} 回`));
+      box.append(el('div', 'ai-consult-sub', tr('今日の{0}の残り {1}/{2} 回', { 0: advisor.quotaName, 1: consultRemaining(settings, consult.advisor), 2: limitOf(settings, consult.advisor) })));
       const row = el('div', 'ai-row');
-      const yes = el('button', 'ai-small ai-consult-yes', '相談する');
+      const yes = el('button', 'ai-small ai-consult-yes', tr('相談する'));
       yes.dataset.key = `consult:${entry.id}:yes`;
       yes.addEventListener('click', () => this.companion.answerConsult(entry.id, 'yes'));
-      const always = el('button', 'ai-small', 'この会話ではいつも');
+      const always = el('button', 'ai-small', tr('この会話ではいつも'));
       always.dataset.key = `consult:${entry.id}:always`;
       always.addEventListener('click', () => this.companion.answerConsult(entry.id, 'always'));
-      const no = el('button', 'ai-small', 'やめる');
+      const no = el('button', 'ai-small', tr('やめる'));
       no.dataset.key = `consult:${entry.id}:no`;
       no.addEventListener('click', () => this.companion.answerConsult(entry.id, 'no'));
       row.append(yes, always, no);
-      box.append(row, el('div', 'ai-consult-sub', `${CONSULT_TIMEOUT_MS / 1000}秒たっても答えがなければ、相談せずに続けます`));
+      box.append(row, el('div', 'ai-consult-sub', tr('{0}秒たっても答えがなければ、相談せずに続けます', { 0: CONSULT_TIMEOUT_MS / 1000 })));
       return box;
     }
     const answers: Record<string, string> = {
-      yes: '→ 許可しました',
-      always: '→ この会話では、いつも許可します',
-      no: '→ 見送りました',
-      timeout: '→ 答えがなかったので、相談せずに続けました',
+      yes: tr('→ 許可しました'),
+      always: tr('→ この会話では、いつも許可します'),
+      no: tr('→ 見送りました'),
+      timeout: tr('→ 答えがなかったので、相談せずに続けました'),
     };
-    box.append(el('div', 'ai-confirm-answer', consult.answer ? (answers[consult.answer] ?? '') : '（確認の途中で終わりました）'));
+    box.append(el('div', 'ai-confirm-answer', consult.answer ? (answers[consult.answer] ?? '') : tr('（確認の途中で終わりました）')));
     return box;
   }
 
@@ -2369,19 +2370,19 @@ export class AiPanel {
     const advisor = ADVISORS[a.advisor];
     box.setAttribute('role', 'group');
     box.setAttribute('aria-label', `${advisor.name}の助言`);
-    const who = entry.speakerName ?? 'ハイク組';
-    const how = a.by === 'user' ? `「先生に聞く」で、${who}が答える前に` : `${who}の相談で`;
-    box.append(el('div', 'ai-advice-head', `${advisor.mark} ${advisor.name}の助言（${how}）`));
-    box.append(el('div', 'ai-advice-q', `問い：${a.question}`));
+    const who = entry.speakerName ?? tr('ハイク組');
+    const how = a.by === 'user' ? tr('「先生に聞く」で、{0}が答える前に', { 0: who }) : tr('{0}の相談で', { 0: who });
+    box.append(el('div', 'ai-advice-head', tr('{0} {1}の助言（{2}）', { 0: advisor.mark, 1: advisor.name, 2: how })));
+    box.append(el('div', 'ai-advice-q', tr('問い：{0}', { 0: a.question })));
     const asking = a.state === 'asking' && entry.streaming;
-    if (a.text || asking) box.append(el('div', `ai-advice-body${asking ? ' streaming' : ''}`, a.text || `${advisor.name}が考えています…`));
-    if (a.state === 'failed') box.append(el('div', 'ai-advice-note', a.note ?? '相談できませんでした'));
+    if (a.text || asking) box.append(el('div', `ai-advice-body${asking ? ' streaming' : ''}`, a.text || tr('{0}が考えています…', { 0: advisor.name })));
+    if (a.state === 'failed') box.append(el('div', 'ai-advice-note', a.note ?? tr('相談できませんでした')));
     else if (a.note) box.append(el('div', 'ai-advice-q', a.note)); // 途中で切れた、など
-    if (a.state === 'asking' && !entry.streaming) box.append(el('div', 'ai-advice-note', '（相談の途中で終わりました）'));
+    if (a.state === 'asking' && !entry.streaming) box.append(el('div', 'ai-advice-note', tr('（相談の途中で終わりました）')));
     const row = el('div', 'ai-row');
     if (a.letter) {
       const open = this.openAdviceLetters.has(entry.id);
-      const letter = el('button', 'ai-small', open ? '相談の手紙を閉じる' : '相談の手紙を見る');
+      const letter = el('button', 'ai-small', open ? tr('相談の手紙を閉じる') : tr('相談の手紙を見る'));
       letter.dataset.key = `advice:${entry.id}:letter`;
       letter.setAttribute('aria-expanded', String(open));
       letter.addEventListener('click', () => {
@@ -2394,8 +2395,8 @@ export class AiPanel {
     if (a.state === 'done' && !entry.streaming) {
       // 役に立ったかどうかは、ハイクの答えまで見てから
       for (const [value, label] of [
-        ['good', '役に立った'],
-        ['bad', '外れた'],
+        ['good', tr('役に立った')],
+        ['bad', tr('外れた')],
       ] as const) {
         const b = el('button', `ai-small ai-advice-${value}`, label);
         b.dataset.key = `advice:${entry.id}:${value}`;
@@ -2412,7 +2413,7 @@ export class AiPanel {
       pre.setAttribute('aria-label', '相談の手紙');
       box.append(pre);
     }
-    const cost = a.cost && a.cost > 0 ? `・約 $${a.cost.toFixed(3)}` : '';
+    const cost = a.cost && a.cost > 0 ? tr('・約 ${0}', { 0: a.cost.toFixed(3) }) : '';
     box.append(el('div', 'ai-advice-foot', `${answeredBy(a.advisor, a.model)}${cost}`));
     return box;
   }
@@ -2422,38 +2423,38 @@ export class AiPanel {
     const evolve = entry.evolve;
     const box = el('div', 'ai-evolve');
     if (!evolve) return box;
-    const name = entry.speakerName ?? 'フェイブル';
+    const name = entry.speakerName ?? tr('フェイブル');
     box.setAttribute('role', 'group');
     box.setAttribute('aria-label', '進化の許可');
-    box.append(el('div', 'ai-evolve-q', `🌕 ${name}が一時的に進化して、考察を深めようとしています。許可しますか？`));
+    box.append(el('div', 'ai-evolve-q', tr('🌕 {0}が一時的に進化して、考察を深めようとしています。許可しますか？', { 0: name })));
     if (evolve.reason) box.append(el('div', 'ai-evolve-reason', `「${evolve.reason}」`));
     box.append(el('div', 'ai-evolve-sub', evolve.estimate));
     if (!evolve.answer && entry.streaming) {
       const settings = this.evolveSettings();
       const left = el('div', 'ai-evolve-sub ai-evolve-left');
       left.innerHTML = moonSvg(evolveRemaining(settings) / settings.dailyLimit); // 形だけの SVG
-      left.append(document.createTextNode(` 今日の進化の残り ${evolveRemaining(settings)}/${settings.dailyLimit} 回`));
+      left.append(document.createTextNode(tr(' 今日の進化の残り {0}/{1} 回', { 0: evolveRemaining(settings), 1: settings.dailyLimit })));
       box.append(left);
     }
     if (!evolve.answer && entry.streaming) {
       const row = el('div', 'ai-row');
-      const yes = el('button', 'ai-small ai-evolve-yes', '許可する');
+      const yes = el('button', 'ai-small ai-evolve-yes', tr('許可する'));
       yes.addEventListener('click', () => this.companion.answerEvolve(entry.id, 'yes'));
-      const always = el('button', 'ai-small', 'この会話ではいつも');
+      const always = el('button', 'ai-small', tr('この会話ではいつも'));
       always.addEventListener('click', () => this.companion.answerEvolve(entry.id, 'always'));
-      const no = el('button', 'ai-small', 'やめる');
+      const no = el('button', 'ai-small', tr('やめる'));
       no.addEventListener('click', () => this.companion.answerEvolve(entry.id, 'no'));
       row.append(yes, always, no);
-      box.append(row, el('div', 'ai-evolve-note', `${EVOLVE_TIMEOUT_MS / 1000}秒たっても答えがなければ、進化せずにそのまま続けます`));
+      box.append(row, el('div', 'ai-evolve-note', tr('{0}秒たっても答えがなければ、進化せずにそのまま続けます', { 0: EVOLVE_TIMEOUT_MS / 1000 })));
       return box;
     }
     const answers: Record<string, string> = {
-      yes: '→ 許可しました',
-      always: '→ この会話では、いつも許可します',
-      no: '→ 見送りました',
-      timeout: '→ 答えがなかったので、進化せずに続けました',
+      yes: tr('→ 許可しました'),
+      always: tr('→ この会話では、いつも許可します'),
+      no: tr('→ 見送りました'),
+      timeout: tr('→ 答えがなかったので、進化せずに続けました'),
     };
-    box.append(el('div', 'ai-confirm-answer', evolve.answer ? (answers[evolve.answer] ?? '') : '（確認の途中で終わりました）'));
+    box.append(el('div', 'ai-confirm-answer', evolve.answer ? (answers[evolve.answer] ?? '') : tr('（確認の途中で終わりました）')));
     return box;
   }
 
@@ -2462,36 +2463,36 @@ export class AiPanel {
     const box = el('div', 'ai-letter');
     const letter = entry.letter;
     if (!letter) return box;
-    const name = entry.speakerName ?? 'フェイブル';
+    const name = entry.speakerName ?? tr('フェイブル');
     box.setAttribute('role', 'group');
     box.setAttribute('aria-label', `${name}からのレターの提案`);
-    box.append(el('div', 'ai-letter-head', `✉ ${name}からのレターの提案`), el('div', 'ai-letter-title', letter.title));
+    box.append(el('div', 'ai-letter-head', tr('✉ {0}からのレターの提案', { 0: name })), el('div', 'ai-letter-title', letter.title));
     if (letter.points?.length) box.append(pointsList(letter.points));
     box.append(el('div', 'ai-letter-body', letter.body));
     if (letter.mark) box.append(el('div', 'ai-letter-meta', letter.mark));
     if (letter.state === 'proposed' && entry.streaming) {
-      box.append(el('div', 'ai-confirm-answer', '返事が終わったら、残すかどうか選べます'));
+      box.append(el('div', 'ai-confirm-answer', tr('返事が終わったら、残すかどうか選べます')));
       return box;
     }
     if (letter.state === 'proposed') {
       const row = el('div', 'ai-row');
-      const keep = el('button', 'ai-small ai-yes', 'レターにする');
-      keep.title = '「履歴」の「✉ フェイブルレター」に残す（あとで盤面に置く・コピー・教材にするができます）';
+      const keep = el('button', 'ai-small ai-yes', tr('レターにする'));
+      keep.title = tr('「履歴」の「✉ フェイブルレター」に残す（あとで盤面に置く・コピー・教材にするができます）');
       keep.addEventListener('click', () => this.keepLetter(entry));
-      const no = el('button', 'ai-small', 'やめておく');
+      const no = el('button', 'ai-small', tr('やめておく'));
       no.addEventListener('click', () => this.companion.setLetterState(entry.id, 'dismissed'));
       row.append(keep, no);
       box.append(row);
       return box;
     }
     if (letter.state === 'dismissed') {
-      box.append(el('div', 'ai-confirm-answer', '→ レターにしませんでした'));
+      box.append(el('div', 'ai-confirm-answer', tr('→ レターにしませんでした')));
       return box;
     }
     const kept = this.letters.get(letter.letterId);
-    box.append(el('div', 'ai-confirm-answer', kept || !this.letters.ready ? '→ レターにしました' : '→ レターにしました（一覧からは消してあります）'));
+    box.append(el('div', 'ai-confirm-answer', kept || !this.letters.ready ? tr('→ レターにしました') : tr('→ レターにしました（一覧からは消してあります）')));
     if (kept) {
-      const open = el('button', 'ai-small', '✉ 一覧で見る');
+      const open = el('button', 'ai-small', tr('✉ 一覧で見る'));
       open.addEventListener('click', () => this.showLetters(kept.id));
       box.append(open);
     }
@@ -2502,9 +2503,9 @@ export class AiPanel {
   private renderLetters(): HTMLElement {
     const list = el('div', 'ai-letters');
     const letters = this.letters.list();
-    list.append(el('div', 'ai-history-title', `残したレター ${letters.length}通（新しい順。盤面に置く・コピー・教材にするができます）`));
+    list.append(el('div', 'ai-history-title', tr('残したレター {0}通（新しい順。盤面に置く・コピー・教材にするができます）', { 0: letters.length })));
     if (!this.letters.ready) {
-      list.append(el('div', 'ai-notice', '読み込んでいます…'));
+      list.append(el('div', 'ai-notice', tr('読み込んでいます…')));
       return list;
     }
     if (letters.length === 0) {
@@ -2512,7 +2513,7 @@ export class AiPanel {
         el(
           'div',
           'ai-notice',
-          `まだレターはありません。${this.companion.nameOf('fable')}が一時的に進化して深く考えたとき、あとで読み返す価値のある考察があれば、題名と短い手紙にして提案します（残すかどうかは、あなたが決めます）。`,
+          tr('まだレターはありません。{0}が一時的に進化して深く考えたとき、あとで読み返す価値のある考察があれば、題名と短い手紙にして提案します（残すかどうかは、あなたが決めます）。', { 0: this.companion.nameOf('fable') }),
         ),
       );
     }
@@ -2524,7 +2525,7 @@ export class AiPanel {
     const item = el('article', 'ai-letter ai-letter-item');
     item.dataset.letter = letter.id;
     item.append(el('div', 'ai-letter-title', letter.title));
-    item.append(el('div', 'ai-letter-meta', `${letter.by.name}・${dateTimeOf(letter.createdAt)}${letter.pageTitle ? `・${letter.pageTitle}` : ''}`));
+    item.append(el('div', 'ai-letter-meta', tr('{0}・{1}{2}', { 0: letter.by.name, 1: dateTimeOf(letter.createdAt), 2: letter.pageTitle ? `・${letter.pageTitle}` : '' })));
     if (letter.question) item.append(el('div', 'ai-letter-meta', `Q. ${letter.question}`));
     if (letter.points?.length) item.append(pointsList(letter.points));
     const body = el('div', 'ai-letter-body', letter.body);
@@ -2533,7 +2534,7 @@ export class AiPanel {
       const open = this.openLetters.has(letter.id);
       body.classList.add('clamp');
       body.classList.toggle('open', open);
-      const toggle = el('button', 'preview-note-toggle', open ? 'たたむ ▴' : '続きを読む ▾');
+      const toggle = el('button', 'preview-note-toggle', open ? tr('たたむ ▴') : tr('続きを読む ▾'));
       toggle.dataset.key = `${letter.id}:toggle`;
       toggle.setAttribute('aria-expanded', String(open));
       toggle.addEventListener('click', () => {
@@ -2546,7 +2547,7 @@ export class AiPanel {
     // 3段目：元の会話（前に残したレターは、会話を開いて見る）
     if (letter.chat) {
       const open = this.openChats.has(letter.id);
-      const toggle = el('button', 'preview-note-toggle', open ? '会話をたたむ ▴' : '元の会話を見る ▾');
+      const toggle = el('button', 'preview-note-toggle', open ? tr('会話をたたむ ▴') : tr('元の会話を見る ▾'));
       toggle.dataset.key = `${letter.id}:chat`;
       toggle.setAttribute('aria-expanded', String(open));
       toggle.addEventListener('click', () => {
@@ -2557,40 +2558,40 @@ export class AiPanel {
       item.append(toggle);
       if (open) {
         const chat = el('div', 'ai-letter-chat');
-        if (letter.chat.question) chat.append(el('div', 'ai-letter-chat-q', `使う人：${letter.chat.question}`));
+        if (letter.chat.question) chat.append(el('div', 'ai-letter-chat-q', tr('使う人：{0}', { 0: letter.chat.question })));
         chat.append(el('div', 'ai-letter-chat-a', `${letter.by.name}：${letter.chat.reply}`));
         item.append(chat);
       }
     } else if (letter.conversationId) {
       const id = letter.conversationId;
-      const open = el('button', 'preview-note-toggle', '元の会話を開く');
+      const open = el('button', 'preview-note-toggle', tr('元の会話を開く'));
       open.dataset.key = `${letter.id}:conversation`;
-      open.title = 'このレターが生まれた会話を開く';
+      open.title = tr('このレターが生まれた会話を開く');
       open.addEventListener('click', () => void this.openConversation(id));
       item.append(open);
     }
     const actions = el('div', 'ai-msg-actions');
     // 公開してよい（月の窓に映す）。使う人だけが付ける
-    const publish = el('button', `ai-small ai-letter-publish${letter.publishable ? ' on' : ''}`, letter.publishable ? '🌙 月の窓に出しています' : '🌙 月の窓に出す');
-    publish.title = letter.publishable ? '押すと、月の窓に出すのをやめます' : '「公開してよい」の印を付けて、右サイドバーの上の「月の窓」に映します（このブラウザの中だけ）';
+    const publish = el('button', `ai-small ai-letter-publish${letter.publishable ? ' on' : ''}`, letter.publishable ? tr('🌙 月の窓に出しています') : tr('🌙 月の窓に出す'));
+    publish.title = letter.publishable ? tr('押すと、月の窓に出すのをやめます') : tr('「公開してよい」の印を付けて、右サイドバーの上の「月の窓」に映します（このブラウザの中だけ）');
     publish.setAttribute('aria-pressed', String(!!letter.publishable));
     publish.dataset.key = `${letter.id}:publish`;
     publish.addEventListener('click', () => this.letters.setPublishable(letter.id, !letter.publishable));
     actions.append(publish);
-    const place = el('button', 'ai-small', '盤面に置く');
-    place.title = '盤面の、表示中のタブの近くに、メモのセルとして置く（「レター」の印つき）';
+    const place = el('button', 'ai-small', tr('盤面に置く'));
+    place.title = tr('盤面の、表示中のタブの近くに、メモのセルとして置く（「レター」の印つき）');
     place.addEventListener('click', () => this.host.placeMemoCell(letterText(letter), letter.by, 'レター'));
-    const copy = el('button', 'ai-small', 'コピー');
-    copy.title = 'メモのセル1つとしてコピーする（盤面の空いたセルで Ctrl+V すると、メモのセルになります）';
+    const copy = el('button', 'ai-small', tr('コピー'));
+    copy.title = tr('メモのセル1つとしてコピーする（盤面の空いたセルで Ctrl+V すると、メモのセルになります）');
     copy.addEventListener('click', () => this.host.copyMemoCell(letterText(letter), letter.by, 'レター'));
     const making = this.study?.letterId === letter.id && this.study.making;
-    const study = el('button', 'ai-small', making ? '作っています…' : this.study?.letterId === letter.id ? '案を閉じる' : '教材にする');
-    study.title = '手紙から、単語帳のカード（言葉・問い）の案を作る。入れるカードは選べます（AI を使います。練習モードでは決まった案）';
+    const study = el('button', 'ai-small', making ? tr('作っています…') : this.study?.letterId === letter.id ? tr('案を閉じる') : tr('教材にする'));
+    study.title = tr('手紙から、単語帳のカード（言葉・問い）の案を作る。入れるカードは選べます（AI を使います。練習モードでは決まった案）');
     study.disabled = !!this.study?.making;
     study.addEventListener('click', () => void this.studyLetter(letter));
     const armed = this.armedLetter === letter.id;
-    const remove = el('button', `ai-small ai-letter-remove${armed ? ' danger' : ''}`, armed ? 'もう一度押すと消えます' : '消す');
-    remove.setAttribute('aria-label', armed ? `「${letter.title}」を消す（もう一度押すと消えます）` : `「${letter.title}」を消す`);
+    const remove = el('button', `ai-small ai-letter-remove${armed ? ' danger' : ''}`, armed ? tr('もう一度押すと消えます') : tr('消す'));
+    remove.setAttribute('aria-label', armed ? tr('「{0}」を消す（もう一度押すと消えます）', { 0: letter.title }) : tr('「{0}」を消す', { 0: letter.title }));
     remove.addEventListener('click', () => this.removeLetter(letter));
     if (armed) armConfirm(remove, () => {
       window.clearTimeout(this.armTimer);
@@ -2603,7 +2604,7 @@ export class AiPanel {
     remove.dataset.key = `${letter.id}:remove`;
     actions.append(place, copy, study, remove);
     item.append(actions);
-    if (letter.studied) item.append(el('div', 'ai-letter-meta', `単語帳に入れたカード：${letter.studied} 枚`));
+    if (letter.studied) item.append(el('div', 'ai-letter-meta', tr('単語帳に入れたカード：{0} 枚', { 0: letter.studied })));
     if (this.study?.letterId === letter.id && !this.study.making) item.append(this.studyView(letter, this.study.cards));
     if (this.letterNote?.id === letter.id) item.append(el('div', 'ai-msg-note', this.letterNote.text));
     return item;
@@ -2623,7 +2624,7 @@ export class AiPanel {
       row.append(check, text);
       box.append(row);
     }
-    const ok = el('button', 'ai-small', '印を付けたものを単語帳に入れる');
+    const ok = el('button', 'ai-small', tr('印を付けたものを単語帳に入れる'));
     ok.addEventListener('click', () => {
       const picked = cards.filter((c) => c.checked).map(({ checked: _, ...card }) => card);
       this.study = null;
@@ -2634,11 +2635,11 @@ export class AiPanel {
       }
       this.letterNote = {
         id: letter.id,
-        text: picked.length === 0 ? '入れるカードがありませんでした' : fresh > 0 ? `単語帳に ${fresh} 枚入れました（同じカードがすでにあれば、入りません）` : 'このレターから、もう入れてあるカードでした',
+        text: picked.length === 0 ? tr('入れるカードがありませんでした') : fresh > 0 ? tr('単語帳に {0} 枚入れました（同じカードがすでにあれば、入りません）', { 0: fresh }) : tr('このレターから、もう入れてあるカードでした'),
       };
       this.render();
     });
-    const cancel = el('button', 'ai-small', 'やめる');
+    const cancel = el('button', 'ai-small', tr('やめる'));
     cancel.addEventListener('click', () => {
       this.study = null;
       this.letterNote = null;
@@ -2657,17 +2658,17 @@ export class AiPanel {
     if (!confirm) return box;
     box.append(el('div', 'ai-confirm-question', confirm.question));
     if (confirm.answer) {
-      box.append(el('div', 'ai-confirm-answer', confirm.answer === 'yes' ? '→ はい' : '→ いいえ'));
+      box.append(el('div', 'ai-confirm-answer', confirm.answer === 'yes' ? tr('→ はい') : tr('→ いいえ')));
     } else if (entry.streaming) {
       const row = el('div', 'ai-row');
-      const yes = el('button', 'ai-small ai-yes', 'はい');
+      const yes = el('button', 'ai-small ai-yes', tr('はい'));
       yes.addEventListener('click', () => this.companion.answer(entry.id, true));
-      const no = el('button', 'ai-small', 'いいえ');
+      const no = el('button', 'ai-small', tr('いいえ'));
       no.addEventListener('click', () => this.companion.answer(entry.id, false));
       row.append(yes, no);
       box.append(row);
     } else {
-      box.append(el('div', 'ai-confirm-answer', '（確認の途中で終わりました）'));
+      box.append(el('div', 'ai-confirm-answer', tr('（確認の途中で終わりました）')));
     }
     return box;
   }
@@ -2682,11 +2683,11 @@ export class AiPanel {
       if (details.open) this.openRoutes.add(entry.id);
       else this.openRoutes.delete(entry.id);
     });
-    const summary = el('summary', '', `道すじ：${routeLabel(route.kind)}`);
+    const summary = el('summary', '', tr('道すじ：{0}', { 0: routeLabel(route.kind) }));
     summary.dataset.key = `route:${entry.id}`;
     details.append(summary);
     const body = el('div', 'ai-route-body');
-    body.append(el('div', '', `理由：${route.reason}`));
+    body.append(el('div', '', tr('理由：{0}', { 0: route.reason })));
     body.append(el('div', 'ai-route-foot', routeFoot(route)));
     const row = el('div', 'ai-row');
     const button = (kind: RouteKind, label: string) => {
@@ -2694,12 +2695,12 @@ export class AiPanel {
       b.type = 'button';
       b.dataset.key = `route:${entry.id}:${kind}`;
       b.disabled = this.companion.busy || route.kind === kind;
-      b.title = route.kind === kind ? 'いまの道すじです' : `道すじを「${label}」に変えて、もう一度聞きます`;
+      b.title = route.kind === kind ? tr('いまの道すじです') : tr('道すじを「{0}」に変えて、もう一度聞きます', { 0: label });
       b.addEventListener('click', () => this.companion.reroute(entry.id, kind, this.attach.checked));
       row.append(b);
     };
-    button('team', 'ハイク組だけ');
-    button('consult', '＋相談');
+    button('team', tr('ハイク組だけ'));
+    button('consult', tr('＋相談'));
     body.append(row);
     details.append(body);
     return details;
@@ -2711,7 +2712,7 @@ export class AiPanel {
     const box = el('div', 'ai-route-actions');
     if (!path) return box;
     if (path.choice) {
-      const done: Record<PathChoice, string> = { redo: '言い直す', other: 'ほかのハイクに聞く', advisor: '先生に聞く', keep: 'このまま' };
+      const done: Record<PathChoice, string> = { redo: tr('言い直す'), other: tr('ほかのハイクに聞く'), advisor: tr('先生に聞く'), keep: tr('このまま') };
       box.append(el('div', 'ai-route-foot', `→ ${done[path.choice]}`));
       return box;
     }
@@ -2726,17 +2727,17 @@ export class AiPanel {
       row.append(b);
     };
     if (path.kind === 'refusal') {
-      add('言い直す', 'redo', '同じハイクに、答えられる範囲で短く言い直してもらいます');
+      add(tr('言い直す'), 'redo', tr('同じハイクに、答えられる範囲で短く言い直してもらいます'));
       const others = teamOf(this.prefs.members).filter((id) => id !== path.speaker);
-      if (others.length > 0) add(`${nameOf(castOf(this.prefs), others[0])}に聞く`, 'other', '組のほかの体に、同じ頼みを聞きます');
+      if (others.length > 0) add(tr('{0}に聞く', { 0: nameOf(castOf(this.prefs), others[0]) }), 'other', tr('組のほかの体に、同じ頼みを聞きます'));
       if (this.prefs.routeRefusal === 'advisor') {
         const ok = canConsult(this.consultSettings(), 'opus');
-        add('先生に聞く', 'advisor', ok ? 'Claude 先生に相談してから答えます（きらりを1回使います）' : '今日は Claude 先生に聞けません（枠が無いか、相談しない設定です）', ok);
+        add(tr('先生に聞く'), 'advisor', ok ? tr('Claude 先生に相談してから答えます（きらりを1回使います）') : tr('今日は Claude 先生に聞けません（枠が無いか、相談しない設定です）'), ok);
       }
     } else {
       const ok = canConsult(this.consultSettings(), 'opus');
-      add('Claude 先生に確かめてもらう', 'advisor', ok ? 'きらりを1回使って、Claude 先生に聞きます' : '今日は Claude 先生に聞けません（枠が無いか、相談しない設定です）', ok);
-      add('このまま', 'keep', '相談せずに、この返事のままにします');
+      add(tr('Claude 先生に確かめてもらう'), 'advisor', ok ? tr('きらりを1回使って、Claude 先生に聞きます') : tr('今日は Claude 先生に聞けません（枠が無いか、相談しない設定です）'), ok);
+      add(tr('このまま'), 'keep', tr('相談せずに、この返事のままにします'));
     }
     box.append(row);
     return box;
@@ -2759,7 +2760,7 @@ export class AiPanel {
     }
 
     if (entry.role === 'assistant' && entry.passed) {
-      return el('div', 'ai-event ai-pass', `${entry.speakerName ?? 'Claude'}は、付け足すことはないようです`);
+      return el('div', 'ai-event ai-pass', tr('{0}は、付け足すことはないようです', { 0: entry.speakerName ?? 'Claude' }));
     }
     const box = el('div', `ai-msg ${entry.role}`);
     if (entry.speaker && entry.speaker !== 'main' && isCharacterId(entry.speaker)) box.classList.add(entry.speaker);
@@ -2770,11 +2771,11 @@ export class AiPanel {
     const head = el('div', 'ai-msg-head');
     if (entry.role === 'assistant' && ((entry.speaker && entry.speaker !== 'main') || this.prefs.members.length > 1)) {
       const speaker = entry.speaker && isCharacterId(entry.speaker) ? entry.speaker : 'main';
-      head.append(el('span', `ai-speaker ${speaker}${entry.awake ? ' awake' : ''}`, `${entry.speakerName ?? 'Claude'}${entry.awake ? '（覚醒）' : ''}`));
+      head.append(el('span', `ai-speaker ${speaker}${entry.awake ? ' awake' : ''}`, `${entry.speakerName ?? 'Claude'}${entry.awake ? tr('（覚醒）') : ''}`));
     }
     if (entry.role === 'assistant' && entry.action) head.append(el('span', 'ai-tag', ACTION_LABELS[entry.action]));
     if (entry.role === 'user' && entry.to && entry.to !== 'main') {
-      head.append(el('span', 'ai-tag', `→ ${entry.to === 'both' ? '二人' : this.targetLabel(entry.to)}`));
+      head.append(el('span', 'ai-tag', `→ ${entry.to === 'both' ? tr('二人') : this.targetLabel(entry.to)}`));
     }
     head.append(el('time', '', timeOf(entry.time)));
     if (entry.role === 'user' && entry.pageTitle) head.append(el('span', 'ai-page', entry.pageTitle));
@@ -2787,7 +2788,7 @@ export class AiPanel {
       if (this.revealed.has(entry.id)) {
         box.append(el('div', 'ai-msg-body ai-answer', entry.text.slice(mark)));
       } else if (!entry.streaming) {
-        const reveal = el('button', 'ai-small', '答えを見る');
+        const reveal = el('button', 'ai-small', tr('答えを見る'));
         reveal.addEventListener('click', () => {
           this.revealed.add(entry.id);
           this.render();
@@ -2801,12 +2802,12 @@ export class AiPanel {
     if (entry.image && !(entry.imageTransient && options.export)) {
       const img = el('img', 'ai-msg-image');
       img.src = entry.image;
-      img.alt = '見せた画像';
+      img.alt = tr('見せた画像');
       box.append(img);
-      if (entry.imageTransient) box.append(el('div', 'ai-msg-note', 'この画像は会話記録には残しません'));
+      if (entry.imageTransient) box.append(el('div', 'ai-msg-note', tr('この画像は会話記録には残しません')));
     } else if (entry.imageTransient) {
       // 開き直した会話（画像は保存していない）と、書き出し（画像を描かない）
-      box.append(el('div', 'ai-msg-note', '（撮影の画像を見せました。会話記録には残していません）'));
+      box.append(el('div', 'ai-msg-note', tr('（撮影の画像を見せました。会話記録には残していません）')));
     }
 
     if (entry.steps?.length) {
@@ -2822,7 +2823,7 @@ export class AiPanel {
     if (entry.sources?.length) {
       // 引用元（Web 検索で見つけたページ）。押すと新しいタブで開く
       const sources = el('div', 'ai-sources');
-      sources.append(el('span', 'ai-sources-label', '参考'));
+      sources.append(el('span', 'ai-sources-label', tr('参考')));
       for (const source of entry.sources) {
         const link = el('button', 'ai-source', source.title || source.url);
         link.title = source.url;
@@ -2836,16 +2837,16 @@ export class AiPanel {
 
     if (entry.role === 'assistant' && !entry.streaming && entry.text && !entry.error) {
       const actions = el('div', 'ai-msg-actions');
-      const keep = el('button', 'ai-small', entry.kept?.tab ? 'タブに残しました ✓' : 'タブに残す');
-      keep.title = 'このページのタブのメモとして残す（拡大表示のカードに出ます）';
+      const keep = el('button', 'ai-small', entry.kept?.tab ? tr('タブに残しました ✓') : tr('タブに残す'));
+      keep.title = tr('このページのタブのメモとして残す（拡大表示のカードに出ます）');
       if (!entry.kept?.tab) keep.addEventListener('click', () => this.keepInTab(entry));
       const sendingNow = this.sending.has(entry.id);
       const sentOk = entry.kept?.hexMemo && !entry.kept.hexMemoFailed;
-      const hex = el('button', 'ai-small', sendingNow ? '送っています…' : sentOk ? '六角メモに送りました ✓' : '六角メモへ');
-      hex.title = '六角メモのノートへ送る（送り先は ⚙ で選ぶ）';
+      const hex = el('button', 'ai-small', sendingNow ? tr('送っています…') : sentOk ? tr('六角メモに送りました ✓') : tr('六角メモへ'));
+      hex.title = tr('六角メモのノートへ送る（送り先は ⚙ で選ぶ）');
       if (!sendingNow && !sentOk) hex.addEventListener('click', () => void this.sendEntryToHexMemo(entry));
-      const vocab = el('button', 'ai-small', entry.kept?.vocab ? '単語帳に入れました ✓' : '単語帳へ');
-      vocab.title = '言葉と意味（問いと答え）のカードにして、単語帳に入れる（入れる前に直せます）';
+      const vocab = el('button', 'ai-small', entry.kept?.vocab ? tr('単語帳に入れました ✓') : tr('単語帳へ'));
+      vocab.title = tr('言葉と意味（問いと答え）のカードにして、単語帳に入れる（入れる前に直せます）');
       if (!entry.kept?.vocab) {
         vocab.addEventListener('click', () => {
           this.cardDraft = this.cardDraft?.entryId === entry.id ? null : cardDraftOf(entry);
@@ -2853,13 +2854,13 @@ export class AiPanel {
           this.log.querySelector<HTMLElement>(`.ai-card-form [data-field="${this.cardDraft?.front ? 'back' : 'front'}"]`)?.focus();
         });
       }
-      const vault = el('button', 'ai-small', entry.kept?.vault ? '置き場に入れました ✓' : 'データ置き場へ');
-      vault.title = 'この返事を、データ置き場（右サイドバーのメモの区画の下）に残す';
+      const vault = el('button', 'ai-small', entry.kept?.vault ? tr('置き場に入れました ✓') : tr('データ置き場へ'));
+      vault.title = tr('この返事を、データ置き場（右サイドバーのメモの区画の下）に残す');
       if (!entry.kept?.vault) vault.addEventListener('click', () => void this.replyToVault(entry));
-      const copy = el('button', 'ai-small', 'コピー');
+      const copy = el('button', 'ai-small', tr('コピー'));
       copy.addEventListener('click', () => void navigator.clipboard.writeText(entry.text).catch(() => undefined));
-      const ask = el('button', 'ai-small', 'ボットに頼む');
-      ask.title = 'この返事を、ボットへの依頼の下書きに入れます。小窓が開くだけで、コピーもアプリも動きません。今見ているページは付けません';
+      const ask = el('button', 'ai-small', tr('ボットに頼む'));
+      ask.title = tr('この返事を、ボットへの依頼の下書きに入れます。小窓が開くだけで、コピーもアプリも動きません。今見ているページは付けません');
       ask.addEventListener('click', () => void this.askBotFrom(entry));
       actions.append(keep, hex, vocab, vault, copy, ask);
       if (entry.talk) actions.prepend(...this.talkButtons(entry, entry.talk)); // やり取りの返事（V5）：▶ 時刻・📌 カードへ
@@ -2869,7 +2870,7 @@ export class AiPanel {
         box.append(el('div', entry.kept.hexMemoFailed ? 'ai-msg-note ai-failed' : 'ai-msg-note', entry.kept.hexMemo));
       }
       const usage = usageText(entry);
-      if (usage || entry.awake) box.append(el('div', 'ai-msg-foot', `${entry.awake ? '🌕 一時的に進化して考えました（max）' : ''}${entry.awake && usage ? '・' : ''}${usage}`));
+      if (usage || entry.awake) box.append(el('div', 'ai-msg-foot', `${entry.awake ? tr('🌕 一時的に進化して考えました（max）') : ''}${entry.awake && usage ? tr('・') : ''}${usage}`));
     }
     return box;
   }
@@ -2894,9 +2895,9 @@ function cardDraftOf(entry: ChatEntry): CardFormDraft {
 
 // 六角メモへ送るメモ1件
 function recordOf(entry: ChatEntry): HexMemoRecord {
-  const label = entry.action ? ACTION_LABELS[entry.action] : '返信';
+  const label = entry.action ? ACTION_LABELS[entry.action] : tr('返信');
   const name = entry.speakerName ?? 'Claude';
-  const lines = [`${name} の${label}${entry.pageTitle ? `：${entry.pageTitle}` : ''}`];
+  const lines = [tr('{0} の{1}{2}', { 0: name, 1: label, 2: entry.pageTitle ? `：${entry.pageTitle}` : '' })];
   if (entry.action === 'chat' && entry.question) lines.push(`Q. ${entry.question}`);
   lines.push('', entry.text);
   const record: HexMemoRecord = { text: lines.join('\n'), createdAt: new Date(entry.time).toISOString(), tags: [...new Set(['Claude', name, label])] };
@@ -2915,9 +2916,9 @@ function usageText(entry: ChatEntry): string {
   if (!entry.usage || entry.model === 'practice') return '';
   const u = entry.usage;
   const input = u.input + u.cacheRead + u.cacheWrite;
-  const advice = entry.advice?.cost ? `・うち相談 約 $${entry.advice.cost.toFixed(3)}` : '';
-  const cost = entry.cost === undefined ? '' : `（約 $${entry.cost.toFixed(3)}${advice}）`;
-  return `入力 ${input.toLocaleString()}・出力 ${u.output.toLocaleString()} トークン${cost}`;
+  const advice = entry.advice?.cost ? tr('・うち相談 約 ${0}', { 0: entry.advice.cost.toFixed(3) }) : '';
+  const cost = entry.cost === undefined ? '' : tr('（約 ${0}{1}）', { 0: entry.cost.toFixed(3), 1: advice });
+  return tr('入力 {0}・出力 {1} トークン{2}', { 0: input.toLocaleString(), 1: u.output.toLocaleString(), 2: cost });
 }
 
 function timeOf(ms: number) {
@@ -3065,7 +3066,7 @@ function entryData(entry: ChatEntry) {
     id: entry.id,
     role: entry.role,
     time: new Date(entry.time).toISOString(),
-    speaker: entry.role === 'assistant' ? (entry.speakerName ?? 'Claude') : entry.role === 'user' ? (entry.auto ? '出来事' : 'わたし') : 'お知らせ',
+    speaker: entry.role === 'assistant' ? (entry.speakerName ?? 'Claude') : entry.role === 'user' ? (entry.auto ? tr('出来事') : tr('わたし')) : tr('お知らせ'),
     ...(entry.action ? { action: ACTION_LABELS[entry.action] } : {}),
     text: entry.text,
     ...(entry.question ? { question: entry.question } : {}),
@@ -3081,7 +3082,7 @@ function entryData(entry: ChatEntry) {
 
 // データ置き場：会話を読める形の文字にする（六角メモへ送る・コピーするときもこれ）
 function transcriptOf(title: string, members: string[], entries: readonly ChatEntry[]): string {
-  const lines = [`会話：${title}`, `メンバー：${members.join('・')}`, ''];
+  const lines = [tr('会話：{0}', { 0: title }), tr('メンバー：{0}', { 0: members.join('・') }), ''];
   for (const e of entries) {
     if (e.role === 'assistant' && e.passed) continue;
     const at = timeOf(e.time);
@@ -3090,13 +3091,13 @@ function transcriptOf(title: string, members: string[], entries: readonly ChatEn
       continue;
     }
     if (e.role === 'user' && e.auto) {
-      lines.push(`[${at}] ・${e.text}${e.pageTitle ? `（${e.pageTitle}）` : ''}`);
+      lines.push(tr('[{0}] ・{1}{2}', { 0: at, 1: e.text, 2: e.pageTitle ? `（${e.pageTitle}）` : '' }));
       continue;
     }
-    const who = e.role === 'user' ? 'わたし' : `${e.speakerName ?? 'Claude'}${e.action ? `（${ACTION_LABELS[e.action]}）` : ''}`;
+    const who = e.role === 'user' ? tr('わたし') : `${e.speakerName ?? 'Claude'}${e.action ? `（${ACTION_LABELS[e.action]}）` : ''}`;
     const page = e.role === 'user' && e.pageTitle ? `［${e.pageTitle}］` : '';
-    lines.push(`[${at}] ${who}${page}：${e.text}${e.image || e.imageTransient ? '\n（画像を見せました）' : ''}`);
-    if (e.sources?.length) lines.push(`参考：${e.sources.map((src) => `${src.title || src.url} <${src.url}>`).join(' / ')}`);
+    lines.push(`[${at}] ${who}${page}：${e.text}${e.image || e.imageTransient ? tr('\n（画像を見せました）') : ''}`);
+    if (e.sources?.length) lines.push(tr('参考：{0}', { 0: e.sources.map((src) => `${src.title || src.url} <${src.url}>`).join(' / ') }));
     lines.push('');
   }
   return lines.join('\n').trim();

@@ -1,4 +1,5 @@
 // タブの配置と番号の保存・読み込み（ファイルへの書き込みは C++ 側が行う）
+import { t as tr } from './i18n';
 import { type BoardLink, parseBoardLinks } from './board-links';
 import { isTabTrail } from './routes';
 import { isSheetId, MAIN_SHEET, parseSheets, type Sheet } from './sheets';
@@ -106,7 +107,7 @@ export function parseIslands(raw: unknown): Island[] {
 
 // 島の名前（タグと違い、空白は入れてよい。短く）
 export function normalizeIslandName(name: string): string {
-  return [...name.trim().replace(/\s+/g, ' ')].slice(0, 20).join('') || normalizeTag(name) || '島';
+  return [...name.trim().replace(/\s+/g, ' ')].slice(0, 20).join('') || normalizeTag(name) || tr('島');
 }
 
 function smallInt(raw: unknown, max: number): number {

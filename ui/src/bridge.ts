@@ -229,6 +229,7 @@ export type HostMessage =
 // UI → C++
 export type UiMessage =
   | { type: 'ready' }
+  | { type: 'setLang'; pref: 'auto' | 'ja' | 'en' } // 言語の設定（C++ が lang.txt に残し、次の起動で C++ 側の言葉にも使う。英語版 E4）
   // lazy：眠ったまま作る　background：裏で読み込む（表示しない）
   | { type: 'createTab'; url: string; parentId: number | null; requestId: number; lazy?: boolean; background?: boolean }
   | { type: 'setLinkOpen'; background: boolean } // ページのリンクから開く新しいタブを、いつも裏で開くか

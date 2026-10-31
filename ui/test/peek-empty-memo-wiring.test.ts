@@ -1,9 +1,10 @@
 // 小窓（入口先のシートの小窓）の空いたセル右クリック →「メモを書く」の配線（ソースの形）の確かめ
 //   入口先のシートに作る・今のシートには作らない・本盤面と小窓の既存の操作は変わらない
 import { readFileSync } from 'node:fs';
+import { unwrapT } from './source-text';
 import { describe, expect, it } from 'vitest';
 
-const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
+const read = (path: string) => unwrapT(readFileSync(new URL(path, import.meta.url), 'utf8'));
 const sidebar = read('../src/sidebar.ts');
 const primary = read('../src/app/primary.ts');
 const count = (text: string, part: string) => text.split(part).length - 1;

@@ -1,5 +1,6 @@
 // 左が Grok Cards の台帳を書く（下の面と右は写しを見る）
 //   段の旗が空のときは、何も書かない・送らない
+import { t } from './i18n';
 import type { BotCardOrigin } from './bot-replies';
 import { send } from './bridge';
 import { CARDS_STAGES_KEY, cardsStageOn, publishArrived, publishCardTags, publishReplies, readCardsOpen } from './cards-stages';
@@ -166,17 +167,17 @@ export function attachGrokCards(o: { memos: MemoStore; sheets: SheetStore; bots:
       const card = grokCardBriefs(o.memos, o.sheets).find((item) => item.id === id);
       const sent = card ? parseSent(card.tags) : null;
       if (!sent || sent.group !== null || sent.raw === CHAT_SENT) {
-        tell('この札の返事は、受け取り箱で開いてください', false, undefined, id);
+        tell(t('この札の返事は、受け取り箱で開いてください'), false, undefined, id);
         return;
       }
       const req = o.inbox.requests().find((item) => item.requestId === sent.raw);
       if (!req?.fileId) {
-        tell('まだ返事がありません', false, undefined, id);
+        tell(t('まだ返事がありません'), false, undefined, id);
         return;
       }
       const text = await o.inbox.replyText(req.botId, req.fileId);
       if (!text) {
-        tell('返事の文が記録に見つかりませんでした', false, undefined, id);
+        tell(t('返事の文が記録に見つかりませんでした'), false, undefined, id);
         return;
       }
       send({ type: 'relay', to: 'memo', payload: { kind: 'grokReply', id, text } });

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "strings.h"
+#include "l10n.h"
 
 using Microsoft::WRL::ComPtr;
 using nlohmann::json;
@@ -53,11 +54,11 @@ std::wstring OpenDialog(HWND owner) {
     ComPtr<IFileOpenDialog> dialog;
     if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog)))) return {};
     const COMDLG_FILTERSPEC filters[] = {
-        {L"音声・動画", L"*.mp3;*.m4a;*.aac;*.wav;*.ogg;*.oga;*.opus;*.flac;*.mp4;*.m4v;*.webm;*.mkv;*.mov"},
-        {L"すべてのファイル", L"*.*"},
+        {l10n::Tr(L"音声・動画"), L"*.mp3;*.m4a;*.aac;*.wav;*.ogg;*.oga;*.opus;*.flac;*.mp4;*.m4v;*.webm;*.mkv;*.mov"},
+        {l10n::Tr(L"すべてのファイル"), L"*.*"},
     };
     dialog->SetFileTypes(2, filters);
-    dialog->SetTitle(L"音声・動画のファイルを開く（同じ名前の .srt / .vtt があれば字幕も読みます）");
+    dialog->SetTitle(l10n::Tr(L"音声・動画のファイルを開く（同じ名前の .srt / .vtt があれば字幕も読みます）"));
     if (FAILED(dialog->Show(owner))) return {};  // やめた
     ComPtr<IShellItem> item;
     if (FAILED(dialog->GetResult(&item))) return {};
@@ -72,11 +73,11 @@ std::wstring OpenImageDialog(HWND owner) {
     ComPtr<IFileOpenDialog> dialog;
     if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog)))) return {};
     const COMDLG_FILTERSPEC filters[] = {
-        {L"画像", L"*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp;*.tif;*.tiff"},
-        {L"すべてのファイル", L"*.*"},
+        {l10n::Tr(L"画像"), L"*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp;*.tif;*.tiff"},
+        {l10n::Tr(L"すべてのファイル"), L"*.*"},
     };
     dialog->SetFileTypes(2, filters);
-    dialog->SetTitle(L"画像ファイルを開く");
+    dialog->SetTitle(l10n::Tr(L"画像ファイルを開く"));
     if (FAILED(dialog->Show(owner))) return {};
     ComPtr<IShellItem> item;
     if (FAILED(dialog->GetResult(&item))) return {};
@@ -91,11 +92,11 @@ std::wstring OpenJsonDialog(HWND owner) {
     ComPtr<IFileOpenDialog> dialog;
     if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog)))) return {};
     const COMDLG_FILTERSPEC filters[] = {
-        {L"提案のファイル（JSON）", L"*.json"},
-        {L"すべてのファイル", L"*.*"},
+        {l10n::Tr(L"提案のファイル（JSON）"), L"*.json"},
+        {l10n::Tr(L"すべてのファイル"), L"*.*"},
     };
     dialog->SetFileTypes(2, filters);
-    dialog->SetTitle(L"Grok の提案ファイルを開く（patch.v1 の JSON）");
+    dialog->SetTitle(l10n::Tr(L"Grok の提案ファイルを開く（patch.v1 の JSON）"));
     if (FAILED(dialog->Show(owner))) return {};
     ComPtr<IShellItem> item;
     if (FAILED(dialog->GetResult(&item))) return {};

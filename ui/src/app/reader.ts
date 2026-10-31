@@ -6,6 +6,7 @@
 //   ・相棒に聞く、♥ とメモを六角メモへ送る
 //   ・YouTube の動画なら、字幕（文字起こし）を時刻つきの「区間セル」にする。動画の右に並べ（動画は見えたまま）、
 //     再生に合わせて今のマスが動き、マスを押すとその場面へ。くり返し・♥ だけ再生（ダイジェスト）
+import { t as tr } from '../i18n';
 import { MODELS, type ModelId } from '../ai/client';
 import { BLOCK_NOTE, pageIsBlocked } from '../blocklist';
 import type { OrganizeSettings } from '../ai/organize';
@@ -74,10 +75,10 @@ interface ReaderPrefs {
 // 書くあいだの再生：止める（既定）・0.75 倍にする・そのまま
 type WritePlay = 'pause' | 'slow' | 'keep';
 const WRITE_PLAY_ORDER: WritePlay[] = ['pause', 'slow', 'keep'];
-const WRITE_PLAY_LABEL: Record<WritePlay, string> = { pause: '書くあいだ：止める', slow: '書くあいだ：0.75×', keep: '書くあいだ：そのまま' };
+const WRITE_PLAY_LABEL: Record<WritePlay, string> = { pause: tr('書くあいだ：止める'), slow: tr('書くあいだ：0.75×'), keep: tr('書くあいだ：そのまま') };
 
 type LiveLevel = 'off' | 'some' | 'often';
-const LIVE_LABEL: Record<LiveLevel, string> = { off: 'オフ', some: 'ときどき', often: 'よく' };
+const LIVE_LABEL: Record<LiveLevel, string> = { off: tr('オフ'), some: tr('ときどき'), often: tr('よく') };
 const LIVE_EVERY: Record<LiveLevel, number> = { off: Infinity, some: 150, often: 60 }; // 何秒分流れたら、ひとこと
 const LIVE_CAP = 40; // 1本で、ひとことを頼む回数の上限
 
@@ -121,27 +122,27 @@ export function startReader() {
   const root = el('div', 'reader');
   const titleBox = el('div', 'reader-title');
   const tools = el('div', 'reader-tools');
-  const keyOnlyButton = toolButton('要点だけ', '要点のマスだけをたどる（K）');
-  const aiButton = toolButton('AI で要点', 'AI に読んでもらい、要点のマスを光らせ、難しい語に解説を付ける');
+  const keyOnlyButton = toolButton(tr('要点だけ'), tr('要点のマスだけをたどる（K）'));
+  const aiButton = toolButton(tr('AI で要点'), tr('AI に読んでもらい、要点のマスを光らせ、難しい語に解説を付ける'));
   // 頼み板（plan-reader-video の V4a）：範囲 × 頼み（技法の色・話の骨組み・天丼と伏線・間・この型で別の話題）。押す前に料金の目安
-  const askAiButton = toolButton('AI…', '範囲と頼み（技法の色・話の骨組み・天丼と伏線・間・この型で別の話題）を選び、料金の目安を見てから AI に頼む');
+  const askAiButton = toolButton('AI…', tr('範囲と頼み（技法の色・話の骨組み・天丼と伏線・間・この型で別の話題）を選び、料金の目安を見てから AI に頼む'));
   askAiButton.setAttribute('aria-haspopup', 'menu');
-  const translateButton = toolButton('日本語にする', '字幕の区間の下に日本語を出す（Haiku。練習モードなら料金はかかりません。渡し止めのサイトでは訳しません）');
+  const translateButton = toolButton(tr('日本語にする'), tr('字幕の区間の下に日本語を出す（Haiku。練習モードなら料金はかかりません。渡し止めのサイトでは訳しません）'));
   translateButton.hidden = true;
-  const spacingButton = toolButton('', '行の間のあけ方');
-  const smaller = toolButton('−', '小さく');
-  const bigger = toolButton('＋', '大きく');
-  const hexButton = toolButton('六角メモへ', '♥ とメモを付けたマスを、六角メモへ送る');
-  const vocabButton = toolButton('単語帳へ', 'AI の言葉の解説を、すべて単語帳のカードにする（W で今のマスの言葉だけ）');
-  const digestButton = toolButton('♥ だけ再生', '♥ を付けた区間だけを、順に続けて再生する（ダイジェスト）');
-  const widthButton = toolButton('幅', '区間セルを並べる幅・高さを変える（残りに動画）');
-  const layoutButton = toolButton('', '区間セルを、動画の右に並べるか、下に並べるか');
-  const flowButton = toolButton('流れる表示', '今のマスを下に出し、流れたマスを上へ動かす（まだのマスは見せない）');
-  const liveButton = toolButton('', 'AI と一緒に見る：流れた部分に、相棒がひとことずつ返す（Sonnet 5.5 で、1回 約 $0.005）');
-  const listenButton = toolButton('🎧 音声から', 'Windows 11 のライブキャプションで、流れている音声（ラジオ・字幕の無い動画や音声）を文字にしながら区間セルを作る');
-  const reloadButton = toolButton('字幕を読み直す', 'YouTube の文字起こしを読み直す（字幕の言語を YouTube で切り替えたあとなど）');
-  const closeButton = toolButton('ページに戻る ×', 'ページの表示に戻る（Esc）');
-  const pickButton = toolButton('選ぶ', '押したマスを選ぶ（もう一度押すと外す。Ctrl+クリック・Shift+クリックでも選べます）');
+  const spacingButton = toolButton('', tr('行の間のあけ方'));
+  const smaller = toolButton('−', tr('小さく'));
+  const bigger = toolButton('＋', tr('大きく'));
+  const hexButton = toolButton(tr('六角メモへ'), tr('♥ とメモを付けたマスを、六角メモへ送る'));
+  const vocabButton = toolButton(tr('単語帳へ'), tr('AI の言葉の解説を、すべて単語帳のカードにする（W で今のマスの言葉だけ）'));
+  const digestButton = toolButton(tr('♥ だけ再生'), tr('♥ を付けた区間だけを、順に続けて再生する（ダイジェスト）'));
+  const widthButton = toolButton(tr('幅'), tr('区間セルを並べる幅・高さを変える（残りに動画）'));
+  const layoutButton = toolButton('', tr('区間セルを、動画の右に並べるか、下に並べるか'));
+  const flowButton = toolButton(tr('流れる表示'), tr('今のマスを下に出し、流れたマスを上へ動かす（まだのマスは見せない）'));
+  const liveButton = toolButton('', tr('AI と一緒に見る：流れた部分に、相棒がひとことずつ返す（Sonnet 5.5 で、1回 約 $0.005）'));
+  const listenButton = toolButton(tr('🎧 音声から'), tr('Windows 11 のライブキャプションで、流れている音声（ラジオ・字幕の無い動画や音声）を文字にしながら区間セルを作る'));
+  const reloadButton = toolButton(tr('字幕を読み直す'), tr('YouTube の文字起こしを読み直す（字幕の言語を YouTube で切り替えたあとなど）'));
+  const closeButton = toolButton(tr('ページに戻る ×'), tr('ページの表示に戻る（Esc）'));
+  const pickButton = toolButton(tr('選ぶ'), tr('押したマスを選ぶ（もう一度押すと外す。Ctrl+クリック・Shift+クリックでも選べます）'));
   tools.append(pickButton, listenButton, liveButton, layoutButton, flowButton, keyOnlyButton, aiButton, askAiButton, translateButton, digestButton, spacingButton, smaller, bigger, widthButton, reloadButton, vocabButton, hexButton, closeButton);
   const head = el('header', 'reader-head');
   head.append(titleBox, tools);
@@ -155,23 +156,23 @@ export function startReader() {
 
   const info = el('div', 'reader-info');
   const bar = el('footer', 'reader-bar');
-  const prevButton = toolButton('‹', '前へ（←）');
-  const nextButton = toolButton('›', '次へ（→・Space）');
+  const prevButton = toolButton('‹', tr('前へ（←）'));
+  const nextButton = toolButton('›', tr('次へ（→・Space）'));
   const count = el('span', 'reader-count');
   const heading = el('span', 'reader-heading');
   const progress = el('div', 'reader-progress');
   const progressFill = el('div', 'reader-progress-fill');
   progress.append(progressFill);
-  const likeButton = toolButton('♡', 'このマスに ♥（L・押すたびに ♥1→♥2→♥3→なし）');
-  const noteButton = toolButton('メモ', 'このマスにメモを書く（C。動画のときは下の一行の欄へ）');
-  const askButton = toolButton('相棒に聞く', 'このマスについて、右の相棒に聞く（A）');
-  const playButton = toolButton('▶', '再生・一時停止（Space）');
+  const likeButton = toolButton('♡', tr('このマスに ♥（L・押すたびに ♥1→♥2→♥3→なし）'));
+  const noteButton = toolButton(tr('メモ'), tr('このマスにメモを書く（C。動画のときは下の一行の欄へ）'));
+  const askButton = toolButton(tr('相棒に聞く'), tr('このマスについて、右の相棒に聞く（A）'));
+  const playButton = toolButton('▶', tr('再生・一時停止（Space）'));
   const timeBox = el('span', 'reader-time');
-  const repeatButton = toolButton('くり返す', 'このマスの区間をくり返し再生する（R。区間を選んでいれば回し方を選ぶ）');
-  const setsButton = toolButton('組', '名前つきの組（選んだ区間と回し方）を呼ぶ');
+  const repeatButton = toolButton(tr('くり返す'), tr('このマスの区間をくり返し再生する（R。区間を選んでいれば回し方を選ぶ）'));
+  const setsButton = toolButton(tr('組'), tr('名前つきの組（選んだ区間と回し方）を呼ぶ'));
   const SPEEDS = [0.75, 1, 1.25] as const;
   const speedButtons = SPEEDS.map((rate) => {
-    const b = toolButton(rate === 1 ? '1×' : `${rate}×`, `再生の速さ ${rate} 倍。くり返しと一緒に使えます`);
+    const b = toolButton(rate === 1 ? '1×' : `${rate}×`, tr('再生の速さ {0} 倍。くり返しと一緒に使えます', { 0: rate }));
     b.dataset.rate = String(rate);
     return b;
   });
@@ -182,39 +183,39 @@ export function startReader() {
   const line = el('form', 'reader-line');
   line.hidden = true;
   const pinBox = el('span', 'reader-line-pin');
-  const pinPrev = toolButton('‹', '書く先のマスを一つ前へ');
-  const pinNext = toolButton('›', '書く先のマスを一つ後ろへ');
+  const pinPrev = toolButton('‹', tr('書く先のマスを一つ前へ'));
+  const pinNext = toolButton('›', tr('書く先のマスを一つ後ろへ'));
   const lineInput = el('input', 'reader-line-input');
   lineInput.type = 'text';
   lineInput.maxLength = MAX_DRAFT_TEXT;
-  lineInput.placeholder = '今のマスに書く（打ち始めた時刻のマスに残ります。Enter で残す・Esc で抜ける）';
+  lineInput.placeholder = tr('今のマスに書く（打ち始めた時刻のマスに残ります。Enter で残す・Esc で抜ける）');
   lineInput.setAttribute('aria-label', '今のマスに書く一行の欄');
-  const writePlayButton = toolButton('', '書くあいだの再生（止める・0.75×・そのまま）。押すたびに替わります');
-  const wideButton = toolButton('広げる', '2 行の欄で長く書く（今のメモも直せます）');
+  const writePlayButton = toolButton('', tr('書くあいだの再生（止める・0.75×・そのまま）。押すたびに替わります'));
+  const wideButton = toolButton(tr('広げる'), tr('2 行の欄で長く書く（今のメモも直せます）'));
   // 書く先（V1c）：マスのメモ｜カード（このマスと結ぶ）。カードのときは結ぶ先のメモ（左の写しから。替えると下の区画もそのメモを開く）
-  const toNote = toolButton('マス', '書く先：このマスのメモ（読む画面の記録に残る）');
-  const toCard = toolButton('カード', '書く先：下の区画のカード（このマスと結ぶ）');
+  const toNote = toolButton(tr('マス'), tr('書く先：このマスのメモ（読む画面の記録に残る）'));
+  const toCard = toolButton(tr('カード'), tr('書く先：下の区画のカード（このマスと結ぶ）'));
   const writeToBox = el('span', 'reader-line-to');
   writeToBox.append(toNote, toCard);
   const targetBox = el('label', 'reader-line-target');
   const targetSelect = el('select', 'reader-line-target-select');
-  targetSelect.title = '結ぶ先のメモ（替えると、下の区画もそのメモを開きます）';
-  targetBox.append(el('span', '', '結ぶ先'), targetSelect);
+  targetSelect.title = tr('結ぶ先のメモ（替えると、下の区画もそのメモを開きます）');
+  targetBox.append(el('span', '', tr('結ぶ先')), targetSelect);
   // 書いたマスのほかの結び方（V2a-2b）：結ぶ先のカードを選んで結ぶ・このマスの字幕だけで結んだカードを作る
-  const linkCardButton = toolButton('カードと結ぶ…', '結ぶ先のメモのカードを選んで、このマスと結ぶ（カードの文は変えません。✓ のカードは押すと外します）');
-  const cellCardButton = toolButton('マスをカードに', 'このマスの字幕を、このマスと結んだカードにする（文は書きません）');
+  const linkCardButton = toolButton(tr('カードと結ぶ…'), tr('結ぶ先のメモのカードを選んで、このマスと結ぶ（カードの文は変えません。✓ のカードは押すと外します）'));
+  const cellCardButton = toolButton(tr('マスをカードに'), tr('このマスの字幕を、このマスと結んだカードにする（文は書きません）'));
   const linkMenu = new CellMenu();
   line.append(pinBox, pinPrev, pinNext, lineInput, writeToBox, targetBox, linkCardButton, cellCardButton, writePlayButton, wideButton);
   // 選んだ区間の棚（plan-reader-video の V3b。区間セルと下の帯のあいだ）
   const shelf = el('div', 'reader-shelf');
   shelf.hidden = true;
   const shelfCount = el('span', 'reader-shelf-count');
-  const shelfCard = toolButton('結んだカードを作る', '選んだ区間と結んだカードを 1 枚作る（一行の欄に書きかけがあれば、それを文にします）');
-  const shelfLink = toolButton('カードと結ぶ…', '結ぶ先のメモのカードを選んで、選んだ区間を結ぶ（✓ のカードは押すと外す）');
-  const shelfClear = toolButton('選ぶのをやめる', '選んだ区間を外す（Esc）');
-  const shelfLoop = toolButton('くり返す…', '選んだ区間を、回し方を決めてくり返す（R）');
-  const shelfSave = toolButton('組に保存…', '選んだ区間と今の回し方に名前を付けて残す（この動画の記録に。20 まで）');
-  const shelfAsk = toolButton('AI に頼む…', '選んだ区間を範囲にして、頼み板を開く');
+  const shelfCard = toolButton(tr('結んだカードを作る'), tr('選んだ区間と結んだカードを 1 枚作る（一行の欄に書きかけがあれば、それを文にします）'));
+  const shelfLink = toolButton(tr('カードと結ぶ…'), tr('結ぶ先のメモのカードを選んで、選んだ区間を結ぶ（✓ のカードは押すと外す）'));
+  const shelfClear = toolButton(tr('選ぶのをやめる'), tr('選んだ区間を外す（Esc）'));
+  const shelfLoop = toolButton(tr('くり返す…'), tr('選んだ区間を、回し方を決めてくり返す（R）'));
+  const shelfSave = toolButton(tr('組に保存…'), tr('選んだ区間と今の回し方に名前を付けて残す（この動画の記録に。20 まで）'));
+  const shelfAsk = toolButton(tr('AI に頼む…'), tr('選んだ区間を範囲にして、頼み板を開く'));
   shelf.append(shelfCount, shelfLoop, shelfCard, shelfLink, shelfAsk, shelfSave, shelfClear);
   // 全体の地図（plan-reader-video の V6d。考察の 全2）：動画全体の細い帯に ♥・メモ・結んだカードの点、チャプターの区切り、
   //   900 マスの外（斜線）、今の位置。押すとその時刻のマスへ。時刻のあるマスのときだけ
@@ -224,13 +225,13 @@ export function startReader() {
   mapBar.setAttribute('aria-label', '動画全体の地図（押すとその時刻のマスへ）');
   const mapNow = el('div', 'reader-map-now');
   const mapLegend = el('span', 'reader-map-legend');
-  const exportButton = toolButton('コメント用に写す…', 'この動画と結んだ自分のカードを「3:04 …」の行にして、YouTube のコメント用に写す（貼って投稿するのは自分の手で）');
+  const exportButton = toolButton(tr('コメント用に写す…'), tr('この動画と結んだ自分のカードを「3:04 …」の行にして、YouTube のコメント用に写す（貼って投稿するのは自分の手で）'));
   overview.append(mapBar, mapLegend, exportButton);
   // 900 マスで切れたことの知らせ（V6d。考察の 全1・D13：まず知らせるだけ）
   const capNote = el('div', 'reader-cap');
   capNote.hidden = true;
   const capText = el('span', 'reader-cap-text');
-  const capClose = toolButton('閉じる', 'この知らせを閉じる（読む画面が動いている間は、このページでは出しません）');
+  const capClose = toolButton(tr('閉じる'), tr('この知らせを閉じる（読む画面が動いている間は、このページでは出しません）'));
   capNote.append(capText, capClose);
   // YouTube のコメント用に写す（V6e。考察の 出1）：この動画と結んだ自分のカードを「m:ss 文」の行に。貼って投稿するのは自分の手で（§4）
   const exportBox = el('div', 'reader-export');
@@ -239,13 +240,13 @@ export function startReader() {
   exportText.rows = 5;
   exportText.setAttribute('aria-label', 'YouTube のコメント用の文（直してから写せます）');
   const exportCount = el('span', 'reader-export-count');
-  const exportCopy = toolButton('写す', '欄の文をクリップボードへ写す');
-  const exportRedo = toolButton('作り直す', '今のカードから作り直す（欄で直した所は消えます）');
-  const exportClose = toolButton('閉じる', 'この欄を閉じる（Esc）');
+  const exportCopy = toolButton(tr('写す'), tr('欄の文をクリップボードへ写す'));
+  const exportRedo = toolButton(tr('作り直す'), tr('今のカードから作り直す（欄で直した所は消えます）'));
+  const exportClose = toolButton(tr('閉じる'), tr('この欄を閉じる（Esc）'));
   const exportRow = el('div', 'reader-export-row');
   exportRow.append(exportCount, exportCopy, exportRedo, exportClose);
   exportBox.append(
-    el('p', 'reader-export-note', 'この動画の区間と結んだ自分のカードを、時刻の順に「3:04 …」の行にします（字幕の本文と AI のカードは入れません）。直してから写せます。YouTube のコメント欄に貼って投稿するのは、自分の手で'),
+    el('p', 'reader-export-note', tr('この動画の区間と結んだ自分のカードを、時刻の順に「3:04 …」の行にします（字幕の本文と AI のカードは入れません）。直してから写せます。YouTube のコメント欄に貼って投稿するのは、自分の手で')),
     exportText,
     exportRow,
   );
@@ -391,12 +392,12 @@ export function startReader() {
       await openFile(token, id, pageUrl);
       return;
     }
-    setStatus('本文を取り出しています…');
+    setStatus(tr('本文を取り出しています…'));
     renderHead();
     const page = await extractPage(id);
     if (token !== openToken) return;
     if (!page) {
-      setStatus('このページからは本文を取り出せませんでした。「ページに戻る」で元の表示に戻れます');
+      setStatus(tr('このページからは本文を取り出せませんでした。「ページに戻る」で元の表示に戻れます'));
       return;
     }
     url = page.url || pageUrl;
@@ -418,18 +419,18 @@ export function startReader() {
     scrollToCurrent(false);
     setStatus(
       resume > 0
-        ? `前回の続きから（${resume + 1} / ${cells.length}）`
-        : `${cells.length} マスに分けました${page.truncated ? '（長いページなので、最初の部分だけ）' : ''}。← → で読み進めます`,
+        ? tr('前回の続きから（{0} / {1}）', { 0: resume + 1, 1: cells.length })
+        : tr('{0} マスに分けました{1}。← → で読み進めます', { 0: cells.length, 1: page.truncated ? '（長いページなので、最初の部分だけ）' : '' }),
       4000,
     );
-    if (liveSaved.length > 0) setStatus(`このページで前に聞き取った ${liveSaved.length} マスがあります。「🎧 音声から」で、その続きから聞き取れます`, 6000);
+    if (liveSaved.length > 0) setStatus(tr('このページで前に聞き取った {0} マスがあります。「🎧 音声から」で、その続きから聞き取れます', { 0: liveSaved.length }), 6000);
     reportProgress();
   }
 
   // YouTube の動画：字幕を時刻つきの区間セルにする
   async function openVideo(token: number, id: number, pageTitle: string) {
     video = { kind: 'youtube', id: '', duration: 0 };
-    setStatus('YouTube の文字起こしを読み込んでいます…');
+    setStatus(tr('YouTube の文字起こしを読み込んでいます…'));
     renderHead();
     const t = await fetchTranscript(id);
     if (token !== openToken) return;
@@ -438,35 +439,35 @@ export function startReader() {
       renderHead();
       setStatus(
         t.error === 'noTranscript'
-          ? '文字起こし（字幕）を読めませんでした。字幕の無い動画か、YouTube がまだ用意できていません。YouTube の字幕（CC）をオンにしてから「字幕を読み直す」を押すと、読めることがあります'
-          : '文字起こしを読み込めませんでした。動画のページを読み込み終えてから、「字幕を読み直す」を押してください',
+          ? tr('文字起こし（字幕）を読めませんでした。字幕の無い動画か、YouTube がまだ用意できていません。YouTube の字幕（CC）をオンにしてから「字幕を読み直す」を押すと、読めることがあります')
+          : tr('文字起こしを読み込めませんでした。動画のページを読み込み終えてから、「字幕を読み直す」を押してください'),
       );
       if ('videoId' in t && t.videoId) url = canonicalVideoUrl(t.videoId);
-      showChoices('字幕が読めないときは、ライブキャプションで音声から聞き取れます。');
+      showChoices(tr('字幕が読めないときは、ライブキャプションで音声から聞き取れます。'));
       await showListened(token);
       return;
     }
     video = { kind: 'youtube', id: t.videoId, duration: t.duration };
     url = canonicalVideoUrl(t.videoId);
     title = t.title || pageTitle;
-    await useTimedText(token, id, t, '字幕');
+    await useTimedText(token, id, t, tr('字幕'));
   }
 
   // 自分の音声・動画のファイル：横に同じ名前の字幕（.srt / .vtt）があれば読む。無ければ、読み込むか聞き取るかを選んでもらう
   async function openFile(token: number, id: number, pageUrl: string) {
     video = { kind: 'file', id: pageUrl, duration: 0 };
     title = fileNameOf(pageUrl);
-    setStatus('同じ名前の字幕のファイルを探しています…');
+    setStatus(tr('同じ名前の字幕のファイルを探しています…'));
     renderHead();
     const side = await readSidecarSubtitle(pageUrl);
     if (token !== openToken) return;
     const segments = side ? parseSubtitles(side.text) : [];
     if (segments.length > 0) {
-      await useTimedText(token, id, { segments, chapters: [], duration: 0 }, `字幕のファイル「${side?.name}」`);
+      await useTimedText(token, id, { segments, chapters: [], duration: 0 }, tr('字幕のファイル「{0}」', { 0: side?.name }));
       return;
     }
     setStatus('');
-    showChoices('字幕のファイル（.srt / .vtt など）を読み込むか、ライブキャプションで音声から聞き取ります。');
+    showChoices(tr('字幕のファイル（.srt / .vtt など）を読み込むか、ライブキャプションで音声から聞き取ります。'));
     await showListened(token);
   }
 
@@ -477,7 +478,7 @@ export function startReader() {
     if (token !== openToken) return;
     liveSaved = saved?.liveCells ?? [];
     if (liveSaved.length === 0 || !saved) return;
-    if (await enterLive(saved)) setStatus(`前に聞き取った ${cells.length} マスです。「🎧 音声から」で、その続きから聞き取れます`, 6000);
+    if (await enterLive(saved)) setStatus(tr('前に聞き取った {0} マスです。「🎧 音声から」で、その続きから聞き取れます', { 0: cells.length }), 6000);
   }
 
   // 時刻つきの字幕から区間セルを作って、再生に合わせて動かし始める（YouTube・自分のファイル）
@@ -513,10 +514,10 @@ export function startReader() {
       // 見始めたばかり：前回の続きへ
       current = resume;
       void seekVideo(id, cells[resume].start ?? 0);
-      setStatus(`前回の続き（${timeLabel(cells[resume].start ?? 0)}）から`, 4000);
+      setStatus(tr('前回の続き（{0}）から', { 0: timeLabel(cells[resume].start ?? 0) }), 4000);
     } else {
       current = Math.max(0, here);
-      setStatus(`${label}を ${cells.length} の区間セルにしました。マスを押すとその場面へ・Space で再生と一時停止`, 5000);
+      setStatus(tr('{0}を {1} の区間セルにしました。マスを押すとその場面へ・Space で再生と一時停止', { 0: label, 1: cells.length }), 5000);
     }
     playing = !!state && !state.paused;
     videoTime = state?.time ?? 0;
@@ -553,20 +554,20 @@ export function startReader() {
       void f.text().then((text) => {
         const segments = parseSubtitles(text);
         if (segments.length === 0) {
-          setStatus('この字幕のファイルは読めませんでした（.srt・.vtt・Whisper の JSON・「0:05 本文」の行が読めます）', 6000);
+          setStatus(tr('この字幕のファイルは読めませんでした（.srt・.vtt・Whisper の JSON・「0:05 本文」の行が読めます）'), 6000);
           return;
         }
-        if (tabId !== null) void useTimedText(openToken, tabId, { segments, chapters: [], duration: video?.duration ?? 0 }, `字幕のファイル「${f.name}」`);
+        if (tabId !== null) void useTimedText(openToken, tabId, { segments, chapters: [], duration: video?.duration ?? 0 }, tr('字幕のファイル「{0}」', { 0: f.name }));
       });
     });
-    const pick = toolButton('字幕のファイルを読み込む…', '.srt・.vtt・Whisper の JSON・「0:05 本文」の行（YouTube の文字起こしのコピー）');
+    const pick = toolButton(tr('字幕のファイルを読み込む…'), tr('.srt・.vtt・Whisper の JSON・「0:05 本文」の行（YouTube の文字起こしのコピー）'));
     pick.addEventListener('click', () => file.click());
-    const listen = toolButton('🎧 ライブキャプションで聞き取る', 'Windows 11 のライブキャプションで、流れている音声を文字にしながら区間セルを作る');
+    const listen = toolButton(tr('🎧 ライブキャプションで聞き取る'), tr('Windows 11 のライブキャプションで、流れている音声を文字にしながら区間セルを作る'));
     listen.addEventListener('click', () => void startLive());
     row.append(pick, listen, file);
     box.append(
       row,
-      el('p', 'reader-choices-note', 'ライブキャプションは Windows 11 の機能です（Win+Ctrl+L でも開けます）。音声はパソコンの中で文字になり、どこにも送りません。初めてのときは、Windows の案内に従って言語（日本語など）を準備してください。'),
+      el('p', 'reader-choices-note', tr('ライブキャプションは Windows 11 の機能です（Win+Ctrl+L でも開けます）。音声はパソコンの中で文字になり、どこにも送りません。初めてのときは、Windows の案内に従って言語（日本語など）を準備してください。')),
     );
     choices.replaceChildren(box);
   }
@@ -587,10 +588,10 @@ export function startReader() {
     },
     onStatus: (status) => {
       liveStatus = status;
-      if (status === 'starting') setStatus('ライブキャプションを開いています…（初めてのときは、Windows の案内に従って言語を準備してください）');
-      else if (status === 'unavailable') setStatus('この Windows にはライブキャプションがありません（Windows 11 22H2 以降の機能です）', 8000);
-      else if (status === 'error') setStatus('ライブキャプションの文字を読めませんでした', 6000);
-      else setStatus('聞き取りを始めました。流れている音声が、区間セルになっていきます', 5000);
+      if (status === 'starting') setStatus(tr('ライブキャプションを開いています…（初めてのときは、Windows の案内に従って言語を準備してください）'));
+      else if (status === 'unavailable') setStatus(tr('この Windows にはライブキャプションがありません（Windows 11 22H2 以降の機能です）'), 8000);
+      else if (status === 'error') setStatus(tr('ライブキャプションの文字を読めませんでした'), 6000);
+      else setStatus(tr('聞き取りを始めました。流れている音声が、区間セルになっていきます'), 5000);
       renderHead();
       renderListening();
     },
@@ -713,7 +714,7 @@ export function startReader() {
     const live = video?.kind === 'live' && captions.active;
     listening.hidden = !live;
     if (!live) return;
-    listening.textContent = liveStatus === 'listening' ? `🎧 ${livePartial || '聞き取っています…'}` : '🎧 ライブキャプションを待っています…';
+    listening.textContent = liveStatus === 'listening' ? `🎧 ${livePartial || tr('聞き取っています…')}` : tr('🎧 ライブキャプションを待っています…');
   }
 
   // その時刻の区間（見出しではないマス）
@@ -768,7 +769,7 @@ export function startReader() {
       }
       if (s.ad) {
         // 広告の間は動かさない（移る場面は、広告のあとで YouTube が反映する）
-        timeBox.textContent = '広告中…';
+        timeBox.textContent = tr('広告中…');
         return;
       }
       if (playing !== !s.paused || Math.floor(videoTime) !== Math.floor(s.time) || (video.kind === 'live' && liveClock === 'wall')) {
@@ -791,7 +792,7 @@ export function startReader() {
             digest = null;
             void togglePlay(id);
             renderHead();
-            setStatus('♥ を付けた区間を、最後まで再生しました', 4000);
+            setStatus(tr('♥ を付けた区間を、最後まで再生しました'), 4000);
           } else {
             playCell(digest[digestPos]);
           }
@@ -877,7 +878,7 @@ export function startReader() {
       const joined = Array.isArray(s.members) ? s.members.includes('second') : v?.enabled === true;
       if (!v || !joined) return null;
       const role = typeof v.role === 'string' && v.role in SECOND_ROLES ? (v.role as SecondRole) : 'tsukkomi';
-      return { name: typeof v.name === 'string' && v.name.trim() ? v.name.trim().slice(0, 12) : 'ミツ', role };
+      return { name: typeof v.name === 'string' && v.name.trim() ? v.name.trim().slice(0, 12) : tr('ミツ'), role };
     } catch {
       return null;
     }
@@ -903,12 +904,12 @@ export function startReader() {
     if (tabId === null || !video) return;
     const applied = await setPlaybackRate(tabId, rate);
     if (applied === null || Math.abs(applied - rate) > 0.05) {
-      setStatus('このページの再生の速さは変えられませんでした', 4000);
+      setStatus(tr('このページの再生の速さは変えられませんでした'), 4000);
       return;
     }
     speed = rate;
     renderPlayback();
-    setStatus(rate === 1 ? '再生の速さを 1 倍に戻しました' : `再生の速さを ${rate} 倍にしました。くり返しと一緒に使えます`, 2500);
+    setStatus(rate === 1 ? tr('再生の速さを 1 倍に戻しました') : tr('再生の速さを {0} 倍にしました。くり返しと一緒に使えます', { 0: rate }), 2500);
   }
 
   async function playPause() {
@@ -933,7 +934,7 @@ export function startReader() {
     digest = null;
     renderPlayback();
     renderHead();
-    setStatus(repeat ? 'このマスの区間をくり返します（R でやめる）' : 'くり返しをやめました', 2500);
+    setStatus(repeat ? tr('このマスの区間をくり返します（R でやめる）') : tr('くり返しをやめました'), 2500);
   }
 
   function toggleDigest() {
@@ -941,12 +942,12 @@ export function startReader() {
     if (digest) {
       digest = null;
       renderHead();
-      setStatus('♥ だけ再生をやめました', 2500);
+      setStatus(tr('♥ だけ再生をやめました'), 2500);
       return;
     }
     const list = cells.filter((c) => !c.head && (marks.get(c.key)?.liked ?? 0) > 0).map((c) => c.index);
     if (list.length === 0) {
-      setStatus('♥ を付けたマスがありません（L で付けられます）', 4000);
+      setStatus(tr('♥ を付けたマスがありません（L で付けられます）'), 4000);
       return;
     }
     digest = list;
@@ -954,7 +955,7 @@ export function startReader() {
     repeat = false;
     renderHead();
     renderPlayback();
-    setStatus(`♥ を付けた ${list.length} の区間を、順に再生します`, 3000);
+    setStatus(tr('♥ を付けた {0} の区間を、順に再生します', { 0: list.length }), 3000);
     playCell(list[0]);
   }
 
@@ -962,7 +963,7 @@ export function startReader() {
     playButton.textContent = playing ? '❚❚' : '▶';
     repeatButton.setAttribute('aria-pressed', String(repeat || loop !== null));
     setsButton.hidden = !lineUsable();
-    setsButton.textContent = sets.length > 0 ? `組 ${sets.length}` : '組';
+    setsButton.textContent = sets.length > 0 ? tr('組 {0}', { 0: sets.length }) : tr('組');
     for (const b of speedButtons) b.setAttribute('aria-pressed', String(Number(b.dataset.rate) === speed));
     timeBox.textContent = !video?.id
       ? ''
@@ -973,14 +974,14 @@ export function startReader() {
     const live = video?.id && prefs.liveAi !== 'off';
     liveBox.hidden = !live;
     if (live) {
-      const names = secondVoice() ? `Claude と ${secondVoice()?.name}` : 'Claude';
+      const names = secondVoice() ? tr('Claude と {0}', { 0: secondVoice()?.name }) : 'Claude';
       liveBox.textContent = liveBusy
-        ? `💬 ${names}：考えています…`
+        ? tr('💬 {0}：考えています…', { 0: names })
         : liveError
-          ? `💬 うまくいきませんでした：${liveError}`
+          ? tr('💬 うまくいきませんでした：{0}', { 0: liveError })
           : liveCount >= LIVE_CAP
-            ? `💬 この動画のひとことは ${LIVE_CAP} 回まで`
-            : `💬 ${names}と見ています${liveCost > 0 ? `（約 $${liveCost.toFixed(3)}）` : ''}`;
+            ? tr('💬 この動画のひとことは {0} 回まで', { 0: LIVE_CAP })
+            : tr('💬 {0}と見ています{1}', { 0: names, 1: liveCost > 0 ? `（約 $${liveCost.toFixed(3)}）` : '' });
     }
     renderMapNow();
   }
@@ -1081,7 +1082,7 @@ export function startReader() {
       const inner = node.firstElementChild as HTMLElement;
       if (n.title) inner.append(el('div', 'rcell-term', n.kind === 'ai' ? `💬 ${n.title}` : n.title));
       inner.append(el('div', 'rcell-text', n.kind === 'note' ? `✎ ${n.text}` : n.text));
-      node.title = n.kind === 'note' ? `${n.cell + 1} 番のマスへのメモ` : n.kind === 'ai' ? `${n.title} のひとこと` : `${n.cell + 1} 番のマスの「${n.title}」の解説`;
+      node.title = n.kind === 'note' ? tr('{0} 番のマスへのメモ', { 0: n.cell + 1 }) : n.kind === 'ai' ? tr('{0} のひとこと', { 0: n.title }) : tr('{0} 番のマスの「{1}」の解説', { 0: n.cell + 1, 1: n.title });
       nodes.push(node);
     }
     canvas.replaceChildren(...nodes);
@@ -1112,30 +1113,30 @@ export function startReader() {
     } catch {
       host = '';
     }
-    const size = cells.length ? (video ? `${cells.length} の区間セル` : `${cells.length} マス`) : '';
-    titleBox.replaceChildren(el('strong', '', title || 'ページ'), el('span', '', [host, size].filter(Boolean).join('・')));
+    const size = cells.length ? (video ? tr('{0} の区間セル', { 0: cells.length }) : tr('{0} マス', { 0: cells.length })) : '';
+    titleBox.replaceChildren(el('strong', '', title || tr('ページ')), el('span', '', [host, size].filter(Boolean).join(tr('・'))));
     // 動画のときだけのボタン
     const isVideo = !!video;
     for (const b of [digestButton, widthButton, reloadButton, playButton, repeatButton, ...speedButtons, layoutButton, flowButton, liveButton]) b.hidden = !isVideo;
     translateButton.hidden = !cells.some((c) => c.start !== undefined && !c.head);
-    translateButton.textContent = ja.size > 0 ? '日本語にする ✓' : '日本語にする';
+    translateButton.textContent = ja.size > 0 ? tr('日本語にする ✓') : tr('日本語にする');
     reloadButton.hidden = !(video?.kind === 'youtube' || video?.kind === 'file');
     askAiButton.hidden = videoKeyNow() === null; // 結果はこの動画と結んだカードになるので、YouTube・自分のファイルだけ（S1）
     if (video?.kind === 'live') flowButton.hidden = true; // 聞き取りのときは、いつも流れる表示
-    listenButton.textContent = captions.active ? '🎧 聞き取りをやめる' : '🎧 音声から';
+    listenButton.textContent = captions.active ? tr('🎧 聞き取りをやめる') : tr('🎧 音声から');
     listenButton.setAttribute('aria-pressed', String(captions.active));
     timeBox.hidden = !isVideo;
     digestButton.setAttribute('aria-pressed', String(!!digest));
-    widthButton.textContent = prefs.videoLayout === 'bottom' ? `高さ ${prefs.videoHeight}` : `幅 ${prefs.videoWidth}`;
-    layoutButton.textContent = prefs.videoLayout === 'bottom' ? '下に並べる' : '右に並べる';
+    widthButton.textContent = prefs.videoLayout === 'bottom' ? tr('高さ {0}', { 0: prefs.videoHeight }) : tr('幅 {0}', { 0: prefs.videoWidth });
+    layoutButton.textContent = prefs.videoLayout === 'bottom' ? tr('下に並べる') : tr('右に並べる');
     flowButton.setAttribute('aria-pressed', String(prefs.flow));
-    liveButton.textContent = `AI と見る：${LIVE_LABEL[prefs.liveAi]}`;
+    liveButton.textContent = tr('AI と見る：{0}', { 0: LIVE_LABEL[prefs.liveAi] });
     liveButton.setAttribute('aria-pressed', String(prefs.liveAi !== 'off'));
     keyOnlyButton.setAttribute('aria-pressed', String(prefs.keyOnly));
     keyOnlyButton.disabled = !ai;
     vocabButton.disabled = !ai?.terms.length;
-    aiButton.textContent = ai ? 'AI の要点 ✓' : 'AI で要点';
-    spacingButton.textContent = prefs.spacing === 'roomy' ? '間：ゆったり' : '間：ふつう';
+    aiButton.textContent = ai ? tr('AI の要点 ✓') : tr('AI で要点');
+    spacingButton.textContent = prefs.spacing === 'roomy' ? tr('間：ゆったり') : tr('間：ふつう');
   }
 
   function renderBar() {
@@ -1165,7 +1166,7 @@ export function startReader() {
     for (const t of ai?.terms ?? []) {
       if (t.key === cell.key) {
         const row = el('div', 'reader-term');
-        const add = toolButton('＋単語帳', 'この言葉を単語帳のカードにする');
+        const add = toolButton(tr('＋単語帳'), tr('この言葉を単語帳のカードにする'));
         add.classList.add('reader-term-add');
         add.addEventListener('click', () => addTerms([t]));
         row.append(el('strong', '', t.term), document.createTextNode(`：${t.explanation}`), add);
@@ -1173,7 +1174,7 @@ export function startReader() {
       }
     }
     const level = ai?.levels[cell.key];
-    if (level) parts.unshift(el('div', 'reader-keymark', `要点 ${'★'.repeat(level)}`));
+    if (level) parts.unshift(el('div', 'reader-keymark', tr('要点 {0}', { 0: '★'.repeat(level) })));
     info.replaceChildren(...parts);
     info.hidden = parts.length === 0;
   }
@@ -1181,7 +1182,7 @@ export function startReader() {
   // 言葉の解説を、単語帳のカードにする（同じ言葉がもうあれば、単語帳が入れない）
   function addTerms(terms: ReaderAi['terms']) {
     if (terms.length === 0) {
-      setStatus('このマスには言葉の解説がありません（「AI で要点」で付けられます）', 4000);
+      setStatus(tr('このマスには言葉の解説がありません（「AI で要点」で付けられます）'), 4000);
       return;
     }
     const cards = terms.map((t) => {
@@ -1196,7 +1197,7 @@ export function startReader() {
       };
     });
     askLeft({ command: 'addCards', cards });
-    setStatus(`${cards.length === 1 ? `「${cards[0].front}」` : `言葉 ${cards.length} 個`}を単語帳に入れました（同じ言葉がもうあれば入れません）`, 5000);
+    setStatus(tr('{0}を単語帳に入れました（同じ言葉がもうあれば入れません）', { 0: cards.length === 1 ? `「${cards[0].front}」` : `言葉 ${cards.length} 個` }), 5000);
   }
 
   function setStatus(text: string, hideAfter = 0) {
@@ -1210,7 +1211,7 @@ export function startReader() {
   }
 
   // ---------- 全体の地図・900 マスの知らせ（plan-reader-video の V6d） ----------
-  const MAP_NAME: Record<OverviewKind, string> = { heart: '♥', note: 'メモ', card: 'カード', ai: 'AI' };
+  const MAP_NAME: Record<OverviewKind, string> = { heart: '♥', note: tr('メモ'), card: tr('カード'), ai: 'AI' };
   const mapPct = (f: number) => `${(f * 100).toFixed(3)}%`;
 
   // 時刻のあるマスのときだけ。点・区切り・斜線は描き直し、今の位置は renderMapNow（再生の見張りのたびに）
@@ -1283,7 +1284,7 @@ export function startReader() {
     return r.width > 0 ? (e.clientX - r.left) / r.width : 0;
   }
 
-  const cutLabel = () => (cut?.side === 'start' ? '外した古いマスの所' : '900 マスの外');
+  const cutLabel = () => (cut?.side === 'start' ? tr('外した古いマスの所') : tr('900 マスの外'));
 
   // 900 マスの知らせ：切れたときだけ。閉じたら、読む画面が動いている間はこのページでは出さない
   function renderCap() {
@@ -1302,11 +1303,11 @@ export function startReader() {
     exportText.value = '';
     exportCopy.disabled = true;
     exportCount.classList.remove('over');
-    exportCount.textContent = 'カードを集めています…';
+    exportCount.textContent = tr('カードを集めています…');
     const seq = ++exportSeq;
     window.clearTimeout(exportTimer);
     exportTimer = window.setTimeout(() => {
-      if (seq === exportSeq) exportCount.textContent = '左サイドバーから返事がありませんでした。「作り直す」でもう一度頼めます';
+      if (seq === exportSeq) exportCount.textContent = tr('左サイドバーから返事がありませんでした。「作り直す」でもう一度頼めます');
     }, 5000);
     askLeft({ command: 'readerExport', seq, video: key });
   }
@@ -1316,11 +1317,11 @@ export function startReader() {
     window.clearTimeout(exportTimer);
     const cards = parseExportCards(done.cards);
     if (!cards) {
-      exportCount.textContent = 'メモの台帳をまだ読めていません。少し待ってから「作り直す」を押してください';
+      exportCount.textContent = tr('メモの台帳をまだ読めていません。少し待ってから「作り直す」を押してください');
       return;
     }
     if (cards.length === 0) {
-      exportCount.textContent = 'この動画と結んだ、自分の書いたカードがありません（AI のカード・やり取りのカード・字幕だけのカードは入れません）';
+      exportCount.textContent = tr('この動画と結んだ、自分の書いたカードがありません（AI のカード・やり取りのカード・字幕だけのカードは入れません）');
       return;
     }
     exportText.value = commentText(cards).text;
@@ -1337,7 +1338,7 @@ export function startReader() {
     const over = chars > COMMENT_MAX;
     exportCopy.disabled = !value.trim();
     exportCount.classList.toggle('over', over);
-    exportCount.textContent = `${done}${lines} 行・${chars} 字${over ? `（YouTube のコメントは ${COMMENT_MAX} 字までの目安なので、長すぎます）` : ''}`;
+    exportCount.textContent = tr('{0}{1} 行・{2} 字{3}', { 0: done, 1: lines, 2: chars, 3: over ? `（YouTube のコメントは ${COMMENT_MAX} 字までの目安なので、長すぎます）` : '' });
   }
 
   async function copyExport() {
@@ -1345,12 +1346,12 @@ export function startReader() {
     if (!text.trim()) return;
     const reply = await request((requestId) => ({ type: 'clipboardWrite', requestId, text, html: '' }), 8_000).catch(() => null);
     if (reply?.type === 'clipboardWritten' && reply.ok) {
-      renderExportCount('写しました（貼って投稿するのは自分の手で）：');
+      renderExportCount(tr('写しました（貼って投稿するのは自分の手で）：'));
       return;
     }
     exportText.focus();
     exportText.select();
-    exportCount.textContent = '写せませんでした。文を選んだので、Ctrl+C で写せます';
+    exportCount.textContent = tr('写せませんでした。文を選んだので、Ctrl+C で写せます');
   }
 
   function closeExport(focus = false) {
@@ -1444,14 +1445,14 @@ export function startReader() {
     const form = el('form', 'reader-note-form');
     const text = el('textarea', 'reader-note-input');
     text.rows = 2;
-    text.placeholder = `${cell.index + 1} 番のマスへのメモ（Ctrl+Enter で残す・Esc でやめる）`;
+    text.placeholder = tr('{0} 番のマスへのメモ（Ctrl+Enter で残す・Esc でやめる）', { 0: cell.index + 1 });
     text.value = [marks.get(cell.key)?.note ?? '', extra].filter(Boolean).join('\n');
-    const save = el('button', 'reader-tool', '残す');
+    const save = el('button', 'reader-tool', tr('残す'));
     save.type = 'submit';
-    const remove = el('button', 'reader-tool', 'メモを消す');
+    const remove = el('button', 'reader-tool', tr('メモを消す'));
     remove.type = 'button';
     remove.hidden = !marks.get(cell.key)?.note;
-    const cancel = el('button', 'reader-tool', 'やめる');
+    const cancel = el('button', 'reader-tool', tr('やめる'));
     cancel.type = 'button';
     const done = () => {
       writing = false;
@@ -1492,7 +1493,7 @@ export function startReader() {
   // 書く先のマスの番号：固定していればそのマス。無ければ今のマス（見出しのマスなら、その次のマス）
   const writeIndex = (): number => pin ?? (cells[current]?.head ? writableCell(current, 0) : current);
   const pinnedCell = (): Cell | undefined => cells[writeIndex()];
-  const cellTime = (cell: Cell) => (cell.start !== undefined ? timeLabel(cell.start) : `${cell.index + 1} 番`);
+  const cellTime = (cell: Cell) => (cell.start !== undefined ? timeLabel(cell.start) : tr('{0} 番', { 0: cell.index + 1 }));
 
   function renderLine() {
     const usable = lineUsable();
@@ -1500,8 +1501,8 @@ export function startReader() {
     for (const node of canvas.querySelectorAll('.rcell.pinned')) node.classList.remove('pinned');
     if (!usable) return;
     const cell = pinnedCell();
-    pinBox.textContent = cell ? `${pin === null ? '今' : '▸'} ${cellTime(cell)}` : '';
-    pinBox.title = pin === null || !cell ? '打ち始めると、そのときのマスに固定します' : `${cell.index + 1} 番のマス（${cellTime(cell)}）に書いています。‹ › で付け替え`;
+    pinBox.textContent = cell ? `${pin === null ? tr('今') : '▸'} ${cellTime(cell)}` : '';
+    pinBox.title = pin === null || !cell ? tr('打ち始めると、そのときのマスに固定します') : tr('{0} 番のマス（{1}）に書いています。‹ › で付け替え', { 0: cell.index + 1, 1: cellTime(cell) });
     pinPrev.disabled = !cell;
     pinNext.disabled = !cell;
     line.classList.toggle('pinned', pin !== null);
@@ -1618,8 +1619,8 @@ export function startReader() {
     linkCardButton.hidden = !writesCard();
     cellCardButton.hidden = !writesCard();
     lineInput.placeholder = writesCard()
-      ? 'カードに書く（打ち始めた時刻のマスと結びます。Enter で残す・Esc で抜ける）'
-      : '今のマスに書く（打ち始めた時刻のマスに残ります。Enter で残す・Esc で抜ける）';
+      ? tr('カードに書く（打ち始めた時刻のマスと結びます。Enter で残す・Esc で抜ける）')
+      : tr('今のマスに書く（打ち始めた時刻のマスに残ります。Enter で残す・Esc で抜ける）');
     if (writesCard()) renderTarget();
   }
 
@@ -1630,9 +1631,9 @@ export function startReader() {
     const others = (view?.memos ?? []).filter((m) => m.memoId !== target?.memoId);
     const left = target ? Math.max(0, target.max - target.replies) : null;
     const options: [string, string][] = [
-      target ? [target.memoId, `メモ「${target.title}」${left !== null && left <= 20 ? `（あと ${left}）` : ''}`] : ['', '（動画のメモを新しく作る）'],
-      ...others.map((m): [string, string] => [m.memoId, `メモ「${m.title}」`]),
-      ['__new', '＋ 新しいメモに書く'],
+      target ? [target.memoId, tr('メモ「{0}」{1}', { 0: target.title, 1: left !== null && left <= 20 ? `（あと ${left}）` : '' })] : ['', tr('（動画のメモを新しく作る）')],
+      ...others.map((m): [string, string] => [m.memoId, tr('メモ「{0}」', { 0: m.title })]),
+      ['__new', tr('＋ 新しいメモに書く')],
     ];
     const sig = JSON.stringify(options);
     if (sig === targetSig) return;
@@ -1662,7 +1663,7 @@ export function startReader() {
     void seekVideo(id, start, true).then(() => {
       if (speed !== 1 && tabId === id) void setPlaybackRate(id, speed);
     });
-    setStatus(`${timeLabel(start)} へ移りました`, 2500);
+    setStatus(tr('{0} へ移りました', { 0: timeLabel(start) }), 2500);
   }
 
   // ---------- AI の頼み板（plan-reader-video の V4a。D5・D6・D12・D17・D22） ----------
@@ -1689,15 +1690,15 @@ export function startReader() {
       const indices = askRangeCells(cells, o.range, current, picked);
       const label = askRangeLabel(cells, o.range, indices);
       const entries: MenuEntry[] = [
-        { section: 'AI に頼む（結果は下の区画の AI のカード）' },
-        { row: '範囲', buttons: ASK_RANGES.map((r) => ({ label: r === 'picked' ? `選んだマス ${picked.length}` : ASK_RANGE_NAME[r], pressed: o.range === r, run: () => set({ range: r }) })) },
-        { row: '型', buttons: (['comedy', 'lecture'] as const).map((l) => ({ label: ASK_LENS_NAME[l], pressed: o.lens === l, run: () => set({ lens: l }) })) },
+        { section: tr('AI に頼む（結果は下の区画の AI のカード）') },
+        { row: tr('範囲'), buttons: ASK_RANGES.map((r) => ({ label: r === 'picked' ? tr('選んだマス {0}', { 0: picked.length }) : ASK_RANGE_NAME[r], pressed: o.range === r, run: () => set({ range: r }) })) },
+        { row: tr('型'), buttons: (['comedy', 'lecture'] as const).map((l) => ({ label: ASK_LENS_NAME[l], pressed: o.lens === l, run: () => set({ lens: l }) })) },
         {
-          row: '分ける',
-          buttons: (['tech', 'bones', 'tendon', 'pause'] as const).map((k) => ({ label: k === 'pause' ? '間（料金なし）' : ASK_KIND_NAME[k], pressed: o.kind === k, run: () => set({ kind: k }) })),
+          row: tr('分ける'),
+          buttons: (['tech', 'bones', 'tendon', 'pause'] as const).map((k) => ({ label: k === 'pause' ? tr('間（料金なし）') : ASK_KIND_NAME[k], pressed: o.kind === k, run: () => set({ kind: k }) })),
         },
-        { row: '応用', buttons: [{ label: ASK_KIND_NAME.apply, pressed: o.kind === 'apply', run: () => set({ kind: 'apply' }) }] },
-        { row: 'やり取り（右の相棒）', buttons: TALK_MODES.map((m) => ({ label: TALK_MODE_NAME[m], pressed: o.kind === m, run: () => set({ kind: m }) })) },
+        { row: tr('応用'), buttons: [{ label: ASK_KIND_NAME.apply, pressed: o.kind === 'apply', run: () => set({ kind: 'apply' }) }] },
+        { row: tr('やり取り（右の相棒）'), buttons: TALK_MODES.map((m) => ({ label: TALK_MODE_NAME[m], pressed: o.kind === m, run: () => set({ kind: m }) })) },
       ];
       if (isTalk(o.kind)) {
         // やり取りの型（V5）：ツッコむ・当てるは今のマスで止める（範囲は使わない）。ふりかえる・掛け合いは範囲
@@ -1706,31 +1707,31 @@ export function startReader() {
         entries.push({
           note: stops
             ? talk
-              ? `今のマス（${talk.label}）で止めて、右の相棒と練習します。このあとの本物の字幕は相棒にだけ渡し、答えるまで見せません（範囲は使いません）`
-              : '今のマスのあとに字幕が無いので、隠す本物がありません'
-            : `範囲：${label}${talk ? '' : '（時刻のマスがありません）'}`,
+              ? tr('今のマス（{0}）で止めて、右の相棒と練習します。このあとの本物の字幕は相棒にだけ渡し、答えるまで見せません（範囲は使いません）', { 0: talk.label })
+              : tr('今のマスのあとに字幕が無いので、隠す本物がありません')
+            : tr('範囲：{0}{1}', { 0: label, 1: talk ? '' : '（時刻のマスがありません）' }),
         });
-        entries.push({ note: '右の相棒で話します（料金は相棒の設定のモデル。今月の料金の目安に入ります）' });
-        entries.push('sep', { label: '右の相棒で始める', disabled: !talk, run: () => void startTalk(o.kind as TalkMode) });
+        entries.push({ note: tr('右の相棒で話します（料金は相棒の設定のモデル。今月の料金の目安に入ります）') });
+        entries.push('sep', { label: tr('右の相棒で始める'), disabled: !talk, run: () => void startTalk(o.kind as TalkMode) });
         return entries;
       }
       const noChapter = o.range === 'chapter' && !cells.some((c) => c.head);
-      entries.push({ note: `範囲：${label}${indices.length === 0 ? (noChapter ? '（チャプターの無い動画です）' : '（時刻のマスがありません）') : ''}` });
+      entries.push({ note: tr('範囲：{0}{1}', { 0: label, 1: indices.length === 0 ? (noChapter ? '（チャプターの無い動画です）' : '（時刻のマスがありません）') : '' }) });
       if (o.kind === 'pause') {
-        entries.push({ note: '字幕の時刻だけで、マスとマスの空き（間）を数えます（AI に送らない・料金なし）' });
+        entries.push({ note: tr('字幕の時刻だけで、マスとマスの空き（間）を数えます（AI に送らない・料金なし）') });
       } else if (indices.length > 0) {
         const p = readAiPrefs();
         const model = MODELS.find((m) => m.id === p.model) ?? MODELS[0];
         const payload = askPayload(cells, indices);
         const est = askEstimate(payload, model);
         entries.push({
-          note: `送る字幕：約 ${payload.chars.toLocaleString()} 字（${payload.sent.length} マス${payload.clipped ? '。長いので最初の約 6 万字だけ' : ''}）・${model.label}・約 $${est.low.toFixed(3)}〜$${est.high.toFixed(3)}（目安）`,
+          note: tr('送る字幕：約 {0} 字（{1} マス{2}）・{3}・約 ${4}〜${5}（目安）', { 0: payload.chars.toLocaleString(), 1: payload.sent.length, 2: payload.clipped ? '。長いので最初の約 6 万字だけ' : '', 3: model.label, 4: est.low.toFixed(3), 5: est.high.toFixed(3) }),
         });
-        if (p.practice) entries.push({ note: '練習モードです：料金はかからず、決まった返事が返ります（相棒の ⚙ で切り替え）' });
-        if (o.kind === 'apply') entries.push({ note: '頼むと、作る話の題を聞きます' });
+        if (p.practice) entries.push({ note: tr('練習モードです：料金はかからず、決まった返事が返ります（相棒の ⚙ で切り替え）') });
+        if (o.kind === 'apply') entries.push({ note: tr('頼むと、作る話の題を聞きます') });
       }
-      entries.push({ note: `この動画で使った AI：約 $${aiSpent.toFixed(3)}（この機能だけの上限はありません。月の上限は今までどおり）` });
-      entries.push('sep', { label: askBusy ? '考え中…' : '頼む', hint: o.kind === 'pause' ? '料金なし' : undefined, disabled: askBusy || indices.length === 0, run: () => startAsk() });
+      entries.push({ note: tr('この動画で使った AI：約 ${0}（この機能だけの上限はありません。月の上限は今までどおり）', { 0: aiSpent.toFixed(3) }) });
+      entries.push('sep', { label: askBusy ? tr('考え中…') : tr('頼む'), hint: o.kind === 'pause' ? tr('料金なし') : undefined, disabled: askBusy || indices.length === 0, run: () => startAsk() });
       return entries;
     };
     reopen();
@@ -1763,7 +1764,7 @@ export function startReader() {
     const stops = mode === 'tsukkomi' || mode === 'guess';
     if (stops && playing) await playPause();
     askLeft({ command: 'readerTalk', talk, url: timedUrl(url, talk.sec) });
-    setStatus(`右の相棒で「${TALK_MODE_NAME[mode]}」を始めました（${talk.label}）${stops ? '。右の欄に書いて送ってください' : ''}`, 6000);
+    setStatus(tr('右の相棒で「{0}」を始めました（{1}）{2}', { 0: TALK_MODE_NAME[mode], 1: talk.label, 2: stops ? '。右の欄に書いて送ってください' : '' }), 6000);
   }
 
   // 「頼む」：間はその場で数える。応用は題を聞いてから。ほかはそのまま AI へ
@@ -1780,7 +1781,7 @@ export function startReader() {
     }
     if (o.kind === 'apply') {
       const lens = o.lens;
-      askMenu.prompt(`この型で作る話の題（${ASK_TOPIC_MAX} 字まで）`, askTopic, (value) => void sendAsk('apply', lens, indices, label, value), undefined, { maxLength: ASK_TOPIC_MAX, placeholder: '例：職場の飲み会' });
+      askMenu.prompt(tr('この型で作る話の題（{0} 字まで）', { 0: ASK_TOPIC_MAX }), askTopic, (value) => void sendAsk('apply', lens, indices, label, value), undefined, { maxLength: ASK_TOPIC_MAX, placeholder: tr('例：職場の飲み会') });
       return;
     }
     void sendAsk(o.kind, o.lens, indices, label);
@@ -1800,14 +1801,14 @@ export function startReader() {
     const s = settings();
     const payload = askPayload(cells, indices);
     askBusy = true;
-    setStatus(`AI に頼みました（${ASK_KIND_NAME[kind]}・${label}）。考え中です…（失敗したときはカードを作らず、ここで知らせます）`);
+    setStatus(tr('AI に頼みました（{0}・{1}）。考え中です…（失敗したときはカードを作らず、ここで知らせます）', { 0: ASK_KIND_NAME[kind], 1: label }));
     // 考え中の印（D17）：結ぶ先のメモがあれば、左の PendingReply に載せる（下の区画と右に出る）。無ければ、カードを足すときに左がメモを作る
     const pendingMemo = linksNow()?.target?.memoId;
     if (pendingMemo) askLeft({ command: 'readerAiPending', memoId: pendingMemo, on: true, who: 'main', name: 'Claude' });
     try {
       const result = await runAsk(kind, lens, { title, range: label, sent: payload.sent, topic }, s);
       if (token !== openToken || videoKeyNow() !== key) {
-        setStatus('開いている動画が替わったので、AI の結果は使いませんでした', 6000);
+        setStatus(tr('開いている動画が替わったので、AI の結果は使いませんでした'), 6000);
         return;
       }
       if (!s.practice && result.cost > 0) {
@@ -1816,7 +1817,7 @@ export function startReader() {
       }
       finishAsk(kind, askHead(kind, lens, label, topic), result.lines, result.cost, s.practice, indices, s.model);
     } catch (error) {
-      setStatus(`AI に頼めませんでした（カードは作りません）：${error instanceof Error ? error.message : String(error)}`, 8000);
+      setStatus(tr('AI に頼めませんでした（カードは作りません）：{0}', { 0: error instanceof Error ? error.message : String(error) }), 8000);
     } finally {
       askBusy = false;
       if (pendingMemo) askLeft({ command: 'readerAiPending', memoId: pendingMemo, on: false, who: 'main', name: 'Claude' }); // カードを足す頼みのあとに外す
@@ -1827,9 +1828,9 @@ export function startReader() {
   //   at は頼んだ範囲を 1 本（分けたときは、その一枚の行の範囲）と種類、by は書いた AI と目安の料金（料金は 1 枚目だけ。間は読む画面）。
   //   結ぶ先は今の結ぶ先のメモ（無ければ左が動画のメモを作る。Q2）。断られたときは知らせるだけ（AI の文は下書きに戻さない）
   function finishAsk(kind: AskKind, head: string, lines: readonly AiCardLine[], cost: number, practice: boolean, indices: readonly number[], model?: string) {
-    const money = practice ? '（練習モード）' : cost > 0 ? `（約 $${cost.toFixed(3)}）` : '';
+    const money = practice ? tr('（練習モード）') : cost > 0 ? tr('（約 ${0}）', { 0: cost.toFixed(3) }) : '';
     if (lines.length === 0) {
-      setStatus(`「${head}」：見つかったものはありませんでした${money}（カードは作りません）`, 6000);
+      setStatus(tr('「{0}」：見つかったものはありませんでした{1}（カードは作りません）', { 0: head, 1: money }), 6000);
       return;
     }
     const video = videoKeyNow();
@@ -1839,8 +1840,8 @@ export function startReader() {
     const memoId = linksNow()?.target?.memoId;
     const author = (first: boolean): ReplyAuthor =>
       kind === 'pause'
-        ? { who: 'reader', name: '読む画面（字幕の時刻）' }
-        : { who: 'main', name: practice ? 'Claude（練習モード）' : 'Claude', ...(model && !practice ? { model } : {}), ...(first && cost > 0 ? { cost } : {}) };
+        ? { who: 'reader', name: tr('読む画面（字幕の時刻）') }
+        : { who: 'main', name: practice ? tr('Claude（練習モード）') : 'Claude', ...(model && !practice ? { model } : {}), ...(first && cost > 0 ? { cost } : {}) };
     parts.forEach((part, n) => {
       // 分けたときは、その一枚の行の秒にかかる範囲のマス
       const lo = part.lines[0]?.sec ?? 0;
@@ -1856,7 +1857,7 @@ export function startReader() {
       waitingCards.set(seq, { replyId, key: first.key, text: '', timer, late: false, ai: true });
       askLeft({ command: 'readerCard', seq, replyId, ...(memoId ? { memoId } : {}), text: aiCardText(part.head, part.lines), by: author(n === 0), at });
     });
-    setStatus(`「${head}」を AI のカード${parts.length > 1 ? ` ${parts.length} 枚` : ''}にしています…${money}`, 4000);
+    setStatus(tr('「{0}」を AI のカード{1}にしています…{2}', { 0: head, 1: parts.length > 1 ? ` ${parts.length} 枚` : '', 2: money }), 4000);
   }
 
   // 秒が入るチャプターの名前（その秒より前で一番近い見出しのマスの文。無ければ null。AI のカードを分けるとき）
@@ -1916,7 +1917,7 @@ export function startReader() {
   // カードの「マスで見る」（readerGlow）：光らせるカードを替える（null で消す）。写しがまだなら、届いたときに光らせる
   function setGlow(memoId: string, replyId: string | null) {
     if (replyId === null) {
-      if (glow) setStatus('マスの光りを消しました', 2500);
+      if (glow) setStatus(tr('マスの光りを消しました'), 2500);
       glow = null;
     } else {
       glow = { memoId, replyId, shown: false };
@@ -1937,24 +1938,24 @@ export function startReader() {
     if (want.shown) return;
     want.shown = true;
     if (hit.size === 0) {
-      setStatus(`カード「${item.head}」と結んだマスが、今の字幕に見つかりません`, 5000);
+      setStatus(tr('カード「{0}」と結んだマスが、今の字幕に見つかりません', { 0: item.head }), 5000);
       return;
     }
     const first = cells[Math.min(...hit)];
     const { R, P } = geometry();
     scroller.scrollTo({ top: Math.max(0, P + 1.5 * R * first.r + R - scroller.clientHeight / 2), behavior: 'smooth' });
-    setStatus(`カード「${item.head}」と結んだマス ${hit.size} 個を光らせています（下の区画の「マスで見る」をもう一度押すと消えます）`, 5000);
+    setStatus(tr('カード「{0}」と結んだマス {1} 個を光らせています（下の区画の「マスで見る」をもう一度押すと消えます）', { 0: item.head, 1: hit.size }), 5000);
   }
 
   // 断った理由（左の readerCardDone）を、状態の文に
   const REFUSAL_TEXT: Record<ReaderRefusal, string> = {
-    full: 'メモのコメントがいっぱい（300）です',
-    special: '結ぶ先が入口やボットのセルです',
-    gone: '結ぶ先のメモかカードが、もうありません',
-    ledger: 'メモの台帳を読めていません',
-    form: '形が合いませんでした',
-    video: '開いている動画が替わりました',
-    over: '一枚のカードに結べる区間は 12 までです',
+    full: tr('メモのコメントがいっぱい（300）です'),
+    special: tr('結ぶ先が入口やボットのセルです'),
+    gone: tr('結ぶ先のメモかカードが、もうありません'),
+    ledger: tr('メモの台帳を読めていません'),
+    form: tr('形が合いませんでした'),
+    video: tr('開いている動画が替わりました'),
+    over: tr('一枚のカードに結べる区間は 12 までです'),
   };
 
   // カードに書く（readerCard）：書いたマスと結ぶ。YouTube なら最初の区間の字幕と時刻つきの URL を引用に（自分のファイルは引用が付かないので、字幕を本文の頭に「」で）
@@ -1966,7 +1967,7 @@ export function startReader() {
     pin = null;
     void releasePlayback();
     renderLine();
-    setStatus(`${cellTime(cell)} のマスと結んだカードを書いています…`, 3000);
+    setStatus(tr('{0} のマスと結んだカードを書いています…', { 0: cellTime(cell) }), 3000);
   }
 
   // 結んだカードを足す頼みを送る（欄は触らない）。送れたら true。文が空なら、YouTube は引用だけのカード、自分のファイルは字幕だけのカード
@@ -1992,7 +1993,7 @@ export function startReader() {
     if (!wait || wait.late) return;
     wait.late = true;
     if (wait.text) keepDraft(wait.key, wait.text);
-    setStatus(wait.text ? '左から返事がありません。書きかけは下書きに残しました（C で欄へ）' : '左から返事がありません（カードは足せていないかもしれません）', 6000);
+    setStatus(wait.text ? tr('左から返事がありません。書きかけは下書きに残しました（C で欄へ）') : tr('左から返事がありません（カードは足せていないかもしれません）'), 6000);
   }
 
   // 左の返事（readerCardDone）。足せたら知らせる。断られたら下書きに戻す。返事が遅れて足せていたら、戻した下書きを消す
@@ -2002,8 +2003,8 @@ export function startReader() {
       waitingLinks.delete(done.seq);
       setStatus(
         done.ok
-          ? `カード「${link.head}」${link.remove ? `から${link.many ? '選んだ区間' : 'このマス'}を外しました` : `と${link.many ? '選んだ区間' : 'このマス'}を結びました`}`
-          : `カード「${link.head}」と結べませんでした（${REFUSAL_TEXT[done.reason ?? 'form']}）`,
+          ? tr('カード「{0}」{1}', { 0: link.head, 1: link.remove ? `から${link.many ? '選んだ区間' : 'このマス'}を外しました` : `と${link.many ? '選んだ区間' : 'このマス'}を結びました` })
+          : tr('カード「{0}」と結べませんでした（{1}）', { 0: link.head, 1: REFUSAL_TEXT[done.reason ?? 'form'] }),
         done.ok ? 3000 : 6000,
       );
       return;
@@ -2018,11 +2019,11 @@ export function startReader() {
         saveSoon();
       }
       const memo = linksNow()?.target;
-      setStatus(`${wait.ai ? 'AI のカードを残しました' : 'カードに残しました'}${memo && memo.memoId === done.memoId ? `（メモ「${memo.title}」）` : ''}`, 3000);
+      setStatus(`${wait.ai ? tr('AI のカードを残しました') : tr('カードに残しました')}${memo && memo.memoId === done.memoId ? tr('（メモ「{0}」）', { 0: memo.title }) : ''}`, 3000);
       return;
     }
     if (!wait.late && wait.text) keepDraft(wait.key, wait.text);
-    setStatus(`カードに残せませんでした（${REFUSAL_TEXT[done.reason ?? 'form']}）${wait.text ? '。書きかけは下書きに戻しました（C で欄へ）' : ''}`, 7000);
+    setStatus(tr('カードに残せませんでした（{0}）{1}', { 0: REFUSAL_TEXT[done.reason ?? 'form'], 1: wait.text ? '。書きかけは下書きに戻しました（C で欄へ）' : '' }), 7000);
   }
 
   toNote.addEventListener('click', () => {
@@ -2042,10 +2043,10 @@ export function startReader() {
     const value = targetSelect.value;
     if (value === '__new') {
       askLeft({ command: 'newMemoForPane' });
-      setStatus('新しいメモを作って、下の区画で開きます', 3000);
+      setStatus(tr('新しいメモを作って、下の区画で開きます'), 3000);
     } else if (value && value !== linksNow()?.target?.memoId) {
       askLeft({ command: 'openMemoPane', id: value });
-      setStatus('結ぶ先のメモを下の区画で開きます', 3000);
+      setStatus(tr('結ぶ先のメモを下の区画で開きます'), 3000);
     }
     targetSig = ''; // 左の写しが届くまでは今の結ぶ先に戻しておく
     renderTarget();
@@ -2063,7 +2064,7 @@ export function startReader() {
       const inner = canvas.querySelector(`.rcell:not(.annot)[data-index="${i}"] .rcell-inner`);
       if (!inner) return;
       const badge = el('span', 'rcell-links', `▤${n}`);
-      badge.title = `このマスと結んだカード ${n} 枚`;
+      badge.title = tr('このマスと結んだカード {0} 枚', { 0: n });
       inner.append(badge);
     });
   }
@@ -2077,25 +2078,25 @@ export function startReader() {
     const target = view?.target ?? null;
     if (!cell || cell.start === undefined || !view) return;
     if (!target) {
-      setStatus('結ぶ先のメモがまだありません（カードに一枚書くか、「結ぶ先」で選んでください）', 5000);
+      setStatus(tr('結ぶ先のメモがまだありません（カードに一枚書くか、「結ぶ先」で選んでください）'), 5000);
       return;
     }
     const mine = new Set(
       view.items.filter((i) => i.memoId === target.memoId && targets.every((c) => i.spans.some((s) => s.key === c.key))).map((i) => i.replyId),
     );
-    const what = targets.length === 1 ? `${cellTime(cell)} のマス` : `選んだ ${targets.length} の区間`;
-    const entries: MenuEntry[] = [{ section: `メモ「${target.title}」のカード（${what}と結ぶ）` }];
+    const what = targets.length === 1 ? tr('{0} のマス', { 0: cellTime(cell) }) : tr('選んだ {0} の区間', { 0: targets.length });
+    const entries: MenuEntry[] = [{ section: tr('メモ「{0}」のカード（{1}と結ぶ）', { 0: target.title, 1: what }) }];
     for (const top of target.tops.slice(0, LINK_MENU_MAX)) {
       const other = top.video !== undefined && top.video !== view.video;
       const linked = mine.has(top.replyId);
       entries.push(
         other
-          ? { label: top.head, hint: '別の動画と結んであります', disabled: true }
-          : { label: `${linked ? '✓ ' : ''}${top.head}`, hint: linked ? '押すと外す' : undefined, run: () => linkCellToCard(target.memoId, top.replyId, top.head, targets, linked) },
+          ? { label: top.head, hint: tr('別の動画と結んであります'), disabled: true }
+          : { label: `${linked ? '✓ ' : ''}${top.head}`, hint: linked ? tr('押すと外す') : undefined, run: () => linkCellToCard(target.memoId, top.replyId, top.head, targets, linked) },
       );
     }
-    if (target.tops.length === 0) entries.push({ note: 'このメモにはカードがありません' });
-    if (target.tops.length > LINK_MENU_MAX) entries.push({ note: `ほか ${target.tops.length - LINK_MENU_MAX} 枚（下の区画で探して、そのメモを結ぶ先にしてください）` });
+    if (target.tops.length === 0) entries.push({ note: tr('このメモにはカードがありません') });
+    if (target.tops.length > LINK_MENU_MAX) entries.push({ note: tr('ほか {0} 枚（下の区画で探して、そのメモを結ぶ先にしてください）', { 0: target.tops.length - LINK_MENU_MAX }) });
     const rect = anchor.getBoundingClientRect();
     linkMenu.open(rect.left, rect.top - 4, entries);
   }
@@ -2121,7 +2122,7 @@ export function startReader() {
   cellCardButton.addEventListener('click', () => {
     const cell = pinnedCell();
     if (!cell || !sendCard(cell, '')) return;
-    setStatus(`${cellTime(cell)} のマスの字幕を、結んだカードにしています…`, 3000);
+    setStatus(tr('{0} のマスの字幕を、結んだカードにしています…', { 0: cellTime(cell) }), 3000);
   });
 
   // ---------- 複数選びと選んだ区間の棚（plan-reader-video の V3b-1） ----------
@@ -2152,7 +2153,7 @@ export function startReader() {
     pickAnchor = index;
     if (picked.length > MAX_PICKS) {
       picked = picked.slice(0, MAX_PICKS);
-      setStatus(`選べるのは ${MAX_PICKS} の区間までです`, 4000);
+      setStatus(tr('選べるのは {0} の区間までです', { 0: MAX_PICKS }), 4000);
     }
     renderPicks();
   }
@@ -2179,7 +2180,7 @@ export function startReader() {
     shelf.hidden = !usable || picked.length === 0;
     if (shelf.hidden) return;
     const total = pickedCells().reduce((sum, c) => sum + Math.max(0, (c.end ?? c.start ?? 0) - (c.start ?? 0)), 0);
-    shelfCount.textContent = `選んだ区間 ${picked.length}（合わせて ${timeLabel(total)}）`;
+    shelfCount.textContent = tr('選んだ区間 {0}（合わせて {1}）', { 0: picked.length, 1: timeLabel(total) });
     const cardable = videoKeyNow() !== null;
     shelfCard.disabled = !cardable;
     shelfLink.disabled = !cardable;
@@ -2188,7 +2189,7 @@ export function startReader() {
   pickButton.addEventListener('click', () => {
     pickMode = !pickMode;
     renderPicks();
-    setStatus(pickMode ? 'マスを押すと選びます（もう一度押すと外す）。終わったら「選ぶ」をもう一度' : '選ぶのをやめました（選んだ区間は残っています）', 4000);
+    setStatus(pickMode ? tr('マスを押すと選びます（もう一度押すと外す）。終わったら「選ぶ」をもう一度') : tr('選ぶのをやめました（選んだ区間は残っています）'), 4000);
   });
   shelfClear.addEventListener('click', () => {
     clearPicks();
@@ -2200,7 +2201,7 @@ export function startReader() {
     const list = pickedCells();
     if (list.length === 0) return;
     if (list.length > MAX_AT_SPANS) {
-      setStatus(`一枚のカードに結べる区間は ${MAX_AT_SPANS} までです（選んだ区間は ${list.length}）`, 5000);
+      setStatus(tr('一枚のカードに結べる区間は {0} までです（選んだ区間は {1}）', { 0: MAX_AT_SPANS, 1: list.length }), 5000);
       return;
     }
     const text = lineInput.value.replace(/\s+/g, ' ').trim();
@@ -2212,12 +2213,12 @@ export function startReader() {
       void releasePlayback();
       renderLine();
     }
-    setStatus(`選んだ ${list.length} の区間と結んだカードを作っています…`, 3000);
+    setStatus(tr('選んだ {0} の区間と結んだカードを作っています…', { 0: list.length }), 3000);
   });
   shelfLink.addEventListener('click', () => {
     const list = pickedCells();
     if (list.length > MAX_AT_SPANS) {
-      setStatus(`一枚のカードに結べる区間は ${MAX_AT_SPANS} までです（選んだ区間は ${list.length}）`, 5000);
+      setStatus(tr('一枚のカードに結べる区間は {0} までです（選んだ区間は {1}）', { 0: MAX_AT_SPANS, 1: list.length }), 5000);
       return;
     }
     if (list.length > 0) openLinkMenu(list, shelfLink);
@@ -2225,7 +2226,7 @@ export function startReader() {
 
   // ---------- 選んだ区間のくり返し（plan-reader-video の V3b-2） ----------
   const loopMenu = new CellMenu();
-  const LOOP_MODE_LABEL: Record<LoopMode, string> = { seq: '順に一周', each: '一つずつ', shuffle: 'まぜる' };
+  const LOOP_MODE_LABEL: Record<LoopMode, string> = { seq: tr('順に一周'), each: tr('一つずつ'), shuffle: tr('まぜる') };
 
   // 回し方の選び口（押すたびに選び直し、「▶ くり返す」で始める。決めた回し方は設定に覚える）
   function openLoopMenu(anchor: HTMLElement) {
@@ -2243,14 +2244,14 @@ export function startReader() {
     const loopEntries = (): MenuEntry[] => {
       const o = prefs.loop;
       return [
-        { section: `選んだ ${picked.length} の区間をくり返す` },
-        choice('回し方', ['seq', 'each', 'shuffle'] as const, (m) => LOOP_MODE_LABEL[m], o.mode, (mode) => ({ mode })),
-        choice('回数', [1, 2, 3, 5, 10], (n) => `${n}`, o.times, (times) => ({ times })),
-        choice('休み', [0, 1, 2, 3, 5], (n) => (n === 0 ? 'なし' : `${n} 秒`), o.gap, (gap) => ({ gap })),
-        choice('のりしろ', [0, 0.5, 1], (n) => (n === 0 ? 'なし' : `${n} 秒`), o.pad, (pad) => ({ pad })),
-        choice('速さの段上げ', [false, true], (v) => (v ? '0.75→1→1.25' : 'しない'), o.steps, (steps) => ({ steps })),
+        { section: tr('選んだ {0} の区間をくり返す', { 0: picked.length }) },
+        choice(tr('回し方'), ['seq', 'each', 'shuffle'] as const, (m) => LOOP_MODE_LABEL[m], o.mode, (mode) => ({ mode })),
+        choice(tr('回数'), [1, 2, 3, 5, 10], (n) => `${n}`, o.times, (times) => ({ times })),
+        choice(tr('休み'), [0, 1, 2, 3, 5], (n) => (n === 0 ? tr('なし') : tr('{0} 秒', { 0: n })), o.gap, (gap) => ({ gap })),
+        choice(tr('のりしろ'), [0, 0.5, 1], (n) => (n === 0 ? tr('なし') : tr('{0} 秒', { 0: n })), o.pad, (pad) => ({ pad })),
+        choice(tr('速さの段上げ'), [false, true], (v) => (v ? '0.75→1→1.25' : tr('しない')), o.steps, (steps) => ({ steps })),
         'sep',
-        { label: '▶ くり返す', hint: 'R でやめる', run: () => startLoop(pickedCells(), prefs.loop) },
+        { label: tr('▶ くり返す'), hint: tr('R でやめる'), run: () => startLoop(pickedCells(), prefs.loop) },
       ];
     };
     reopen();
@@ -2261,7 +2262,7 @@ export function startReader() {
     const spans = list.map((c) => ({ start: c.start ?? 0, end: c.end ?? c.start ?? 0 }));
     const steps = planLoop(spans, options, (Date.now() >>> 0) % 100_000, video.duration || undefined);
     if (steps.length === 0) {
-      setStatus('くり返せる区間がありません（時刻のあるマスを選んでください）', 4000);
+      setStatus(tr('くり返せる区間がありません（時刻のあるマスを選んでください）'), 4000);
       return;
     }
     stopLoop(false);
@@ -2269,7 +2270,7 @@ export function startReader() {
     digest = null;
     loop = { cells: list, steps, pos: 0, resting: false, restTimer: 0, seekedAt: 0, speedFrom: speed };
     renderHead();
-    setStatus(`くり返します：${LOOP_MODE_LABEL[options.mode]}・${options.times} 回（${steps.length} 段）。R でやめる`, 4000);
+    setStatus(tr('くり返します：{0}・{1} 回（{2} 段）。R でやめる', { 0: LOOP_MODE_LABEL[options.mode], 1: options.times, 2: steps.length }), 4000);
     playStep();
   }
 
@@ -2292,7 +2293,7 @@ export function startReader() {
       playing = true;
       renderPlayback();
     });
-    if (loop.steps.length > 1) setStatus(`くり返し ${loop.pos + 1} / ${loop.steps.length}${step.rate !== null ? `・${step.rate}×` : ''}`, 2000);
+    if (loop.steps.length > 1) setStatus(tr('くり返し {0} / {1}{2}', { 0: loop.pos + 1, 1: loop.steps.length, 2: step.rate !== null ? `・${step.rate}×` : '' }), 2000);
   }
 
   // 段が終わった：最後なら止めて終える。休みがあれば止めて秒読みし（別の時計）、次の段へ
@@ -2303,7 +2304,7 @@ export function startReader() {
       const started = await togglePlay(id); // 最後の段のあとは止める
       if (started === false) playing = false;
       stopLoop(false);
-      setStatus('くり返しを終えました', 3000);
+      setStatus(tr('くり返しを終えました'), 3000);
       return;
     }
     if (step.gapAfter <= 0) {
@@ -2321,7 +2322,7 @@ export function startReader() {
       if (loop !== current) return;
       const left = Math.ceil((until - Date.now()) / 1000);
       if (left > 0) {
-        setStatus(`休み ${left}…`, 1200);
+        setStatus(tr('休み {0}…', { 0: left }), 1200);
         return;
       }
       window.clearInterval(current.restTimer);
@@ -2348,7 +2349,7 @@ export function startReader() {
     }
     renderPlayback();
     renderHead();
-    if (told) setStatus('くり返しをやめました', 2500);
+    if (told) setStatus(tr('くり返しをやめました'), 2500);
   }
 
   shelfLoop.addEventListener('click', () => {
@@ -2365,28 +2366,28 @@ export function startReader() {
     const name = el('input', 'reader-set-name');
     name.type = 'text';
     name.maxLength = 30;
-    name.value = `組 ${sets.length + 1}`;
+    name.value = tr('組 {0}', { 0: sets.length + 1 });
     name.setAttribute('aria-label', '組の名前');
-    const save = el('button', 'reader-tool', '残す');
+    const save = el('button', 'reader-tool', tr('残す'));
     save.type = 'submit';
-    form.append(el('span', '', `選んだ ${list.length} の区間・${LOOP_MODE_LABEL[prefs.loop.mode]} ${prefs.loop.times} 回`), name, save);
+    form.append(el('span', '', tr('選んだ {0} の区間・{1} {2} 回', { 0: list.length, 1: LOOP_MODE_LABEL[prefs.loop.mode], 2: prefs.loop.times })), name, save);
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const clean = parseLoopSets([{ ...prefs.loop, name: name.value, keys: list.map((c) => c.key) }])[0];
       if (!clean) {
-        setStatus('組の名前を入れてください', 3000);
+        setStatus(tr('組の名前を入れてください'), 3000);
         return;
       }
       const same = sets.findIndex((s) => s.name === clean.name);
       if (same < 0 && sets.length >= MAX_LOOP_SETS) {
-        setStatus(`組は ${MAX_LOOP_SETS} までです（「組」から要らない組を消してください）`, 5000);
+        setStatus(tr('組は {0} までです（「組」から要らない組を消してください）', { 0: MAX_LOOP_SETS }), 5000);
         return;
       }
       sets = same >= 0 ? sets.map((s, i) => (i === same ? clean : s)) : [...sets, clean];
       loopMenu.close();
       saveSoon();
       renderPlayback();
-      setStatus(`組「${clean.name}」に残しました${same >= 0 ? '（同じ名前の組を置き換えました）' : ''}`, 3000);
+      setStatus(tr('組「{0}」に残しました{1}', { 0: clean.name, 1: same >= 0 ? '（同じ名前の組を置き換えました）' : '' }), 3000);
     });
     name.addEventListener('keydown', (e) => e.stopPropagation());
     const rect = anchor.getBoundingClientRect();
@@ -2405,28 +2406,28 @@ export function startReader() {
 
   // 帯の「組」：組の一覧（選ぶ・▶ くり返す・消す）
   function openSetsMenu() {
-    const entries: MenuEntry[] = [{ section: 'この動画の組' }];
-    if (sets.length === 0) entries.push({ note: 'まだ組がありません（区間を選んで、棚の「組に保存…」で残せます）' });
+    const entries: MenuEntry[] = [{ section: tr('この動画の組') }];
+    if (sets.length === 0) entries.push({ note: tr('まだ組がありません（区間を選んで、棚の「組に保存…」で残せます）') });
     for (const set of sets) {
       entries.push({
         row: set.name,
-        hint: `${set.keys.length} の区間・${LOOP_MODE_LABEL[set.mode]} ${set.times} 回`,
+        hint: tr('{0} の区間・{1} {2} 回', { 0: set.keys.length, 1: LOOP_MODE_LABEL[set.mode], 2: set.times }),
         buttons: [
           {
-            label: '選ぶ',
+            label: tr('選ぶ'),
             close: true,
             run: () => {
               const n = pickSet(set);
-              setStatus(n === set.keys.length ? `組「${set.name}」の ${n} の区間を選びました` : `組「${set.name}」の区間のうち ${n} を選びました（ほかは字幕が変わって見つかりません）`, 4000);
+              setStatus(n === set.keys.length ? tr('組「{0}」の {1} の区間を選びました', { 0: set.name, 1: n }) : tr('組「{0}」の区間のうち {1} を選びました（ほかは字幕が変わって見つかりません）', { 0: set.name, 1: n }), 4000);
             },
           },
           {
             label: '▶',
-            aria: `組「${set.name}」をくり返す`,
+            aria: tr('組「{0}」をくり返す', { 0: set.name }),
             close: true,
             run: () => {
               if (pickSet(set) === 0) {
-                setStatus(`組「${set.name}」の区間が見つかりません（字幕が変わったかもしれません）`, 5000);
+                setStatus(tr('組「{0}」の区間が見つかりません（字幕が変わったかもしれません）', { 0: set.name }), 5000);
                 return;
               }
               prefs.loop = cleanLoopOptions(set);
@@ -2435,14 +2436,14 @@ export function startReader() {
             },
           },
           {
-            label: '消す',
-            confirm: 'もう一度押すと消す',
+            label: tr('消す'),
+            confirm: tr('もう一度押すと消す'),
             close: true,
             run: () => {
               sets = sets.filter((s) => s !== set);
               saveSoon();
               renderPlayback();
-              setStatus(`組「${set.name}」を消しました`, 3000);
+              setStatus(tr('組「{0}」を消しました', { 0: set.name }), 3000);
             },
           },
         ],
@@ -2469,7 +2470,7 @@ export function startReader() {
     const before = marks.get(cell.key)?.note;
     const note = before ? `${before}\n${text}` : text;
     if ([...note].length > NOTE_MAX) {
-      setStatus(`このマスのメモは ${NOTE_MAX} 字までです（「広げる」で今のメモを直せます）`, 5000);
+      setStatus(tr('このマスのメモは {0} 字までです（「広げる」で今のメモを直せます）', { 0: NOTE_MAX }), 5000);
       return;
     }
     drafts.delete(cell.key);
@@ -2477,7 +2478,7 @@ export function startReader() {
     pin = null;
     setMark(cell, { note });
     void releasePlayback();
-    setStatus(`${cellTime(cell)} のマスにメモを残しました`, 2500);
+    setStatus(tr('{0} のマスにメモを残しました', { 0: cellTime(cell) }), 2500);
   }
 
   // Esc：書きかけを下書きに残して欄を抜ける。欄を抜けた直後の Esc で読む画面が閉じることを、一度だけ知らせる
@@ -2488,7 +2489,7 @@ export function startReader() {
     void releasePlayback();
     renderLine();
     root.focus();
-    const parts = [text ? '書きかけを下書きに残しました（このマスで欄に戻ると出ます）' : '欄を抜けました', escNoted ? '' : 'もう一度 Esc で読む画面を閉じます（欄へ戻るには C）'];
+    const parts = [text ? tr('書きかけを下書きに残しました（このマスで欄に戻ると出ます）') : tr('欄を抜けました'), escNoted ? '' : tr('もう一度 Esc で読む画面を閉じます（欄へ戻るには C）')];
     escNoted = true;
     setStatus(parts.filter(Boolean).join('。'), 5000);
   }
@@ -2556,7 +2557,7 @@ export function startReader() {
     prefs.writePlay = WRITE_PLAY_ORDER[(WRITE_PLAY_ORDER.indexOf(prefs.writePlay) + 1) % WRITE_PLAY_ORDER.length];
     savePrefs(prefs);
     renderLine();
-    setStatus(`${WRITE_PLAY_LABEL[prefs.writePlay]}（次に書き始めたときから）`, 2500);
+    setStatus(tr('{0}（次に書き始めたときから）', { 0: WRITE_PLAY_LABEL[prefs.writePlay] }), 2500);
   });
   // 広げる：書きかけを持って 2 行の欄へ（書くあいだの再生は戻す）
   wideButton.addEventListener('click', () => {
@@ -2580,7 +2581,7 @@ export function startReader() {
     }
     const text = cell.start !== undefined ? `[${timeLabel(cell.start)}] ${cell.text}` : cell.text;
     askLeft({ command: 'askCompanion', text, title, url: cell.start !== undefined ? timedUrl(url, cell.start) : url });
-    setStatus('右の相棒に聞いています', 2500);
+    setStatus(tr('右の相棒に聞いています'), 2500);
   }
 
   async function runAi() {
@@ -2590,7 +2591,7 @@ export function startReader() {
       return;
     }
     aiButton.disabled = true;
-    setStatus('AI がページを読んでいます…（長いページは1分ほどかかります）');
+    setStatus(tr('AI がページを読んでいます…（長いページは1分ほどかかります）'));
     try {
       const result = await analyzeCells(title, cells, settings());
       const levels: Record<string, number> = {};
@@ -2603,9 +2604,9 @@ export function startReader() {
       };
       render();
       void persist();
-      setStatus(`要点のマス ${result.levels.size} 個と、言葉の解説 ${result.terms.length} 個を付けました${result.cost > 0 ? `（約 $${result.cost.toFixed(3)}）` : ''}`, 6000);
+      setStatus(tr('要点のマス {0} 個と、言葉の解説 {1} 個を付けました{2}', { 0: result.levels.size, 1: result.terms.length, 2: result.cost > 0 ? `（約 $${result.cost.toFixed(3)}）` : '' }), 6000);
     } catch (error) {
-      setStatus(`うまくいきませんでした：${error instanceof Error ? error.message : String(error)}`, 8000);
+      setStatus(tr('うまくいきませんでした：{0}', { 0: error instanceof Error ? error.message : String(error) }), 8000);
     } finally {
       aiButton.disabled = false;
     }
@@ -2618,7 +2619,7 @@ export function startReader() {
       return;
     }
     translateButton.disabled = true;
-    setStatus('字幕を日本語にしています…');
+    setStatus(tr('字幕を日本語にしています…'));
     try {
       const result = await translateCells(
         cells.map((c) => ({ text: c.text, head: c.head })),
@@ -2632,11 +2633,11 @@ export function startReader() {
       ja = next;
       render();
       void persist();
-      const cost = result.cost > 0 ? `（約 $${result.cost.toFixed(3)}）` : '';
-      const clip = result.clipped ? '長いので、最初の部分だけ訳しました。' : '';
-      setStatus(`区間の下に日本語を出しました${cost}${clip}`, 6000);
+      const cost = result.cost > 0 ? tr('（約 ${0}）', { 0: result.cost.toFixed(3) }) : '';
+      const clip = result.clipped ? tr('長いので、最初の部分だけ訳しました。') : '';
+      setStatus(tr('区間の下に日本語を出しました{0}{1}', { 0: cost, 1: clip }), 6000);
     } catch (error) {
-      setStatus(`うまくいきませんでした：${error instanceof Error ? error.message : String(error)}`, 8000);
+      setStatus(tr('うまくいきませんでした：{0}', { 0: error instanceof Error ? error.message : String(error) }), 8000);
     } finally {
       translateButton.disabled = false;
     }
@@ -2645,7 +2646,7 @@ export function startReader() {
   async function sendMarksToHexMemo() {
     const target = hexMemoTarget();
     if (!target) {
-      setStatus('右の相棒の ⚙ で「六角メモの送り先」を選んでから、もう一度押してください', 6000);
+      setStatus(tr('右の相棒の ⚙ で「六角メモの送り先」を選んでから、もう一度押してください'), 6000);
       return;
     }
     const marked = cells.filter((c) => {
@@ -2653,31 +2654,31 @@ export function startReader() {
       return !!m && (m.liked > 0 || !!m.note);
     });
     if (marked.length === 0) {
-      setStatus('♥ かメモを付けたマスがありません', 4000);
+      setStatus(tr('♥ かメモを付けたマスがありません'), 4000);
       return;
     }
-    setStatus('六角メモへ送っています…');
+    setStatus(tr('六角メモへ送っています…'));
     const now = new Date().toISOString();
     const records: HexMemoRecord[] = marked.map((c) => {
       const m = marks.get(c.key);
       const lines = [c.start !== undefined ? `[${timeLabel(c.start)}] ${c.text}` : c.text];
-      if (m?.note) lines.push('', `メモ：${m.note}`);
+      if (m?.note) lines.push('', tr('メモ：{0}', { 0: m.note }));
       const link = c.start !== undefined ? timedUrl(url, c.start) : url;
       return {
         text: lines.join('\n'),
         createdAt: now,
-        tags: ['ハイライト', ...(m?.liked ? [`いいね${m.liked}`] : [])],
+        tags: [tr('ハイライト'), ...(m?.liked ? [tr('いいね{0}', { 0: m.liked })] : [])],
         urls: /^https?:\/\//i.test(link) ? [{ url: link, title }] : undefined,
       };
     });
     for (let i = 0; i < records.length; i += 50) {
       const outcome = await sendToHexMemo(target, records.slice(i, i + 50));
       if (!outcome.ok) {
-        setStatus(`送れませんでした：${outcome.error}`, 8000);
+        setStatus(tr('送れませんでした：{0}', { 0: outcome.error }), 8000);
         return;
       }
     }
-    setStatus(`${records.length} マスを、六角メモ「${target.label}」へ送りました`, 6000);
+    setStatus(tr('{0} マスを、六角メモ「{1}」へ送りました', { 0: records.length, 1: target.label }), 6000);
   }
 
   async function persist() {
@@ -2716,7 +2717,7 @@ export function startReader() {
     if (!mapModel) return;
     const f = mapFraction(e);
     if (overviewInCut(mapModel, f)) {
-      setStatus(`${cut?.side === 'start' ? 'ここは外した古いマスの所です' : 'ここは 900 マスの外です'}（区間セルに入っていません）`, 4000);
+      setStatus(tr('{0}（区間セルに入っていません）', { 0: cut?.side === 'start' ? 'ここは外した古いマスの所です' : 'ここは 900 マスの外です' }), 4000);
       return;
     }
     const at = cellAt(overviewTime(mapModel, f));
@@ -2728,7 +2729,7 @@ export function startReader() {
     const f = mapFraction(e);
     const t = overviewTime(mapModel, f);
     const chapter = chapterNameAt(t);
-    mapBar.title = overviewInCut(mapModel, f) ? `${timeLabel(t)}・${cutLabel()}（区間セルに入っていません）` : `${timeLabel(t)}${chapter ? `・${chapter}` : ''}（押すとその場面へ）`;
+    mapBar.title = overviewInCut(mapModel, f) ? tr('{0}・{1}（区間セルに入っていません）', { 0: timeLabel(t), 1: cutLabel() }) : tr('{0}{1}（押すとその場面へ）', { 0: timeLabel(t), 1: chapter ? `・${chapter}` : '' });
   });
   capClose.addEventListener('click', () => {
     capClosed.add(url);
@@ -2804,7 +2805,7 @@ export function startReader() {
     if (captions.active) {
       stopLive();
       renderHead();
-      setStatus('聞き取りをやめました（聞き取ったマスは残ります）', 3000);
+      setStatus(tr('聞き取りをやめました（聞き取ったマスは残ります）'), 3000);
       return;
     }
     // ページ（ラジオなど）が見えるよう、右か下に並べてから聞き取る

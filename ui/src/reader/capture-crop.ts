@@ -1,5 +1,6 @@
 // 範囲の指定（C5）。ブラウザの窓を撮ったあと、読む画面で四角を囲む。
 //   囲んだ中だけを JPEG にして返す。窓全体はカードにしない。Snipping Tool は使わない。
+import { t } from '../i18n';
 import { el } from '../util';
 
 interface CropHooks {
@@ -26,24 +27,24 @@ export function openCropView(image: string, hooks: CropHooks) {
   document.querySelector('.shot')?.remove();
   const root = el('div', 'capture-view capture-crop');
   root.tabIndex = -1;
-  const title = el('h1', 'capture-view-title', '範囲を指定');
-  const hint = el('p', 'capture-view-hint', '残したい部分をドラッグして囲みます。囲んだ中だけがカードになります。');
+  const title = el('h1', 'capture-view-title', t('範囲を指定'));
+  const hint = el('p', 'capture-view-hint', t('残したい部分をドラッグして囲みます。囲んだ中だけがカードになります。'));
   const heading = el('div', 'capture-view-heading');
   heading.append(title, hint);
   const head = el('header', 'capture-view-head');
   head.append(heading, el('span', 'capture-view-status', ''));
   const stage = el('div', 'capture-crop-stage');
   const img = el('img');
-  img.alt = '切り取る前の画像';
+  img.alt = t('切り取る前の画像');
   img.draggable = false;
   const dim = el('div', 'capture-crop-dim');
   const hole = el('div', 'capture-crop-hole');
   hole.hidden = true;
   stage.append(img, dim, hole);
-  const keep = el('button', '', 'この範囲で残す');
+  const keep = el('button', '', t('この範囲で残す'));
   keep.type = 'button';
   keep.disabled = true;
-  const cancel = el('button', '', 'やめる');
+  const cancel = el('button', '', t('やめる'));
   cancel.type = 'button';
   const actions = el('div', 'capture-crop-actions');
   actions.append(keep, cancel);

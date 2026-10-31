@@ -1,6 +1,7 @@
 // コメントのスレッド：メモのセルの文章や、タブのメモを「元のポスト」にして、X の返信のように何段でもコメントをつなげる
 //   ・返信は、元のポストの持ち主（メモのセル・タブのメモ）の中に、平らな一覧（parent で親を指す）で持つ
 //   ・AI の相棒が書いた返信は by に、書いたキャラを残す
+import { t } from './i18n';
 import { parseLinks, pruneLinks, type ReplyLink } from './memo-card-links';
 import { parseAt, type ReplyAt } from './reader-links';
 import { normalizeTags } from './tags';
@@ -239,8 +240,8 @@ export function nextRowAddPlan(replies: readonly Reply[]): { slot: number; nextR
 
 // 足したあとの状態の行（置いた行と列。1 始まり）。nextRow が false のときは、ふつうの次の番地に落ちたこと
 export function addedCardPlaceText(slot: number, nextRow: boolean): string {
-  const where = `${Math.floor(slot / CARD_COLUMNS) + 1} 行目の ${(slot % CARD_COLUMNS) + 1} 列目`;
-  return nextRow ? `コメントを ${where}に足しました` : `次の行には置けないので、${where}に足しました`;
+  const where = t('{0} 行目の {1} 列目', { 0: Math.floor(slot / CARD_COLUMNS) + 1, 1: (slot % CARD_COLUMNS) + 1 });
+  return nextRow ? t('コメントを {0}に足しました', { 0: where }) : t('次の行には置けないので、{0}に足しました', { 0: where });
 }
 
 // 番地の表を rank に書いた返信（一番上のカード全部に rank。返信の位置と中身は変えない）。変わらなければ null
@@ -416,7 +417,7 @@ export function quoteSourceLabel(quote: ReplyQuote): string {
   } catch {
     host = '';
   }
-  const title = quote.title.trim() || 'ページ';
+  const title = quote.title.trim() || t('ページ');
   return host ? `↗ ${title}（${host}）` : `↗ ${title}`;
 }
 

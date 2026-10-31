@@ -2,6 +2,7 @@
 //   ・「送った:」の無いカード
 //   ・順番待ちのうち、カードのいちばん新しい「送った:」が gN の組に入っていないもの
 //   1 件ずつの順番待ち（組が無い）は、段 5 まではいつも数える
+import { t } from './i18n';
 import { parseSent } from './grok-cards-tags';
 
 export interface CountCard {
@@ -34,7 +35,7 @@ export function draftCount(cards: readonly CountCard[], queue: readonly CountQue
 // 0 の側は出さない。両方 0 なら空（静か）
 export function countLine(drafts: number, replies: number): string {
   const parts: string[] = [];
-  if (drafts > 0) parts.push(`下書き ${drafts}`);
-  if (replies > 0) parts.push(`返事 ${replies}`);
-  return parts.join('・');
+  if (drafts > 0) parts.push(t('下書き {0}', { 0: drafts }));
+  if (replies > 0) parts.push(t('返事 {0}', { 0: replies }));
+  return parts.join(t('・'));
 }

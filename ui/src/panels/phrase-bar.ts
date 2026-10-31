@@ -1,5 +1,6 @@
 // 相棒への頼みごとのボタン（6つ）と、その編集。会話の入力欄の上に置く
 //   上の行：セットの切り替え・その他の文言・編集　下：6つのボタン（Alt+1〜6 でも押せる）
+import { t } from '../i18n';
 import { armConfirm } from '../confirm-arm';
 import {
   BUTTONS,
@@ -45,7 +46,7 @@ export class PhraseBar {
   private book: PhraseBook = defaultBook();
   private readonly menu = new CellMenu();
   private readonly setButton = el('button', 'ai-small phrase-set');
-  private readonly moreButton = el('button', 'ai-small', 'その他 ▾');
+  private readonly moreButton = el('button', 'ai-small', t('その他 ▾'));
   private readonly editButton = el('button', 'ai-small', '✎');
   private readonly grid = el('div', 'phrase-grid');
   private draft: DraftBook | null = null;
@@ -53,9 +54,9 @@ export class PhraseBar {
 
   constructor(private readonly host: PhraseBarHost) {
     const top = el('div', 'phrase-top');
-    this.setButton.title = 'ボタンのセットを切り替える';
-    this.moreButton.title = 'その他の文言（入力中の文を登録することもできる）';
-    this.editButton.title = 'ボタンとその他の文言を編集する';
+    this.setButton.title = t('ボタンのセットを切り替える');
+    this.moreButton.title = t('その他の文言（入力中の文を登録することもできる）');
+    this.editButton.title = t('ボタンとその他の文言を編集する');
     this.editButton.setAttribute('aria-label', 'ボタンを編集');
     this.setButton.addEventListener('click', () => this.openSets());
     this.moreButton.addEventListener('click', () => this.openMore());
@@ -93,12 +94,12 @@ export class PhraseBar {
       ...set.buttons.map((p, i) => {
         if (!p) {
           const b = el('button', 'phrase-button empty', '＋');
-          b.title = `空き（押すと、ここにボタンを登録）・Alt+${i + 1}`;
+          b.title = t('空き（押すと、ここにボタンを登録）・Alt+{0}', { 0: i + 1 });
           b.addEventListener('click', () => this.openEditor(i));
           return b;
         }
         const b = el('button', `phrase-button ${p.kind}`, p.label);
-        b.title = `${hintOf(p)}・Alt+${i + 1}`;
+        b.title = t('{0}・Alt+{1}', { 0: hintOf(p), 1: i + 1 });
         b.addEventListener('click', () => this.host.run(p));
         return b;
       }),
@@ -110,7 +111,7 @@ export class PhraseBar {
     this.render();
     const ok = await savePhrases(book);
     const host = this.element.parentElement;
-    if (host) showToast(host, ok ? (message ?? '保存しました') : '保存できませんでした', ok ? 2500 : 5000);
+    if (host) showToast(host, ok ? (message ?? t('保存しました')) : t('保存できませんでした'), ok ? 2500 : 5000);
   }
 
   // ---------- メニュー ----------
@@ -121,7 +122,7 @@ export class PhraseBar {
   }
 
   private openSets() {
-    const entries: MenuEntry[] = [{ section: 'ボタンのセット' }];
+    const entries: MenuEntry[] = [{ section: t('ボタンのセット') }];
     for (const set of this.book.sets) {
       entries.push({
         label: `${set.id === this.book.current ? '✓ ' : '　'}${set.name}`,
@@ -129,34 +130,34 @@ export class PhraseBar {
           .filter((p): p is Phrase => p !== null)
           .map((p) => p.label)
           .slice(0, 3)
-          .join('・'),
-        run: () => void this.save({ ...this.book, current: set.id }, `「${set.name}」のボタンにしました`),
+          .join(t('・')),
+        run: () => void this.save({ ...this.book, current: set.id }, t('「{0}」のボタンにしました', { 0: set.name })),
       });
     }
-    entries.push('sep', { label: 'セットを編集…', run: () => this.openEditor() });
-    entries.push({ label: '＋ 新しいセット…', disabled: this.book.sets.length >= MAX_SETS, run: () => this.openEditor(0, true) });
+    entries.push('sep', { label: t('セットを編集…'), run: () => this.openEditor() });
+    entries.push({ label: t('＋ 新しいセット…'), disabled: this.book.sets.length >= MAX_SETS, run: () => this.openEditor(0, true) });
     this.menu.open(...this.anchor(this.setButton), entries);
   }
 
   private openMore() {
-    const entries: MenuEntry[] = [{ section: 'その他の文言' }];
-    if (this.book.others.length === 0) entries.push({ label: 'まだありません', disabled: true });
+    const entries: MenuEntry[] = [{ section: t('その他の文言') }];
+    if (this.book.others.length === 0) entries.push({ label: t('まだありません'), disabled: true });
     for (const p of this.book.others) entries.push({ label: p.label, hint: shortKind(p), run: () => this.host.run(p) });
     const text = this.host.inputText().trim();
     entries.push('sep', {
-      label: '＋ 入力中の文を登録',
-      hint: text ? '' : '入力欄に書いてから',
+      label: t('＋ 入力中の文を登録'),
+      hint: text ? '' : t('入力欄に書いてから'),
       disabled: !text || this.book.others.length >= MAX_OTHERS,
       run: () => this.register(text),
     });
-    entries.push({ label: '文言を編集…', run: () => this.openEditor(undefined, false, true) });
+    entries.push({ label: t('文言を編集…'), run: () => this.openEditor(undefined, false, true) });
     this.menu.open(...this.anchor(this.moreButton), entries);
   }
 
   private register(text: string) {
     const p = parsePhrase({ kind: 'send', text, page: true });
     if (!p) return;
-    void this.save({ ...this.book, others: [...this.book.others, p] }, `「${p.label}」をその他に登録しました`);
+    void this.save({ ...this.book, others: [...this.book.others, p] }, t('「{0}」をその他に登録しました', { 0: p.label }));
   }
 
   // ---------- 編集 ----------
@@ -170,7 +171,7 @@ export class PhraseBar {
       others: this.book.others.map((p) => ({ ...p })),
     };
     if (newSet) {
-      const set = { id: newSetId(), name: `セット${draft.sets.length + 1}`, buttons: Array.from({ length: BUTTONS }, blank) };
+      const set = { id: newSetId(), name: t('セット{0}', { 0: draft.sets.length + 1 }), buttons: Array.from({ length: BUTTONS }, blank) };
       draft.sets.push(set);
       draft.current = set.id;
     }
@@ -204,16 +205,16 @@ export class PhraseBar {
 
     const head = el('div', 'phrase-editor-head');
     const close = el('button', 'ai-small', '×');
-    close.title = 'やめる（Esc）';
+    close.title = t('やめる（Esc）');
     close.addEventListener('click', () => this.closeEditor());
-    head.append(el('span', 'phrase-editor-title', 'ボタンとその他の文言'), close);
+    head.append(el('span', 'phrase-editor-title', t('ボタンとその他の文言')), close);
 
     // セット：切り替え・名前・新しく・複製・消す
     const setRow = el('div', 'phrase-set-row');
     const select = el('select');
     select.setAttribute('aria-label', '編集するセット');
     for (const s of draft.sets) {
-      const option = el('option', '', s.name || '（名前なし）');
+      const option = el('option', '', s.name || t('（名前なし）'));
       option.value = s.id;
       option.selected = s.id === set.id;
       select.append(option);
@@ -225,32 +226,32 @@ export class PhraseBar {
     const name = el('input', 'phrase-set-name');
     name.value = set.name;
     name.maxLength = 20;
-    name.placeholder = 'セットの名前';
+    name.placeholder = t('セットの名前');
     name.setAttribute('aria-label', 'セットの名前');
     name.addEventListener('input', () => {
       set.name = name.value;
       const option = [...select.options].find((o) => o.value === set.id);
-      if (option) option.textContent = name.value || '（名前なし）';
+      if (option) option.textContent = name.value || t('（名前なし）');
     });
-    const add = el('button', 'ai-small', '＋ 新しく');
+    const add = el('button', 'ai-small', t('＋ 新しく'));
     add.disabled = draft.sets.length >= MAX_SETS;
     add.addEventListener('click', () => {
-      const s = { id: newSetId(), name: `セット${draft.sets.length + 1}`, buttons: Array.from({ length: BUTTONS }, blank) };
+      const s = { id: newSetId(), name: t('セット{0}', { 0: draft.sets.length + 1 }), buttons: Array.from({ length: BUTTONS }, blank) };
       draft.sets.push(s);
       this.editing = s.id;
       this.renderEditor();
     });
-    const copy = el('button', 'ai-small', '複製');
+    const copy = el('button', 'ai-small', t('複製'));
     copy.disabled = draft.sets.length >= MAX_SETS;
     copy.addEventListener('click', () => {
-      const s = { id: newSetId(), name: `${set.name}のコピー`.slice(0, 20), buttons: set.buttons.map((p) => ({ ...p })) };
+      const s = { id: newSetId(), name: t('{0}のコピー', { 0: set.name }).slice(0, 20), buttons: set.buttons.map((p) => ({ ...p })) };
       draft.sets.push(s);
       this.editing = s.id;
       this.renderEditor();
     });
-    const remove = el('button', 'ai-small', '消す');
+    const remove = el('button', 'ai-small', t('消す'));
     remove.disabled = draft.sets.length <= 1;
-    remove.title = draft.sets.length <= 1 ? 'セットが1つのときは消せません' : 'このセットを消す（もう一度押すと消える）';
+    remove.title = draft.sets.length <= 1 ? t('セットが1つのときは消せません') : t('このセットを消す（もう一度押すと消える）');
     remove.addEventListener('click', () => {
       if (remove.textContent !== '本当に消す') {
         armConfirm(remove);
@@ -271,7 +272,7 @@ export class PhraseBar {
       if (useBox.checked) draft.current = set.id;
       else useBox.checked = true; // どれか1つは使う
     });
-    use.append(useBox, document.createTextNode('このセットを使う'));
+    use.append(useBox, document.createTextNode(t('このセットを使う')));
     setRow.append(select, name, add, copy, remove, use);
 
     // 6つのボタン
@@ -279,7 +280,7 @@ export class PhraseBar {
     set.buttons.forEach((p, i) => {
       slots.append(
         this.row(p, `${i + 1}`, 'phrase-slot', {
-          label: '空にする',
+          label: t('空にする'),
           run: () => {
             set.buttons[i] = blank();
             this.renderEditor();
@@ -290,11 +291,11 @@ export class PhraseBar {
 
     // その他の文言
     const others = el('div', 'phrase-others');
-    others.append(el('div', 'ai-setting-title', `その他の文言（${draft.others.length} / ${MAX_OTHERS}）`));
+    others.append(el('div', 'ai-setting-title', t('その他の文言（{0} / {1}）', { 0: draft.others.length, 1: MAX_OTHERS })));
     draft.others.forEach((p, i) => {
       others.append(
-        this.row(p, '・', 'phrase-other', {
-          label: '消す',
+        this.row(p, t('・'), 'phrase-other', {
+          label: t('消す'),
           run: () => {
             draft.others.splice(i, 1);
             this.renderEditor();
@@ -302,7 +303,7 @@ export class PhraseBar {
         }),
       );
     });
-    const addOther = el('button', 'ai-small', '＋ 文言を足す');
+    const addOther = el('button', 'ai-small', t('＋ 文言を足す'));
     addOther.disabled = draft.others.length >= MAX_OTHERS;
     addOther.addEventListener('click', () => {
       draft.others.push(blank());
@@ -313,18 +314,18 @@ export class PhraseBar {
     others.append(addOther);
 
     const foot = el('div', 'phrase-editor-foot');
-    const save = el('button', 'ai-small primary', '保存');
+    const save = el('button', 'ai-small primary', t('保存'));
     save.addEventListener('click', () => this.commit());
-    const cancel = el('button', 'ai-small', 'やめる');
+    const cancel = el('button', 'ai-small', t('やめる'));
     cancel.addEventListener('click', () => this.closeEditor());
     foot.append(
-      el('span', 'phrase-editor-note', '表示名が空なら文言の頭を使う。文言の無いボタンは空きになる'),
+      el('span', 'phrase-editor-note', t('表示名が空なら文言の頭を使う。文言の無いボタンは空きになる')),
       cancel,
       save,
     );
 
     const body = el('div', 'phrase-editor-body');
-    body.append(setRow, el('div', 'ai-setting-title', `「${set.name || '（名前なし）'}」の6つのボタン（Alt+1〜6）`), slots, others);
+    body.append(setRow, el('div', 'ai-setting-title', t('「{0}」の6つのボタン（Alt+1〜6）', { 0: set.name || '（名前なし）' })), slots, others);
     this.editor.replaceChildren(head, body, foot);
   }
 
@@ -336,7 +337,7 @@ export class PhraseBar {
     const label = el('input', 'phrase-label');
     label.value = p.label;
     label.maxLength = LABEL_MAX;
-    label.placeholder = '表示名';
+    label.placeholder = t('表示名');
     label.setAttribute('aria-label', '表示名');
     label.addEventListener('input', () => (p.label = label.value));
     const kind = el('select', 'phrase-kind');
@@ -353,7 +354,7 @@ export class PhraseBar {
     page.type = 'checkbox';
     page.checked = p.page;
     page.addEventListener('change', () => (p.page = page.checked));
-    pageLabel.append(page, document.createTextNode('ページを添える'));
+    pageLabel.append(page, document.createTextNode(t('ページを添える')));
     const act = el('button', 'ai-small', action.label);
     act.addEventListener('click', action.run);
     top.append(num, label, kind, act);
@@ -367,8 +368,8 @@ export class PhraseBar {
       const fixed = isFixed(p.kind);
       text.hidden = fixed;
       pageLabel.hidden = p.kind !== 'send';
-      text.placeholder = p.kind === 'fill' ? '入力欄に入れる文言（続きを書いてから送る）' : '相棒に送る文言';
-      label.placeholder = fixed ? KIND_LABELS[p.kind] : '表示名（空なら文言の頭）';
+      text.placeholder = p.kind === 'fill' ? t('入力欄に入れる文言（続きを書いてから送る）') : t('相棒に送る文言');
+      label.placeholder = fixed ? KIND_LABELS[p.kind] : t('表示名（空なら文言の頭）');
     };
     kind.addEventListener('change', () => {
       p.kind = kind.value as PhraseKind;
@@ -389,14 +390,14 @@ export class PhraseBar {
 }
 
 function shortKind(p: Phrase) {
-  if (p.kind === 'fill') return '入力欄へ';
-  if (p.kind === 'send') return p.page ? 'ページつき' : '';
+  if (p.kind === 'fill') return t('入力欄へ');
+  if (p.kind === 'send') return p.page ? t('ページつき') : '';
   return KIND_LABELS[p.kind];
 }
 
 function hintOf(p: Phrase) {
-  if (p.kind === 'send') return `${p.text}${p.page ? '（このページを添える）' : ''}`;
-  if (p.kind === 'fill') return `入力欄に入れる：${p.text}`;
+  if (p.kind === 'send') return `${p.text}${p.page ? t('（このページを添える）') : ''}`;
+  if (p.kind === 'fill') return t('入力欄に入れる：{0}', { 0: p.text });
   return KIND_LABELS[p.kind];
 }
 

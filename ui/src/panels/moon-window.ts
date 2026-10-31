@@ -18,6 +18,7 @@
 //     練習モードは練習の文。切っているときは、選んだ組（ハイク組かソネット三人組）が1回だけ本物を呼ぶ
 //     単語帳の場所は「答えの前」「答えの後」「両方」。標準は答えの後。10秒映して、決めた間と1日の上限と月の上限の8割で止まる
 //     「会話に残す」を押したときだけ、相棒の会話に1行残す（呼び出しはしない）
+import { t } from '../i18n';
 import { armConfirm } from '../confirm-arm';
 import type { CommentMaterial } from '../ai/comment';
 import { askComment } from '../ai/comment';
@@ -183,7 +184,7 @@ export class MoonWindow {
     this.commentPrefs = prefs.comment;
     this.consent = prefs.consent;
     this.element.setAttribute('role', 'region');
-    this.element.setAttribute('aria-label', visionView ? '月の窓（公開してよいフェイブルレターと Grok Visions）' : '月の窓（公開してよいフェイブルレター）');
+    this.element.setAttribute('aria-label', visionView ? t('月の窓（公開してよいフェイブルレターと Grok Visions）') : t('月の窓（公開してよいフェイブルレター）'));
     this.element.addEventListener('mouseenter', () => this.setHover(true));
     this.element.addEventListener('mouseleave', () => this.setHover(false));
     // 中を操作している間は止める：キーボードで入ったときだけ（マウスで押したボタンにも focus が残るので、それでは止めない）。
@@ -329,7 +330,7 @@ export class MoonWindow {
       }
       const settings = this.rotateSource?.aiSettings();
       if (!settings?.apiKey) {
-        this.setHold('API キーが無いので、呼んでいません');
+        this.setHold(t('API キーが無いので、呼んでいません'));
         return;
       }
       const material = this.materialFor(slot, place, prefs.team);
@@ -395,14 +396,14 @@ export class MoonWindow {
     const saved = commentForPlace(this.records, slot, place);
     if (!saved || saved.lines.length === 0) return null;
     const block = el('div', 'moon-comment');
-    block.setAttribute('aria-label', place === 'before' ? '答えの前のひとこと' : 'ひとこと');
+    block.setAttribute('aria-label', place === 'before' ? t('答えの前のひとこと') : t('ひとこと'));
     for (const line of saved.lines) {
       const row = el('div', 'moon-comment-line');
       const name = el('span', 'moon-comment-name', line.name);
       row.append(name, document.createTextNode(`：${line.text}`));
       block.append(row);
     }
-    const keep = button('会話に残す', 'このひとことを、相棒の会話に1行残します。新しくは呼びません', `keep-${place}`, () => {
+    const keep = button(t('会話に残す'), t('このひとことを、相棒の会話に1行残します。新しくは呼びません'), `keep-${place}`, () => {
       this.rotateSource?.keepComment(commentKeepText(saved.lines));
     });
     block.append(keep);
@@ -417,14 +418,14 @@ export class MoonWindow {
   private commentStatusText(): string {
     const prefs = this.commentPrefs;
     if (!prefs.on) return '';
-    if (!consentCovers(this.consent, prefs)) return '「入れる」を押すまで、ひとことは付きません';
+    if (!consentCovers(this.consent, prefs)) return t('「入れる」を押すまで、ひとことは付きません');
     const today = commentsToday(this.records);
-    const count = `今日 ${today}/${prefs.dailyCap} 回`;
-    if (this.budgetHold) return `${count}。上限に近いので止めています`;
+    const count = t('今日 {0}/{1} 回', { 0: today, 1: prefs.dailyCap });
+    if (this.budgetHold) return t('{0}。上限に近いので止めています', { 0: count });
     if (this.holdNote) return `${count}。${this.holdNote}`;
     const failed = failureNote(this.records);
     if (failed) return `${count}。${failed}`;
-    if (today >= prefs.dailyCap) return `${count}。この日は、もう付きません`;
+    if (today >= prefs.dailyCap) return t('{0}。この日は、もう付きません', { 0: count });
     return `${count}。${waitLabel(waitMs(lastCommentAt(this.records), prefs.everyMs, Date.now()))}`;
   }
 
@@ -495,11 +496,11 @@ export class MoonWindow {
     const box = el('div', 'moon-rotate-note moon-here');
     if (this.bundle !== null) {
       box.append(
-        el('span', 'moon-meta', `このページの ${ids.length} 枚を映しています`),
-        button('戻す', 'いつもの並びに戻します（タブを替えても戻ります）', 'here-off', () => this.setBundle(false)),
+        el('span', 'moon-meta', t('このページの {0} 枚を映しています', { 0: ids.length })),
+        button(t('戻す'), t('いつもの並びに戻します（タブを替えても戻ります）'), 'here-off', () => this.setBundle(false)),
       );
     } else {
-      box.append(button(`このページ ${ids.length} 枚`, 'いま左で開いているページから作ったカードだけを映します（タブを替えると戻ります）', 'here-on', () => this.setBundle(true)));
+      box.append(button(t('このページ {0} 枚', { 0: ids.length }), t('いま左で開いているページから作ったカードだけを映します（タブを替えると戻ります）'), 'here-on', () => this.setBundle(true)));
     }
     return box;
   }
@@ -515,7 +516,7 @@ export class MoonWindow {
     if (!card.image || !this.rotateSource?.image) return null;
     const url = this.rotateSource.image(card.image);
     if (url === undefined) return null;
-    if (url === null) return el('div', 'moon-meta moon-rotate-image-missing', '（消えた画像）');
+    if (url === null) return el('div', 'moon-meta moon-rotate-image-missing', t('（消えた画像）'));
     const img = el('img', 'moon-rotate-image');
     img.src = url;
     img.alt = '';
@@ -809,7 +810,7 @@ export class MoonWindow {
     let title: string;
     let itemKey: unknown[];
     if (views.length === 0) {
-      title = 'めぐる表示';
+      title = t('めぐる表示');
       itemKey = ['none'];
     } else if (view === 'rotate') {
       total = slots.length;
@@ -817,11 +818,11 @@ export class MoonWindow {
       this.slotAt = index;
       rotateSlot = this.settingsOpen ? undefined : slots[index];
       if (this.settingsOpen) {
-        title = 'めぐる表示';
+        title = t('めぐる表示');
         itemKey = ['rotate-settings'];
       } else if (rotateSlot?.kind === 'vocab') {
         const card = this.cardOf(rotateSlot.id);
-        title = card?.front ?? '映すものがありません';
+        title = card?.front ?? t('映すものがありません');
         itemKey = [
           'vocab',
           slots.map(slotKey).join(','),
@@ -840,10 +841,10 @@ export class MoonWindow {
         ];
       } else if (rotateSlot?.kind === 'reminder') {
         const reminder = this.reminderOf(rotateSlot.id);
-        title = reminder?.text ?? '映すものがありません';
+        title = reminder?.text ?? t('映すものがありません');
         itemKey = ['reminder', slots.map(slotKey).join(','), reminder?.id ?? '', reminder?.text ?? '', reminder ? remainingLabel(reminder.dueAt) : '', this.commentMark(rotateSlot)];
       } else {
-        title = '映すものがありません';
+        title = t('映すものがありません');
         itemKey = ['rotate-empty', this.rotatePrefs.kinds.join(','), this.rotatePrefs.grain];
       }
       itemKey.push(this.noMarkedCards(), `here:${(this.rotatePrefs.on ? (this.rotateSource?.hereIds?.() ?? []) : []).join(',')}:${this.bundle !== null}`);
@@ -886,15 +887,15 @@ export class MoonWindow {
     const focusedKey = document.activeElement instanceof HTMLElement && this.element.contains(document.activeElement) ? document.activeElement.dataset.key : undefined;
     const isVision = view === 'visions' && views.length > 0;
     const isRotate = view === 'rotate' || views.length === 0;
-    const noun = isRotate ? { prev: '前のもの', next: '次のもの', sr: `${total}件のうち${index + 1}件目` } : isVision
-      ? { prev: '前の Vision', next: '次の Vision', sr: `${total}件のうち${index + 1}件目` }
-      : { prev: '前のレター', next: '次のレター', sr: `${total}通のうち${index + 1}通目` };
+    const noun = isRotate ? { prev: t('前のもの'), next: t('次のもの'), sr: t('{0}件のうち{1}件目', { 0: total, 1: index + 1 }) } : isVision
+      ? { prev: t('前の Vision'), next: t('次の Vision'), sr: t('{0}件のうち{1}件目', { 0: total, 1: index + 1 }) }
+      : { prev: t('前のレター'), next: t('次のレター'), sr: t('{0}通のうち{1}通目', { 0: total, 1: index + 1 }) };
 
     const head = el('div', 'moon-head');
     const icon = el('span', 'moon-icon');
     icon.innerHTML = moonSvg(lit, 14); // 形だけの SVG（数から作る。文字は入らない）
-    if (lit < 1) icon.title = '今日の復習の残りで月が欠けます（全部済むと満月）';
-    const label = el('span', 'moon-label', isRotate ? '⟳ めぐる表示' : isVision ? 'Grok Visions' : '月の窓');
+    if (lit < 1) icon.title = t('今日の復習の残りで月が欠けます（全部済むと満月）');
+    const label = el('span', 'moon-label', isRotate ? t('⟳ めぐる表示') : isVision ? 'Grok Visions' : t('月の窓'));
     head.append(icon, label);
     if (total > 0) {
       const count = el('span', 'moon-count', `${index + 1}/${total}`);
@@ -906,21 +907,21 @@ export class MoonWindow {
       const prev = button('‹', noun.prev, 'prev', () => this.move(-1), true);
       const next = button('›', noun.next, 'next', () => this.move(1), true);
       controls.append(prev, next);
-      const pause = button(this.paused ? '▶' : '⏸', '入れ替えを止める', 'pause', () => {
+      const pause = button(this.paused ? '▶' : '⏸', t('入れ替えを止める'), 'pause', () => {
         this.paused = !this.paused;
         this.savePrefs();
         this.update();
       }, true);
-      pause.title = this.paused ? '入れ替えを止めています（押すと再開）' : '入れ替えを止める';
+      pause.title = this.paused ? t('入れ替えを止めています（押すと再開）') : t('入れ替えを止める');
       pause.setAttribute('aria-pressed', String(this.paused)); // 名前は変えず、止めているかを押してあるかで伝える
       controls.append(pause);
     }
     if (this.rotateSource) {
-      const gear = button('⚙', 'めぐる表示の設定', 'settings', () => (this.settingsOpen ? this.closeSettings() : this.openSettings()), true);
+      const gear = button('⚙', t('めぐる表示の設定'), 'settings', () => (this.settingsOpen ? this.closeSettings() : this.openSettings()), true);
       gear.setAttribute('aria-expanded', String(this.settingsOpen));
       controls.append(gear);
     }
-    const fold = button(this.collapsed ? '▸' : '▾', this.collapsed ? '月の窓を開く' : '月の窓をたたむ', 'fold', () => {
+    const fold = button(this.collapsed ? '▸' : '▾', this.collapsed ? t('月の窓を開く') : t('月の窓をたたむ'), 'fold', () => {
       this.collapsed = !this.collapsed;
       this.savePrefs();
       this.update();
@@ -973,9 +974,9 @@ export class MoonWindow {
     row.setAttribute('role', 'tablist');
     row.setAttribute('aria-label', '月の窓に映すもの');
     const names: Record<MoonView, { text: string; hint: string }> = {
-      letters: { text: `✉ レター ${counts.letters}`, hint: '「公開してよい」の印を付けたフェイブルレター' },
-      visions: { text: `⬡ Grok Visions ${counts.visions}`, hint: 'Grok Bot が自分で「有意義」と判断して残した Vision' },
-      rotate: { text: `⟳ めぐる ${counts.rotate}`, hint: `${this.kindHint()}を ${everyLabel(this.rotatePrefs.everyMs)}ごとに1つずつ映す` },
+      letters: { text: t('✉ レター {0}', { 0: counts.letters }), hint: t('「公開してよい」の印を付けたフェイブルレター') },
+      visions: { text: `⬡ Grok Visions ${counts.visions}`, hint: t('Grok Bot が自分で「有意義」と判断して残した Vision') },
+      rotate: { text: t('⟳ めぐる {0}', { 0: counts.rotate }), hint: t('{0}を {1}ごとに1つずつ映す', { 0: this.kindHint(), 1: everyLabel(this.rotatePrefs.everyMs) }) },
     };
     for (const v of views) {
       const b = button(names[v].text, names[v].hint, `tab-${v}`, () => this.setView(v));
@@ -997,8 +998,8 @@ export class MoonWindow {
   }
 
   private kindHint() {
-    const names = [this.rotatePrefs.kinds.includes('vocab') ? '単語帳' : '', this.rotatePrefs.kinds.includes('reminder') ? 'リマインダー' : ''].filter(Boolean);
-    return names.length > 0 ? names.join('と') : '選んだもの';
+    const names = [this.rotatePrefs.kinds.includes('vocab') ? t('単語帳') : '', this.rotatePrefs.kinds.includes('reminder') ? t('リマインダー') : ''].filter(Boolean);
+    return names.length > 0 ? names.join(t('と')) : t('選んだもの');
   }
 
   // めぐる表示のカード1枚。表だけを出し、「答えを見る」で裏。高さは、答えを閉じている間はいつも同じ（CSS）
@@ -1007,7 +1008,7 @@ export class MoonWindow {
     if (!card) return this.rotateEmpty();
     const box = el('article', this.fade ? 'moon-letter moon-rotate moon-fade' : 'moon-letter moon-rotate');
     const tag = rotateTag(card);
-    const meta = [card.kind === 'quiz' ? '単語帳・問い' : '単語帳・言葉', tag === 'due' ? '今日の復習' : tag === 'weak' ? '苦手' : '', `習得、発展の度合い ${card.level}/6`].filter(Boolean).join('・');
+    const meta = [card.kind === 'quiz' ? t('単語帳・問い') : t('単語帳・言葉'), tag === 'due' ? t('今日の復習') : tag === 'weak' ? t('苦手') : '', t('習得、発展の度合い {0}/6', { 0: card.level })].filter(Boolean).join(t('・'));
     box.append(el('div', 'moon-meta', meta), el('div', 'moon-title moon-rotate-front', `${card.kind === 'quiz' ? 'Q. ' : ''}${card.front}`));
     const picture = this.imageNode(card);
     if (picture) box.append(picture);
@@ -1025,19 +1026,19 @@ export class MoonWindow {
       // 答えのあとの評価（K1。計画書 §5 の 3）：時期の来た 1 枚だけ「できた」。苦手・ほかは「もう一度」だけ（時期前の「できた」で間があかないように）
       if (this.rotateSource?.grade) {
         const grades = el('div', 'moon-actions moon-rotate-grades');
-        if (tag === 'due') grades.append(button('できた', '「できた」を付けて次へ（今日はもう出しません）', 'grade-good', () => this.gradeRotate(card.id, 'good')));
-        grades.append(button('もう一度', '「もう一度」を付けて次へ（今日はもう出しません）', 'grade-again', () => this.gradeRotate(card.id, 'again')));
+        if (tag === 'due') grades.append(button(t('できた'), t('「できた」を付けて次へ（今日はもう出しません）'), 'grade-good', () => this.gradeRotate(card.id, 'good')));
+        grades.append(button(t('もう一度'), t('「もう一度」を付けて次へ（今日はもう出しません）'), 'grade-again', () => this.gradeRotate(card.id, 'again')));
         box.append(grades);
       }
     }
     const row = el('div', 'moon-actions');
-    const answer = button(this.answerOpen ? '答えをたたむ ▴' : '答えを見る ▾', '', 'answer', () => {
+    const answer = button(this.answerOpen ? t('答えをたたむ ▴') : t('答えを見る ▾'), '', 'answer', () => {
       this.answerOpen = !this.answerOpen;
       this.update();
       if (this.answerOpen) this.revealInStack('.moon-rotate-grades');
     });
     answer.setAttribute('aria-expanded', String(this.answerOpen));
-    const more = button('…', 'ほかの操作（今日はもう出さない・印を外す）', 'rotate-more', () => {
+    const more = button('…', t('ほかの操作（今日はもう出さない・印を外す）'), 'rotate-more', () => {
       this.moreOpen = !this.moreOpen;
       this.update();
       if (this.moreOpen) this.revealInStack('.moon-rotate-more');
@@ -1045,22 +1046,22 @@ export class MoonWindow {
     more.setAttribute('aria-expanded', String(this.moreOpen));
     row.append(
       answer,
-      button('単語帳で開く', '右の「単語帳」パネルで、このカードを開く', 'open-vocab', () => this.rotateSource?.openVocab(card.id)),
-      button('🔔 あとで', '1 時間後にもう一度映す（それまでは出しません）', 'rotate-later', () => this.laterRotate(card.id)),
+      button(t('単語帳で開く'), t('右の「単語帳」パネルで、このカードを開く'), 'open-vocab', () => this.rotateSource?.openVocab(card.id)),
+      button(t('🔔 あとで'), t('1 時間後にもう一度映す（それまでは出しません）'), 'rotate-later', () => this.laterRotate(card.id)),
       more,
     );
     // リンクの先頭のセルへ（K6。計画書 §2 の「セルへ：題名」）
     const cell = this.rotateSource?.cellLink?.(card);
     if (cell) {
       const name = [...cell.title].length > 12 ? `${[...cell.title].slice(0, 12).join('')}…` : cell.title;
-      row.append(button(`セルへ：${name}`, `「${cell.title}」へ`, 'vocab-cell', () => cell.open()));
+      row.append(button(t('セルへ：{0}', { 0: name }), t('「{0}」へ', { 0: cell.title }), 'vocab-cell', () => cell.open()));
     }
     box.append(row);
     if (this.moreOpen) {
       const extra = el('div', 'moon-actions moon-rotate-more');
-      extra.append(button('今日はもう出さない', 'このカードを今日はもう映しません（明日にはまた出ます）', 'rotate-skip', () => this.skipRotate(card.id)));
+      extra.append(button(t('今日はもう出さない'), t('このカードを今日はもう映しません（明日にはまた出ます）'), 'rotate-skip', () => this.skipRotate(card.id)));
       if (this.rotatePrefs.grain === 'marked' && card.rotate === true && this.rotateSource?.setMark) {
-        extra.append(button('⟳ の印を外す', 'めぐる表示の印を外します（単語帳の行の ⟳ と同じ）', 'rotate-unmark', () => this.unmarkRotate(card.id)));
+        extra.append(button(t('⟳ の印を外す'), t('めぐる表示の印を外します（単語帳の行の ⟳ と同じ）'), 'rotate-unmark', () => this.unmarkRotate(card.id)));
       }
       box.append(extra);
     }
@@ -1076,8 +1077,8 @@ export class MoonWindow {
   private markedNotice(): HTMLElement {
     const box = el('div', 'moon-rotate-note');
     box.append(
-      el('span', 'moon-meta', '⟳ の印を付けたカードがありません'),
-      button('全部を映す', '⚙ の「映すもの」を「全部」に戻します', 'rotate-grain-all', () => this.setRotate({ ...this.rotatePrefs, grain: 'all' })),
+      el('span', 'moon-meta', t('⟳ の印を付けたカードがありません')),
+      button(t('全部を映す'), t('⚙ の「映すもの」を「全部」に戻します'), 'rotate-grain-all', () => this.setRotate({ ...this.rotatePrefs, grain: 'all' })),
     );
     return box;
   }
@@ -1087,23 +1088,23 @@ export class MoonWindow {
     const reminder = this.reminderOf(id);
     if (!reminder) return this.rotateEmpty();
     const box = el('article', this.fade ? 'moon-letter moon-rotate moon-fade' : 'moon-letter moon-rotate');
-    box.append(el('div', 'moon-meta', `リマインダー・${remainingLabel(reminder.dueAt)}`), el('div', 'moon-title moon-rotate-front', reminder.text));
+    box.append(el('div', 'moon-meta', t('リマインダー・{0}', { 0: remainingLabel(reminder.dueAt) })), el('div', 'moon-title moon-rotate-front', reminder.text));
     const comment = this.commentNodes({ kind: 'reminder', id: reminder.id }, 'after');
     if (comment) box.append(comment);
     const row = el('div', 'moon-actions');
-    row.append(button('リマインダーを見る', '右の「リマインダー」パネルへ移る', 'open-reminder', () => this.rotateSource?.openReminder()));
+    row.append(button(t('リマインダーを見る'), t('右の「リマインダー」パネルへ移る'), 'open-reminder', () => this.rotateSource?.openReminder()));
     // 1 枚の操作（K3。計画書 §2）：そのセルへ・10 分延ばす・済み。もう鳴ったもの（次に替わるまで残している）は、鳴ったものとして扱う
     const src = this.rotateSource;
     const fired = this.reminderExpired(reminder.id, Date.now());
     if (src?.openReminderLink && reminderLink(reminder)) {
-      row.append(button('そのセルへ', reminder.title ? `「${reminder.title}」へ` : '指しているセルへ', 'reminder-link', () => src.openReminderLink?.(reminder)));
+      row.append(button(t('そのセルへ'), reminder.title ? t('「{0}」へ', { 0: reminder.title }) : t('指しているセルへ'), 'reminder-link', () => src.openReminderLink?.(reminder)));
     }
     if (src?.delayReminder) {
-      row.append(button('10 分延ばす', fired ? '10 分後にもう一度知らせます' : '知らせる時刻を 10 分あとにします', 'reminder-delay', () => src.delayReminder?.(reminder, 10 * 60_000, fired)));
+      row.append(button(t('10 分延ばす'), fired ? t('10 分後にもう一度知らせます') : t('知らせる時刻を 10 分あとにします'), 'reminder-delay', () => src.delayReminder?.(reminder, 10 * 60_000, fired)));
     }
     if (src?.doneReminder) {
       row.append(
-        button('済み', fired ? '鳴ったものを済みにします' : '鳴る前に済ませます（繰り返しは次の回へ）', 'reminder-done', () => {
+        button(t('済み'), fired ? t('鳴ったものを済みにします') : t('鳴る前に済ませます（繰り返しは次の回へ）'), 'reminder-done', () => {
           src.doneReminder?.(reminder.id, fired);
           this.move(1);
         }),
@@ -1124,8 +1125,8 @@ export class MoonWindow {
     const band = el('button', `moon-next-band${next.dueAt - now <= 5 * 60_000 ? ' soon' : ''}`);
     band.type = 'button';
     band.dataset.key = 'next-band';
-    band.title = `${remainingLabel(next.dueAt, now)}。押すと右の「リマインダー」パネルへ`;
-    band.append(el('span', 'moon-next-when', `次は ${day === '今日' ? '' : `${day} `}${clockOf(next.dueAt)}`), el('span', 'moon-next-text', next.text));
+    band.title = t('{0}。押すと右の「リマインダー」パネルへ', { 0: remainingLabel(next.dueAt, now) });
+    band.append(el('span', 'moon-next-when', t('次は {0}{1}', { 0: day === '今日' ? '' : `${day} `, 1: clockOf(next.dueAt) })), el('span', 'moon-next-text', next.text));
     band.addEventListener('click', () => this.rotateSource?.openReminder());
     return band;
   }
@@ -1135,18 +1136,18 @@ export class MoonWindow {
     const hasCards = (this.rotateSource?.vocab().length ?? 0) > 0;
     const hint =
       kinds.length === 0
-        ? '⚙ の「映すもの」に印を付けてください'
+        ? t('⚙ の「映すもの」に印を付けてください')
         : kinds.includes('vocab') && hasCards && this.rotatePrefs.grain === 'marked'
-          ? '⟳ の印を付けたカードがありません（今日はもう出さない・あとでのカードは除いています）。右の「単語帳」の行の ⟳ で付けられます'
+          ? t('⟳ の印を付けたカードがありません（今日はもう出さない・あとでのカードは除いています）。右の「単語帳」の行の ⟳ で付けられます')
           : kinds.includes('vocab') && hasCards
-            ? '今日はもう映すカードがありません（今日はもう出さない・あとで・⚙ の「映すもの」で除いています）'
+            ? t('今日はもう映すカードがありません（今日はもう出さない・あとで・⚙ の「映すもの」で除いています）')
             : kinds.includes('reminder') && !kinds.includes('vocab')
-          ? 'まだ時間になっていないリマインダーがありません。相棒に「30分後に休憩をリマインドして」のように頼めます'
+          ? t('まだ時間になっていないリマインダーがありません。相棒に「30分後に休憩をリマインドして」のように頼めます')
           : kinds.includes('vocab') && !kinds.includes('reminder')
-            ? '単語帳にカードがありません。右の「単語帳」パネルの「＋カード」で足せます'
-            : '単語帳にカードを足すか、相棒にリマインダーを頼めます';
+            ? t('単語帳にカードがありません。右の「単語帳」パネルの「＋カード」で足せます')
+            : t('単語帳にカードを足すか、相棒にリマインダーを頼めます');
     const box = el('div', 'moon-rotate-empty');
-    box.append(el('div', 'moon-title', '映すものがありません'), el('div', 'moon-body', hint));
+    box.append(el('div', 'moon-title', t('映すものがありません')), el('div', 'moon-body', hint));
     return box;
   }
 
@@ -1167,17 +1168,17 @@ export class MoonWindow {
       return label;
     };
     box.append(
-      check('rotate-on', 'めぐる表示を使う', p.on, (on) => this.setRotate({ ...p, on })),
-      el('div', 'moon-meta', '選んだものを、決めた間で1つずつ映します。レターと Grok Visions の入れ替え（8秒）は変わりません。ひとことは、下で別に入れます'),
+      check('rotate-on', t('めぐる表示を使う'), p.on, (on) => this.setRotate({ ...p, on })),
+      el('div', 'moon-meta', t('選んだものを、決めた間で1つずつ映します。レターと Grok Visions の入れ替え（8秒）は変わりません。ひとことは、下で別に入れます')),
     );
     // 単語帳から映すもの（K1）：全部・⟳ の印だけ・今日の復習と苦手だけ（今の値は p.grain）
     const grainSelect = el('select', 'moon-select');
     grainSelect.dataset.key = 'rotate-grain';
-    grainSelect.title = '⟳ の印は、右の「単語帳」の行の ⟳ や、左の「単語帳に入れる」の小窓で付けます';
+    grainSelect.title = t('⟳ の印は、右の「単語帳」の行の ⟳ や、左の「単語帳に入れる」の小窓で付けます');
     const grainOptions: [RotateGrain, string][] = [
-      ['all', '全部'],
-      ['marked', '⟳ の印だけ'],
-      ['due', '今日の復習と苦手だけ'],
+      ['all', t('全部')],
+      ['marked', t('⟳ の印だけ')],
+      ['due', t('今日の復習と苦手だけ')],
     ];
     for (const [value, text] of grainOptions) {
       const o = el('option', '', text);
@@ -1187,18 +1188,18 @@ export class MoonWindow {
     grainSelect.value = p.grain;
     grainSelect.addEventListener('change', () => this.setRotate({ ...p, grain: grainSelect.value as RotateGrain }));
     const grainRow = el('label', 'moon-check');
-    grainRow.append(document.createTextNode('単語帳から　'), grainSelect);
+    grainRow.append(document.createTextNode(t('単語帳から　')), grainSelect);
     const kinds = el('fieldset', 'moon-fieldset');
     kinds.append(
-      el('legend', 'moon-legend', '映すもの'),
-      check('rotate-vocab', '単語帳（表だけを出し、「答えを見る」で裏）', p.kinds.includes('vocab'), (on) => this.setKind('vocab', on)),
+      el('legend', 'moon-legend', t('映すもの')),
+      check('rotate-vocab', t('単語帳（表だけを出し、「答えを見る」で裏）'), p.kinds.includes('vocab'), (on) => this.setKind('vocab', on)),
       grainRow,
-      check('rotate-reminder', 'リマインダー（文と「あと n 分」。時間になったものは、次に替わるときに外れます）', p.kinds.includes('reminder'), (on) =>
+      check('rotate-reminder', t('リマインダー（文と「あと n 分」。時間になったものは、次に替わるときに外れます）'), p.kinds.includes('reminder'), (on) =>
         this.setKind('reminder', on),
       ),
       // 新しく入れたカードに ⟳ を付けるか（左の「単語帳に入れる」の小窓の既定。K1）
-      check('rotate-mark-new', '新しく入れたカードに ⟳ を付ける（左の「単語帳に入れる」の小窓の既定）', p.markNew, (on) => this.setRotate({ ...p, markNew: on })),
-      check('rotate-next-band', '次のリマインダーを帯で出す（「次は 14:30 …」。5 分前から金に）', p.nextBand, (on) => this.setRotate({ ...p, nextBand: on })),
+      check('rotate-mark-new', t('新しく入れたカードに ⟳ を付ける（左の「単語帳に入れる」の小窓の既定）'), p.markNew, (on) => this.setRotate({ ...p, markNew: on })),
+      check('rotate-next-band', t('次のリマインダーを帯で出す（「次は 14:30 …」。5 分前から金に）'), p.nextBand, (on) => this.setRotate({ ...p, nextBand: on })),
     );
     const every = el('select', 'moon-select');
     every.dataset.key = 'rotate-every';
@@ -1210,9 +1211,9 @@ export class MoonWindow {
     every.value = String(p.everyMs);
     every.addEventListener('change', () => this.setRotate({ ...p, everyMs: Number(every.value) }));
     const everyRow = el('label', 'moon-check');
-    everyRow.append(document.createTextNode('入れ替える間 '), every);
+    everyRow.append(document.createTextNode(t('入れ替える間 ')), every);
     const row = el('div', 'moon-actions');
-    row.append(button('閉じる', '設定を閉じる（Esc）', 'settings-close', () => this.closeSettings()));
+    row.append(button(t('閉じる'), t('設定を閉じる（Esc）'), 'settings-close', () => this.closeSettings()));
     box.append(kinds, everyRow, this.commentSettings(check), row);
     return box;
   }
@@ -1221,16 +1222,16 @@ export class MoonWindow {
   private commentSettings(check: (key: string, text: string, checked: boolean, change: (on: boolean) => void) => HTMLElement): HTMLElement {
     const prefs = this.commentPrefs;
     const box = el('fieldset', 'moon-fieldset');
-    box.append(el('legend', 'moon-legend', 'AI のひとこと'));
-    box.append(check('comment-on', 'AI のひとこと（はじめは切ってあります）', prefs.on, (on) => this.setComment({ ...prefs, on })));
+    box.append(el('legend', 'moon-legend', t('AI のひとこと')));
+    box.append(check('comment-on', t('AI のひとこと（はじめは切ってあります）'), prefs.on, (on) => this.setComment({ ...prefs, on })));
     if (!prefs.on) {
-      box.append(el('div', 'moon-meta', '入れると、映しているものに短いひとことを付けます。めぐる表示とは別に、ここで入れます'));
+      box.append(el('div', 'moon-meta', t('入れると、映しているものに短いひとことを付けます。めぐる表示とは別に、ここで入れます')));
       return box;
     }
     const kinds = el('div', 'moon-comment-kinds');
     kinds.append(
-      check('comment-vocab', '単語帳に付ける', prefs.kinds.includes('vocab'), (on) => this.setCommentKind('vocab', on)),
-      check('comment-reminder', 'リマインダーに付ける', prefs.kinds.includes('reminder'), (on) => this.setCommentKind('reminder', on)),
+      check('comment-vocab', t('単語帳に付ける'), prefs.kinds.includes('vocab'), (on) => this.setCommentKind('vocab', on)),
+      check('comment-reminder', t('リマインダーに付ける'), prefs.kinds.includes('reminder'), (on) => this.setCommentKind('reminder', on)),
     );
     const team = el('select', 'moon-select');
     team.dataset.key = 'comment-team';
@@ -1243,13 +1244,13 @@ export class MoonWindow {
     team.value = prefs.team;
     team.addEventListener('change', () => this.setComment({ ...this.commentPrefs, team: team.value === 'sonnet' ? 'sonnet' : 'haiku' }));
     const teamRow = el('label', 'moon-check');
-    teamRow.append(document.createTextNode('組 '), team);
+    teamRow.append(document.createTextNode(t('組 ')), team);
     const place = el('select', 'moon-select');
     place.dataset.key = 'comment-place';
     for (const [value, label] of [
-      ['after', '答えの後（今の場所）'],
-      ['before', '答えの前'],
-      ['both', '両方'],
+      ['after', t('答えの後（今の場所）')],
+      ['before', t('答えの前')],
+      ['both', t('両方')],
     ] as const) {
       const option = el('option', '', label);
       option.value = value;
@@ -1261,7 +1262,7 @@ export class MoonWindow {
       this.setComment({ ...this.commentPrefs, place: next });
     });
     const placeRow = el('label', 'moon-check');
-    placeRow.append(document.createTextNode('単語帳に付ける場所 '), place);
+    placeRow.append(document.createTextNode(t('単語帳に付ける場所 ')), place);
     const every = el('input', 'moon-number');
     every.type = 'number';
     every.min = '5';
@@ -1271,7 +1272,7 @@ export class MoonWindow {
     every.value = String(prefs.everyMs / 60_000);
     every.addEventListener('change', () => this.setComment({ ...this.commentPrefs, everyMs: clampMinutes(Number(every.value)) * 60_000 }));
     const everyRow = el('label', 'moon-check');
-    everyRow.append(document.createTextNode('ひとことの間 '), every, document.createTextNode(' 分（5〜60）'));
+    everyRow.append(document.createTextNode(t('ひとことの間 ')), every, document.createTextNode(t(' 分（5〜60）')));
     const cap = el('input', 'moon-number');
     cap.type = 'number';
     cap.min = '1';
@@ -1281,11 +1282,11 @@ export class MoonWindow {
     cap.value = String(prefs.dailyCap);
     cap.addEventListener('change', () => this.setComment({ ...this.commentPrefs, dailyCap: clampCap(Number(cap.value)) }));
     const capRow = el('label', 'moon-check');
-    capRow.append(document.createTextNode('1日の上限 '), cap, document.createTextNode(' 回（1〜50。0時に戻ります）'));
+    capRow.append(document.createTextNode(t('1日の上限 ')), cap, document.createTextNode(t(' 回（1〜50。0時に戻ります）')));
     const status = el('div', 'moon-meta');
     status.dataset.key = 'comment-status';
     status.textContent = this.commentStatusText();
-    box.append(kinds, teamRow, placeRow, el('div', 'moon-meta', '答えの前は、答えを言わずにみんなで考えます。両方は1枚で2回呼びます。リマインダーには場所はありません'), everyRow, capRow, status);
+    box.append(kinds, teamRow, placeRow, el('div', 'moon-meta', t('答えの前は、答えを言わずにみんなで考えます。両方は1枚で2回呼びます。リマインダーには場所はありません')), everyRow, capRow, status);
     if (!consentCovers(this.consent, prefs)) {
       const confirm = this.commentConfirm();
       box.append(confirm);
@@ -1297,34 +1298,34 @@ export class MoonWindow {
   private commentConfirm(): HTMLElement {
     const prefs = this.commentPrefs;
     const box = el('div', 'moon-confirm');
-    box.append(el('div', 'moon-title', '入れる前の確認'));
+    box.append(el('div', 'moon-title', t('入れる前の確認')));
     const send = el('div', 'moon-body');
-    const lines = ['渡すもの'];
+    const lines = [t('渡すもの')];
     if (prefs.kinds.includes('vocab') && prefs.place === 'before') {
-      lines.push('・単語帳：表と、言葉か問い、だけ（裏は渡しません）');
-      lines.push('・答えの前のひとことは、答え・訳・言い換え・綴りを書きません。使う場面や最初の音で、みんなで考えます');
+      lines.push(t('・単語帳：表と、言葉か問い、だけ（裏は渡しません）'));
+      lines.push(t('・答えの前のひとことは、答え・訳・言い換え・綴りを書きません。使う場面や最初の音で、みんなで考えます'));
     } else if (prefs.kinds.includes('vocab') && prefs.place === 'both') {
-      lines.push('・単語帳の答えの前：表と、言葉か問い、だけ（裏は渡しません）');
-      lines.push('・単語帳の答えのあと：表と裏、言葉か問い、だけ');
-      lines.push('・1枚で2回呼びます。料金・1日の回数・ひとことの間も2回ぶんです');
+      lines.push(t('・単語帳の答えの前：表と、言葉か問い、だけ（裏は渡しません）'));
+      lines.push(t('・単語帳の答えのあと：表と裏、言葉か問い、だけ'));
+      lines.push(t('・1枚で2回呼びます。料金・1日の回数・ひとことの間も2回ぶんです'));
     } else if (prefs.kinds.includes('vocab')) {
-      lines.push('・単語帳：表と裏、言葉か問い、だけ（答えを見たあとに出します）');
+      lines.push(t('・単語帳：表と裏、言葉か問い、だけ（答えを見たあとに出します）'));
     }
-    if (prefs.kinds.includes('reminder')) lines.push('・リマインダー：文と、あと何分か、だけ');
-    if (prefs.kinds.length === 0) lines.push('・まだ種類が選ばれていません');
+    if (prefs.kinds.includes('reminder')) lines.push(t('・リマインダー：文と、あと何分か、だけ'));
+    if (prefs.kinds.length === 0) lines.push(t('・まだ種類が選ばれていません'));
     lines.push(
-      '渡さないもの',
-      '・ページのアドレス、題名、ページの中の文',
-      '・リマインダーに付いたタブの題名',
+      t('渡さないもの'),
+      t('・ページのアドレス、題名、ページの中の文'),
+      t('・リマインダーに付いたタブの題名'),
       priceText(prefs.team, prefs.dailyCap, prefs.place, prefs.kinds.includes('vocab')),
-      '表示は目安です。実際の請求とは一致しません。',
-      '練習モードのときは練習の文だけです。切っているときは、選んだ組が本物を1回だけ呼びます。',
+      t('表示は目安です。実際の請求とは一致しません。'),
+      t('練習モードのときは練習の文だけです。切っているときは、選んだ組が本物を1回だけ呼びます。'),
     );
     send.textContent = lines.join('\n');
     const row = el('div', 'moon-actions');
-    const accept = button('入れる', 'この内容で、ひとことを入れます', 'comment-accept', () => this.acceptComment());
+    const accept = button(t('入れる'), t('この内容で、ひとことを入れます'), 'comment-accept', () => this.acceptComment());
     accept.disabled = prefs.kinds.length === 0;
-    row.append(accept, button('やめる', '入れるのをやめます', 'comment-cancel', () => this.cancelComment()));
+    row.append(accept, button(t('やめる'), t('入れるのをやめます'), 'comment-cancel', () => this.cancelComment()));
     box.append(send, row);
     return box;
   }
@@ -1334,7 +1335,7 @@ export class MoonWindow {
     const open = !ghost && this.visionOpen;
     const card = el('article', !ghost && this.fade ? 'moon-letter moon-vision moon-fade' : 'moon-letter moon-vision');
     const by = `${vision.botName}${vision.role ? `（${vision.role}）` : ''}`;
-    card.append(el('div', 'moon-title', vision.title), el('div', 'moon-meta', `⬡ ${by}の Vision・${dateOf(vision.createdAt)}`));
+    card.append(el('div', 'moon-title', vision.title), el('div', 'moon-meta', t('⬡ {0}の Vision・{1}', { 0: by, 1: dateOf(vision.createdAt) })));
     if (open) {
       // 2段目：要点の全部と出典
       const list = el('ul', 'moon-points');
@@ -1350,13 +1351,13 @@ export class MoonWindow {
       }
     } else {
       // 1段目：題名と要点（3行まで見せる）
-      card.append(el('div', 'moon-body moon-clamp', vision.points.map((p) => `・${p}`).join('\n')));
+      card.append(el('div', 'moon-body moon-clamp', vision.points.map((p) => t('・{0}', { 0: p })).join('\n')));
     }
     const row = el('div', 'moon-actions');
     if (this.actions.openReply) {
-      row.append(button('もとの返事へ', 'この Vision が書かれた返事のカードを、右の「ボットの欄」で見せる（出せないときは要点を開く）', 'reply', () => this.actions.openReply?.(vision)));
+      row.append(button(t('もとの返事へ'), t('この Vision が書かれた返事のカードを、右の「ボットの欄」で見せる（出せないときは要点を開く）'), 'reply', () => this.actions.openReply?.(vision)));
     }
-    const toggle = button(open ? '要点をたたむ ▴' : '要点を開く ▾', '', 'points', () => {
+    const toggle = button(open ? t('要点をたたむ ▴') : t('要点を開く ▾'), '', 'points', () => {
       this.visionOpen = !this.visionOpen;
       this.update();
     });
@@ -1364,23 +1365,23 @@ export class MoonWindow {
     row.append(toggle);
     if (this.actions.removeVision) {
       if (!ghost && this.confirmRemove === vision.id) {
-        const yes = button('もう一度押すと消えます', `「${vision.title}」を消す（ui-data\\visions から消します。元に戻せません）`, 'remove', () => {
+        const yes = button(t('もう一度押すと消えます'), t('「{0}」を消す（ui-data\\visions から消します。元に戻せません）', { 0: vision.title }), 'remove', () => {
           this.confirmRemove = null;
           this.actions.removeVision?.(vision.id);
         });
         yes.classList.add('moon-danger');
         armConfirm(yes, () => this.cancelRemove()); // 外を押す（「やめる」も含む）・Esc で、やめる
-        row.append(yes, button('やめる', '消さない（Esc）', 'remove-cancel', () => this.cancelRemove()));
+        row.append(yes, button(t('やめる'), t('消さない（Esc）'), 'remove-cancel', () => this.cancelRemove()));
       } else {
-        row.append(button('消す…', 'この Vision を消す（もう一度押して確かめます）', 'remove', () => {
+        row.append(button(t('消す…'), t('この Vision を消す（もう一度押して確かめます）'), 'remove', () => {
           this.confirmRemove = vision.id;
           this.update();
         }));
       }
     }
     const bytes = this.visionView?.bytes ?? 0;
-    const usage = el('span', 'moon-usage', `約 ${formatBytes(bytes)}`);
-    usage.title = `残した Grok Visions ${this.visionView?.list().length ?? 0} 件・約 ${formatBytes(bytes)}（ui-data\\visions）。件数の上限はありません`;
+    const usage = el('span', 'moon-usage', t('約 {0}', { 0: formatBytes(bytes) }));
+    usage.title = t('残した Grok Visions {0} 件・約 {1}（ui-data\\visions）。件数の上限はありません', { 0: this.visionView?.list().length ?? 0, 1: formatBytes(bytes) });
     row.append(usage);
     card.append(row);
     if (ghost) for (const b of card.querySelectorAll<HTMLElement>('[data-key]')) delete b.dataset.key; // 元に戻す focus の先にしない
@@ -1398,7 +1399,7 @@ export class MoonWindow {
     const showBody = !ghost && this.showBody;
     const showChat = !ghost && this.showChat;
     const card = el('article', !ghost && this.fade ? 'moon-letter moon-fade' : 'moon-letter');
-    card.append(el('div', 'moon-title', letter.title), el('div', 'moon-meta', `${letter.by.name}からのレター・${dateOf(letter.createdAt)}`));
+    card.append(el('div', 'moon-title', letter.title), el('div', 'moon-meta', t('{0}からのレター・{1}', { 0: letter.by.name, 1: dateOf(letter.createdAt) })));
     // 1段目：3行の要点（前の形のレターは、手紙の始めの3行）
     if (letter.points?.length) {
       const list = el('ul', 'moon-points');
@@ -1412,12 +1413,12 @@ export class MoonWindow {
     // 3段目：元の会話
     if (showChat && letter.chat) {
       const chat = el('div', 'moon-chat');
-      if (letter.chat.question) chat.append(el('div', 'moon-chat-q', `使う人：${letter.chat.question}`));
+      if (letter.chat.question) chat.append(el('div', 'moon-chat-q', t('使う人：{0}', { 0: letter.chat.question })));
       chat.append(el('div', 'moon-chat-a', `${letter.by.name}：${letter.chat.reply}`));
       card.append(chat);
     }
     const row = el('div', 'moon-actions');
-    const body = button(showBody ? '手紙をたたむ ▴' : '手紙を読む ▾', '', 'body', () => {
+    const body = button(showBody ? t('手紙をたたむ ▴') : t('手紙を読む ▾'), '', 'body', () => {
       this.showBody = !this.showBody;
       if (!this.showBody) this.showChat = false;
       this.update();
@@ -1425,7 +1426,7 @@ export class MoonWindow {
     body.setAttribute('aria-expanded', String(showBody));
     row.append(body);
     if (showBody && letter.chat) {
-      const chat = button(showChat ? '会話をたたむ ▴' : '元の会話を見る ▾', '', 'chat', () => {
+      const chat = button(showChat ? t('会話をたたむ ▴') : t('元の会話を見る ▾'), '', 'chat', () => {
         this.showChat = !this.showChat;
         this.update();
       });
@@ -1433,9 +1434,9 @@ export class MoonWindow {
       row.append(chat);
     } else if (showBody && letter.conversationId) {
       const id = letter.conversationId;
-      row.append(button('元の会話を開く', 'このレターが生まれた会話を、相棒の画面で開く', 'conversation', () => this.actions.openConversation(id)));
+      row.append(button(t('元の会話を開く'), t('このレターが生まれた会話を、相棒の画面で開く'), 'conversation', () => this.actions.openConversation(id)));
     }
-    row.append(button('一覧で見る', '相棒の「履歴」→「✉ フェイブルレター」で、このレターを見る', 'list', () => this.actions.openLetter(letter.id)));
+    row.append(button(t('一覧で見る'), t('相棒の「履歴」→「✉ フェイブルレター」で、このレターを見る'), 'list', () => this.actions.openLetter(letter.id)));
     card.append(row);
     if (ghost) for (const b of card.querySelectorAll<HTMLElement>('[data-key]')) delete b.dataset.key; // 元に戻す focus の先にしない
     return card;

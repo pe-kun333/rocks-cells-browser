@@ -1,4 +1,5 @@
 // メモのセルのカード（拡大表示に出す）と、メモを書く欄（盤面の上に出す）
+import { t } from '../i18n';
 import { armConfirm } from '../confirm-arm';
 import type { MemoCell } from '../memocells';
 import type { Island } from '../types';
@@ -33,7 +34,7 @@ export interface MemoCardOptions {
 }
 
 const URL_RE = /https?:\/\/[^\s<>"'）」』】]+/i;
-const PLACEHOLDER = 'メモ（Ctrl+Enter で残す・Esc でやめる）';
+const PLACEHOLDER = t('メモ（Ctrl+Enter で残す・Esc でやめる）');
 const openMemos = new Set<string>(); // 全文を開いているメモ（カードは何度も描き直すので、ここに覚えておく）
 
 export function memoCard(o: MemoCardOptions): HTMLElement {
@@ -53,31 +54,31 @@ export function memoCard(o: MemoCardOptions): HTMLElement {
   card.append(visual);
 
   const meta = el('div', 'preview-meta');
-  meta.append(el('span', 'pill pill-memo', o.image ? 'スクショ' : 'メモ'), el('span', 'pill', dateOf(memo.updatedAt)));
+  meta.append(el('span', 'pill pill-memo', o.image ? t('スクショ') : t('メモ')), el('span', 'pill', dateOf(memo.updatedAt)));
   if (o.actions?.isPaneOpen(memo.id)) {
-    const mark = el('span', 'pill pill-pane', '下で開いています');
-    mark.title = 'このメモを、中央の下の区画で開いています';
+    const mark = el('span', 'pill pill-pane', t('下で開いています'));
+    mark.title = t('このメモを、中央の下の区画で開いています');
     meta.append(mark);
   }
   // ボット（外の Grok Bot）から届いた返事をメモにしたもの（ボットの欄の「メモにする」）：相棒の考察とは見た目を変える
   const fromBot = memo.by?.who === 'bot';
   if (memo.by && fromBot) {
-    const by = el('span', 'pill pill-bot', `ボット（${memo.by.name}）から届いた${memo.label ?? '返事'}`);
-    by.title = `外の Grok Bot（${memo.by.name}）から届いた${memo.label ?? '返事'}です。相棒（ブラウザの中の AI）が書いたものではありません${memo.tags.includes('未確認') ? '。「未確認」：依頼と合うか確かめられなかった返事です' : ''}`;
+    const by = el('span', 'pill pill-bot', t('ボット（{0}）から届いた{1}', { 0: memo.by.name, 1: memo.label ?? '返事' }));
+    by.title = t('外の Grok Bot（{0}）から届いた{1}です。相棒（ブラウザの中の AI）が書いたものではありません{2}', { 0: memo.by.name, 1: memo.label ?? '返事', 2: memo.tags.includes('未確認') ? '。「未確認」：依頼と合うか確かめられなかった返事です' : '' });
     meta.append(by);
   } else if (memo.by) {
     // AI の相棒が残した考察・レター（使う人のメモと見分けられるように）
-    const kind = memo.label ?? '考察';
-    const by = el('span', 'pill pill-ai', `${kind}・${memo.by.name}`);
-    by.title = memo.by.who === 'import' ? `取り込んだファイル（${memo.by.name}）のメモです。使う人や相棒が書いたものではありません` : `AI の相棒（${memo.by.name}）が残した${kind}です`;
+    const kind = memo.label ?? t('考察');
+    const by = el('span', 'pill pill-ai', t('{0}・{1}', { 0: kind, 1: memo.by.name }));
+    by.title = memo.by.who === 'import' ? t('取り込んだファイル（{0}）のメモです。使う人や相棒が書いたものではありません', { 0: memo.by.name }) : t('AI の相棒（{0}）が残した{1}です', { 0: memo.by.name, 1: kind });
     meta.append(by);
   }
   if (o.island) {
-    const pill = el('span', 'pill pill-island', `島：${o.island.name}`);
+    const pill = el('span', 'pill pill-island', t('島：{0}', { 0: o.island.name }));
     pill.style.setProperty('--island', o.island.color);
     if (!o.compact && o.actions) {
       const leave = el('button', 'pill-remove', '×');
-      leave.title = 'この島から出す';
+      leave.title = t('この島から出す');
       leave.setAttribute('aria-label', 'この島から出す');
       const actions = o.actions;
       leave.addEventListener('click', () => actions.leaveIsland(memo.id));
@@ -86,18 +87,18 @@ export function memoCard(o: MemoCardOptions): HTMLElement {
     meta.append(pill);
   }
 
-  const body = el('div', 'preview-note-body memo-body', memo.text || '（まだ何も書いていません）');
+  const body = el('div', 'preview-note-body memo-body', memo.text || t('（まだ何も書いていません）'));
   if (!memo.text) body.classList.add('empty');
   const long = memo.text.length > 110 || memo.text.split('\n').length > 4;
   card.append(meta, body);
   if (long && !o.compact) {
     body.classList.toggle('open', openMemos.has(memo.id));
-    const toggle = el('button', 'preview-note-toggle', openMemos.has(memo.id) ? 'たたむ ▴' : '続きを読む ▾');
+    const toggle = el('button', 'preview-note-toggle', openMemos.has(memo.id) ? t('たたむ ▴') : t('続きを読む ▾'));
     const flip = () => {
       if (openMemos.has(memo.id)) openMemos.delete(memo.id);
       else openMemos.add(memo.id);
       body.classList.toggle('open', openMemos.has(memo.id));
-      toggle.textContent = openMemos.has(memo.id) ? 'たたむ ▴' : '続きを読む ▾';
+      toggle.textContent = openMemos.has(memo.id) ? t('たたむ ▴') : t('続きを読む ▾');
     };
     toggle.addEventListener('click', flip);
     body.classList.add('clickable');
@@ -116,7 +117,7 @@ export function memoCard(o: MemoCardOptions): HTMLElement {
   if (memo.tags.length > 0 || (!o.compact && o.actions)) {
     const editable = !o.compact && !!o.actions;
     const actions = o.actions;
-    const target = { tags: memo.tags, what: 'このメモ', change: (add: string[], remove: string[]) => actions?.changeTags(memo.id, add, remove) };
+    const target = { tags: memo.tags, what: t('このメモ'), change: (add: string[], remove: string[]) => actions?.changeTags(memo.id, add, remove) };
     card.append(tagArea(target, { editable, pad: editable ? o.tagPad : undefined, focusKey: `memo${memo.id}:`, toast: o.toast }));
   }
 
@@ -124,8 +125,8 @@ export function memoCard(o: MemoCardOptions): HTMLElement {
   const paneButton = () => {
     if (!a) return null;
     const open = a.isPaneOpen(memo.id);
-    const b = button(open ? '下の区画を閉じる' : '下で開く ⬓', () => a.openPane(memo.id));
-    b.title = open ? '下のメモの区画を閉じる' : '中央を上下に分けて、このメモを下で書く';
+    const b = button(open ? t('下の区画を閉じる') : t('下で開く ⬓'), () => a.openPane(memo.id));
+    b.title = open ? t('下のメモの区画を閉じる') : t('中央を上下に分けて、このメモを下で書く');
     return b;
   };
   if (o.compact && a) {
@@ -142,29 +143,29 @@ export function memoCard(o: MemoCardOptions): HTMLElement {
     const like = button(memo.liked > 0 ? `♥${memo.liked}` : '♡', () => a.setLiked(memo.id, (memo.liked + 1) % 4));
     like.classList.add('preview-like');
     if (memo.liked > 0) like.classList.add('liked');
-    like.title = 'いいね（押すたびに 1→2→3→なし）';
-    actions.append(like, button('書き直す', () => a.edit(memo.id)));
+    like.title = t('いいね（押すたびに 1→2→3→なし）');
+    actions.append(like, button(t('書き直す'), () => a.edit(memo.id)));
     const url = memo.text.match(URL_RE)?.[0];
     if (url) {
       // ボットの返事のリンクは、押す前にドメインを見せる
-      const open = button(fromBot ? `リンクを開く（${hostOf(url)}）` : 'リンクを開く', () => a.openUrl(url));
+      const open = button(fromBot ? t('リンクを開く（{0}）', { 0: hostOf(url) }) : t('リンクを開く'), () => a.openUrl(url));
       open.title = url;
       actions.append(open);
     }
     // ボットの返事は、相棒に見せない（道具なしの別の1回で見せる形は S2.8。ここから渡すと会話に残るため）
     if (!fromBot) {
-      const ask = button('相棒に見せる', () => a.askCompanion(memo.id));
-      ask.title = o.image ? 'この画像とメモを、右の相棒に見せて話す' : 'このメモについて、右の相棒と話す';
+      const ask = button(t('相棒に見せる'), () => a.askCompanion(memo.id));
+      ask.title = o.image ? t('この画像とメモを、右の相棒に見せて話す') : t('このメモについて、右の相棒と話す');
       actions.append(ask);
     }
-    actions.append(button('六角メモへ', () => a.sendToHexMemo(memo.id)));
+    actions.append(button(t('六角メモへ'), () => a.sendToHexMemo(memo.id)));
     // 相棒が残した考察（フェイブルレターは除く）は、データ置き場にも残せる（ボットの返事は入れない。Q11）
     if (memo.by && !fromBot && memo.label !== 'レター' && a.saveToVault) {
-      const vault = button('データ置き場へ', () => a.saveToVault?.(memo.id));
-      vault.title = `${memo.by.name}が残したこのメモを、データ置き場（右サイドバーのメモの区画の下）に残す`;
+      const vault = button(t('データ置き場へ'), () => a.saveToVault?.(memo.id));
+      vault.title = t('{0}が残したこのメモを、データ置き場（右サイドバーのメモの区画の下）に残す', { 0: memo.by.name });
       actions.append(vault);
     }
-    const remove = button('消す', () => {
+    const remove = button(t('消す'), () => {
       if (remove.textContent !== '本当に消す') {
         armConfirm(remove);
         remove.textContent = '本当に消す';
@@ -180,8 +181,8 @@ export function memoCard(o: MemoCardOptions): HTMLElement {
   const replies = memo.replies ?? [];
   if (o.actions?.isPaneOpen(memo.id)) {
     const n = replies.filter((r) => r.parent === null).length;
-    const note = el('div', 'thread-pane-note', `コメント ${n}件（下の区画で見る）`);
-    note.title = 'このメモは下の区画で開いています。コメントはそこで見て、書いてください';
+    const note = el('div', 'thread-pane-note', t('コメント {0}件（下の区画で見る）', { 0: n }));
+    note.title = t('このメモは下の区画で開いています。コメントはそこで見て、書いてください');
     card.append(note);
   } else {
     card.append(threadBlock({ kind: 'memo', id: memo.id }, replies, o.compact ? undefined : o.thread, o.compact));
@@ -195,7 +196,7 @@ export class MemoEditor {
   private readonly element = el('form', 'memo-editor');
   private readonly text = el('textarea', 'memo-editor-input');
   private readonly heading = el('div', 'memo-editor-head');
-  private readonly save = el('button', 'preview-button', '残す');
+  private readonly save = el('button', 'preview-button', t('残す'));
   private onSave: ((text: string) => void) | null = null;
   private onCancel: (() => void) | null = null;
 
@@ -205,7 +206,7 @@ export class MemoEditor {
     this.text.placeholder = PLACEHOLDER;
     const save = this.save;
     save.type = 'submit';
-    const cancel = el('button', 'preview-button', 'やめる');
+    const cancel = el('button', 'preview-button', t('やめる'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => this.cancel());
     const row = el('div', 'preview-actions');
@@ -240,7 +241,7 @@ export class MemoEditor {
     this.onSave = onSave;
     this.onCancel = onCancel ?? null;
     this.heading.textContent = heading;
-    this.save.textContent = options.okLabel ?? '残す';
+    this.save.textContent = options.okLabel ?? t('残す');
     this.text.placeholder = options.placeholder ?? PLACEHOLDER;
     this.text.value = initial;
     this.element.hidden = false;
@@ -271,9 +272,9 @@ export class MemoEditor {
 }
 
 function pinButton(pin: { on: boolean; toggle(): void }) {
-  const b = button(pin.on ? '📌 固定中' : '📌 固定', () => pin.toggle());
+  const b = button(pin.on ? t('📌 固定中') : t('📌 固定'), () => pin.toggle());
   b.classList.toggle('on', pin.on);
-  b.title = pin.on ? '固定を外す。マウスを乗せたセルで、カードが替わるようになります' : '押しているあいだ、ほかのセルにマウスを乗せても、このカードのままです。起動し直すと外れます';
+  b.title = pin.on ? t('固定を外す。マウスを乗せたセルで、カードが替わるようになります') : t('押しているあいだ、ほかのセルにマウスを乗せても、このカードのままです。起動し直すと外れます');
   b.setAttribute('aria-pressed', String(pin.on));
   return b;
 }

@@ -1,5 +1,6 @@
 // 合図（段階4）。印を出すかどうかの決まりだけ。画面も、送ることも、ここには無い。
 //   見守る：印を出さない。合図だけ：人が押すまで下書きまで。アプリもクリップボードも動かさない。
+import { t } from './i18n';
 import { hostOf } from './util';
 
 export type CueMode = 'watch' | 'cue';
@@ -114,13 +115,13 @@ export function canShowCue(settings: CueSettings, host: string, kind: CueKind): 
 }
 
 export const CUE_KIND_LABEL: Record<CueKind, string> = {
-  page: 'ページが変わった',
-  selection: '文を選んだ',
-  stay: '同じページにいた',
+  page: t('ページが変わった'),
+  selection: t('文を選んだ'),
+  stay: t('同じページにいた'),
 };
 
 export function cueLine(kind: CueKind, title: string, selection: string): string {
-  const name = title.trim() || 'このページ';
+  const name = title.trim() || t('このページ');
   if (kind === 'selection') {
     const bit = [...selection.trim()].slice(0, 42).join('');
     return `文を選びました：「${bit}${[...selection.trim()].length > 42 ? '…' : ''}」`;
@@ -137,9 +138,9 @@ export function cueAsk(kind: CueKind): string {
 
 // 今見ている範囲。見守るなら「見ていません」。外に出さないページなら「このページは手元だけ」
 export function cueScope(settings: CueSettings, local: boolean): string {
-  if (settings.paused) return '一時停止中';
-  if (settings.mode === 'watch') return '見ていません';
-  if (local) return 'このページは手元だけ';
-  if (settings.shown >= settings.dailyLimit) return `今日の合図は ${settings.shown}/${settings.dailyLimit} 回までです`;
-  return `合図だけ（今日 ${settings.shown}/${settings.dailyLimit} 回）`;
+  if (settings.paused) return t('一時停止中');
+  if (settings.mode === 'watch') return t('見ていません');
+  if (local) return t('このページは手元だけ');
+  if (settings.shown >= settings.dailyLimit) return t('今日の合図は {0}/{1} 回までです', { 0: settings.shown, 1: settings.dailyLimit });
+  return t('合図だけ（今日 {0}/{1} 回）', { 0: settings.shown, 1: settings.dailyLimit });
 }

@@ -3,6 +3,7 @@
 //     同じタブの中でたどった道が「線」、リンクから新しいタブで開いた先が「枝」（六角メモの Dendritic Extensions と同じ考え）
 //   ・覚えるのは http(s) のページの URL・題名・時刻だけ。保存先：ui-data\routes.json（このパソコンの中だけ）
 //   ・持ち主は左サイドバー（タブの出来事を見ている）。右サイドバーには写しを送り、変えたいときは左に頼む
+import { t as tr } from './i18n';
 import { readData, writeData } from './data';
 import { type Hex, hexKey } from './hex';
 import type { Tab, TabStore } from './tabs';
@@ -419,9 +420,9 @@ export function stepLabel(step: RouteStep): string {
 export function routeName(route: Route): string {
   if (route.name) return route.name;
   const first = route.steps.find((s) => searchQueryOf(s.url)) ?? route.steps[0];
-  if (!first) return '順路';
-  const label = searchQueryOf(first.url) ?? (first.title || hostOf(first.url) || '順路');
-  return cleanName(label) || '順路';
+  if (!first) return tr('順路');
+  const label = searchQueryOf(first.url) ?? (first.title || hostOf(first.url) || tr('順路'));
+  return cleanName(label) || tr('順路');
 }
 
 function cleanName(name: string) {

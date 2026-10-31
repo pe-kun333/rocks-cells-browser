@@ -1,5 +1,6 @@
 // 島：盤面でタブをまとめた集まり。名前と色を持ち、入っているタブは tab.island で示す
 //   島を作るときは、入るタブをひとかたまりのセルへ寄せる（ほかのタブは動かさない。島どうしは1マスあける）
+import { t as tr } from './i18n';
 import { DIRECTIONS, type Hex, hexKey, hexToPixel } from './hex';
 import type { Tab } from './tabs';
 import { TAG_PALETTE } from './tags';
@@ -185,5 +186,5 @@ export function islandLabelSize(zoom: number, base = 10, min = 10, max = 28): nu
 // 島に入れるときの名前の案：はじめのセルの題名（20字まで）。無ければ「島 n」
 export function islandNameSuggestion(titles: string[], count: number): string {
   const first = titles.map((t) => t.trim()).find((t) => t.length > 0);
-  return first ? [...first].slice(0, 20).join('') : `島 ${count + 1}`;
+  return first ? [...first].slice(0, 20).join('') : tr('島 {0}', { 0: count + 1 });
 }

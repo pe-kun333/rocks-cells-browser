@@ -2,6 +2,7 @@
 //   k は「回答あり」の席だけ。遅れ・エラー・待つのをやめた・調査中は数えない
 //   殻と帯は、いま届きかけの組（終わっていない組）のいちばん新しいもの。札は、その札の組
 //   組が終わったあとの殻は暗いまま（届いた数の記念にはしない）。札には、その組の k/n を残す
+import { t } from './i18n';
 export interface ArrivedGroup {
   group: number;
   states: readonly string[];
@@ -22,7 +23,7 @@ export function countArrived(states: readonly string[]): { k: number; n: number 
 }
 
 export function arrivedLabel(k: number, n: number): string {
-  return `届いた ${Math.max(0, Math.floor(k))}/${Math.max(0, Math.floor(n))}`;
+  return t('届いた {0}/{1}', { 0: Math.max(0, Math.floor(k)), 1: Math.max(0, Math.floor(n)) });
 }
 
 export function groupInFlight(states: readonly string[]): boolean {
@@ -60,5 +61,5 @@ export function requestArrivedLabel(state: string | null | undefined): string {
 export function withArrivedLine(line: string, k: number, n: number): string {
   if (k <= 0 || n <= 0) return line;
   const arrived = arrivedLabel(k, n);
-  return line ? `${line}・${arrived}` : arrived;
+  return line ? t('{0}・{1}', { 0: line, 1: arrived }) : arrived;
 }

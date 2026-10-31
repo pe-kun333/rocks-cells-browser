@@ -2,6 +2,7 @@
 //   貼る：型を選ぶと、見ている面の真ん中を基準に「一発で」貼る（ゴーストは作らない）。台帳へは sendReplies（copy・template）に、
 //   区画が先に決めた ids（B3-2a）を付けて送る。台帳の写しに貼ったカードが現れてから、座標（基準＋型の dx,dy）を書く（B2-3b の足すと同じ道）
 //   ここで決めるのは：貼れるか（断る文）・貼るカードの id・各カードの座標・送る命令。画面（メニュー・空欄の小窓・保存）は app/memo-board-tab.ts
+import { t as tr } from './i18n';
 import { BOARD_CARD, BOARD_LIMITS, type BoardView, cleanCoord, type NodeMove, screenToBoard, splitNodes } from './memo-card-board';
 import type { Pt } from './memo-card-board-select';
 import type { LoadBoardResult } from './memo-card-board-store';
@@ -65,9 +66,9 @@ export function spotForGroup(view: BoardView, viewport: { w: number; h: number }
 
 // 「型を貼る ▾」が押せないときの文。押せるなら null。貼るのは位置を保存するのが目的なので、読めない・読み込み中のボードには貼らない（書かない）
 export function pasteToolNote(load: LoadBoardResult | null, replies: readonly Reply[]): string | null {
-  if (load === null) return loadingNote('貼って');
-  if (load.state === 'unreadable') return unreadableBlockNote('型は貼れません', load.why);
-  if (replies.length >= MAX_REPLIES) return ledgerFullNote('型を貼れません');
+  if (load === null) return loadingNote(tr('貼って'));
+  if (load.state === 'unreadable') return unreadableBlockNote(tr('型は貼れません'), load.why);
+  if (replies.length >= MAX_REPLIES) return ledgerFullNote(tr('型を貼れません'));
   return null;
 }
 
@@ -92,7 +93,7 @@ export const pastedAppeared = (replies: readonly Reply[], ids: readonly string[]
   return ids.length > 0 && ids.every((id) => tops.has(id));
 };
 
-export const pasteDoneText = (name: string, n: number): string => `型「${name}」を貼りました（${n} 枚）`;
+export const pasteDoneText = (name: string, n: number): string => tr('型「{0}」を貼りました（{1} 枚）', { 0: name, 1: n });
 
 export type BoardPastePlan = { ok: true; ids: string[]; moves: NodeMove[]; command: RelayCommand; template: CardTemplate; origin: Pt } | { ok: false; note: string };
 
@@ -113,7 +114,7 @@ export interface BoardPasteInput {
 // 貼る前の確かめ（断る文か、型と新しい id）。順：型の形→ボードを読めているか→台帳の 300→ボードの座標の 300→id
 function checkPaste(input: Pick<BoardPasteInput, 'template' | 'replies' | 'load' | 'make'>): { ok: true; template: CardTemplate; ids: string[] } | { ok: false; note: string } {
   const parsed = parseTemplate(input.template);
-  if (!parsed.ok) return { ok: false, note: '型を貼れませんでした（型の中身を読めません）' };
+  if (!parsed.ok) return { ok: false, note: tr('型を貼れませんでした（型の中身を読めません）') };
   const template = parsed.template;
   const n = template.cards.length;
   const blocked = pasteToolNote(input.load, input.replies);
@@ -121,13 +122,13 @@ function checkPaste(input: Pick<BoardPasteInput, 'template' | 'replies' | 'load'
   const ledger = pasteBlocked(input.replies.length, n);
   if (ledger) return { ok: false, note: ledger };
   const load = input.load;
-  if (load === null || load.state === 'unreadable') return { ok: false, note: 'ボードを読み込めていません' };
+  if (load === null || load.state === 'unreadable') return { ok: false, note: tr('ボードを読み込めていません') };
   const saved = splitNodes(load.board, input.replies).live.length;
   if (saved + n > BOARD_LIMITS.nodes) {
     return { ok: false, note: nodesFullNote(BOARD_LIMITS.nodes - saved, n) };
   }
   const ids = makeReplyIds(input.replies, n, input.make);
-  if (!ids) return { ok: false, note: 'カードの id を決められませんでした。もう一度お試しください' };
+  if (!ids) return { ok: false, note: tr('カードの id を決められませんでした。もう一度お試しください') };
   return { ok: true, template, ids };
 }
 
@@ -136,9 +137,9 @@ export function planRepaste(input: Pick<BoardPasteInput, 'memoId' | 'template' |
   const checked = checkPaste(input);
   if (!checked.ok) return checked;
   const { template, ids } = checked;
-  if (input.at.length !== ids.length) return { ok: false, note: '型を貼れませんでした（貼る位置が合いません）' };
+  if (input.at.length !== ids.length) return { ok: false, note: tr('型を貼れませんでした（貼る位置が合いません）') };
   const lim = BOARD_LIMITS.coord;
-  if (input.at.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y) || Math.abs(p.x) > lim || Math.abs(p.y) > lim)) return { ok: false, note: '型を貼れませんでした（貼る位置がボードの外です）' };
+  if (input.at.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y) || Math.abs(p.x) > lim || Math.abs(p.y) > lim)) return { ok: false, note: tr('型を貼れませんでした（貼る位置がボードの外です）') };
   const moves = ids.map((ref, i) => ({ ref, x: input.at[i].x, y: input.at[i].y }));
   const command: RelayCommand = { command: 'sendReplies', from: '', replyIds: [], to: input.memoId, mode: 'copy', template, ids };
   return { ok: true, ids, moves, command, template };
@@ -150,7 +151,7 @@ export function planBoardPaste(input: BoardPasteInput): BoardPastePlan {
   const { template, ids } = checked;
   const offsets = pasteOffsets(template);
   const origin = spotForGroup(input.view, input.viewport, input.taken, offsets);
-  if (!origin) return { ok: false, note: '置ける空きが見つかりませんでした（見ている場所を動かしてからお試しください）' };
+  if (!origin) return { ok: false, note: tr('置ける空きが見つかりませんでした（見ている場所を動かしてからお試しください）') };
   const moves = ids.map((ref, i) => ({ ref, x: origin.x + offsets[i].x, y: origin.y + offsets[i].y }));
   const command: RelayCommand = { command: 'sendReplies', from: '', replyIds: [], to: input.memoId, mode: 'copy', template, ids };
   return { ok: true, ids, moves, command, template, origin };

@@ -10,6 +10,7 @@
 //     撮ったもののセルは、縮図とスタンプの数。クリックは選ぶだけ。ダブルクリックで右の「撮影」がその件を開く（新しくは撮らない）
 //   大きい表示：番号順のリスト（HTML）。正六角形 / 横長 の2つの形、ドラッグで並び替え
 //   どちらも、今見ているシートのセルだけを見せる。左上に、シートの名前（押すとシートの一覧）と、戻る ←
+import { t as tr } from './i18n';
 import type { AppStore } from './apps';
 import { type BoardLink, boardKindName, type CellRef, memoRef, tabRef } from './board-links';
 import { type LinkKind, linkKindInfo } from './memo-card-links';
@@ -229,9 +230,9 @@ export class Sidebar {
     this.list.classList.add('tab-list');
     this.controls.className = 'board-controls';
     this.controls.append(
-      controlButton('＋', '拡大', () => this.zoomBy(1.25)),
-      controlButton('−', '縮小', () => this.zoomBy(0.8)),
-      controlButton('◎', '今のタブを中心に', () => this.recenter()),
+      controlButton('＋', tr('拡大'), () => this.zoomBy(1.25)),
+      controlButton('−', tr('縮小'), () => this.zoomBy(0.8)),
+      controlButton('◎', tr('今のタブを中心に'), () => this.recenter()),
     );
     // 左上：戻る ← と、シートの名前（押すとシートの一覧と、タブの見え方）
     this.sheetBar.className = 'sheet-bar';
@@ -499,7 +500,7 @@ export class Sidebar {
       if (head) line.append(head);
       const hit = svgEl('polyline', { class: 'board-link-hit', points, 'data-board-link': link.id });
       const tip = svgEl('title', {});
-      tip.textContent = `${boardKindName(link.kind)}（押すとメニュー）`;
+      tip.textContent = tr('{0}（押すとメニュー）', { 0: boardKindName(link.kind) });
       hit.append(tip);
       line.append(hit);
       g.append(line);
@@ -512,8 +513,8 @@ export class Sidebar {
       const badge = svgEl('g', { class: 'board-link-badge', 'data-board-link': ids[0], style: `--link: ${first ? linkKindInfo(first.kind).color : 'var(--muted)'}` });
       badge.append(svgEl('circle', { cx: p.x, cy: p.y, r: 6 }), svgText(p, ids.length > 1 ? String(ids.length) : '↗', 'board-link-badge-text'));
       const tip = svgEl('title', {});
-      const names = [...new Set(ids.map((lid) => this.boardLinks.find((l) => l.id === lid)).filter((l): l is BoardLink => !!l).map((l) => boardKindName(l.kind)))].join('・');
-      tip.textContent = `ほかのシートのセルとの関連 ${ids.length} 本（${names}。押すとメニュー）`;
+      const names = [...new Set(ids.map((lid) => this.boardLinks.find((l) => l.id === lid)).filter((l): l is BoardLink => !!l).map((l) => boardKindName(l.kind)))].join(tr('・'));
+      tip.textContent = tr('ほかのシートのセルとの関連 {0} 本（{1}。押すとメニュー）', { 0: ids.length, 1: names });
       badge.append(tip);
       g.append(badge);
     }
@@ -703,7 +704,7 @@ export class Sidebar {
     const back = this.sheets.get(this.backTo());
     this.backButton.hidden = !back;
     if (back) {
-      this.backButton.title = `「${back.name}」へ戻る`;
+      this.backButton.title = tr('「{0}」へ戻る', { 0: back.name });
       this.backButton.setAttribute('aria-label', `シート「${back.name}」へ戻る`);
     }
     const swatch = document.createElement('span');
@@ -713,7 +714,7 @@ export class Sidebar {
     name.className = 'sheet-name';
     name.textContent = sheet.name;
     this.sheetButton.replaceChildren(swatch, name, document.createTextNode(' ▾'));
-    this.sheetButton.title = `シート「${sheet.name}」（押すと、シートの一覧とタブの見え方）`;
+    this.sheetButton.title = tr('シート「{0}」（押すと、シートの一覧とタブの見え方）', { 0: sheet.name });
     this.sheetButton.setAttribute('aria-label', this.sheetButton.title);
   }
 
@@ -772,23 +773,23 @@ export class Sidebar {
       comment = tab.comment;
       anchor = this.anchorOf(tab.id);
     } else if (memo?.portal && memo.text) {
-      title = `シート「${this.sheets.get(memo.portal)?.name ?? '？'}」`;
+      title = tr('シート「{0}」', { 0: this.sheets.get(memo.portal)?.name ?? '？' });
       comment = memoTitle(memo, 80);
       anchor = this.anchorOfMemo(memo.id);
     } else if (memo?.app) {
       const app = this.apps.get(memo.app);
       const waiting = !this.apps.ready;
-      title = waiting ? 'アプリ' : app ? `アプリ「${app.name}」` : 'アプリ（台帳に見つかりません）';
+      title = waiting ? tr('アプリ') : app ? tr('アプリ「{0}」', { 0: app.name }) : tr('アプリ（台帳に見つかりません）');
       const pinned = !!app && this.pinnedAppId() === app.id;
-      comment = waiting ? '読み込んでいます' : app ? (pinned ? 'ダブルクリック（最前面をやめる）' : 'ダブルクリック（中央に出す）') : '右クリック →「セルを外す」で片づけられます';
+      comment = waiting ? tr('読み込んでいます') : app ? (pinned ? tr('ダブルクリック（最前面をやめる）') : tr('ダブルクリック（中央に出す）')) : tr('右クリック →「セルを外す」で片づけられます');
       anchor = this.anchorOfMemo(memo.id);
     } else if (memo?.bot) {
       // ボットのセル：1倍では名前を出さないので、いつも吹き出しで名前を見せる（コメントが無ければ、押すと何が起きるか）
       const bot = this.bots.get(memo.bot);
-      title = bot ? `ボット「${bot.name}」` : 'ボット（台帳に見つかりません）';
+      title = bot ? tr('ボット「{0}」', { 0: bot.name }) : tr('ボット（台帳に見つかりません）');
       const activity = bot ? this.botActivity(bot.id) : undefined;
       const state = botFullState(bot, this.botAppMissing(), activity);
-      const counts = activity && (activity.unread || activity.waiting) ? `（${botFullStateLabel(state)}・まだ読んでいない ${activity.unread}・待っている ${activity.waiting}）` : '';
+      const counts = activity && (activity.unread || activity.waiting) ? tr('（{0}・まだ読んでいない {1}・待っている {2}）', { 0: botFullStateLabel(state), 1: activity.unread, 2: activity.waiting }) : '';
       comment = `${memo.text ? memoTitle(memo, 80) : botFullStateHint(state)}${counts}`;
       anchor = this.anchorOfMemo(memo.id);
     }
@@ -920,7 +921,7 @@ export class Sidebar {
     for (const { draft, cells } of this.drafts) {
       const here = draft.tabIds.map((id) => this.store.get(id)).filter((t): t is Tab => t?.sheet === this.sheet);
       if (here.length === 0) continue;
-      world.append(regionShape(cells, draft.color, `${draft.name}（案）`, true, { zoom: this.zoom }));
+      world.append(regionShape(cells, draft.color, tr('{0}（案）', { 0: draft.name }), true, { zoom: this.zoom }));
       for (const tab of here) {
         const c = hexToPixel(tab.pos, CELL);
         world.append(svgEl('polygon', { class: 'draft-ring', points: hexCorners(c.x, c.y, CELL - 1), stroke: draft.color }));
@@ -945,7 +946,7 @@ export class Sidebar {
     for (const island of islands) {
       const cells = island.refs.map((r) => this.refHere(r)).filter((h): h is Hex => !!h);
       if (cells.length === 0) continue;
-      g.append(regionShape(cells, island.color, `${island.name}（Grok の案）`, true, { zoom: this.zoom }));
+      g.append(regionShape(cells, island.color, tr('{0}（Grok の案）', { 0: island.name }), true, { zoom: this.zoom }));
       for (const h of cells) {
         const c = hexToPixel(h, CELL);
         g.append(svgEl('polygon', { class: 'draft-ring', points: hexCorners(c.x, c.y, CELL - 1), stroke: island.color }));
@@ -1115,7 +1116,7 @@ export class Sidebar {
     if (memo.liked > 0) g.append(svgText({ x: c.x, y: c.y + CELL * 0.66 }, '♥'.repeat(memo.liked), 'like-mark'));
     if (this.selectedMemos.has(memo.id)) g.append(svgEl('polygon', { class: 'select-ring', points: hexCorners(c.x, c.y, CELL - 0.5) }));
     const title = svgEl('title', {});
-    title.textContent = memoTitle(memo, 80) || 'メモ（空）';
+    title.textContent = memoTitle(memo, 80) || tr('メモ（空）');
     g.append(title);
     return g;
   }
@@ -1142,7 +1143,7 @@ export class Sidebar {
     g.append(svgText(b, String(marks), wide ? 'badge-text capture-badge-text' : 'badge-text'));
     if (this.selectedMemos.has(memo.id)) g.append(svgEl('polygon', { class: 'select-ring', points: hexCorners(c.x, c.y, CELL - 0.5) }));
     const title = svgEl('title', {});
-    title.textContent = `撮ったもの（スタンプ ${marks}）`;
+    title.textContent = tr('撮ったもの（スタンプ {0}）', { 0: marks });
     g.append(title);
     return g;
   }
@@ -1164,7 +1165,7 @@ export class Sidebar {
     // 名前の全部（ひとことがあれば、乗せたときの吹き出しに名前も出るので要らない）
     if (!memo.text || !this.showBalloons) {
       const title = svgEl('title', {});
-      title.textContent = target ? `シート「${target.name}」へ（${info?.count ?? 0} セル）` : '行き先のシートが見つかりません';
+      title.textContent = target ? tr('シート「{0}」へ（{1} セル）', { 0: target.name, 1: info?.count ?? 0 }) : tr('行き先のシートが見つかりません');
       g.append(title);
     }
     return g;
@@ -1187,7 +1188,7 @@ export class Sidebar {
     if (this.selectedMemos.has(memo.id)) g.append(svgEl('polygon', { class: 'select-ring', points: hexCorners(c.x, c.y, CELL - 0.5) }));
     if (!this.showBalloons) {
       const title = svgEl('title', {});
-      title.textContent = `${bot ? `ボット「${bot.name}」` : 'ボット（台帳に見つかりません）'}\n${memo.text ? `${memoTitle(memo, 80)}\n` : ''}${botFullStateHint(state)}`;
+      title.textContent = `${bot ? tr('ボット「{0}」', { 0: bot.name }) : tr('ボット（台帳に見つかりません）')}\n${memo.text ? `${memoTitle(memo, 80)}\n` : ''}${botFullStateHint(state)}`;
       g.append(title);
     }
     return g;
@@ -1208,7 +1209,7 @@ export class Sidebar {
     if (this.selectedMemos.has(memo.id)) g.append(svgEl('polygon', { class: 'select-ring', points: hexCorners(c.x, c.y, CELL - 0.5) }));
     if (!this.showBalloons) {
       const title = svgEl('title', {});
-      title.textContent = lost ? 'アプリ（台帳に見つかりません）' : `アプリ「${app?.name ?? ''}」`;
+      title.textContent = lost ? tr('アプリ（台帳に見つかりません）') : tr('アプリ「{0}」', { 0: app?.name ?? '' });
       g.append(title);
     }
     return g;
@@ -1627,7 +1628,7 @@ export class Sidebar {
       if (island) {
         li.classList.add('in-island');
         li.style.setProperty('--island', island.color);
-        li.title = `島：${island.name}`;
+        li.title = tr('島：{0}', { 0: island.name });
       }
       li.dataset.id = String(tab.id);
       const icon = span('hex-icon');
@@ -1640,9 +1641,9 @@ export class Sidebar {
       const title = span('title');
       if (tab.comment) {
         title.classList.add('with-comment');
-        title.append(span('row-title', tab.title || tab.url || '新しいタブ'), span('row-comment', tab.comment));
+        title.append(span('row-title', tab.title || tab.url || tr('新しいタブ')), span('row-comment', tab.comment));
       } else {
-        title.textContent = tab.title || tab.url || '新しいタブ';
+        title.textContent = tab.title || tab.url || tr('新しいタブ');
       }
       li.append(span('num', String(tab.order)), icon, title);
       for (const tag of tab.tags.slice(0, 3)) {
@@ -1654,7 +1655,7 @@ export class Sidebar {
       if (tab.keepAwake) li.append(span('keep-mark-html'));
       if (tab.notes.length > 0) li.append(span('note-mark', `✎${tab.notes.length}`));
       if (tab.liked > 0) li.append(span('like-mark', '♥'.repeat(tab.liked)));
-      if (tab.readEdges >= 6) li.append(span('read-mark', '読了'));
+      if (tab.readEdges >= 6) li.append(span('read-mark', tr('読了')));
       li.append(close);
       return li;
     });
@@ -1663,7 +1664,7 @@ export class Sidebar {
       marker.className = 'drop-marker';
       rows.splice(drag.index, 0, marker);
     }
-    if (rows.length === 0) rows.push(Object.assign(document.createElement('li'), { className: 'list-empty', textContent: 'このシートにはタブがありません' }));
+    if (rows.length === 0) rows.push(Object.assign(document.createElement('li'), { className: 'list-empty', textContent: tr('このシートにはタブがありません') }));
     this.list.replaceChildren(...rows);
   }
 
@@ -1800,7 +1801,7 @@ function regionShape(cells: Hex[], color: string, name: string, dashed: boolean,
     if (label.id) {
       text.dataset.island = label.id;
       const tip = svgEl('title', {});
-      tip.textContent = `島「${name}」（右クリックで名前・色・解散、ダブルクリックで名前を変える）`;
+      tip.textContent = tr('島「{0}」（右クリックで名前・色・解散、ダブルクリックで名前を変える）', { 0: name });
       text.append(tip);
     }
     g.append(text);

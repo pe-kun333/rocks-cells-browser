@@ -1,12 +1,13 @@
 // ボードの見るメモの名札と選び口（M3）：決まりの純関数（名札・メニュー・旗・貼り付けの帯）と、配線（ソースの形）の確かめ
 import { readFileSync } from 'node:fs';
+import { unwrapT } from './source-text';
 import { describe, expect, it } from 'vitest';
 
 import { BOARD_SEND_WINDOW_MS, RESET_LABEL, boardMemoInfo, memoTagOf, pickMode, pickerEntries, skipLowerSentBar, titleOf } from '../src/memo-board-pick';
 import type { MenuEntry } from '../src/panels/cell-menu';
 import type { MemoIndexItem } from '../src/memocells';
 
-const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
+const read = (path: string) => unwrapT(readFileSync(new URL(path, import.meta.url), 'utf8'));
 const A = { id: 'a', text: 'メモ A の見出し\n本文' };
 const B = { id: 'b', text: '\n  メモ B  \n本文' };
 const item = (id: string, title: string): MemoIndexItem => ({ id, sheet: 'main', title, tags: [], createdAt: 1, updatedAt: 1 });

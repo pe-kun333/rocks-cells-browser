@@ -31,6 +31,7 @@
 #include "media.h"
 #include "screengrab.h"
 #include "storage.h"
+#include "l10n.h"
 #include "strings.h"
 
 using Microsoft::WRL::Callback;
@@ -367,7 +368,7 @@ std::optional<std::filesystem::path> ExportFileInFolder(const std::string& name)
 
 void ShowError(HWND hwnd, const wchar_t* what, HRESULT hr) {
     wchar_t message[256];
-    swprintf_s(message, L"%s に失敗しました (HRESULT 0x%08X)", what, static_cast<unsigned>(hr));
+    swprintf_s(message, l10n::Tr(L"%s に失敗しました (HRESULT 0x%08X)"), l10n::Tr(what), static_cast<unsigned>(hr));
     MessageBoxW(hwnd, message, kAppName, MB_ICONERROR);
 }
 
@@ -399,8 +400,8 @@ Browser::Browser(HWND hwnd) : hwnd_(hwnd) {
 // 公開版（rebuild-public.ps1）：WebView2 ランタイムが無いときは、入手先（Microsoft のページ）を開くか聞いて終わる
 static void PromptWebView2Runtime(HWND hwnd) {
     const int answer = MessageBoxW(hwnd,
-        L"WebView2 ランタイムが必要です。入手先を開きますか？\n\n"
-        L"「はい」で Microsoft の WebView2 のページを開きます。「Evergreen Bootstrapper」をダウンロードして入れてから、もう一度起動してください。",
+        l10n::Tr(L"WebView2 ランタイムが必要です。入手先を開きますか？\n\n"
+        L"「はい」で Microsoft の WebView2 のページを開きます。「Evergreen Bootstrapper」をダウンロードして入れてから、もう一度起動してください。"),
         kAppName, MB_YESNO | MB_ICONINFORMATION);
     if (answer == IDYES) ShellExecuteW(nullptr, L"open", L"https://developer.microsoft.com/microsoft-edge/webview2/", nullptr, nullptr, SW_SHOWNORMAL);
     PostQuitMessage(0);
@@ -614,6 +615,8 @@ void Browser::HandleUiMessage(const std::string& from, const json& msg) {
         const int newId = AddTab(ToWide(msg.value("url", "")), parentId, msg.value("requestId", json()), lazy, background);
         if (background) WakeTab(newId);
         else if (!lazy) ActivateTab(newId);
+    } else if (type == "setLang") {
+        if (from == "left") l10n::SavePref(msg.value("pref", ""));  // 言語の設定を lang.txt に残す（C++ の言葉は次の起動から）
     } else if (type == "setLinkOpen") {
         linkBackground_ = msg.value("background", false);  // ページのリンクから開く新しいタブを、裏で開くか
     } else if (type == "setTheme") {
@@ -2146,7 +2149,7 @@ void Browser::RememberDownload(ICoreWebView2DownloadOperation* operation) {
     operation->get_BytesReceived(&bytes);
     const auto at = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     std::string name = ToUtf8(std::filesystem::path(file).filename().wstring());
-    if (name.empty()) name = "ファイル";
+    if (name.empty()) name = l10n::TrU8("ファイル");
     ClipUtf8(name, 180);
     for (auto it = downloads_.begin(); it != downloads_.end(); ++it) {
         if (_wcsicmp(it->path.c_str(), file.c_str()) == 0) {
@@ -2237,7 +2240,7 @@ void Browser::OpenDownload(const std::string& id) {
     if (IsRiskyDownload(item->path)) {
         const bool shown = SelectInFolder(hwnd_, item->path);
         json reply = {{"type", "downloadResult"}, {"id", id}, {"ok", shown}, {"opened", false}};
-        if (shown) reply["note"] = "この種類は実行しません。フォルダを開きました";
+        if (shown) reply["note"] = l10n::TrU8("この種類は実行しません。フォルダを開きました");
         else reply["error"] = "failed";
         SendToSurface("left", reply);
         return;
@@ -2328,15 +2331,14 @@ HWND Browser::CreatePopoutWindow(int slot, const json& place, bool* top) {
         x = work.right - width - ToPixels(24) - slot * ToPixels(28);
         y = work.bottom - height - ToPixels(24) - slot * ToPixels(36);
     }
-    HWND popup = CreateWindowExW(exStyle, L"RocksCellsBrowserPopout", L"小窓", WS_OVERLAPPEDWINDOW, x, y, width, height, hwnd_, nullptr,
-                                 GetModuleHandleW(nullptr), nullptr);
+    HWND popup = CreateWindowExW(exStyle, L"RocksCellsBrowserPopout", l10n::Tr(L"小窓"), WS_OVERLAPPEDWINDOW, x, y, width, height, hwnd_, nullptr,                                 GetModuleHandleW(nullptr), nullptr);
     if (!popup) return nullptr;
     SetWindowLongPtrW(popup, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
     if (theme_) theme::ApplyFrame(popup, themeSlot_);
     if (HMENU menu = GetSystemMenu(popup, FALSE)) {
         AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-        AppendMenuW(menu, MF_STRING | (*top ? MF_CHECKED : MF_UNCHECKED), kPopoutMenuTop, L"最前面に固定");
-        AppendMenuW(menu, MF_STRING, kPopoutMenuDock, L"サイドバーへ戻す");
+        AppendMenuW(menu, MF_STRING | (*top ? MF_CHECKED : MF_UNCHECKED), kPopoutMenuTop, l10n::Tr(L"最前面に固定"));
+        AppendMenuW(menu, MF_STRING, kPopoutMenuDock, l10n::Tr(L"サイドバーへ戻す"));
     }
     return popup;
 }
@@ -2434,13 +2436,13 @@ void Browser::UpdatePopoutTitle(int id) {
     auto it = popouts_.find(id);
     if (it == popouts_.end()) return;
     Tab* tab = FindTab(id);
-    std::wstring caption = L"小窓";
+    std::wstring caption = l10n::Tr(L"小窓");
     if (tab && tab->webview) {
         CoString title;
         tab->webview->get_DocumentTitle(title.put());
         if (!title.str().empty()) caption = title.str();
     }
-    if (!it->second.top) caption += L"（最前面でない）";
+    if (!it->second.top) caption += l10n::Tr(L"（最前面でない）");
     SetWindowTextW(it->second.hwnd, caption.c_str());
 }
 

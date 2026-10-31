@@ -1,6 +1,7 @@
 // 左サイドバー（メイン）
 //   タブの台帳を持ち、盤面・アドレスバー・拡大表示・保存と復元・自動休眠を担当する
 //   右サイドバーには、台帳の写しと「今どのタブを拡大表示しているか」を送る
+import { loadLangPref, t as tr } from '../i18n';
 import { attachGrokCards } from '../grok-cards-bridge';
 import { APP_TITLE, BOT_FEATURES, HEXMEMO_URL } from '../features';
 import { CHAT_SENT, isMachineTag } from '../grok-cards-tags';
@@ -222,7 +223,7 @@ export function startPrimary() {
     prefs.linkOpen = mode;
     savePrefs(prefs);
     syncLinkOpen();
-    toast(mode === 'back' ? 'ページのリンクから開くタブは、いつも裏で開いてセルに足します（大きさの決まった小さな窓は表に出します）' : 'ページのリンクから開くタブは、今までどおり表に出します');
+    toast(mode === 'back' ? tr('ページのリンクから開くタブは、いつも裏で開いてセルに足します（大きさの決まった小さな窓は表に出します）') : tr('ページのリンクから開くタブは、今までどおり表に出します'));
   }
 
   // 新しいタブ（今見ているシートに。今のタブがこのシートに無ければ、盤面のまん中に見えている所の近く）
@@ -262,7 +263,7 @@ export function startPrimary() {
   void memos.load().then(() => {
     ensureSheets();
     // AR0：読み直しても台帳を読めなかった。この起動では書かない（空で上書きしない）
-    if (memos.loadFailed) showToast(board, 'メモの台帳を読めませんでした。いま書いたメモは保存されません。ブラウザを開き直してください', 15000);
+    if (memos.loadFailed) showToast(board, tr('メモの台帳を読めませんでした。いま書いたメモは保存されません。ブラウザを開き直してください'), 15000);
   });
   store.blocked = (h, sheet) => !!memos.at(h, sheet) || reservedAt(h, sheet);
   // ボットの台帳（ui-data\bots\index.json）。ボットのセル（memo.bot）の名前とリンクの id はここ。セルを外しても残す
@@ -371,7 +372,7 @@ export function startPrimary() {
       boardLinkMenu: (id, x, y) => openBoardLinkMenu(id, x, y),
       finishBoardLink: (from, to, kind) => finishBoardLink(from, to, kind),
       boardLinkingChanged: (on) => {
-        if (on) toast('相手のセルを押してください（Esc・右クリック・空いた所でやめる）', 6000);
+        if (on) toast(tr('相手のセルを押してください（Esc・右クリック・空いた所でやめる）'), 6000);
       },
       renameIsland: (id, x, y) => renameIsland(id, { x, y }),
       hoverMemo: (id) => preview.setMemoPointer(sheetPeek.isOpen && memos.get(id)?.portal ? null : id), // 小窓を開いている間は、入口のカードを出さない
@@ -434,7 +435,7 @@ export function startPrimary() {
 
   // 書きかけの欄があるか（見た目の欄で何か変えた・メモに書いた）。あれば、シートを移ると消えてしまう
   const editorsBusy = () => faceEditor.isDirty || memoEditor.hasText;
-  const busyToast = () => toast('書きかけの欄を「残す」か「やめる」で閉じてから、シートを移ってください');
+  const busyToast = () => toast(tr('書きかけの欄を「残す」か「やめる」で閉じてから、シートを移ってください'));
 
   // シートを移る（書きかけの欄があれば移らずに知らせる）。移ったら true
   function switchSheet(id: string): boolean {
@@ -648,7 +649,7 @@ export function startPrimary() {
     const memo = memos.get(id);
     if (!memo?.portal) return;
     if (!sheets.get(memo.portal)) {
-      toast('行き先のシートが見つかりません（消されたようです）');
+      toast(tr('行き先のシートが見つかりません（消されたようです）'));
       return;
     }
     peekBoard?.copyLook(sidebar);
@@ -840,7 +841,7 @@ export function startPrimary() {
     const notes = selectedMemos();
     const cells = cellsOfTabs(tabs, notes);
     if (cells.length === 0) {
-      toast(notes.length > 0 && tabs.length === 0 && notes.every((memo) => memo.capture) ? '撮ったもののセルはコピーしません' : 'コピーできるセルがありません（http・https のページとメモのセルだけ。入口・ボットのセルはコピーしません）');
+      toast(notes.length > 0 && tabs.length === 0 && notes.every((memo) => memo.capture) ? tr('撮ったもののセルはコピーしません') : tr('コピーできるセルがありません（http・https のページとメモのセルだけ。入口・ボットのセルはコピーしません）'));
       return;
     }
     const nonce = `h${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -848,8 +849,8 @@ export function startPrimary() {
     const written = await writeCellsToClipboard(cells, nonce);
     toast(
       written
-        ? `${cells.length} 個のセルをコピーしました（右クリック →「貼り付け」・Ctrl+V で同じ並びに。六角メモにも貼れます）`
-        : `${cells.length} 個のセルをコピーしました（Windows のクリップボードには書けませんでした）`,
+        ? tr('{0} 個のセルをコピーしました（右クリック →「貼り付け」・Ctrl+V で同じ並びに。六角メモにも貼れます）', { 0: cells.length })
+        : tr('{0} 個のセルをコピーしました（Windows のクリップボードには書けませんでした）', { 0: cells.length }),
     );
   }
 
@@ -886,29 +887,29 @@ export function startPrimary() {
     const clip = await readClipboard();
     const count = (cells: CellItem[]) => {
       const n = cells.filter((c) => c.memo).length;
-      return n > 0 ? `（うちメモ ${n}）` : '';
+      return n > 0 ? tr('（うちメモ {0}）', { 0: n }) : '';
     };
     if (clip.kind === 'cells') {
       if (clip.ours && copied && copied.nonce === clip.nonce) {
-        return { cells: copied.cells, island: copied.island, label: `コピーしたセル ${copied.cells.length} 個${count(copied.cells)}`, note: '' };
+        return { cells: copied.cells, island: copied.island, label: tr('コピーしたセル {0} 個{1}', { 0: copied.cells.length, 1: count(copied.cells) }), note: '' };
       }
       if (clip.cells.length === 0) return null;
-      const skipped = clip.skipped > 0 ? `（空のマス ${clip.skipped} 個は貼りません）` : '';
-      return { cells: clip.cells, label: `${clip.ours ? 'コピーしたセル' : '六角メモのマス'} ${clip.cells.length} 個${count(clip.cells)}`, note: skipped };
+      const skipped = clip.skipped > 0 ? tr('（空のマス {0} 個は貼りません）', { 0: clip.skipped }) : '';
+      return { cells: clip.cells, label: tr('{0} {1} 個{2}', { 0: clip.ours ? 'コピーしたセル' : '六角メモのマス', 1: clip.cells.length, 2: count(clip.cells) }), note: skipped };
     }
-    if (clip.kind === 'urls') return { cells: clip.cells, label: `URL ${clip.cells.length} 個`, note: '', text: clip.text };
-    if (clip.kind === 'text') return { cells: [{ dq: 0, dr: 0, url: '', title: '', memo: { text: clip.text } }], label: '文章 → メモのセル', note: '', text: clip.text };
+    if (clip.kind === 'urls') return { cells: clip.cells, label: tr('URL {0} 個', { 0: clip.cells.length }), note: '', text: clip.text };
+    if (clip.kind === 'text') return { cells: [{ dq: 0, dr: 0, url: '', title: '', memo: { text: clip.text } }], label: tr('文章 → メモのセル'), note: '', text: clip.text };
     return null;
   }
 
   async function pasteAt(anchor: Hex | null) {
     const p = await pasteable();
     if (!p) {
-      toast('貼り付けるものがありません（セル・六角メモのマス・URL・文章をコピーしてから）');
+      toast(tr('貼り付けるものがありません（セル・六角メモのマス・URL・文章をコピーしてから）'));
       return;
     }
     const n = placeCells(p.cells, anchor, p.island);
-    toast(`${p.label}を貼り付けました${p.cells.some((c) => !c.memo) ? '（タブは眠ったタブ。開くと読み込みます）' : ''}${p.note}`);
+    toast(tr('{0}を貼り付けました{1}{2}', { 0: p.label, 1: p.cells.some((c) => !c.memo) ? '（タブは眠ったタブ。開くと読み込みます）' : '', 2: p.note }));
     return n;
   }
 
@@ -917,15 +918,15 @@ export function startPrimary() {
     const notes = selectedMemos();
     const cells = cellsOfTabs(tabs, notes);
     if (cells.length === 0) {
-      toast('セットにできるセルがありません（http・https のページとメモのセルだけ。入口・ボットのセルは入りません）');
+      toast(tr('セットにできるセルがありません（http・https のページとメモのセルだけ。入口・ボットのセルは入りません）'));
       return;
     }
     const island = islandOfCells([...tabs, ...notes]);
     const first = tabs[0]?.title || (notes[0] ? memoTitle(notes[0], 20) : '');
-    const initial = island?.name ?? ([...(first || 'セット')].slice(0, 20).join('') || 'セット');
-    cellMenu.prompt(`セットの名前（${cells.length} セル）`, initial, (name) => {
+    const initial = island?.name ?? ([...(first || tr('セット'))].slice(0, 20).join('') || tr('セット'));
+    cellMenu.prompt(tr('セットの名前（{0} セル）', { 0: cells.length }), initial, (name) => {
       const set = cellSets.add(name, cells, island);
-      toast(`セット「${set.name}」を保存しました（空いたセルを右クリック →「セットを貼る」）`);
+      toast(tr('セット「{0}」を保存しました（空いたセルを右クリック →「セットを貼る」）', { 0: set.name }));
     });
   }
 
@@ -937,7 +938,7 @@ export function startPrimary() {
     }
     placeCells(set.cells, anchor, set.island);
     cellSets.used(set.id);
-    toast(`セット「${set.name}」を貼りました（${set.cells.length} セル）`);
+    toast(tr('セット「{0}」を貼りました（{1} セル）', { 0: set.name, 1: set.cells.length }));
   }
 
   // 入口を1つだけここに置き、セットは新しいシート（名前はセットと同じ）に、保存したときの並びのまま貼る
@@ -947,18 +948,18 @@ export function startPrimary() {
     const at = isTaken(near, here) ? nearestFree(near, (h) => isTaken(h, here)) : near;
     const sheet = sheets.add(set.name);
     if (!sheet) {
-      toast('シートが多すぎて作れません（100 枚まで）');
+      toast(tr('シートが多すぎて作れません（100 枚まで）'));
       return;
     }
     const portal = memos.add({ sheet: here, pos: at, text: '', portal: sheet.id });
     if (!portal) {
       sheets.remove(sheet.id);
-      toast('入口を置けませんでした（メモのセルが多すぎます）');
+      toast(tr('入口を置けませんでした（メモのセルが多すぎます）'));
       return;
     }
     placeCells(set.cells, { q: 0, r: 0 }, set.island, sheet.id);
     cellSets.used(set.id);
-    toast(`セット「${set.name}」を、新しいシート「${sheet.name}」に貼りました（${set.cells.length} セル）。入口をダブルクリックで移ります`, 5000);
+    toast(tr('セット「{0}」を、新しいシート「{1}」に貼りました（{2} セル）。入口をダブルクリックで移ります', { 0: set.name, 1: sheet.name, 2: set.cells.length }), 5000);
   }
 
   // 「セットを貼る」の貼り方の切り替え（押してもメニューは閉じない。覚えておく）
@@ -973,10 +974,10 @@ export function startPrimary() {
       cellMenu.refresh();
     };
     buttons.push(
-      { label: 'ここに並べる', pressed: prefs.pasteSetAs === 'here', run: () => set('here') },
-      { label: '入口を1つ置く', pressed: prefs.pasteSetAs === 'portal', run: () => set('portal') },
+      { label: tr('ここに並べる'), pressed: prefs.pasteSetAs === 'here', run: () => set('here') },
+      { label: tr('入口を1つ置く'), pressed: prefs.pasteSetAs === 'portal', run: () => set('portal') },
     );
-    return { row: '貼り方', buttons };
+    return { row: tr('貼り方'), buttons };
   }
 
   // 選んだセル（タブとメモ）を、六角メモの送り先のノートへ、同じ並びで送る
@@ -988,32 +989,32 @@ export function startPrimary() {
   async function sendCellsToHexMemo(all: CellItem[]) {
     const target = savedHexMemoTarget();
     if (!target) {
-      toast('右の相棒の ⚙ で「六角メモの送り先」を選んでから、もう一度どうぞ');
+      toast(tr('右の相棒の ⚙ で「六角メモの送り先」を選んでから、もう一度どうぞ'));
       return;
     }
     const cells = all.slice(0, 50);
     if (cells.length === 0) {
-      toast('六角メモへ送れるセルがありません（http・https のページとメモのセルだけ。入口・ボットのセルは送りません）');
+      toast(tr('六角メモへ送れるセルがありません（http・https のページとメモのセルだけ。入口・ボットのセルは送りません）'));
       return;
     }
-    toast('六角メモへ送っています…');
+    toast(tr('六角メモへ送っています…'));
     const outcome = await sendToHexMemo(target, hexMemoRecords(cells), cells.map((c) => ({ dq: c.dq, dr: c.dr })));
-    const images = cells.some((c) => c.memo?.image) ? '（スクショの画像は送りません）' : '';
-    toast(outcome.ok ? ('pending' in outcome ? outcome.message : `${cells.length} 個のセルを「${target.label}」へ送りました${images}`) : `送れませんでした：${outcome.error}`, 6000);
+    const images = cells.some((c) => c.memo?.image) ? tr('（スクショの画像は送りません）') : '';
+    toast(outcome.ok ? ('pending' in outcome ? outcome.message : tr('{0} 個のセルを「{1}」へ送りました{2}', { 0: cells.length, 1: target.label, 2: images })) : tr('送れませんでした：{0}', { 0: outcome.error }), 6000);
   }
 
   function setEntries(anchor: Hex | null): MenuEntry[] {
     const sets = cellSets.list();
-    const entries: MenuEntry[] = ['sep', { section: 'セットを貼る' }];
+    const entries: MenuEntry[] = ['sep', { section: tr('セットを貼る') }];
     if (sets.length === 0) {
-      entries.push({ label: 'まだありません（セルを選んで右クリック →「セットとして保存」）', disabled: true });
+      entries.push({ label: tr('まだありません（セルを選んで右クリック →「セットとして保存」）'), disabled: true });
       return entries;
     }
-    const hint = (set: CellSet) => (prefs.pasteSetAs === 'portal' ? `${set.cells.length} → シート` : `${set.cells.length}`);
+    const hint = (set: CellSet) => (prefs.pasteSetAs === 'portal' ? tr('{0} → シート', { 0: set.cells.length }) : `${set.cells.length}`);
     const items = sets.slice(0, 8).map((set) => ({ set, entry: { label: set.name, hint: hint(set), run: () => pasteSet(set, anchor) } }));
     entries.push(pasteModeRow(() => items.forEach(({ set, entry }) => (entry.hint = hint(set)))));
     entries.push(...items.map((i) => i.entry));
-    entries.push({ label: 'セットの一覧（名前を変える・消す）…', run: () => openSetManager(anchor) });
+    entries.push({ label: tr('セットの一覧（名前を変える・消す）…'), run: () => openSetManager(anchor) });
     return entries;
   }
 
@@ -1022,15 +1023,15 @@ export function startPrimary() {
     const y = 80;
     const render = () => {
       const sets = cellSets.list();
-      const entries: MenuEntry[] = [{ section: `セット（${sets.length}）` }, pasteModeRow(() => undefined)];
+      const entries: MenuEntry[] = [{ section: tr('セット（{0}）', { 0: sets.length }) }, pasteModeRow(() => undefined)];
       for (const set of sets) {
         entries.push({
           row: set.name,
-          hint: `${set.cells.length} セル${set.island ? '・島' : ''}`,
+          hint: tr('{0} セル{1}', { 0: set.cells.length, 1: set.island ? '・島' : '' }),
           buttons: [
-            { label: '貼る', run: () => (cellMenu.close(), pasteSet(set, anchor)) },
-            { label: '名前', run: () => cellMenu.prompt('セットの新しい名前', set.name, (name) => cellSets.rename(set.id, name)) },
-            { label: '消す', confirm: '本当に消す', run: () => (cellSets.remove(set.id), cellSets.list().length ? render() : cellMenu.close()) },
+            { label: tr('貼る'), run: () => (cellMenu.close(), pasteSet(set, anchor)) },
+            { label: tr('名前'), run: () => cellMenu.prompt(tr('セットの新しい名前'), set.name, (name) => cellSets.rename(set.id, name)) },
+            { label: tr('消す'), confirm: tr('本当に消す'), run: () => (cellSets.remove(set.id), cellSets.list().length ? render() : cellMenu.close()) },
           ],
         });
       }
@@ -1046,7 +1047,7 @@ export function startPrimary() {
     const memo = memos.get(id);
     if (!memo?.portal) return;
     if (!sheets.get(memo.portal)) {
-      toast('行き先のシートが見つかりません（消されたようです）');
+      toast(tr('行き先のシートが見つかりません（消されたようです）'));
       return;
     }
     switchSheet(memo.portal);
@@ -1087,15 +1088,15 @@ export function startPrimary() {
     const target = memos.get(portalId)?.portal;
     const sheet = sheets.get(target);
     if (!target || !sheet) {
-      toast('行き先のシートが見つかりません');
+      toast(tr('行き先のシートが見つかりません'));
       return;
     }
     if (cell.memo && memos.get(cell.memo)?.portal === target) {
-      toast('入口は、その行き先のシートの中には入れられません');
+      toast(tr('入口は、その行き先のシートの中には入れられません'));
       return;
     }
     const n = moveCellsToSheet(cell.tab !== undefined ? [cell.tab] : [], cell.memo ? [cell.memo] : [], target);
-    if (n > 0) toast(`シート「${sheet.name}」へ移しました（入口を押すと小窓で見られます）`);
+    if (n > 0) toast(tr('シート「{0}」へ移しました（入口を押すと小窓で見られます）', { 0: sheet.name }));
   }
 
   // 選んだセルを、ほかのシートへ移す
@@ -1108,15 +1109,15 @@ export function startPrimary() {
     const n = moveCellsToSheet(tabIds, memoIds, target);
     sidebar.clearSelection();
     if (n === 0 && dropped === 0) {
-      toast('移せるセルがありません');
+      toast(tr('移せるセルがありません'));
       return;
     }
-    toast(`${n} 個のセルを、シート「${sheet.name}」へ移しました${dropped > 0 ? `（そのシートへの入口 ${dropped} 個は消しました）` : ''}`);
+    toast(tr('{0} 個のセルを、シート「{1}」へ移しました{2}', { 0: n, 1: sheet.name, 2: dropped > 0 ? `（そのシートへの入口 ${dropped} 個は消しました）` : '' }));
   }
 
   // 移す先のシートを全部出す（選んだセルはそのまま）
   function openMoveToMenu(x: number, y: number, from = sheets.current) {
-    const entries: MenuEntry[] = [{ section: '選んだセルを移すシート' }];
+    const entries: MenuEntry[] = [{ section: tr('選んだセルを移すシート') }];
     for (const sheet of sheets.recent().filter((s) => s.id !== from)) {
       entries.push({ label: sheet.name, hint: `${store.inSheet(sheet.id).length + memos.inSheet(sheet.id).length}`, run: () => moveSelectionTo(sheet.id) });
     }
@@ -1135,15 +1136,15 @@ export function startPrimary() {
     const at = [...all].sort((a, b) => byPosition(a.pos, b.pos))[0].pos;
     const island = islandOfCells(all);
     const first = tabs[0]?.title || (cells[0] ? memoTitle(cells[0], 20) : '');
-    const initial = island?.name ?? ([...(first || 'シート')].slice(0, 20).join('') || 'シート');
+    const initial = island?.name ?? ([...(first || tr('シート'))].slice(0, 20).join('') || tr('シート'));
     cellMenu.prompt(
-      `新しいシートの名前（${all.length} セルをまとめる）`,
+      tr('新しいシートの名前（{0} セルをまとめる）', { 0: all.length }),
       initial,
       (name) => {
         if (sheets.current !== viewing) return; // 名前を入れている間にシートを移った
         const sheet = sheets.add(name);
         if (!sheet) {
-          toast('シートが多すぎて作れません（100 枚まで）');
+          toast(tr('シートが多すぎて作れません（100 枚まで）'));
           return;
         }
         const n = moveCellsToSheet(
@@ -1157,8 +1158,8 @@ export function startPrimary() {
         sidebar.clearSelection();
         toast(
           portal
-            ? `${n} 個のセルを、新しいシート「${sheet.name}」にまとめました（入口をダブルクリックで移ります）`
-            : `${n} 個のセルを新しいシート「${sheet.name}」へ移しましたが、入口を置けませんでした（左上のシートの名前 ▾ から開けます）`,
+            ? tr('{0} 個のセルを、新しいシート「{1}」にまとめました（入口をダブルクリックで移ります）', { 0: n, 1: sheet.name })
+            : tr('{0} 個のセルを新しいシート「{1}」へ移しましたが、入口を置けませんでした（左上のシートの名前 ▾ から開けます）', { 0: n, 1: sheet.name }),
           5000,
         );
       },
@@ -1181,9 +1182,9 @@ export function startPrimary() {
   }
 
   function cellImageErrorText(error: string | undefined) {
-    if (error === 'empty') return 'クリップボードに画像がありません';
-    if (error === 'big') return '画像が大きすぎます';
-    return '画像を読めませんでした';
+    if (error === 'empty') return tr('クリップボードに画像がありません');
+    if (error === 'big') return tr('画像が大きすぎます');
+    return tr('画像を読めませんでした');
   }
 
   async function pasteCellImage(target: CellImageTarget) {
@@ -1194,12 +1195,12 @@ export function startPrimary() {
     }
     const imageId = await memos.saveImage(reply.image);
     if (!imageId) {
-      toast('画像を保存できませんでした');
+      toast(tr('画像を保存できませんでした'));
       return;
     }
     if (target.kind === 'tab') {
       if (!store.get(target.id)) {
-        toast('そのセルは、もうありません');
+        toast(tr('そのセルは、もうありません'));
         return;
       }
       // 見え方を「画像」にすると、全体の見え方がアイコンでも顔に出る
@@ -1207,12 +1208,12 @@ export function startPrimary() {
     } else {
       const memo = memos.get(target.id);
       if (!memo || memo.app || memo.capture) {
-        toast('そのセルは、もうありません');
+        toast(tr('そのセルは、もうありません'));
         return;
       }
       memos.update(target.id, { image: imageId });
     }
-    toast('画像を貼りました');
+    toast(tr('画像を貼りました'));
   }
 
   function clearCellImage(target: CellImageTarget) {
@@ -1223,7 +1224,7 @@ export function startPrimary() {
     } else if (memos.get(target.id)?.image) {
       memos.update(target.id, { image: null });
     } else return;
-    toast('画像を外しました');
+    toast(tr('画像を外しました'));
   }
 
   // 盤面のセルの画像（六角形スクショ・タブの見た目）を、右の撮影へ送る（I4）
@@ -1231,14 +1232,14 @@ export function startPrimary() {
     if (target.kind === 'tab') {
       const tab = store.get(target.id);
       if (!tab?.image) {
-        toast('そのセルの画像は、もうありません');
+        toast(tr('そのセルの画像は、もうありません'));
         return;
       }
       captureShotToRight(tab.image, 'tabImage', tab.title || tab.url);
     } else {
       const memo = memos.get(target.id);
       if (!memo?.image || memo.app || memo.capture) {
-        toast('そのセルの画像は、もうありません');
+        toast(tr('そのセルの画像は、もうありません'));
         return;
       }
       captureShotToRight(memo.image, 'cellImage', memo.source?.title || memoTitle(memo, 40));
@@ -1249,7 +1250,7 @@ export function startPrimary() {
   function askAnnotateFace(id: string) {
     const memo = memos.get(id);
     if (!memo?.image || isSpecialCell(memo)) {
-      toast('その画像は、もうありません');
+      toast(tr('その画像は、もうありません'));
       return;
     }
     memoPane.open(id);
@@ -1258,22 +1259,22 @@ export function startPrimary() {
 
   // 「画像を貼る」を足して、開いたあとに画像の有無で押せるようにする（open の直後に返す関数を呼ぶ）
   function queueCellImage(entries: MenuEntry[], target: CellImageTarget) {
-    const entry: { label: string; hint?: string; disabled?: boolean; run?: () => void } = { label: '画像を貼る', hint: '確かめています…', disabled: true };
+    const entry: { label: string; hint?: string; disabled?: boolean; run?: () => void } = { label: tr('画像を貼る'), hint: tr('確かめています…'), disabled: true };
     entries.push(entry);
     if (cellHasFaceImage(target)) {
-      entries.push({ label: '画像を外す', run: () => clearCellImage(target) });
-      entries.push({ label: '🖼 画像を撮影に送る', hint: '大きく開く', run: () => sendCellImageToCapture(target) });
+      entries.push({ label: tr('画像を外す'), run: () => clearCellImage(target) });
+      entries.push({ label: tr('🖼 画像を撮影に送る'), hint: tr('大きく開く'), run: () => sendCellImageToCapture(target) });
       // 段 D7：ふつうのメモの顔だけ。入口・ボット・アプリ・撮ったもの・タブには出さない。左は id だけを下の区画へ渡す
       if (target.kind === 'memo') {
         const face = memos.get(target.id);
-        if (face?.image && !isSpecialCell(face)) entries.push({ label: '書き足す…', hint: '新しいカードに足す', run: () => askAnnotateFace(face.id) });
+        if (face?.image && !isSpecialCell(face)) entries.push({ label: tr('書き足す…'), hint: tr('新しいカードに足す'), run: () => askAnnotateFace(face.id) });
       }
     }
     return () => {
       const token = cellMenu.token();
       void cellImageOnClipboard().then((state) => {
         if (state === 'yes') Object.assign(entry, { hint: undefined, disabled: false, run: () => void pasteCellImage(target) });
-        else Object.assign(entry, { hint: state === 'no' ? '画像がありません' : '確かめられませんでした', disabled: true, run: undefined });
+        else Object.assign(entry, { hint: state === 'no' ? tr('画像がありません') : tr('確かめられませんでした'), disabled: true, run: undefined });
         cellMenu.update(entries, token);
       });
     };
@@ -1282,22 +1283,22 @@ export function startPrimary() {
   // 入口を右クリックしたときのメニュー
   function openPortalMenu(portal: MemoCell, info: { hex: Hex | null; x: number; y: number }) {
     const target = sheets.get(portal.portal);
-    const entries: MenuEntry[] = [{ section: target ? `入口：シート「${target.name}」` : '入口（行き先のシートが見つかりません）' }];
+    const entries: MenuEntry[] = [{ section: target ? tr('入口：シート「{0}」', { 0: target.name }) : tr('入口（行き先のシートが見つかりません）') }];
     if (target) {
       const count = store.inSheet(target.id).length + memos.inSheet(target.id).length;
-      entries.push({ label: 'シートを開く', hint: 'ダブルクリック', run: () => switchSheet(target.id) });
-      entries.push({ label: '小窓で見る', hint: 'クリック', run: () => peekPortal(portal.id) });
+      entries.push({ label: tr('シートを開く'), hint: tr('ダブルクリック'), run: () => switchSheet(target.id) });
+      entries.push({ label: tr('小窓で見る'), hint: tr('クリック'), run: () => peekPortal(portal.id) });
       entries.push(cardWinEntry({ kind: 'memo', id: portal.id }));
-      entries.push({ label: 'シートの名前を変える…', run: () => renameSheet(target.id, { x: info.x, y: info.y }) });
-      entries.push({ label: '見た目（画像・コメント）…', run: () => void editPortalFace(portal.id) });
+      entries.push({ label: tr('シートの名前を変える…'), run: () => renameSheet(target.id, { x: info.x, y: info.y }) });
+      entries.push({ label: tr('見た目（画像・コメント）…'), run: () => void editPortalFace(portal.id) });
       if (target.id !== MAIN_SHEET && target.id !== portal.sheet) {
-        entries.push({ label: '中身をここに出す（シートをなくす）', hint: `${count}`, run: () => unpackSheet(portal.id) });
+        entries.push({ label: tr('中身をここに出す（シートをなくす）'), hint: `${count}`, run: () => unpackSheet(portal.id) });
       }
     }
     const armImage = queueCellImage(entries, { kind: 'memo', id: portal.id });
-    entries.push({ label: '入口を消す（シートは残る）…', run: () => confirmRemoveMemos([portal.id]) });
-    if (target && target.id !== MAIN_SHEET) entries.push({ label: 'シートごと消す…', run: () => confirmRemoveSheet(target.id) });
-    if (target && target.id !== portal.sheet && canArchive(target.id)) entries.push({ label: 'シートをアーカイブ…', run: () => confirmArchiveSheet(target.id) });
+    entries.push({ label: tr('入口を消す（シートは残る）…'), run: () => confirmRemoveMemos([portal.id]) });
+    if (target && target.id !== MAIN_SHEET) entries.push({ label: tr('シートごと消す…'), run: () => confirmRemoveSheet(target.id) });
+    if (target && target.id !== portal.sheet && canArchive(target.id)) entries.push({ label: tr('シートをアーカイブ…'), run: () => confirmArchiveSheet(target.id) });
     entries.push(...sheetJumpEntries(info.x, info.y));
     entries.push(...setEntries(info.hex));
     cellMenu.open(info.x, info.y, entries);
@@ -1310,7 +1311,7 @@ export function startPrimary() {
     const target = portal?.portal;
     const sheet = sheets.get(target);
     if (!portal || !target || !sheet || target === MAIN_SHEET || target === portal.sheet) {
-      toast('この入口のシートは、ここに出せません');
+      toast(tr('この入口のシートは、ここに出せません'));
       return;
     }
     const here = portal.sheet;
@@ -1327,13 +1328,13 @@ export function startPrimary() {
     sheets.remove(target);
     delete prefs.boards[target];
     savePrefsSoon();
-    toast(`シート「${sheet.name}」の中身（${n} セル）を、ここに出しました`);
+    toast(tr('シート「{0}」の中身（{1} セル）を、ここに出しました', { 0: sheet.name, 1: n }));
   }
 
   function renameSheet(id: string, at?: { x: number; y: number }) {
     const sheet = sheets.get(id);
     if (!sheet) return;
-    cellMenu.prompt('シートの新しい名前', sheet.name, (name) => sheets.rename(id, name), at);
+    cellMenu.prompt(tr('シートの新しい名前'), sheet.name, (name) => sheets.rename(id, name), at);
   }
 
   function confirmRemoveSheet(id: string) {
@@ -1343,11 +1344,11 @@ export function startPrimary() {
     const cells = memos.inSheet(id).length;
     const x = window.innerWidth / 2 - 120;
     cellMenu.open(x, 120, [
-      { section: `シート「${sheet.name}」を消します` },
-      { label: `タブ ${tabs} 個を閉じ、メモのセル ${cells} 個を消します（このシートへの入口も消えます）`, disabled: true },
-      { label: '消す', run: () => removeSheet(id) },
-      ...(canArchive(id) ? [{ label: '消さずにアーカイブする', run: () => void archiveSheet(id) } as MenuEntry] : []),
-      { label: 'やめる', run: () => undefined },
+      { section: tr('シート「{0}」を消します', { 0: sheet.name }) },
+      { label: tr('タブ {0} 個を閉じ、メモのセル {1} 個を消します（このシートへの入口も消えます）', { 0: tabs, 1: cells }), disabled: true },
+      { label: tr('消す'), run: () => removeSheet(id) },
+      ...(canArchive(id) ? [{ label: tr('消さずにアーカイブする'), run: () => void archiveSheet(id) } as MenuEntry] : []),
+      { label: tr('やめる'), run: () => undefined },
     ]);
   }
 
@@ -1382,7 +1383,7 @@ export function startPrimary() {
     sheets.remove(id);
     delete prefs.boards[id];
     savePrefsSoon();
-    if (done === 'removed') toast(`シート「${sheet.name}」を消しました`);
+    if (done === 'removed') toast(tr('シート「{0}」を消しました', { 0: sheet.name }));
   }
 
   // ---------- シートのアーカイブ（docs/plan-sheet-archive.md。AR2・AR3） ----------
@@ -1396,13 +1397,13 @@ export function startPrimary() {
 
   // 断る条件（§5.2）。断るなら理由の文
   function archiveRefusal(sheetId: string | null, ignoreBusy = false): string | null {
-    if (shuttingDown) return 'ブラウザを閉じる途中です';
-    if (archiveBusy && !ignoreBusy) return 'ほかのアーカイブか、戻す処理の途中です';
-    if (!sessionReady) return '前回のタブを読み終えていません。少し待ってから、もう一度押してください';
-    if (pending.size > 0) return '開いている途中のタブがあります。少し待ってから、もう一度押してください';
-    if (!memos.ready || !memos.writableLedger) return 'メモの台帳を読めていません（ブラウザを開き直してください）';
-    if (editorsBusy()) return '書きかけの欄を「残す」か「やめる」で閉じてから、もう一度押してください';
-    if (sheetId && store.inSheet(sheetId).some((t) => store.closing.has(t.id))) return 'このシートに閉じる途中のタブがあります。少し待ってから、もう一度押してください';
+    if (shuttingDown) return tr('ブラウザを閉じる途中です');
+    if (archiveBusy && !ignoreBusy) return tr('ほかのアーカイブか、戻す処理の途中です');
+    if (!sessionReady) return tr('前回のタブを読み終えていません。少し待ってから、もう一度押してください');
+    if (pending.size > 0) return tr('開いている途中のタブがあります。少し待ってから、もう一度押してください');
+    if (!memos.ready || !memos.writableLedger) return tr('メモの台帳を読めていません（ブラウザを開き直してください）');
+    if (editorsBusy()) return tr('書きかけの欄を「残す」か「やめる」で閉じてから、もう一度押してください');
+    if (sheetId && store.inSheet(sheetId).some((t) => store.closing.has(t.id))) return tr('このシートに閉じる途中のタブがあります。少し待ってから、もう一度押してください');
     return null;
   }
 
@@ -1427,11 +1428,11 @@ export function startPrimary() {
     const entrances = memos.list().filter((m) => m.portal === id && m.sheet !== id).length;
     const x = window.innerWidth / 2 - 120;
     const build = (inRightSet: boolean): MenuEntry[] => [
-      { section: `シート「${sheet.name}」をアーカイブします` },
-      { note: `タブ ${tabs} 個・メモのセル ${cells} 個・ほかのシートからの入口 ${entrances} 個を保存して、盤面から片付けます。アーカイブの一覧（左上のシートの名前 ▾）から戻せます。` },
-      ...(inRightSet ? [{ note: 'このシートは右のメモのシートのセットに入っています。セットからは外れます（戻しても戻りません）。' } as MenuEntry] : []),
-      { label: 'アーカイブする', run: () => void archiveSheet(id) },
-      { label: 'やめる', run: () => undefined },
+      { section: tr('シート「{0}」をアーカイブします', { 0: sheet.name }) },
+      { note: tr('タブ {0} 個・メモのセル {1} 個・ほかのシートからの入口 {2} 個を保存して、盤面から片付けます。アーカイブの一覧（左上のシートの名前 ▾）から戻せます。', { 0: tabs, 1: cells, 2: entrances }) },
+      ...(inRightSet ? [{ note: tr('このシートは右のメモのシートのセットに入っています。セットからは外れます（戻しても戻りません）。') } as MenuEntry] : []),
+      { label: tr('アーカイブする'), run: () => void archiveSheet(id) },
+      { label: tr('やめる'), run: () => undefined },
     ];
     cellMenu.open(x, 120, build(false));
     const token = cellMenu.token();
@@ -1458,12 +1459,12 @@ export function startPrimary() {
   async function archiveSheet(id: string): Promise<ArchiveResult> {
     const sheet = sheets.get(id);
     if (!sheet || !canArchive(id)) {
-      toast('このシートはアーカイブできません');
+      toast(tr('このシートはアーカイブできません'));
       return 'failed';
     }
     const refusal = archiveRefusal(id);
     if (refusal) {
-      toast(`${refusal}（シートはそのままです）`, 6000);
+      toast(tr('{0}（シートはそのままです）', { 0: refusal }), 6000);
       return 'failed';
     }
     archiveBusy = true;
@@ -1474,23 +1475,23 @@ export function startPrimary() {
       if (result !== 'ok') {
         const why =
           result === 'tooBig'
-            ? 'シートが大きすぎて、アーカイブを作れませんでした'
+            ? tr('シートが大きすぎて、アーカイブを作れませんでした')
             : result === 'writeFailed'
-              ? 'アーカイブを書けませんでした'
-              : '書いたアーカイブを読み返せませんでした';
-        toast(`${why}。シートはそのままです`, 6000);
+              ? tr('アーカイブを書けませんでした')
+              : tr('書いたアーカイブを読み返せませんでした');
+        toast(tr('{0}。シートはそのままです', { 0: why }), 6000);
         return result === 'tooBig' ? 'tooBig' : 'failed';
       }
       const again = archiveFor(id, archive.id, archive.createdAt);
       if (!again || !sameContent(archive, again)) {
         deleteArchive(archive.id);
-        toast('書いている間に、シートの中が変わりました。もう一度アーカイブしてください（シートはそのままです）', 6000);
+        toast(tr('書いている間に、シートの中が変わりました。もう一度アーカイブしてください（シートはそのままです）'), 6000);
         return 'failed';
       }
       const late = archiveRefusal(id, true);
       if (late) {
         deleteArchive(archive.id);
-        toast(`${late}（シートはそのままです）`, 6000);
+        toast(tr('{0}（シートはそのままです）', { 0: late }), 6000);
         return 'failed';
       }
       // 片付け：最前面のアプリをやめる（removeMemos と同じ扱い）→ シートを消す（入口もいっしょに）
@@ -1500,7 +1501,7 @@ export function startPrimary() {
       await waitTabsGone(doomed, 5000);
       memos.flush();
       saveSession(false);
-      toast(`シート「${sheet.name}」をアーカイブしました（アーカイブの一覧から戻せます）`, 5000);
+      toast(tr('シート「{0}」をアーカイブしました（アーカイブの一覧から戻せます）', { 0: sheet.name }), 5000);
       return 'ok';
     } finally {
       archiveBusy = false;
@@ -1509,24 +1510,24 @@ export function startPrimary() {
 
   // アーカイブの一覧（§7 AR3）：新しい順に 20 件ずつ。各行に「戻す」（あれば「足りない分を戻す」）と「消す」
   function openArchiveList(x: number, y: number) {
-    cellMenu.open(x, y, [{ section: 'アーカイブ' }, { label: '読み込んでいます…', disabled: true }]);
+    cellMenu.open(x, y, [{ section: tr('アーカイブ') }, { label: tr('読み込んでいます…'), disabled: true }]);
     const token = cellMenu.token();
     let limit = 20;
     void listArchives().then((list) => {
       const render = (tok?: number) => {
-        const entries: MenuEntry[] = [{ section: `アーカイブ（${list.length}）` }];
-        if (list.length === 0) entries.push({ label: 'まだありません（シートの名前 ▾ →「このシートをアーカイブ…」）', disabled: true });
+        const entries: MenuEntry[] = [{ section: tr('アーカイブ（{0}）', { 0: list.length }) }];
+        if (list.length === 0) entries.push({ label: tr('まだありません（シートの名前 ▾ →「このシートをアーカイブ…」）'), disabled: true });
         for (const meta of list.slice(0, limit)) {
           const date = new Date(meta.createdAt).toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
           const onBoard = !!sheets.get(meta.sheet.id);
           entries.push({
             row: meta.sheet.name,
-            hint: `タブ ${meta.counts.tabs}・メモ ${meta.counts.memos}・${date}${meta.restoredAt ? '・戻した' : ''}`,
+            hint: tr('タブ {0}・メモ {1}・{2}{3}', { 0: meta.counts.tabs, 1: meta.counts.memos, 2: date, 3: meta.restoredAt ? '・戻した' : '' }),
             buttons: [
-              { label: onBoard ? '足りない分を戻す' : '戻す', close: true, run: () => void restoreArchive(meta) },
+              { label: onBoard ? tr('足りない分を戻す') : tr('戻す'), close: true, run: () => void restoreArchive(meta) },
               {
-                label: '消す',
-                confirm: '本当に消す',
+                label: tr('消す'),
+                confirm: tr('本当に消す'),
                 run: () => {
                   deleteArchive(meta.id);
                   list.splice(list.indexOf(meta), 1);
@@ -1537,7 +1538,7 @@ export function startPrimary() {
           });
         }
         if (list.length > limit) {
-          entries.push({ row: `ほかに ${list.length - limit} 件`, buttons: [{ label: 'もっと見る', run: () => ((limit += 20), render()) }] });
+          entries.push({ row: tr('ほかに {0} 件', { 0: list.length - limit }), buttons: [{ label: tr('もっと見る'), run: () => ((limit += 20), render()) }] });
         }
         cellMenu.update(entries, tok);
       };
@@ -1557,11 +1558,11 @@ export function startPrimary() {
     try {
       const archive = await readArchive(meta.id);
       if (archive === 'missing') {
-        toast('アーカイブの本体が見つかりませんでした');
+        toast(tr('アーカイブの本体が見つかりませんでした'));
         return;
       }
       if (archive === 'failed') {
-        toast('アーカイブを読めませんでした（壊れているか、読み込みが間に合いませんでした）');
+        toast(tr('アーカイブを読めませんでした（壊れているか、読み込みが間に合いませんでした）'));
         return;
       }
       const late = archiveRefusal(null, true);
@@ -1595,27 +1596,27 @@ export function startPrimary() {
       });
       const newIslands = archive.islands.filter((i) => !islands.get(i.id));
       if (cells.length + tabs.length + entrances.length === 0 && existing) {
-        toast('もう全部戻っています');
+        toast(tr('もう全部戻っています'));
         return;
       }
       // 上限（足す前に全部確かめる。足し始めたら止めない）
       if (!existing && sheets.list().length >= MAX_SHEETS) {
-        toast(`シートが多すぎて戻せません（${MAX_SHEETS} 枚まで）`);
+        toast(tr('シートが多すぎて戻せません（{0} 枚まで）', { 0: MAX_SHEETS }));
         return;
       }
       if (memos.list().length + cells.length + entrances.length > MAX_MEMO_CELLS) {
-        toast(`メモのセルが多すぎて戻せません（${MAX_MEMO_CELLS} 個まで。あと ${memos.list().length + cells.length + entrances.length - MAX_MEMO_CELLS} 個減らしてください）`);
+        toast(tr('メモのセルが多すぎて戻せません（{0} 個まで。あと {1} 個減らしてください）', { 0: MAX_MEMO_CELLS, 1: memos.list().length + cells.length + entrances.length - MAX_MEMO_CELLS }));
         return;
       }
       if (islands.list().length + newIslands.length > MAX_ISLAND_COUNT) {
-        toast(`島が多すぎて戻せません（${MAX_ISLAND_COUNT} 本まで）`);
+        toast(tr('島が多すぎて戻せません（{0} 本まで）', { 0: MAX_ISLAND_COUNT }));
         return;
       }
       // 足す：島 → シート → 盤面の位置 → メモ → タブ → 親の入口
       for (const island of newIslands) islands.add(island);
       const restoredSheet = sheets.restore(archive.sheet, sheetEmpty);
       if (restoredSheet === null) {
-        toast('シートを戻せませんでした');
+        toast(tr('シートを戻せませんでした'));
         return;
       }
       if (archive.view && !prefs.boards[sheetId]) {
@@ -1655,15 +1656,15 @@ export function startPrimary() {
       if (sheets.current !== sheetId) switchSheet(sheetId);
       const skipped = inner.skipped + outer.skipped;
       const notes = [
-        lostPortals ? `行き先の無い入口 ${lostPortals} 個` : '',
-        lostEntrances ? `元のシートが無い入口 ${lostEntrances} 個` : '',
-        lostBots ? `台帳に無いボットのセル ${lostBots} 個` : '',
-        lostApps ? `台帳に無いアプリのセル ${lostApps} 個` : '',
-        skipped ? `置けなかったメモのセル ${skipped} 個` : '',
+        lostPortals ? tr('行き先の無い入口 {0} 個', { 0: lostPortals }) : '',
+        lostEntrances ? tr('元のシートが無い入口 {0} 個', { 0: lostEntrances }) : '',
+        lostBots ? tr('台帳に無いボットのセル {0} 個', { 0: lostBots }) : '',
+        lostApps ? tr('台帳に無いアプリのセル {0} 個', { 0: lostApps }) : '',
+        skipped ? tr('置けなかったメモのセル {0} 個', { 0: skipped }) : '',
       ].filter(Boolean);
-      const head = `シート「${archive.sheet.name}」を戻しました（タブ ${tabs.length - missingTabs}・メモのセル ${inner.restored.length}・入口 ${outer.restored.length}）`;
-      const tail = notes.length ? `。戻さなかったもの：${notes.join('・')}` : '';
-      const miss = missingTabs ? `。${missingTabs} 個のタブが届きませんでした。もう一度「足りない分を戻す」を押してください` : '';
+      const head = tr('シート「{0}」を戻しました（タブ {1}・メモのセル {2}・入口 {3}）', { 0: archive.sheet.name, 1: tabs.length - missingTabs, 2: inner.restored.length, 3: outer.restored.length });
+      const tail = notes.length ? tr('。戻さなかったもの：{0}', { 0: notes.join('・') }) : '';
+      const miss = missingTabs ? tr('。{0} 個のタブが届きませんでした。もう一度「足りない分を戻す」を押してください', { 0: missingTabs }) : '';
       toast(`${head}${tail}${miss}`, 8000);
     } finally {
       archiveBusy = false;
@@ -1675,13 +1676,13 @@ export function startPrimary() {
   //   （シートを消す・中身を出すときは、ほかの所の入口もいっしょに消える。← は来た順の履歴で戻る）
   function openPortalToSheetMenu(at: Hex, x: number, y: number) {
     const here = sheets.current;
-    const entries: MenuEntry[] = [{ section: 'どのシートへの入口を置きますか' }];
+    const entries: MenuEntry[] = [{ section: tr('どのシートへの入口を置きますか') }];
     const have = new Set(memos.inSheet(here).filter((m) => m.portal).map((m) => m.portal));
     for (const sheet of sheets.list()) {
       if (sheet.id === here) continue;
       const count = store.inSheet(sheet.id).length + memos.inSheet(sheet.id).length;
       entries.push({
-        label: have.has(sheet.id) ? `${sheet.name}（このシートに入口あり）` : sheet.name,
+        label: have.has(sheet.id) ? tr('{0}（このシートに入口あり）', { 0: sheet.name }) : sheet.name,
         hint: `${count}`,
         run: () => placePortalTo(sheet.id, at, here),
       });
@@ -1695,26 +1696,26 @@ export function startPrimary() {
     if (sheets.current !== here) return; // 選んでいる間にシートを移った
     const pos = isTaken(at, here) ? nearestFree(at, (h) => isTaken(h, here)) : at;
     const portal = memos.add({ sheet: here, pos, text: '', portal: target });
-    toast(portal ? `シート「${sheet.name}」への入口を置きました（押すと移ります）` : '入口を置けませんでした（メモのセルが多すぎます）');
+    toast(portal ? tr('シート「{0}」への入口を置きました（押すと移ります）', { 0: sheet.name }) : tr('入口を置けませんでした（メモのセルが多すぎます）'));
   }
 
   // 新しいシートを作り、今のシートに入口を置いて、そのシートへ移る
   function newSheetHere(x: number, y: number) {
     cellMenu.prompt(
-      '新しいシートの名前',
-      `シート${sheets.list().length}`,
+      tr('新しいシートの名前'),
+      tr('シート{0}', { 0: sheets.list().length }),
       (name) => {
         const here = sheets.current;
         const sheet = sheets.add(name);
         if (!sheet) {
-          toast('シートが多すぎて作れません（100 枚まで）');
+          toast(tr('シートが多すぎて作れません（100 枚まで）'));
           return;
         }
         const near = anchorOn(here);
         const pos = isTaken(near, here) ? nearestFree(near, (h) => isTaken(h, here)) : near;
         const portal = memos.add({ sheet: here, pos, text: '', portal: sheet.id });
         switchSheet(sheet.id);
-        toast(portal ? `新しいシート「${sheet.name}」を作りました（元のシートに入口を置きました。← で戻れます）` : `新しいシート「${sheet.name}」を作りました（← で戻れます）`, 5000);
+        toast(portal ? tr('新しいシート「{0}」を作りました（元のシートに入口を置きました。← で戻れます）', { 0: sheet.name }) : tr('新しいシート「{0}」を作りました（← で戻れます）', { 0: sheet.name }), 5000);
       },
       { x, y },
     );
@@ -1725,32 +1726,31 @@ export function startPrimary() {
   //   「撮ったもの」は、保存の読み込みで落ちていても、開くときに足す
   function openSheetMenu(x: number, y: number, keyboard = false) {
     sheets.ensure([CAPTURE_SHEET]);
-    const entries: MenuEntry[] = [{ section: 'シート' }];
+    const entries: MenuEntry[] = [{ section: tr('シート') }];
     for (const sheet of sheets.list()) {
       const count = store.inSheet(sheet.id).length + memos.inSheet(sheet.id).length;
       entries.push({ label: `${sheet.id === sheets.current ? '✓' : '　'} ${sheet.name}`, hint: `${count}`, run: () => switchSheet(sheet.id) });
     }
     entries.push('sep');
-    entries.push({ label: '＋ 新しいシート…', run: () => newSheetHere(x, y) });
-    entries.push({ label: 'このシートの名前を変える…', run: () => renameSheet(sheets.current, { x, y }) });
-    entries.push({ label: 'このシートを消す…', disabled: sheets.current === MAIN_SHEET || sheets.current === CAPTURE_SHEET, run: () => confirmRemoveSheet(sheets.current) });
-    entries.push({ label: 'このシートをアーカイブ…', disabled: !canArchive(sheets.current), run: () => confirmArchiveSheet(sheets.current) });
-    entries.push({ label: 'アーカイブの一覧…', run: () => openArchiveList(x, y) });
+    entries.push({ label: tr('＋ 新しいシート…'), run: () => newSheetHere(x, y) });
+    entries.push({ label: tr('このシートの名前を変える…'), run: () => renameSheet(sheets.current, { x, y }) });
+    entries.push({ label: tr('このシートを消す…'), disabled: sheets.current === MAIN_SHEET || sheets.current === CAPTURE_SHEET, run: () => confirmRemoveSheet(sheets.current) });
+    entries.push({ label: tr('このシートをアーカイブ…'), disabled: !canArchive(sheets.current), run: () => confirmArchiveSheet(sheets.current) });
+    entries.push({ label: tr('アーカイブの一覧…'), run: () => openArchiveList(x, y) });
     entries.push('sep', { note: APP_TITLE });
-    entries.push('sep', { section: '六角メモ（内蔵）' });
-    entries.push({ label: '六角メモを開く', hint: 'hexmemo.local', run: () => createTab(HEXMEMO_URL) });
-    if (BOT_FEATURES) entries.push('sep', { section: 'Grok Bot（外のアシスタント）と' });
-    if (BOT_FEATURES) entries.push({ label: 'Grok 用に書き出す…', hint: 'ui-data\\exports', run: () => openGrokExportMenu(x, y) });
+    entries.push('sep', { section: tr('六角メモ（内蔵）') });
+    entries.push({ label: tr('六角メモを開く'), hint: 'hexmemo.local', run: () => createTab(HEXMEMO_URL) });
+    if (BOT_FEATURES) entries.push('sep', { section: tr('Grok Bot（外のアシスタント）と') });
+    if (BOT_FEATURES) entries.push({ label: tr('Grok 用に書き出す…'), hint: 'ui-data\\exports', run: () => openGrokExportMenu(x, y) });
     if (BOT_FEATURES) entries.push(...grokPatchMenuEntries(x, y));
-    entries.push('sep', { section: 'タブの見え方（すべてのシート）' });
-    for (const look of TAB_LOOKS) {
+    entries.push('sep', { section: tr('タブの見え方（すべてのシート）') });    for (const look of TAB_LOOKS) {
       entries.push({ label: `${prefs.tabLook === look.id ? '●' : '○'} ${look.label}`, run: () => setTabLook(look.id) });
     }
-    entries.push({ label: 'タブごとの見え方は、タブを右クリック →「見た目」', disabled: true });
-    entries.push('sep', { section: 'ページのリンクから開く新しいタブ' });
-    entries.push({ label: `${prefs.linkOpen === 'front' ? '●' : '○'} 表に出す（今までどおり）`, run: () => setLinkOpen('front') });
-    entries.push({ label: `${prefs.linkOpen === 'back' ? '●' : '○'} いつも裏で開く（セルに足すだけ）`, run: () => setLinkOpen('back') });
-    entries.push({ label: 'リンクを右クリック →「セルに追加（ページはこのまま）」でも裏で開けます', disabled: true });
+    entries.push({ label: tr('タブごとの見え方は、タブを右クリック →「見た目」'), disabled: true });
+    entries.push('sep', { section: tr('ページのリンクから開く新しいタブ') });
+    entries.push({ label: tr('{0} 表に出す（今までどおり）', { 0: prefs.linkOpen === 'front' ? '●' : '○' }), run: () => setLinkOpen('front') });
+    entries.push({ label: tr('{0} いつも裏で開く（セルに足すだけ）', { 0: prefs.linkOpen === 'back' ? '●' : '○' }), run: () => setLinkOpen('back') });
+    entries.push({ label: tr('リンクを右クリック →「セルに追加（ページはこのまま）」でも裏で開けます'), disabled: true });
     cellMenu.open(x, y, entries);
     if (keyboard) cellMenu.focusFirst();
   }
@@ -1804,7 +1804,7 @@ export function startPrimary() {
   async function saveFaceImage(image: string | null | undefined): Promise<string | null | undefined> {
     if (typeof image !== 'string') return image;
     const id = await memos.saveImage(image);
-    if (!id) toast('画像を保存できませんでした');
+    if (!id) toast(tr('画像を保存できませんでした'));
     return id ?? undefined;
   }
 
@@ -1828,7 +1828,7 @@ export function startPrimary() {
     const current = memos.get(id);
     if (!current?.bot) return; // 読んでいる間に外した
     const anchor = anchorNearMemo(id, current.pos);
-    const target = { kind: 'bot' as const, name: bots.get(current.bot)?.name ?? 'ボット', info: { state: botStateOf(current.bot) }, imageHref, comment: current.text };
+    const target = { kind: 'bot' as const, name: bots.get(current.bot)?.name ?? tr('ボット'), info: { state: botStateOf(current.bot) }, imageHref, comment: current.text };
     faceEditor.open(anchor, target, (result) => {
       void saveFaceImage(result.image).then((image) => memos.update(id, { text: result.comment, ...(image !== undefined ? { image } : {}) }));
     });
@@ -1841,7 +1841,7 @@ export function startPrimary() {
   //   sheet・board：ふだんは今のシートと本盤面。小窓の空いたセルからは、入口先のシートと小窓の盤面を渡す（inPeek）。
   //   小窓では、保存のときにそのシートがまだあるか確かめ（消えていたら作らず知らせる）、作ったあと下のメモ区画・拡大表示は開かない
   function writeNewMemo(at: Hex, initial = '', sheet = sheets.current, board: Sidebar = sidebar, inPeek = false) {
-    const heading = inPeek ? `新しいメモ（シート「${sheets.get(sheet)?.name ?? ''}」）` : '新しいメモ';
+    const heading = inPeek ? tr('新しいメモ（シート「{0}」）', { 0: sheets.get(sheet)?.name ?? '' }) : tr('新しいメモ');
     peekEditing = inPeek;
     memoEditor.open(board.anchorOfHex(at), heading, initial, (text) => {
       peekEditing = false;
@@ -1875,7 +1875,7 @@ export function startPrimary() {
     if (!memo || memo.bot || memo.app) return; // ボットのセル・アプリのセルのコメントは、見た目の欄では書かない
     const anchor = anchorNearMemo(id, memo.pos);
     peekEditing = false;
-    memoEditor.open(anchor, 'メモを書き直す', memo.text, (text) => memos.update(id, { text }));
+    memoEditor.open(anchor, tr('メモを書き直す'), memo.text, (text) => memos.update(id, { text }));
   }
 
   function removeMemos(ids: string[]) {
@@ -1897,26 +1897,26 @@ export function startPrimary() {
     const what =
       portals === ids.length
         ? ids.length === 1
-          ? '入口'
-          : `入口 ${ids.length} 個`
+          ? tr('入口')
+          : tr('入口 {0} 個', { 0: ids.length })
         : botCells === ids.length
           ? ids.length === 1
-            ? 'ボットのセル'
-            : `ボットのセル ${ids.length} 個`
+            ? tr('ボットのセル')
+            : tr('ボットのセル {0} 個', { 0: ids.length })
           : appCells === ids.length
             ? ids.length === 1
-              ? 'アプリのセル'
-              : `アプリのセル ${ids.length} 個`
+              ? tr('アプリのセル')
+              : tr('アプリのセル {0} 個', { 0: ids.length })
             : ids.length === 1
-              ? 'メモのセル'
-              : `${ids.length} 個のメモのセル`;
+              ? tr('メモのセル')
+              : tr('{0} 個のメモのセル', { 0: ids.length });
     const kept = botCells === ids.length || appCells === ids.length;
     const notes = [
-      ...(portals > 0 ? ['シートは残っています。左上のシートの名前 ▾ から開けます'] : []),
-      ...(botCells > 0 ? ['ボットの名前とリンクは台帳に残っています。空いたセルを右クリック →「ボットのセルを置く…」で置き直せます'] : []),
-      ...(appCells > 0 ? ['アプリの名前とファイルは台帳に残っています。空いたセルを右クリックすると、丸いボタンから置けます'] : []),
+      ...(portals > 0 ? [tr('シートは残っています。左上のシートの名前 ▾ から開けます')] : []),
+      ...(botCells > 0 ? [tr('ボットの名前とリンクは台帳に残っています。空いたセルを右クリック →「ボットのセルを置く…」で置き直せます')] : []),
+      ...(appCells > 0 ? [tr('アプリの名前とファイルは台帳に残っています。空いたセルを右クリックすると、丸いボタンから置けます')] : []),
     ];
-    toast(`${what}を${kept ? '外しました' : '消しました'}${notes.length > 0 ? `（${notes.join('。')}）` : ''}`, kept ? 5000 : undefined);
+    toast(tr('{0}を{1}{2}', { 0: what, 1: kept ? '外しました' : '消しました', 2: notes.length > 0 ? `（${notes.join('。')}）` : '' }), kept ? 5000 : undefined);
   }
 
   // ---------- ボットのセル（外の Grok Bot への窓口。docs/bot-cells/plan.md の第1段） ----------
@@ -1931,18 +1931,18 @@ export function startPrimary() {
   // 空いたセルの「ボットのセルを置く…」：新しいボット・台帳のボット（置いていないものが先）
   function openPlaceBotMenu(at: Hex, x: number, y: number) {
     if (!bots.ready) {
-      toast('ボットの台帳を読み込んでいます。少し待ってから、もう一度どうぞ'); // 読み込む前に足すと、読み込んだ台帳で消えてしまう
+      toast(tr('ボットの台帳を読み込んでいます。少し待ってから、もう一度どうぞ')); // 読み込む前に足すと、読み込んだ台帳で消えてしまう
       return;
     }
-    const entries: MenuEntry[] = [{ section: 'ボットのセルを置く' }, { label: '新しいボット（リンクか id を貼る）…', run: () => newBotAt(at, { x, y }) }];
+    const entries: MenuEntry[] = [{ section: tr('ボットのセルを置く') }, { label: tr('新しいボット（リンクか id を貼る）…'), run: () => newBotAt(at, { x, y }) }];
     const listed = bots
       .list()
       .map((bot) => ({ bot, count: cellsOfBot(bot.id).length }))
       .sort((a, b) => Number(a.count > 0) - Number(b.count > 0));
     if (listed.length > 0) {
-      entries.push('sep', { section: '台帳のボット（置き直す・もう1つ置く）' });
+      entries.push('sep', { section: tr('台帳のボット（置き直す・もう1つ置く）') });
       for (const { bot, count } of listed) {
-        entries.push({ label: bot.name, hint: `${count === 0 ? '置いていない' : `盤面に ${count}`}${bot.agentId ? '' : '・リンクなし'}`, run: () => placeBot(bot.id, at) });
+        entries.push({ label: bot.name, hint: `${count === 0 ? tr('置いていない') : tr('盤面に {0}', { 0: count })}${bot.agentId ? '' : tr('・リンクなし')}`, run: () => placeBot(bot.id, at) });
       }
     }
     cellMenu.open(x, y, entries);
@@ -1964,16 +1964,16 @@ export function startPrimary() {
         }
         const known = bots.list().find((b) => b.agentId === agentId);
         if (known) {
-          placeBot(known.id, at, sheet, `このボットは台帳にいました（「${known.name}」）。`);
+          placeBot(known.id, at, sheet, tr('このボットは台帳にいました（「{0}」）。', { 0: known.name }));
           return;
         }
         cellMenu.prompt(
-          'ボットの名前',
-          `ボット${bots.list().length + 1}`,
+          tr('ボットの名前'),
+          tr('ボット{0}', { 0: bots.list().length + 1 }),
           (name) => {
             const bot = bots.add(name, agentId);
             if (!bot) {
-              toast('ボットが多すぎて、台帳に入れられません（200 体まで）');
+              toast(tr('ボットが多すぎて、台帳に入れられません（200 体まで）'));
               return;
             }
             placeBot(bot.id, at, sheet);
@@ -1995,11 +1995,11 @@ export function startPrimary() {
     const pos = isTaken(at, target) ? nearestFree(at, (h) => isTaken(h, target)) : at;
     const memo = memos.add({ sheet: target, pos, text: '', bot: bot.id });
     if (!memo) {
-      toast('ボットのセルを置けませんでした（メモのセルが多すぎます）');
+      toast(tr('ボットのセルを置けませんでした（メモのセルが多すぎます）'));
       return null;
     }
     preview.showMemo(memo.id);
-    toast(`${lead}ボット「${bot.name}」のセルを置きました${bot.agentId ? '（押すと Grok Bot アプリのチャットが開きます）' : '（リンクがまだありません。右クリック →「リンクを貼る…」）'}`, 5000);
+    toast(tr('{0}ボット「{1}」のセルを置きました{2}', { 0: lead, 1: bot.name, 2: bot.agentId ? '（押すと Grok Bot アプリのチャットが開きます）' : '（リンクがまだありません。右クリック →「リンクを貼る…」）' }), 5000);
     return memo;
   }
 
@@ -2011,11 +2011,11 @@ export function startPrimary() {
     preview.showMemo(id);
     const bot = bots.get(memo.bot);
     if (!bot) {
-      toast('このボットが台帳に見つかりません（右クリック →「セルを外す」で片づけられます）', 5000);
+      toast(tr('このボットが台帳に見つかりません（右クリック →「セルを外す」で片づけられます）'), 5000);
       return;
     }
     if (!bot.agentId) {
-      toast(`「${bot.name}」にはリンクがまだありません。右クリック →「リンクを貼る…」で、Grok Bot アプリの「リンクをコピー」から貼ってください`, 6000);
+      toast(tr('「{0}」にはリンクがまだありません。右クリック →「リンクを貼る…」で、Grok Bot アプリの「リンクをコピー」から貼ってください', { 0: bot.name }), 6000);
       return;
     }
     confirmThenLaunch(id, bot);
@@ -2029,10 +2029,10 @@ export function startPrimary() {
     }
     const rect = sidebar.anchorOfMemo(memoId);
     cellMenu.open(rect ? rect.left : window.innerWidth / 2 - 120, rect ? rect.bottom + 4 : 120, [
-      { section: '外のアプリ（Grok Bot）を開きます' },
-      { label: `「${bot.name}」のチャットを、Grok Bot アプリで開きます。次からは聞きません`, disabled: true },
+      { section: tr('外のアプリ（Grok Bot）を開きます') },
+      { label: tr('「{0}」のチャットを、Grok Bot アプリで開きます。次からは聞きません', { 0: bot.name }), disabled: true },
       {
-        label: '開く',
+        label: tr('開く'),
         run: () => {
           prefs.botAppConfirmed = true;
           savePrefs(prefs);
@@ -2040,7 +2040,7 @@ export function startPrimary() {
           void launchBotApp(bot.id, copied);
         },
       },
-      { label: 'やめる', run: () => undefined },
+      { label: tr('やめる'), run: () => undefined },
     ]);
     cellMenu.focusFirst();
   }
@@ -2112,21 +2112,21 @@ export function startPrimary() {
     relayBots();
   }
   const HOOK_WHY: Record<string, string> = {
-    timeout: '15 秒待っても中継が答えませんでした',
-    tls: '安全な接続を作れませんでした（証明書など）',
-    connect: '中継につながりませんでした',
-    noHook: '中継の宛先と鍵がありません',
-    badUrl: '宛先か鍵の形が違います',
-    badRequest: '依頼の形が違いました',
+    timeout: tr('15 秒待っても中継が答えませんでした'),
+    tls: tr('安全な接続を作れませんでした（証明書など）'),
+    connect: tr('中継につながりませんでした'),
+    noHook: tr('中継の宛先と鍵がありません'),
+    badUrl: tr('宛先か鍵の形が違います'),
+    badRequest: tr('依頼の形が違いました'),
   };
-  const hookWhy = (error: string | undefined, status: number) => (error === 'http' ? `中継が受けませんでした（HTTP ${status}）` : (HOOK_WHY[error ?? ''] ?? '中継へ送れませんでした'));
+  const hookWhy = (error: string | undefined, status: number) => (error === 'http' ? tr('中継が受けませんでした（HTTP {0}）', { 0: status }) : (HOOK_WHY[error ?? ''] ?? tr('中継へ送れませんでした')));
   const hookSender = new WebhookSender({
     inbox: botInbox,
     ready: () => hookHas,
     post: async (botId, requestId, json): Promise<HookPostResult> => {
       const agentId = bots.get(botId)?.agentId;
       const reply = await request((rid) => ({ type: 'botHookSend', requestId: rid, botRequestId: requestId, body: json, ...(agentId ? { agentId } : {}) }), 16_000);
-      if (reply?.type !== 'botHookSent') return { ok: false, why: '16 秒待っても答えがありませんでした。あとで届くこともあります' };
+      if (reply?.type !== 'botHookSent') return { ok: false, why: tr('16 秒待っても答えがありませんでした。あとで届くこともあります') };
       return reply.ok ? { ok: true } : { ok: false, why: hookWhy(reply.error, reply.status) };
     },
   });
@@ -2144,10 +2144,10 @@ export function startPrimary() {
   // webhook で届かなかった依頼を、同じ依頼（requestId・check は同じ。attempt を 1 増やす）で「コピーしてアプリを開く」に（R11・D20）。
   //   依頼は窓が開いているあいだだけ覚えている（頼む文は記録に残さない）。書けなければ依頼はそのまま（もう一度押せる）
   const HOOK_RETRY_TEXT = {
-    unknown: 'その依頼が見つかりませんでした',
-    notFailed: 'その依頼は中継が受けています（まだ答えを待っているときは、少し待ってからどうぞ）',
-    done: 'その依頼は、もう返事が届いたか、待つのをやめたか、コピーに切り替えてあります',
-    gone: '窓を開き直したので、同じ依頼はもう出せません（頼む文は記録に残さないため）。受け取り箱の「待つのをやめる」で片づけて、小窓から頼み直してください',
+    unknown: tr('その依頼が見つかりませんでした'),
+    notFailed: tr('その依頼は中継が受けています（まだ答えを待っているときは、少し待ってからどうぞ）'),
+    done: tr('その依頼は、もう返事が届いたか、待つのをやめたか、コピーに切り替えてあります'),
+    gone: tr('窓を開き直したので、同じ依頼はもう出せません（頼む文は記録に残さないため）。受け取り箱の「待つのをやめる」で片づけて、小窓から頼み直してください'),
   } as const;
   async function hookToCopy(botId: string, requestId: string) {
     const bot = bots.get(botId);
@@ -2157,7 +2157,7 @@ export function startPrimary() {
       tellRight(botId, text);
     };
     if (!bot.agentId) {
-      say(`「${bot.name}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ`, 6000);
+      say(tr('「{0}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ', { 0: bot.name }), 6000);
       return;
     }
     const retry = botInbox.hookRetry(botId, requestId);
@@ -2178,19 +2178,19 @@ export function startPrimary() {
     const bot = bots.get(memo?.bot);
     if (!memo || !bot) return;
     if (!bot.agentId) {
-      toast(`「${bot.name}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ`, 6000);
+      toast(tr('「{0}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ', { 0: bot.name }), 6000);
       return;
     }
     const anchor = sidebar.anchorOfMemo(memoId) ?? sidebar.anchorOfHex(memo.pos);
     peekEditing = false;
     memoEditor.open(
       anchor,
-      `「${bot.name}」に頼む文（コピーしてから、Grok Bot アプリを開きます）`,
+      tr('「{0}」に頼む文（コピーしてから、Grok Bot アプリを開きます）', { 0: bot.name }),
       botDrafts.get(bot.id) ?? '',
       (text) => {
         const request = text.trim();
         if (!request) {
-          toast('頼む文が空です。書いてから、もう一度どうぞ');
+          toast(tr('頼む文が空です。書いてから、もう一度どうぞ'));
           return;
         }
         botDrafts.set(bot.id, request);
@@ -2200,7 +2200,7 @@ export function startPrimary() {
             { botId: bot.id, text: request },
             {
               open: (no) => {
-                toast(`依頼 ${no} をコピーしました。Grok Bot アプリのチャットに貼り付けて（Ctrl+V）送ってください`, 6000);
+                toast(tr('依頼 {0} をコピーしました。Grok Bot アプリのチャットに貼り付けて（Ctrl+V）送ってください', { 0: no }), 6000);
                 if (bots.get(bot.id)?.agentId) confirmThenLaunch(memoId, bot, no);
               },
             },
@@ -2210,7 +2210,7 @@ export function startPrimary() {
           });
       },
       undefined,
-      { okLabel: 'コピーしてアプリを開く', placeholder: '頼む文（Ctrl+Enter でコピーしてアプリを開く・Esc でやめる）' },
+      { okLabel: tr('コピーしてアプリを開く'), placeholder: tr('頼む文（Ctrl+Enter でコピーしてアプリを開く・Esc でやめる）') },
     );
   }
 
@@ -2220,11 +2220,11 @@ export function startPrimary() {
   async function pasteBotReply(memoId: string) {
     const memo = memos.get(memoId);
     if (!memo?.bot) return;
-    const name = bots.get(memo.bot)?.name ?? 'ボット';
+    const name = bots.get(memo.bot)?.name ?? tr('ボット');
     const raw = await readClipboardText();
     const reply = cleanExternalText(raw);
     if (!reply) {
-      toast(raw === null ? 'クリップボードを読めませんでした。もう一度どうぞ' : 'クリップボードに文字がありません。Grok Bot アプリで返事をコピーしてから、もう一度どうぞ', 6000);
+      toast(raw === null ? tr('クリップボードを読めませんでした。もう一度どうぞ') : tr('クリップボードに文字がありません。Grok Bot アプリで返事をコピーしてから、もう一度どうぞ'), 6000);
       return;
     }
     const total = [...reply].length;
@@ -2232,12 +2232,12 @@ export function startPrimary() {
     const body = botReplyMemoText(name, reply, MAX_MEMO_TEXT);
     const rect = sidebar.anchorOfMemo(memoId);
     cellMenu.open(rect ? rect.left : window.innerWidth / 2 - 140, rect ? rect.bottom + 4 : 120, [
-      { section: `クリップボードの文を、「${name}」の返事としてメモにします` },
+      { section: tr('クリップボードの文を、「{0}」の返事としてメモにします', { 0: name }) },
       { note: head.cut ? `${head.text}…` : head.text },
-      { label: head.cut ? `最初の ${REPLY_PREVIEW_CHARS} 字だけ出しています（全部で ${total} 字）` : `全部で ${total} 字`, disabled: true },
-      ...(body.cut ? [{ label: 'メモに入りきらない分は切ります', disabled: true }] : []),
-      { label: 'メモにする', run: () => placeBotReply(memoId, body.text) },
-      { label: 'やめる', run: () => undefined },
+      { label: head.cut ? tr('最初の {0} 字だけ出しています（全部で {1} 字）', { 0: REPLY_PREVIEW_CHARS, 1: total }) : tr('全部で {0} 字', { 0: total }), disabled: true },
+      ...(body.cut ? [{ label: tr('メモに入りきらない分は切ります'), disabled: true }] : []),
+      { label: tr('メモにする'), run: () => placeBotReply(memoId, body.text) },
+      { label: tr('やめる'), run: () => undefined },
     ]);
     cellMenu.focusFirst();
   }
@@ -2245,17 +2245,17 @@ export function startPrimary() {
   function placeBotReply(memoId: string, text: string) {
     const memo = memos.get(memoId);
     if (!memo) {
-      toast('ボットのセルが見つからないので、メモにできませんでした（外したかもしれません）');
+      toast(tr('ボットのセルが見つからないので、メモにできませんでした（外したかもしれません）'));
       return;
     }
     const sheet = memo.sheet;
     const placed = memos.add({ sheet, pos: nearestFree(memo.pos, (h) => isTaken(h, sheet)), text });
     if (!placed) {
-      toast('メモのセルを置けませんでした（メモのセルが多すぎます）');
+      toast(tr('メモのセルを置けませんでした（メモのセルが多すぎます）'));
       return;
     }
     preview.showMemo(placed.id);
-    toast('返事を、ボットのセルの隣にメモのセルとして置きました（外から来た文の印付き。リンクは押したときだけ開きます）', 5000);
+    toast(tr('返事を、ボットのセルの隣にメモのセルとして置きました（外から来た文の印付き。リンクは押したときだけ開きます）'), 5000);
   }
 
   // C++ に頼んで Grok Bot アプリを開く（渡すのはエージェントの id だけ。grokbot:// の URL は C++ が組み立てる）
@@ -2265,15 +2265,15 @@ export function startPrimary() {
   async function launchBotApp(botId: string, copied?: string, say: (text: string, ms?: number) => void = toast, opened?: string) {
     const bot = bots.get(botId);
     if (!bot) {
-      say('送り先の Grok Bot が台帳に見つかりません。右のボットの欄を開き直してから、もう一度どうぞ', 7000);
+      say(tr('送り先の Grok Bot が台帳に見つかりません。右のボットの欄を開き直してから、もう一度どうぞ'), 7000);
       return;
     }
     if (!bot.agentId) {
-      say(`「${bot.name}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ`, 6000);
+      say(tr('「{0}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ', { 0: bot.name }), 6000);
       return;
     }
     if (botOpening.has(bot.id)) {
-      say(`「${bot.name}」のアプリは、今開いているところです。少し待ってから、もう一度押してください`, 6000);
+      say(tr('「{0}」のアプリは、今開いているところです。少し待ってから、もう一度押してください', { 0: bot.name }), 6000);
       return;
     }
     botOpening.add(bot.id);
@@ -2282,7 +2282,7 @@ export function startPrimary() {
     const missing = !result.ok && result.error === 'noApp';
     if ((result.ok || missing) && missing !== botAppMissing) setBotAppMissing(missing);
     if (result.ok && opened) say(opened, 7000);
-    else if (result.ok) say(copied ? `Grok Bot アプリで「${bot.name}」のチャットを開きました。依頼 ${copied} はコピーしてあるので、貼り付けて（Ctrl+V）送ってください` : `Grok Bot アプリで「${bot.name}」のチャットを開きました`, copied ? 7000 : undefined);
+    else if (result.ok) say(copied ? tr('Grok Bot アプリで「{0}」のチャットを開きました。依頼 {1} はコピーしてあるので、貼り付けて（Ctrl+V）送ってください', { 0: bot.name, 1: copied }) : tr('Grok Bot アプリで「{0}」のチャットを開きました', { 0: bot.name }), copied ? 7000 : undefined);
     else say(botAppErrorText(result.error), 7000);
   }
 
@@ -2319,7 +2319,7 @@ export function startPrimary() {
           editBotLink(memoId, at, text);
           return;
         }
-        toast(`「${bot.name}」にリンクを付けました（id：${agentId}）。押すと Grok Bot アプリのチャットが開きます`, 5000);
+        toast(tr('「{0}」にリンクを付けました（id：{1}）。押すと Grok Bot アプリのチャットが開きます', { 0: bot.name, 1: agentId }), 5000);
       },
       at ?? nearMemo(memoId),
       { maxLength: 2048, placeholder: BOT_LINK_HINT },
@@ -2330,7 +2330,7 @@ export function startPrimary() {
   function renameBot(memoId: string, at?: { x: number; y: number }) {
     const bot = bots.get(memos.get(memoId)?.bot);
     if (!bot) return;
-    cellMenu.prompt('ボットの新しい名前', bot.name, (name) => bots.rename(bot.id, name), at ?? nearMemo(memoId), { maxLength: MAX_BOT_NAME });
+    cellMenu.prompt(tr('ボットの新しい名前'), bot.name, (name) => bots.rename(bot.id, name), at ?? nearMemo(memoId), { maxLength: MAX_BOT_NAME });
   }
 
   // セルを外す（確かめてから）。ボットは台帳に残る
@@ -2340,10 +2340,10 @@ export function startPrimary() {
     const bot = bots.get(memo.bot);
     const others = cellsOfBot(memo.bot).length - 1;
     cellMenu.open(window.innerWidth / 2 - 120, 120, [
-      { section: bot ? `ボット「${bot.name}」のセルを外します` : 'ボットのセルを外します' },
-      { label: bot ? `名前とリンクは台帳に残り、あとで置き直せます${others > 0 ? `（ほかのセル ${others} 個はそのまま）` : ''}` : '台帳に無いボットのセルです', disabled: true },
-      { label: '外す', run: () => removeMemos([memoId]) },
-      { label: 'やめる', run: () => undefined },
+      { section: bot ? tr('ボット「{0}」のセルを外します', { 0: bot.name }) : tr('ボットのセルを外します') },
+      { label: bot ? tr('名前とリンクは台帳に残り、あとで置き直せます{0}', { 0: others > 0 ? `（ほかのセル ${others} 個はそのまま）` : '' }) : tr('台帳に無いボットのセルです'), disabled: true },
+      { label: tr('外す'), run: () => removeMemos([memoId]) },
+      { label: tr('やめる'), run: () => undefined },
     ]);
   }
 
@@ -2358,20 +2358,20 @@ export function startPrimary() {
   function openBotMenu(memo: MemoCell, info: { hex: Hex | null; x: number; y: number }) {
     const bot = bots.get(memo.bot);
     const at = { x: info.x, y: info.y };
-    const entries: MenuEntry[] = [{ section: bot ? `ボット「${bot.name}」` : 'ボット（台帳に見つかりません）' }];
+    const entries: MenuEntry[] = [{ section: bot ? tr('ボット「{0}」', { 0: bot.name }) : tr('ボット（台帳に見つかりません）') }];
     if (bot) {
-      entries.push({ label: 'Grok Bot アプリで開く', hint: 'クリック', disabled: !bot.agentId, run: () => openBot(memo.id) });
+      entries.push({ label: tr('Grok Bot アプリで開く'), hint: tr('クリック'), disabled: !bot.agentId, run: () => openBot(memo.id) });
       entries.push(cardWinEntry({ kind: 'memo', id: memo.id }));
-      entries.push({ label: bot.agentId ? 'リンクを貼り直す…' : 'リンクを貼る…', run: () => editBotLink(memo.id, at) });
-      entries.push({ label: '名前を変える…', run: () => renameBot(memo.id, at) });
+      entries.push({ label: bot.agentId ? tr('リンクを貼り直す…') : tr('リンクを貼る…'), run: () => editBotLink(memo.id, at) });
+      entries.push({ label: tr('名前を変える…'), run: () => renameBot(memo.id, at) });
       entries.push('sep');
-      entries.push({ label: 'コピーしてアプリを開く…', disabled: !bot.agentId, run: () => copyAndOpenBot(memo.id) });
+      entries.push({ label: tr('コピーしてアプリを開く…'), disabled: !bot.agentId, run: () => copyAndOpenBot(memo.id) });
     }
-    entries.push({ label: 'クリップボードの返事をメモにする…', run: () => void pasteBotReply(memo.id) });
+    entries.push({ label: tr('クリップボードの返事をメモにする…'), run: () => void pasteBotReply(memo.id) });
     entries.push('sep');
-    entries.push({ label: '見た目（画像・コメント）…', run: () => void editBotFace(memo.id) });
+    entries.push({ label: tr('見た目（画像・コメント）…'), run: () => void editBotFace(memo.id) });
     const armImage = queueCellImage(entries, { kind: 'memo', id: memo.id });
-    entries.push({ label: 'セルを外す（台帳には残る）…', run: () => confirmRemoveBotCell(memo.id) });
+    entries.push({ label: tr('セルを外す（台帳には残る）…'), run: () => confirmRemoveBotCell(memo.id) });
     entries.push(...sheetJumpEntries(info.x, info.y));
     entries.push(...setEntries(info.hex));
     cellMenu.open(info.x, info.y, entries);
@@ -2397,7 +2397,7 @@ export function startPrimary() {
   //   その時のタグに対して足し引きする（右から続けて押しても、前の押した分を消さない）。1つに 10 個まで
   function changedTags(current: readonly string[], add: readonly unknown[], remove: readonly unknown[]): string[] | null {
     const done = changeTagList(current, add, remove);
-    if (done.over) toast(`タグは1つに ${MAX_TAGS_PER_TAB} 個までです（ほかのタグを外してから付けてください）`);
+    if (done.over) toast(tr('タグは1つに {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB }));
     return done.tags;
   }
 
@@ -2424,7 +2424,7 @@ export function startPrimary() {
   // 左のタグのボタン（6つ・セット・その他）：拡大表示のカード（タブ・メモのセル）に出す。右のボタンとは別
   const tagButtons = new TagButtonStore('left');
   void tagButtons.load();
-  const tagPad = new TagPad({ store: tagButtons, menu: cellMenu, side: '左サイドバー', used: usedTags, toast: (text) => toast(text, 4500) });
+  const tagPad = new TagPad({ store: tagButtons, menu: cellMenu, side: tr('左サイドバー'), used: usedTags, toast: (text) => toast(text, 4500) });
 
   const memoActions: MemoActions = {
     edit: (id) => editMemo(id),
@@ -2452,7 +2452,7 @@ export function startPrimary() {
           url: blocked ? '' : url,
           ...(blocked ? {} : { image: memos.image(memo.image) }),
         });
-        toast(blocked ? BLOCK_NOTE : '右の相棒に見せています');
+        toast(blocked ? BLOCK_NOTE : tr('右の相棒に見せています'));
       })();
     },
     openPane: (id) => {
@@ -2464,13 +2464,13 @@ export function startPrimary() {
     saveToVault: (id) => {
       const memo = memos.get(id);
       if (!memo?.by) return;
-      const kind = memo.label ?? '考察';
+      const kind = memo.label ?? tr('考察');
       const head = [...memo.text.trim().split('\n')[0]].slice(0, 40).join('');
       sendToRight({
         kind: 'vaultAdd',
         draft: {
           kind: 'memo',
-          title: `${memo.by.name}の${kind}${head ? `：${head}` : ''}`,
+          title: tr('{0}の{1}{2}', { 0: memo.by.name, 1: kind, 2: head ? `：${head}` : '' }),
           text: memo.text,
           data: { version: 1, memo: { id: memo.id, text: memo.text, tags: memo.tags, by: memo.by, label: kind, source: memo.source, createdAt: memo.createdAt, updatedAt: memo.updatedAt } },
           sourceAt: memo.createdAt,
@@ -2478,7 +2478,7 @@ export function startPrimary() {
           tags: memo.tags,
         },
       });
-      toast('右の「データ置き場」に入れています');
+      toast(tr('右の「データ置き場」に入れています'));
     },
   };
 
@@ -2491,17 +2491,17 @@ export function startPrimary() {
     if (ref.kind === 'memo') {
       const memo = memos.get(ref.id);
       if (!memo) return null;
-      const context = memo.source ? `スクショ「${memo.source.title || memo.source.url}」に付けたコメント` : memo.image ? 'スクショのメモ' : 'メモのセル';
+      const context = memo.source ? tr('スクショ「{0}」に付けたコメント', { 0: memo.source.title || memo.source.url }) : memo.image ? tr('スクショのメモ') : tr('メモのセル');
       // 画像だけのメモ（コメントなしのスクショ）：画像はこの頼みには入れないので、そう伝える
-      const text = memo.text || (memo.image ? '（画像だけのメモ。画像はこの依頼には含まれていません）' : '');
-      const author = memo.by ? `AI の相棒（${memo.by.name}の${memo.label ?? '考察'}）` : '使う人';
+      const text = memo.text || (memo.image ? tr('（画像だけのメモ。画像はこの依頼には含まれていません）') : '');
+      const author = memo.by ? tr('AI の相棒（{0}の{1}）', { 0: memo.by.name, 1: memo.label ?? '考察' }) : tr('使う人');
       return { post: { text, createdAt: memo.createdAt, author, context }, replies: memo.replies ?? [], image: memo.image };
     }
     const tab = store.get(ref.tabId);
     const note = tab?.notes.find((n) => n.id === ref.noteId);
     if (!tab || !note) return null;
-    const author = note.source === 'user' ? '使う人' : `AI の相棒（${note.label ?? 'AI'}）`;
-    return { post: { text: note.text, createdAt: note.createdAt, author, context: `ページ「${tab.title || tab.url}」（${tab.url}）のメモ` }, replies: note.replies ?? [] };
+    const author = note.source === 'user' ? tr('使う人') : tr('AI の相棒（{0}）', { 0: note.label ?? 'AI' });
+    return { post: { text: note.text, createdAt: note.createdAt, author, context: tr('ページ「{0}」（{1}）のメモ', { 0: tab.title || tab.url, 1: tab.url }) }, replies: note.replies ?? [] };
   }
 
   function addReplyTo(ref: ThreadRef, parent: string | null, text: string, by?: ReplyAuthor): Reply | null {
@@ -2523,7 +2523,7 @@ export function startPrimary() {
 
   const threadActions: ThreadActions = {
     add: (ref, parent, text) => {
-      if (!addReplyTo(ref, parent, text)) toast('返信を足せませんでした（返信先が消えたか、返信が多すぎます）');
+      if (!addReplyTo(ref, parent, text)) toast(tr('返信を足せませんでした（返信先が消えたか、返信が多すぎます）'));
     },
     remove: (ref, replyId) => {
       if (ref.kind === 'memo') memos.removeReply(ref.id, replyId);
@@ -2534,7 +2534,7 @@ export function startPrimary() {
     edit: (ref, replyId, text) => {
       if (ref.kind !== 'memo') return; // タブのメモへの返信は書き直さない
       const memo = memos.get(ref.id);
-      if (!memo || isSpecialCell(memo) || !memos.editReply(ref.id, replyId, text)) toast('書き直せませんでした');
+      if (!memo || isSpecialCell(memo) || !memos.editReply(ref.id, replyId, text)) toast(tr('書き直せませんでした'));
     },
   };
   const threadUi: ThreadUi = {
@@ -2551,14 +2551,14 @@ export function startPrimary() {
     const thread = threadOf(ref);
     const memo = ref.kind === 'memo' ? memos.get(ref.id) : undefined;
     if (memo && isSpecialCell(memo)) {
-      toast(memo.capture ? '撮ったもののセルはコピーしません' : memo.bot ? 'ボットのセルはコピーしません' : memo.app ? 'アプリのセルはコピーしません' : '入口はコピーしません');
+      toast(memo.capture ? tr('撮ったもののセルはコピーしません') : memo.bot ? tr('ボットのセルはコピーしません') : memo.app ? tr('アプリのセルはコピーしません') : tr('入口はコピーしません'));
       return;
     }
     // 元のポストは、メモのセルなら本当の文章（画像だけのメモは空）
     const text = replyId === null ? (memo ? memo.text : thread?.post.text) : thread?.replies.find((r) => r.id === replyId)?.text;
     const image = replyId === null ? thread?.image : undefined;
     if (!thread || text === undefined || (!text && !image)) {
-      toast('コピーできるコメントがありません');
+      toast(tr('コピーできるコメントがありません'));
       return;
     }
     const replies = regraft(thread.replies, replyId);
@@ -2568,7 +2568,7 @@ export function startPrimary() {
     const nonce = `h${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     copied = { nonce, cells: [cell] };
     const written = await writeCellsToClipboard([cell], nonce);
-    const extra = replies.length > 0 ? `（下の返信 ${replies.length} 件も一緒に）` : '';
+    const extra = replies.length > 0 ? tr('（下の返信 {0} 件も一緒に）', { 0: replies.length }) : '';
     // 関連は写らない：このカードが関連を持つ、またはほかの一番上のカードがこのカードを相手に持つとき（スレッドを丸ごとのときは regraft で写る）
     const lostLinks =
       replyId !== null &&
@@ -2576,8 +2576,8 @@ export function startPrimary() {
         thread.replies.some((r) => r.parent === null && r.id !== replyId && (r.links ?? []).some((l) => l.to === replyId)));
     toast(
       written
-        ? `コメントをコピーしました${extra}${lostLinks ? '（このカードの関連は写りません）' : ''}。盤面の空いたセルで Ctrl+V（右クリック →「貼り付け」）すると、メモのセルになります`
-        : 'コメントをコピーできませんでした（Windows のクリップボードに書けませんでした）',
+        ? tr('コメントをコピーしました{0}{1}。盤面の空いたセルで Ctrl+V（右クリック →「貼り付け」）すると、メモのセルになります', { 0: extra, 1: lostLinks ? '（このカードの関連は写りません）' : '' })
+        : tr('コメントをコピーできませんでした（Windows のクリップボードに書けませんでした）'),
     );
   }
 
@@ -2589,8 +2589,8 @@ export function startPrimary() {
     const written = await writeCellsToClipboard([cell], nonce);
     toast(
       written
-        ? `${label ?? 'メモ'}をコピーしました。盤面の空いたセルで Ctrl+V（右クリック →「貼り付け」）すると、メモのセルになります`
-        : `${label ?? 'メモ'}をコピーできませんでした（Windows のクリップボードに書けませんでした）`,
+        ? tr('{0}をコピーしました。盤面の空いたセルで Ctrl+V（右クリック →「貼り付け」）すると、メモのセルになります', { 0: label ?? 'メモ' })
+        : tr('{0}をコピーできませんでした（Windows のクリップボードに書けませんでした）', { 0: label ?? 'メモ' }),
     );
   }
 
@@ -2613,11 +2613,11 @@ export function startPrimary() {
         if (!thread || (parent !== null && !thread.replies.some((r) => r.id === parent))) break; // 返信先が消えた
         const written = await writeThreadReply(thread.post, thread.replies, parent, id, settings);
         if (!addReplyTo(ref, parent, written.text, { who: id, name, model: written.model, cost: written.cost })) {
-          toast('返信を足せませんでした（返信先が消えたか、返信が多すぎます）');
+          toast(tr('返信を足せませんでした（返信先が消えたか、返信が多すぎます）'));
           break;
         }
       } catch (error) {
-        toast(error instanceof ThreadReplyError ? error.message : `${name}の返信を書けませんでした：${describeError(error)}`);
+        toast(error instanceof ThreadReplyError ? error.message : tr('{0}の返信を書けませんでした：{1}', { 0: name, 1: describeError(error) }));
         break;
       } finally {
         setReplyPending(replyPending.filter((p) => p !== mark));
@@ -2648,7 +2648,7 @@ export function startPrimary() {
 
   function jumpToSheet(id: string) {
     if (id === sheets.current) {
-      toast('いまのシートです');
+      toast(tr('いまのシートです'));
       return;
     }
     switchSheet(id);
@@ -2660,7 +2660,7 @@ export function startPrimary() {
 
   function sheetJumpEntries(x: number, y: number): MenuEntry[] {
     rememberSheetSlots();
-    const entries: MenuEntry[] = ['sep', { section: 'シートへ移る' }];
+    const entries: MenuEntry[] = ['sep', { section: tr('シートへ移る') }];
     const pills: MenuButton[] = [];
     sheetSlots.list.forEach((id, index) => {
       if (!id) return;
@@ -2669,17 +2669,17 @@ export function startPrimary() {
       const here = sheet.id === sheets.current;
       pills.push({
         label: sheet.name,
-        title: here ? `シート${index + 1}：${sheet.name}（いまのシート）` : `シート${index + 1}：${sheet.name}。押すとこのシートに移ります`,
+        title: here ? tr('シート{0}：{1}（いまのシート）', { 0: index + 1, 1: sheet.name }) : tr('シート{0}：{1}。押すとこのシートに移ります', { 0: index + 1, 1: sheet.name }),
         current: here,
         close: true,
         run: () => jumpToSheet(sheet.id),
       });
     });
-    if (pills.length === 0) entries.push({ label: 'まだありません（「このシートをボタンに登録」で入れられます）', disabled: true });
+    if (pills.length === 0) entries.push({ label: tr('まだありません（「このシートをボタンに登録」で入れられます）'), disabled: true });
     else entries.push({ pills });
-    entries.push({ label: 'このシートをボタンに登録…', run: () => openSheetSlotMenu(x, y) });
-    entries.push({ label: 'シートのセット…', run: () => openSheetSetMenu(x, y) });
-    entries.push({ label: 'その他のシート…', run: () => openOtherSheetsMenu(x, y) });
+    entries.push({ label: tr('このシートをボタンに登録…'), run: () => openSheetSlotMenu(x, y) });
+    entries.push({ label: tr('シートのセット…'), run: () => openSheetSetMenu(x, y) });
+    entries.push({ label: tr('その他のシート…'), run: () => openOtherSheetsMenu(x, y) });
     return entries;
   }
 
@@ -2687,23 +2687,23 @@ export function startPrimary() {
   function openSheetSlotMenu(x: number, y: number) {
     rememberSheetSlots();
     const current = sheets.currentSheet;
-    const entries: MenuEntry[] = [{ section: `「${current.name}」をボタンに登録` }];
+    const entries: MenuEntry[] = [{ section: tr('「{0}」をボタンに登録', { 0: current.name }) }];
     for (let i = 0; i < SHEET_SLOT_COUNT; i++) {
       const occupant = sheetSlots.list[i];
       const name = occupant ? sheets.get(occupant)?.name : undefined;
-      const hint = occupant === current.id ? 'このシート' : name;
+      const hint = occupant === current.id ? tr('このシート') : name;
       const slot = i;
       entries.push({
-        label: `シート${i + 1}に登録`,
+        label: tr('シート{0}に登録', { 0: i + 1 }),
         hint,
         run: () => {
           if (sheetSlots.list[slot] === current.id) {
-            toast(`すでにシート${slot + 1}のボタンです`);
+            toast(tr('すでにシート{0}のボタンです', { 0: slot + 1 }));
             return;
           }
-          const previous = name && occupant !== current.id ? `（前の「${name}」は外れます）` : '';
+          const previous = name && occupant !== current.id ? tr('（前の「{0}」は外れます）', { 0: name }) : '';
           sheetSlots.register(current.id, slot);
-          toast(`「${current.name}」をシート${slot + 1}のボタンにしました${previous}。もう一度右クリックすると、ボタンが出ます`, 5000);
+          toast(tr('「{0}」をシート{1}のボタンにしました{2}。もう一度右クリックすると、ボタンが出ます', { 0: current.name, 1: slot + 1, 2: previous }), 5000);
         },
       });
     }
@@ -2712,15 +2712,15 @@ export function startPrimary() {
 
   // 右のメモで保存したシートのセット。中のシートを選ぶと盤面が移る。セットは開かない（右のタブはそのまま）
   function openSheetSetMenu(x: number, y: number) {
-    cellMenu.open(x, y, [{ section: 'シートのセット' }, { label: '読み込んでいます…', disabled: true }]);
+    cellMenu.open(x, y, [{ section: tr('シートのセット') }, { label: tr('読み込んでいます…'), disabled: true }]);
     const token = cellMenu.token();
     void readData<unknown>('right-sheets.json').then((raw) => {
       const sets = sheetSetsIn(raw);
-      const entries: MenuEntry[] = [{ section: 'シートのセット' }];
+      const entries: MenuEntry[] = [{ section: tr('シートのセット') }];
       if (sets.length === 0) {
-        entries.push({ label: 'まだありません（右のメモの「保存」で作れます）', disabled: true });
+        entries.push({ label: tr('まだありません（右のメモの「保存」で作れます）'), disabled: true });
       } else {
-        entries.push({ note: '名前を押すと、中のシートが出ます。選んでも、右のメモのタブは変わりません。' });
+        entries.push({ note: tr('名前を押すと、中のシートが出ます。選んでも、右のメモのタブは変わりません。') });
         for (const set of sets) {
           entries.push({ label: set.name, hint: `${set.sheets.length}`, run: () => openOneSheetSet(x, y, set) });
         }
@@ -2737,9 +2737,9 @@ export function startPrimary() {
       if (!sheet) continue;
       any = true;
       const here = sheet.id === sheets.current;
-      entries.push({ label: sheet.name, hint: here ? 'いまのシート' : undefined, disabled: here, run: () => jumpToSheet(sheet.id) });
+      entries.push({ label: sheet.name, hint: here ? tr('いまのシート') : undefined, disabled: here, run: () => jumpToSheet(sheet.id) });
     }
-    if (!any) entries.push({ label: 'このセットのシートは、もうありません', disabled: true });
+    if (!any) entries.push({ label: tr('このセットのシートは、もうありません'), disabled: true });
     cellMenu.open(x, y, entries);
   }
 
@@ -2747,15 +2747,15 @@ export function startPrimary() {
   function openOtherSheetsMenu(x: number, y: number) {
     rememberSheetSlots();
     const pinned = new Set(sheetSlots.list.filter((id): id is string => !!id));
-    const entries: MenuEntry[] = [{ section: 'その他のシート' }];
+    const entries: MenuEntry[] = [{ section: tr('その他のシート') }];
     const rest = sheets.list().filter((sheet) => !pinned.has(sheet.id));
     if (rest.length === 0) {
-      entries.push({ label: 'ボタンに入っていないシートはありません', disabled: true });
+      entries.push({ label: tr('ボタンに入っていないシートはありません'), disabled: true });
     } else {
       for (const sheet of rest) {
         const count = store.inSheet(sheet.id).length + memos.inSheet(sheet.id).length;
         const here = sheet.id === sheets.current;
-        entries.push({ label: sheet.name, hint: here ? 'いまのシート' : `${count}`, disabled: here, run: () => jumpToSheet(sheet.id) });
+        entries.push({ label: sheet.name, hint: here ? tr('いまのシート') : `${count}`, disabled: here, run: () => jumpToSheet(sheet.id) });
       }
     }
     cellMenu.open(x, y, entries);
@@ -2780,7 +2780,7 @@ export function startPrimary() {
     preview.showMemo(id);
     const app = apps.get(memo.app);
     if (!app) {
-      toast('このアプリが台帳に見つかりません（右クリック →「セルを外す」で片づけられます）', 5000);
+      toast(tr('このアプリが台帳に見つかりません（右クリック →「セルを外す」で片づけられます）'), 5000);
       return;
     }
     if (openingApps.has(app.id)) return;
@@ -2803,10 +2803,10 @@ export function startPrimary() {
       }
       let text = summonResultText(app.name, result);
       if (result.ok && result.action === 'waiting' && isStoreTarget(app.target)) {
-        text = `「${app.name}」の窓を特定できませんでした。ほかのアプリの窓は動かしていません`;
+        text = tr('「{0}」の窓を特定できませんでした。ほかのアプリの窓は動かしていません', { 0: app.name });
       }
       if (result.ok && result.action === 'fixed' && result.overlap) {
-        if (overlapTold.has(app.id)) text = `「${app.name}」は大きさを変えられないので、中央に寄せました`;
+        if (overlapTold.has(app.id)) text = tr('「{0}」は大きさを変えられないので、中央に寄せました', { 0: app.name });
         else overlapTold.add(app.id);
       }
       if (text) toast(text, 6000);
@@ -2823,7 +2823,7 @@ export function startPrimary() {
     const pos = isTaken(at, target) ? nearestFree(at, (h) => isTaken(h, target)) : at;
     const memo = memos.add({ sheet: target, pos, text: '', app: app.id });
     if (!memo) {
-      toast('アプリのセルを置けませんでした（メモのセルが多すぎます）');
+      toast(tr('アプリのセルを置けませんでした（メモのセルが多すぎます）'));
       return null;
     }
     apps.touch(app.id);
@@ -2840,29 +2840,29 @@ export function startPrimary() {
     }
     const existing = apps.findLaunch(picked.app.launch);
     if (existing) {
-      if (placeApp(existing.id, at)) toast(`「${existing.name}」は登録してありました。このセルに置きました。ダブルクリックで、中央に出します`, 6000);
+      if (placeApp(existing.id, at)) toast(tr('「{0}」は登録してありました。このセルに置きました。ダブルクリックで、中央に出します', { 0: existing.name }), 6000);
       return;
     }
     if (apps.list().length >= MAX_APPS) {
-      toast(`アプリが多すぎて、台帳に入れられません（${MAX_APPS} 件まで）`);
+      toast(tr('アプリが多すぎて、台帳に入れられません（{0} 件まで）', { 0: MAX_APPS }));
       return;
     }
     const app = apps.add(picked.app);
     if (!app) {
-      toast(`アプリが多すぎて、台帳に入れられません（${MAX_APPS} 件まで）`);
+      toast(tr('アプリが多すぎて、台帳に入れられません（{0} 件まで）', { 0: MAX_APPS }));
       return;
     }
     if (!placeApp(app.id, at)) {
       apps.remove(app.id);
       return;
     }
-    toast(`アプリ「${app.name}」を登録しました。ダブルクリックで、中央に出します`, 6000);
+    toast(tr('アプリ「{0}」を登録しました。ダブルクリックで、中央に出します', { 0: app.name }), 6000);
   }
 
   function renameApp(memoId: string, at?: { x: number; y: number }) {
     const app = apps.get(memos.get(memoId)?.app);
     if (!app) return;
-    cellMenu.prompt('アプリの新しい名前', app.name, (name) => apps.rename(app.id, name), at ?? nearMemo(memoId), { maxLength: MAX_APP_NAME });
+    cellMenu.prompt(tr('アプリの新しい名前'), app.name, (name) => apps.rename(app.id, name), at ?? nearMemo(memoId), { maxLength: MAX_APP_NAME });
   }
 
   async function repickApp(memoId: string) {
@@ -2875,7 +2875,7 @@ export function startPrimary() {
       return;
     }
     if (!apps.replaceFile(app.id, picked.app)) return;
-    toast(`「${app.name}」のファイルを選び直しました（名前はそのままです）`, 5000);
+    toast(tr('「{0}」のファイルを選び直しました（名前はそのままです）', { 0: app.name }), 5000);
   }
 
   function confirmRemoveAppCell(memoId: string) {
@@ -2884,10 +2884,10 @@ export function startPrimary() {
     const app = apps.get(memo.app);
     const rect = sidebar.anchorOfMemo(memoId);
     cellMenu.open(rect ? rect.left : window.innerWidth / 2 - 120, rect ? rect.bottom + 4 : 120, [
-      { section: app ? `アプリ「${app.name}」のセルを外します` : 'アプリのセルを外します' },
-      { label: '名前とファイルは台帳に残り、丸いボタンから置き直せます', disabled: true },
-      { label: '外す', run: () => removeMemos([memoId]) },
-      { label: 'やめる', run: () => undefined },
+      { section: app ? tr('アプリ「{0}」のセルを外します', { 0: app.name }) : tr('アプリのセルを外します') },
+      { label: tr('名前とファイルは台帳に残り、丸いボタンから置き直せます'), disabled: true },
+      { label: tr('外す'), run: () => removeMemos([memoId]) },
+      { label: tr('やめる'), run: () => undefined },
     ]);
   }
 
@@ -2896,50 +2896,50 @@ export function startPrimary() {
     if (!app) return;
     const count = memos.list().filter((memo) => memo.app === appId).length;
     cellMenu.open(window.innerWidth / 2 - 140, 120, [
-      { section: `「${app.name}」を台帳から消します` },
-      { label: count > 0 ? `盤面のセル ${count} 個も外します。ファイル自体は消えません` : '盤面にセルはありません。ファイル自体は消えません', disabled: true },
+      { section: tr('「{0}」を台帳から消します', { 0: app.name }) },
+      { label: count > 0 ? tr('盤面のセル {0} 個も外します。ファイル自体は消えません', { 0: count }) : tr('盤面にセルはありません。ファイル自体は消えません'), disabled: true },
       {
-        label: '消す',
+        label: tr('消す'),
         run: () => {
           stopPin(appId);
           for (const memo of memos.list()) if (memo.app === appId) memos.remove(memo.id);
           apps.remove(appId);
           sidebar.clearSelection();
-          toast(`「${app.name}」を台帳から消しました`, 5000);
+          toast(tr('「{0}」を台帳から消しました', { 0: app.name }), 5000);
         },
       },
-      { label: 'やめる', run: () => undefined },
+      { label: tr('やめる'), run: () => undefined },
     ]);
   }
 
   function appPlaceEntries(at: Hex, x: number, y: number): MenuEntry[] {
-    const entries: MenuEntry[] = ['sep', { section: 'アプリのセル' }];
+    const entries: MenuEntry[] = ['sep', { section: tr('アプリのセル') }];
     const recent = apps.recent();
     const pills: MenuButton[] = recent.map((app) => ({
       label: app.name,
-      title: `アプリ「${app.name}」（${appFileLabel(app)}）。押すと、このセルに置きます`,
+      title: tr('アプリ「{0}」（{1}）。押すと、このセルに置きます', { 0: app.name, 1: appFileLabel(app) }),
       close: true,
       run: () => {
-        if (placeApp(app.id, at)) toast(`アプリ「${app.name}」のセルを置きました`, 4000);
+        if (placeApp(app.id, at)) toast(tr('アプリ「{0}」のセルを置きました', { 0: app.name }), 4000);
       },
     }));
-    if (pills.length === 0) entries.push({ label: 'まだありません（「アプリを登録…」で入れられます）', disabled: true });
+    if (pills.length === 0) entries.push({ label: tr('まだありません（「アプリを登録…」で入れられます）'), disabled: true });
     else entries.push({ pills });
-    entries.push({ label: 'アプリを登録…', run: () => void registerApp(at) });
+    entries.push({ label: tr('アプリを登録…'), run: () => void registerApp(at) });
     const shown = new Set(recent.map((app) => app.id));
     const rest = apps.list().filter((app) => !shown.has(app.id));
-    if (rest.length > 0) entries.push({ label: 'その他のアプリ…', hint: `${rest.length}`, run: () => openOtherAppsMenu(at, rest, x, y) });
+    if (rest.length > 0) entries.push({ label: tr('その他のアプリ…'), hint: `${rest.length}`, run: () => openOtherAppsMenu(at, rest, x, y) });
     return entries;
   }
 
   function openOtherAppsMenu(at: Hex, rest: { id: string; name: string; launch: string; shortcut: string; target: string }[], x: number, y: number) {
-    const entries: MenuEntry[] = [{ section: 'その他のアプリ' }];
+    const entries: MenuEntry[] = [{ section: tr('その他のアプリ') }];
     for (const app of rest) {
       entries.push({
         label: app.name,
         hint: appFileLabel(app),
         run: () => {
-          if (placeApp(app.id, at)) toast(`アプリ「${app.name}」のセルを置きました`, 4000);
+          if (placeApp(app.id, at)) toast(tr('アプリ「{0}」のセルを置きました', { 0: app.name }), 4000);
         },
       });
     }
@@ -2949,19 +2949,19 @@ export function startPrimary() {
   function openAppMenu(memo: MemoCell, info: { hex: Hex | null; x: number; y: number }) {
     const app = apps.get(memo.app);
     const at = { x: info.x, y: info.y };
-    const entries: MenuEntry[] = [{ section: app ? `アプリ「${app.name}」` : 'アプリ（台帳に見つかりません）' }];
+    const entries: MenuEntry[] = [{ section: app ? tr('アプリ「{0}」', { 0: app.name }) : tr('アプリ（台帳に見つかりません）') }];
     if (app) {
-      entries.push({ note: `ファイル：${appFileLabel(app)}` });
+      entries.push({ note: tr('ファイル：{0}', { 0: appFileLabel(app) }) });
       const pinned = pinnedAppId === app.id;
-      entries.push({ label: pinned ? '最前面をやめる' : '中央に出す', hint: 'ダブルクリック', run: () => launchAppCell(memo.id) });
-      entries.push({ label: '名前を変える…', run: () => renameApp(memo.id, at) });
+      entries.push({ label: pinned ? tr('最前面をやめる') : tr('中央に出す'), hint: tr('ダブルクリック'), run: () => launchAppCell(memo.id) });
+      entries.push({ label: tr('名前を変える…'), run: () => renameApp(memo.id, at) });
       entries.push(cardWinEntry({ kind: 'memo', id: memo.id }));
-      entries.push({ label: 'ファイルを選び直す…', run: () => void repickApp(memo.id) });
+      entries.push({ label: tr('ファイルを選び直す…'), run: () => void repickApp(memo.id) });
     }
     entries.push('sep');
-    entries.push({ label: '画像を貼る', hint: 'アイコンが顔です', disabled: true });
-    entries.push({ label: 'セルを外す（台帳には残る）…', run: () => confirmRemoveAppCell(memo.id) });
-    if (app) entries.push({ label: '台帳からも消す…', run: () => confirmForgetApp(app.id) });
+    entries.push({ label: tr('画像を貼る'), hint: tr('アイコンが顔です'), disabled: true });
+    entries.push({ label: tr('セルを外す（台帳には残る）…'), run: () => confirmRemoveAppCell(memo.id) });
+    if (app) entries.push({ label: tr('台帳からも消す…'), run: () => confirmForgetApp(app.id) });
     entries.push(...sheetJumpEntries(info.x, info.y));
     entries.push(...setEntries(info.hex));
     cellMenu.open(info.x, info.y, entries);
@@ -2971,8 +2971,8 @@ export function startPrimary() {
   function cardWinEntry(ref: { kind: 'tab'; id: number } | { kind: 'memo'; id: string }): MenuEntry {
     const key = ref.kind === 'tab' ? store.get(ref.id)?.uid : ref.id;
     return {
-      label: '小窓で出す',
-      hint: 'カード',
+      label: tr('小窓で出す'),
+      hint: tr('カード'),
       disabled: !key,
       run: () => {
         if (key) preview.openCardWin(ref.kind, key);
@@ -2984,12 +2984,12 @@ export function startPrimary() {
     const id = memo.capture;
     if (!id) return;
     cellMenu.open(info.x, info.y, [
-      { section: '撮ったもの' },
-      { label: '画像を貼る', hint: '撮影の台帳にあります', disabled: true },
-      { label: '右の撮影で開く', hint: 'ダブルクリック', run: () => revealCapture(id) },
+      { section: tr('撮ったもの') },
+      { label: tr('画像を貼る'), hint: tr('撮影の台帳にあります'), disabled: true },
+      { label: tr('右の撮影で開く'), hint: tr('ダブルクリック'), run: () => revealCapture(id) },
       cardWinEntry({ kind: 'memo', id: memo.id }),
-      { label: `スタンプ ${captureMarkCount(id)}`, disabled: true },
-      { label: '撮った画像は、右の撮影で消します', disabled: true },
+      { label: tr('スタンプ {0}', { 0: captureMarkCount(id) }), disabled: true },
+      { label: tr('撮った画像は、右の撮影で消します'), disabled: true },
       ...sheetJumpEntries(info.x, info.y),
     ]);
   }
@@ -3027,57 +3027,53 @@ export function startPrimary() {
     let clipEntry: { label: string; hint?: string; disabled?: boolean; run?: () => void } | null = null;
     let armImage: (() => void) | null = null;
     if ((info.id !== null || info.memo !== null) && total > 0) {
-      entries.push({ section: total > 1 ? `選んだセル ${total} 個` : info.memo ? 'このメモのセル' : 'このセル' });
-      if (total > 1) if (BOT_FEATURES) entries.push({ label: '🔍 Grok に頼む', run: () => void openDraftWindow({ tabs: selection, memos: memoSelection }) });
-      if (info.memo !== null && total === 1) {
+      entries.push({ section: total > 1 ? tr('選んだセル {0} 個', { 0: total }) : info.memo ? tr('このメモのセル') : tr('このセル') });
+      if (total > 1) if (BOT_FEATURES) entries.push({ label: tr('🔍 Grok に頼む'), run: () => void openDraftWindow({ tabs: selection, memos: memoSelection }) });      if (info.memo !== null && total === 1) {
         const id = info.memo;
-        if (memoPane.isOpen(id)) entries.push({ label: '下の区画を閉じる', run: () => memoPane.close() });
-        else entries.push({ label: '下に開いて書く（中央を上下に分ける）', hint: 'ダブルクリック', run: () => memoPane.open(id) });
-        entries.push({ label: '書き直す', run: () => editMemo(id) });
+        if (memoPane.isOpen(id)) entries.push({ label: tr('下の区画を閉じる'), run: () => memoPane.close() });
+        else entries.push({ label: tr('下に開いて書く（中央を上下に分ける）'), hint: tr('ダブルクリック'), run: () => memoPane.open(id) });
+        entries.push({ label: tr('書き直す'), run: () => editMemo(id) });
         entries.push(cardWinEntry({ kind: 'memo', id }));
         // メモの文を「選んだ文」として、依頼の小窓をページの上に開く（S3.11。ボットのセル・入口は上で別のメニューになる）
         const hasText = !!memos.get(id)?.text.trim();
-        if (BOT_FEATURES) entries.push({ label: '🔍 Grok に調べてもらう', disabled: !hasText, run: () => void askGrokFromMemo(id) });
-        entries.push({ label: '単語帳のカードにする', run: () => offerVocabFromMemo(id, { x: info.x, y: info.y }) });
-        const memo = memos.get(id);
-        entries.push(...linkedCardEntries({ kind: 'memo', id }, memo ? memoTitle(memo, 24) || 'メモ' : 'メモ')); // K6
+        if (BOT_FEATURES) entries.push({ label: tr('🔍 Grok に調べてもらう'), disabled: !hasText, run: () => void askGrokFromMemo(id) });
+        entries.push({ label: tr('単語帳のカードにする'), run: () => offerVocabFromMemo(id, { x: info.x, y: info.y }) });        const memo = memos.get(id);
+        entries.push(...linkedCardEntries({ kind: 'memo', id }, memo ? memoTitle(memo, 24) || tr('メモ') : tr('メモ'))); // K6
       }
       if (info.id !== null && total === 1) {
         const id = info.id;
-        if (BOT_FEATURES) entries.push({ label: '🔍 Grok に頼む', run: () => void openDraftWindow({ tabs: [id] }) });
-        entries.push({ label: '見た目（画像・コメント）…', run: () => void editTabFace(id) });
-        entries.push(cardWinEntry({ kind: 'tab', id }));
+        if (BOT_FEATURES) entries.push({ label: tr('🔍 Grok に頼む'), run: () => void openDraftWindow({ tabs: [id] }) });
+        entries.push({ label: tr('見た目（画像・コメント）…'), run: () => void editTabFace(id) });        entries.push(cardWinEntry({ kind: 'tab', id }));
         const tab = store.get(id);
         if (tab) entries.push(...livePopoutEntries(id));
-        entries.push({ label: '単語帳のカードにする', run: () => offerVocabFromTab(id, { x: info.x, y: info.y }) });
-        if (tab) entries.push(...linkedCardEntries({ kind: 'tab', id, url: tab.url }, tab.title || tab.url || 'タブ')); // K6
+        entries.push({ label: tr('単語帳のカードにする'), run: () => offerVocabFromTab(id, { x: info.x, y: info.y }) });
+        if (tab) entries.push(...linkedCardEntries({ kind: 'tab', id, url: tab.url }, tab.title || tab.url || tr('タブ'))); // K6
       }
       if (total === 1 && info.memo) armImage = queueCellImage(entries, { kind: 'memo', id: info.memo });
       else if (total === 1 && info.id !== null) armImage = queueCellImage(entries, { kind: 'tab', id: info.id });
-      entries.push({ label: 'コピー', hint: 'Ctrl+C', run: () => void copySelection() });
-      entries.push({ label: 'セットとして保存…', run: saveSelectionAsSet });
-      entries.push({ label: '六角メモへ送る', run: () => void sendSelectionToHexMemo() });
+      entries.push({ label: tr('コピー'), hint: 'Ctrl+C', run: () => void copySelection() });
+      entries.push({ label: tr('セットとして保存…'), run: saveSelectionAsSet });
+      entries.push({ label: tr('六角メモへ送る'), run: () => void sendSelectionToHexMemo() });
       // シート：選んだセルを入口1つにまとめる・ほかのシートへ移す
-      entries.push({ label: '入口1つにまとめる（新しいシートへ）…', run: () => packSelection(info.x, info.y) });
+      entries.push({ label: tr('入口1つにまとめる（新しいシートへ）…'), run: () => packSelection(info.x, info.y) });
       // ほかのシートへ移す（最近見たシートから5つ。多ければ「ほかのシートへ移す…」で全部）
       const others = sheets.recent().filter((s) => s.id !== home);
-      for (const sheet of others.slice(0, 5)) entries.push({ label: `シート「${sheet.name}」へ移す`, run: () => moveSelectionTo(sheet.id) });
-      if (others.length > 5) entries.push({ label: 'ほかのシートへ移す…', hint: `${others.length}`, run: () => openMoveToMenu(info.x, info.y, home) });
+      for (const sheet of others.slice(0, 5)) entries.push({ label: tr('シート「{0}」へ移す', { 0: sheet.name }), run: () => moveSelectionTo(sheet.id) });
+      if (others.length > 5) entries.push({ label: tr('ほかのシートへ移す…'), hint: `${others.length}`, run: () => openMoveToMenu(info.x, info.y, home) });
       const cell = info.id !== null ? store.get(info.id) : memos.get(info.memo);
       const island = cell?.island ? islands.get(cell.island) : undefined;
       if (island) {
         const tabsIn = store.inSheet(home).filter((t) => t.island === island.id).map((t) => t.id);
         const memosIn = memos.inSheet(home).filter((m) => m.island === island.id).map((m) => m.id);
         entries.push({
-          label: `島「${island.name}」を全部選ぶ`,
+          label: tr('島「{0}」を全部選ぶ', { 0: island.name }),
           hint: `${tabsIn.length + memosIn.length}`,
           run: () => {
             if (home !== sheets.current && !switchSheet(home)) return; // 小窓のシートへ移してから選ぶ（選択は今のシートにしか乗らない）
             sidebar.setSelection(tabsIn, memosIn);
           },
         });
-        if (BOT_FEATURES) entries.push({ label: 'この島を頼む', hint: '小窓', run: () => void openDraftWindow({ islandId: island.id }) });
-      }
+        if (BOT_FEATURES) entries.push({ label: tr('この島を頼む'), hint: tr('小窓'), run: () => void openDraftWindow({ islandId: island.id }) });      }
       entries.push(...islandEntriesForSelection(island?.id ?? null, info.x, info.y));
       if (total === 1) entries.push(...boardLinkEntries(info.id !== null ? store.get(info.id) : undefined, info.memo, info.x, info.y));
       if (memoSelection.length > 0 && selection.length === 0) {
@@ -3085,42 +3081,42 @@ export function startPrimary() {
         const onlyBots = memoSelection.every((id) => memos.get(id)?.bot);
         const onlyApps = memoSelection.every((id) => memos.get(id)?.app);
         const label = onlyPortals
-          ? `入口 ${memoSelection.length} 個を消す（シートは残る）…`
+          ? tr('入口 {0} 個を消す（シートは残る）…', { 0: memoSelection.length })
           : onlyBots
-            ? `ボットのセル ${memoSelection.length} 個を外す（台帳には残る）…`
+            ? tr('ボットのセル {0} 個を外す（台帳には残る）…', { 0: memoSelection.length })
             : onlyApps
-              ? `アプリのセル ${memoSelection.length} 個を外す（台帳には残る）…`
+              ? tr('アプリのセル {0} 個を外す（台帳には残る）…', { 0: memoSelection.length })
               : memoSelection.length > 1
-                ? `メモのセル ${memoSelection.length} 個を消す…`
-                : 'このメモのセルを消す…';
+                ? tr('メモのセル {0} 個を消す…', { 0: memoSelection.length })
+                : tr('このメモのセルを消す…');
         entries.push({ label, run: () => confirmRemoveMemos(memoSelection) });
       }
-      if (total > 1) entries.push({ label: '選択を解除', hint: 'Esc', run: () => sidebar.clearSelection() });
-      entries.push({ label: 'Ctrl+クリックで選び足す・Shift+クリックで範囲', disabled: true });
+      if (total > 1) entries.push({ label: tr('選択を解除'), hint: 'Esc', run: () => sidebar.clearSelection() });
+      entries.push({ label: tr('Ctrl+クリックで選び足す・Shift+クリックで範囲'), disabled: true });
     } else {
-      entries.push({ section: 'このセルに' });
+      entries.push({ section: tr('このセルに') });
       if (info.hex) {
         const at = info.hex;
-        entries.push({ label: '新しいタブ', hint: 'ダブルクリック', run: () => createTab(HOME_URL, at) });
-        entries.push({ label: 'メモを書く', run: () => writeNewMemo(at) });
+        entries.push({ label: tr('新しいタブ'), hint: tr('ダブルクリック'), run: () => createTab(HOME_URL, at) });
+        entries.push({ label: tr('メモを書く'), run: () => writeNewMemo(at) });
         // 試し：今あるシートへの入口をここに置く
         const portalTargets = sheets.list().filter((s) => s.id !== sheets.current);
         entries.push(
           portalTargets.length > 0
-            ? { label: 'あるシートへの入口を追加 ▸', run: () => openPortalToSheetMenu(at, info.x, info.y) }
-            : { label: 'あるシートへの入口を追加（ほかのシートがありません）', disabled: true },
+            ? { label: tr('あるシートへの入口を追加 ▸'), run: () => openPortalToSheetMenu(at, info.x, info.y) }
+            : { label: tr('あるシートへの入口を追加（ほかのシートがありません）'), disabled: true },
         );
-        entries.push({ label: 'ボットのセルを置く…', run: () => openPlaceBotMenu(at, info.x, info.y) });
-        entries.push({ label: 'スクショを撮ってここに置く', hint: 'Ctrl+Shift+S', run: () => void startShot(at) });
-        entries.push({ label: '音声・動画のファイルを開く…', run: () => void openMediaFile(at) });
-        entries.push({ label: '画像ファイルを開く…', run: () => void openImageFile(at) });
-        clipEntry = { label: 'クリップボードの画像をセルにする', hint: '確かめています…', disabled: true };
+        entries.push({ label: tr('ボットのセルを置く…'), run: () => openPlaceBotMenu(at, info.x, info.y) });
+        entries.push({ label: tr('スクショを撮ってここに置く'), hint: 'Ctrl+Shift+S', run: () => void startShot(at) });
+        entries.push({ label: tr('音声・動画のファイルを開く…'), run: () => void openMediaFile(at) });
+        entries.push({ label: tr('画像ファイルを開く…'), run: () => void openImageFile(at) });
+        clipEntry = { label: tr('クリップボードの画像をセルにする'), hint: tr('確かめています…'), disabled: true };
         entries.push(clipEntry);
         entries.push(...appPlaceEntries(at, info.x, info.y));
       }
-      pasteEntry = { label: '貼り付け', hint: '確かめています…', disabled: true };
+      pasteEntry = { label: tr('貼り付け'), hint: tr('確かめています…'), disabled: true };
       entries.push(pasteEntry);
-      if (islands.list().length > 0) entries.push({ row: '島の名前', buttons: islandNamesButtons() });
+      if (islands.list().length > 0) entries.push({ row: tr('島の名前'), buttons: islandNamesButtons() });
     }
     entries.push(...sheetJumpEntries(info.x, info.y));
     entries.push(...setEntries(info.hex));
@@ -3132,7 +3128,7 @@ export function startPrimary() {
       const token = cellMenu.token();
       void cellImageOnClipboard().then((state) => {
         if (state === 'yes') Object.assign(entry, { hint: undefined, disabled: false, run: () => void placeClipboardImage(at) });
-        else Object.assign(entry, { hint: state === 'no' ? '画像がありません' : '確かめられませんでした', disabled: true, run: undefined });
+        else Object.assign(entry, { hint: state === 'no' ? tr('画像がありません') : tr('確かめられませんでした'), disabled: true, run: undefined });
         cellMenu.update(entries, token);
       });
     }
@@ -3140,14 +3136,14 @@ export function startPrimary() {
       const entry = pasteEntry;
       void pasteable().then((p) => {
         if (!p) {
-          Object.assign(entry, { label: '貼り付け', hint: 'コピーしたものがありません', disabled: true });
+          Object.assign(entry, { label: tr('貼り付け'), hint: tr('コピーしたものがありません'), disabled: true });
         } else {
-          Object.assign(entry, { label: `貼り付け（${p.label}）`, hint: 'Ctrl+V', disabled: false, run: () => void pasteAt(info.hex) });
+          Object.assign(entry, { label: tr('貼り付け（{0}）', { 0: p.label }), hint: 'Ctrl+V', disabled: false, run: () => void pasteAt(info.hex) });
           // URL を含む文章は、タブにするほか、文章のままメモにもできる
           const text = p.text;
           if (text && p.cells.some((c) => !c.memo) && info.hex) {
             const at = info.hex;
-            textEntry = { label: '文章のままメモのセルにする', run: () => writeNewMemo(at, text) };
+            textEntry = { label: tr('文章のままメモのセルにする'), run: () => writeNewMemo(at, text) };
             entries.splice(entries.indexOf(entry) + 1, 0, textEntry);
           }
         }
@@ -3163,12 +3159,12 @@ export function startPrimary() {
     const appCells = ids.filter((id) => memos.get(id)?.app).length;
     const kept = ids.length > 0 && (botCells === ids.length || appCells === ids.length);
     cellMenu.open(x, 120, [
-      { section: ids.length > 1 ? `${kept ? 'セル' : 'メモのセル'} ${ids.length} 個を${kept ? '外します' : '消します'}` : kept ? 'このセルを外します' : 'このメモのセルを消します' },
-      ...(portals > 0 ? [{ label: `うち入口 ${portals} 個（シートと中身は残ります）`, disabled: true }] : []),
-      ...(botCells > 0 ? [{ label: `うちボットのセル ${botCells} 個（ボットの名前とリンクは台帳に残ります）`, disabled: true }] : []),
-      ...(appCells > 0 ? [{ label: `うちアプリのセル ${appCells} 個（名前とファイルは台帳に残ります）`, disabled: true }] : []),
-      { label: kept ? '外す' : '消す', run: () => removeMemos(ids) },
-      { label: 'やめる', run: () => undefined },
+      { section: ids.length > 1 ? tr('{0} {1} 個を{2}', { 0: kept ? 'セル' : 'メモのセル', 1: ids.length, 2: kept ? '外します' : '消します' }) : kept ? tr('このセルを外します') : tr('このメモのセルを消します') },
+      ...(portals > 0 ? [{ label: tr('うち入口 {0} 個（シートと中身は残ります）', { 0: portals }), disabled: true }] : []),
+      ...(botCells > 0 ? [{ label: tr('うちボットのセル {0} 個（ボットの名前とリンクは台帳に残ります）', { 0: botCells }), disabled: true }] : []),
+      ...(appCells > 0 ? [{ label: tr('うちアプリのセル {0} 個（名前とファイルは台帳に残ります）', { 0: appCells }), disabled: true }] : []),
+      { label: kept ? tr('外す') : tr('消す'), run: () => removeMemos(ids) },
+      { label: tr('やめる'), run: () => undefined },
     ]);
   }
 
@@ -3204,7 +3200,7 @@ export function startPrimary() {
   async function openDraftWindow(req: { tabs?: readonly number[]; memos?: readonly string[]; islandId?: string }) {
     const island = req.islandId ? islands.get(req.islandId) : undefined;
     if (req.islandId && !island) {
-      toast('その島はもうありません');
+      toast(tr('その島はもうありません'));
       return;
     }
     const hosts = await ensureBlocklist();
@@ -3268,7 +3264,7 @@ export function startPrimary() {
     if (!cleaned) return;
     const memo = cleaned.memo ? memos.get(cleaned.memo) : undefined;
     if (cleaned.replies.length > 0 && !memo) {
-      toast('そのメモはもうありません');
+      toast(tr('そのメモはもうありません'));
       return;
     }
     const set =
@@ -3308,11 +3304,11 @@ export function startPrimary() {
   function openGrokExportMenu(x: number, y: number) {
     const selected = sidebar.selection().length + sidebar.memoSelection().length;
     cellMenu.open(x, y, [
-      { section: 'Grok 用に書き出す（読むための写し。ページの本文・画像は入れない）' },
-      { label: 'このシート', hint: sheets.get(sheets.current)?.name ?? '', run: () => void grokExport('sheet') },
-      { label: 'すべてのシート', hint: `${sheets.list().length} 枚`, run: () => void grokExport('all') },
-      { label: '選んだセルだけ', hint: `${selected}`, disabled: selected === 0, run: () => void grokExport('selection') },
-      { note: '書き出し先：データフォルダの ui-data\\exports\\state-日時.json（Grok に、このファイルを読んで提案を書くよう頼みます。決まりは docs\\grok-patch-format.md）' },
+      { section: tr('Grok 用に書き出す（読むための写し。ページの本文・画像は入れない）') },
+      { label: tr('このシート'), hint: sheets.get(sheets.current)?.name ?? '', run: () => void grokExport('sheet') },
+      { label: tr('すべてのシート'), hint: tr('{0} 枚', { 0: sheets.list().length }), run: () => void grokExport('all') },
+      { label: tr('選んだセルだけ'), hint: `${selected}`, disabled: selected === 0, run: () => void grokExport('selection') },
+      { note: tr('書き出し先：データフォルダの ui-data\\exports\\state-日時.json（Grok に、このファイルを読んで提案を書くよう頼みます。決まりは docs\\grok-patch-format.md）') },
     ]);
   }
 
@@ -3334,17 +3330,17 @@ export function startPrimary() {
       GROK_LIMITS,
     );
     if (!built) {
-      toast('大きすぎて書き出せませんでした（2 MB まで。「このシート」か「選んだセルだけ」で試してください）', 6000);
+      toast(tr('大きすぎて書き出せませんでした（2 MB まで。「このシート」か「選んだセルだけ」で試してください）'), 6000);
       return null;
     }
     const name = exportFileName();
     if (!(await writeData(name, built.data))) {
-      toast('書き出せませんでした（ui-data に書けません）', 6000);
+      toast(tr('書き出せませんでした（ui-data に書けません）'), 6000);
       return null;
     }
     lastGrokExport = built.data.exportedAt;
     const path = `ui-data\\${name.replace(/\//g, '\\')}`;
-    toast(`書き出しました：${path}（タブ ${built.data.tabs.length}・メモ ${built.data.memos.length}・カード ${built.data.cards.length}${built.data.cut ? '。文は短くしました' : ''}）`, 7000);
+    toast(tr('書き出しました：{0}（タブ {1}・メモ {2}・カード {3}{4}）', { 0: path, 1: built.data.tabs.length, 2: built.data.memos.length, 3: built.data.cards.length, 4: built.data.cut ? '。文は短くしました' : '' }), 7000);
     try {
       await navigator.clipboard.writeText(path);
     } catch {
@@ -3362,7 +3358,7 @@ export function startPrimary() {
   const GROK_BY: ReplyAuthor = { who: 'bot', name: 'Grok Bot' };
   const PATCH_HISTORY = 'patch-history.json';
   const patchView = new GrokPatchView();
-  const PATCH_SOURCE_TEXT: Record<string, string> = { file: 'ファイルから', drop: '落としたファイルから', inbox: '受け取り口から', mock: '練習用' };
+  const PATCH_SOURCE_TEXT: Record<string, string> = { file: tr('ファイルから'), drop: tr('落としたファイルから'), inbox: tr('受け取り口から'), mock: tr('練習用') };
 
   const worldTab = (tab: Tab): WorldTab => ({
     id: tab.id,
@@ -3530,10 +3526,10 @@ export function startPrimary() {
     readHistory: () => readPatchHistory(),
     writeHistory: (items) => writeData(PATCH_HISTORY, { v: 1, items }),
     refusal: () => {
-      if (shuttingDown) return 'ブラウザを閉じる途中です';
-      if (archiveBusy) return 'ほかの処理（アーカイブか戻す）の途中です';
-      if (!memos.ready || !memos.writableLedger) return 'メモの台帳を読めていないので取り込めません（少し待ってから、もう一度）';
-      if (!sessionReady) return '前回のタブを読み終えていません。少し待ってから、もう一度';
+      if (shuttingDown) return tr('ブラウザを閉じる途中です');
+      if (archiveBusy) return tr('ほかの処理（アーカイブか戻す）の途中です');
+      if (!memos.ready || !memos.writableLedger) return tr('メモの台帳を読めていないので取り込めません（少し待ってから、もう一度）');
+      if (!sessionReady) return tr('前回のタブを読み終えていません。少し待ってから、もう一度');
       return null;
     },
     ids: { sheet: newSheetId, island: newIslandId, memo: newMemoId, reply: newReplyId },
@@ -3562,14 +3558,14 @@ export function startPrimary() {
   //   JSON を 1 回だけ読み、format が hcb-memo-interchange なら取り込みへ、それ以外は今までどおり提案（patch.v1）へ
   function openPatchText(text: string, source: string, after?: () => void): boolean {
     if (!withinImportBytes(text)) {
-      toast(`ファイルが大きすぎます（${IMPORT_FILE_LABEL} まで）`, 6000);
+      toast(tr('ファイルが大きすぎます（{0} まで）', { 0: IMPORT_FILE_LABEL }), 6000);
       return false;
     }
     const raw = readJson(text);
     if (detectJsonKind(raw) === 'interchange') return interchange.open(raw, text, source, after);
     const parsed = parsePatchText(text);
     if (!parsed.ok) {
-      toast(`Grok の提案を読めませんでした（${PATCH_REASON_TEXT[parsed.reason] ?? parsed.reason}）`, 7000);
+      toast(tr('Grok の提案を読めませんでした（{0}）', { 0: PATCH_REASON_TEXT[parsed.reason] ?? parsed.reason }), 7000);
       return false;
     }
     return showPatch(parsed.patch, parsed.dropped, source, after);
@@ -3577,15 +3573,15 @@ export function startPrimary() {
 
   function showPatch(patch: GrokPatch, dropped: { index: number; reason: string }[], source: string, after?: () => void): boolean {
     if (!memos.ready || !memos.writableLedger) {
-      toast('メモの台帳をまだ読めていないので、提案は当てられません（少し待ってから、もう一度）', 6000);
+      toast(tr('メモの台帳をまだ読めていないので、提案は当てられません（少し待ってから、もう一度）'), 6000);
       return false;
     }
     cellMenu.close();
     const items = planPatch(patch, patchWorld);
     const staleNote = !patch.basedOn
-      ? '書き出しの時刻（basedOn）が無い提案です。今の様子と合っているか、よく見てから選んでください'
+      ? tr('書き出しの時刻（basedOn）が無い提案です。今の様子と合っているか、よく見てから選んでください')
       : lastGrokExport && patch.basedOn < lastGrokExport
-        ? 'この提案は、いちばん新しい書き出しより前の写しをもとにしています'
+        ? tr('この提案は、いちばん新しい書き出しより前の写しをもとにしています')
         : undefined;
     patchView.open({
       patch,
@@ -3621,12 +3617,12 @@ export function startPrimary() {
     const fresh = planPatch(patch, patchWorld).filter((i) => picked.has(i.index));
     const usable = fresh.filter((i) => i.status === 'ok');
     if (usable.length === 0) {
-      toast('当てられるものがありませんでした（もうそうなっているか、相手が見つかりません）', 6000);
+      toast(tr('当てられるものがありませんでした（もうそうなっているか、相手が見つかりません）'), 6000);
       return false;
     }
     const id = `ap${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
     if (!(await writePatchBefore(id))) {
-      toast('当てる前の写しを書けなかったので、当てませんでした（ui-data\\patch-backups に書けません）', 7000);
+      toast(tr('当てる前の写しを書けなかったので、当てませんでした（ui-data\\patch-backups に書けません）'), 7000);
       return false;
     }
     const steps: AppliedStep[] = [];
@@ -3644,7 +3640,7 @@ export function startPrimary() {
     await writeData(PATCH_HISTORY, { v: 1, items: history.slice(0, 100) });
     sidebar.render();
     toast(
-      `Grok の提案を ${steps.length} 件当てました${skipped > 0 ? `（${skipped} 件は当てられませんでした）` : ''}。${wrote ? '戻すときは、シートの名前 ▾ →「Grok の提案の記録…」' : '戻し方を書けなかったので、この分は元に戻せません'}`,
+      tr('Grok の提案を {0} 件当てました{1}。{2}', { 0: steps.length, 1: skipped > 0 ? `（${skipped} 件は当てられませんでした）` : '', 2: wrote ? '戻すときは、シートの名前 ▾ →「Grok の提案の記録…」' : '戻し方を書けなかったので、この分は元に戻せません' }),
       8000,
     );
     return true;
@@ -3652,29 +3648,29 @@ export function startPrimary() {
 
   async function openPatchHistory(x: number, y: number) {
     const history = await readPatchHistory();
-    const entries: MenuEntry[] = [{ section: 'Grok の提案の記録（新しい順・100 件まで）' }];
-    if (history.length === 0) entries.push({ note: 'まだ当てた提案はありません' });
+    const entries: MenuEntry[] = [{ section: tr('Grok の提案の記録（新しい順・100 件まで）') }];
+    if (history.length === 0) entries.push({ note: tr('まだ当てた提案はありません') });
     for (const h of history.slice(0, 20)) {
       const when = new Date(h.at).toLocaleString();
       entries.push({
-        label: `${h.title || h.patchId || '（題名なし）'}`,
-        hint: `${when}・${h.applied} 件${h.undoneAt ? '・戻しました' : ''}`,
+        label: `${h.title || h.patchId || tr('（題名なし）')}`,
+        hint: tr('{0}・{1} 件{2}', { 0: when, 1: h.applied, 2: h.undoneAt ? '・戻しました' : '' }),
         disabled: !!h.undoneAt || h.applied === 0,
         run: () => void undoApplied(h.id, x, y),
       });
     }
-    entries.push({ note: '押すと、その提案で変えたところを元に戻します（あとで手で変えたところは戻しません）。当てる前の写し：ui-data\\patch-backups' });
+    entries.push({ note: tr('押すと、その提案で変えたところを元に戻します（あとで手で変えたところは戻しません）。当てる前の写し：ui-data\\patch-backups') });
     cellMenu.open(x, y, entries);
   }
 
   async function undoApplied(id: string, x: number, y: number, onlyClean = false) {
     const raw = await readData(`patch-backups/${id}.json`);
     if (!isBackup(raw)) {
-      toast('戻し方のファイルを読めませんでした（ui-data\\patch-backups）', 6000);
+      toast(tr('戻し方のファイルを読めませんでした（ui-data\\patch-backups）'), 6000);
       return;
     }
     if (raw.undoneAt) {
-      toast('この提案は、もう元に戻してあります');
+      toast(tr('この提案は、もう元に戻してあります'));
       return;
     }
     // 取り込みは記録の 1 件＝シートと中身。変わっていれば分かれ道の小窓（interchange-flow.ts）
@@ -3686,10 +3682,10 @@ export function startPrimary() {
     if (conflicts.size > 0 && !onlyClean) {
       const clean = raw.steps.length - conflicts.size;
       cellMenu.open(x, y, [
-        { section: '元に戻せません' },
-        { note: `当てたあとに ${conflicts.size} 件が変わっています（${[...conflicts].slice(0, 3).map((i) => raw.steps[i].label).join('・')}${conflicts.size > 3 ? ' など' : ''}）。上書きしないよう、そのままでは戻しません` },
-        { label: `変わっていない ${clean} 件だけ戻す`, disabled: clean === 0, run: () => void undoApplied(id, x, y, true) },
-        { label: 'やめる', run: () => cellMenu.close() },
+        { section: tr('元に戻せません') },
+        { note: tr('当てたあとに {0} 件が変わっています（{1}{2}）。上書きしないよう、そのままでは戻しません', { 0: conflicts.size, 1: [...conflicts].slice(0, 3).map((i) => raw.steps[i].label).join('・'), 2: conflicts.size > 3 ? ' など' : '' }) },
+        { label: tr('変わっていない {0} 件だけ戻す', { 0: clean }), disabled: clean === 0, run: () => void undoApplied(id, x, y, true) },
+        { label: tr('やめる'), run: () => cellMenu.close() },
       ]);
       return;
     }
@@ -3705,14 +3701,14 @@ export function startPrimary() {
     await writeData(PATCH_HISTORY, { v: 1, items: history.map((h) => (h.id === id ? { ...h, undoneAt: at } : h)) });
     sidebar.render();
     cellMenu.close();
-    toast(`Grok の提案を元に戻しました（${undone} 件${conflicts.size > 0 ? `。変わっていた ${conflicts.size} 件はそのまま` : ''}）`, 7000);
+    toast(tr('Grok の提案を元に戻しました（{0} 件{1}）', { 0: undone, 1: conflicts.size > 0 ? `。変わっていた ${conflicts.size} 件はそのまま` : '' }), 7000);
   }
 
   async function openPatchFile() {
     const reply = await request((requestId) => ({ type: 'openJsonFile', requestId }), 10 * 60_000);
     if (!reply || reply.type !== 'jsonFile') return;
     if (!reply.ok) {
-      if (reply.error !== 'cancel') toast(reply.error === 'big' ? `ファイルが大きすぎます（${IMPORT_FILE_LABEL} まで）` : 'ファイルを読めませんでした', 6000);
+      if (reply.error !== 'cancel') toast(reply.error === 'big' ? tr('ファイルが大きすぎます（{0} まで）', { 0: IMPORT_FILE_LABEL }) : tr('ファイルを読めませんでした'), 6000);
       return;
     }
     openPatchText(reply.text ?? '', 'file');
@@ -3720,9 +3716,9 @@ export function startPrimary() {
 
   function grokPatchMenuEntries(x: number, y: number): MenuEntry[] {
     return [
-      { label: '提案・取り込みファイルを開く…', hint: 'JSON', run: () => void openPatchFile() },
+      { label: tr('提案・取り込みファイルを開く…'), hint: 'JSON', run: () => void openPatchFile() },
       ...inboxPatchEntries(),
-      { label: 'Grok の提案の記録…', hint: '元に戻す', run: () => void openPatchHistory(x, y) },
+      { label: tr('Grok の提案の記録…'), hint: tr('元に戻す'), run: () => void openPatchHistory(x, y) },
     ];
   }
 
@@ -3751,10 +3747,10 @@ export function startPrimary() {
       if (!/^[A-Za-z0-9_-]{1,80}$/.test(fileId)) return 'badName';
       if (!(await writeData(`patch-inbox/${fileId}.json`, reply))) return 'patchWrite';
       await inboxPatchesLoaded;
-      const title = ix.doc.sheet.name.trim() ? [...ix.doc.sheet.name.trim()].slice(0, 40).join('') : '取り込み';
+      const title = ix.doc.sheet.name.trim() ? [...ix.doc.sheet.name.trim()].slice(0, 40).join('') : tr('取り込み');
       inboxPatches = [{ fileId, title, at: new Date().toISOString(), kind: 'interchange' as const }, ...inboxPatches.filter((p) => p.fileId !== fileId)].slice(0, 20);
       await saveInboxPatches();
-      toast(`Grok の取り込みファイルが届きました：「${title}」（シートの名前 ▾ →「届いた取り込み」から見られます）`, 8000);
+      toast(tr('Grok の取り込みファイルが届きました：「{0}」（シートの名前 ▾ →「届いた取り込み」から見られます）', { 0: title }), 8000);
       return null;
     }
     const parsed = parsePatch(reply);
@@ -3764,7 +3760,7 @@ export function startPrimary() {
     await inboxPatchesLoaded;
     inboxPatches = [{ fileId, title: parsed.patch.title, at: new Date().toISOString() }, ...inboxPatches.filter((p) => p.fileId !== fileId)].slice(0, 20);
     await saveInboxPatches();
-    toast(`Grok の提案が届きました：「${parsed.patch.title}」（シートの名前 ▾ →「届いた提案」から見られます）`, 8000);
+    toast(tr('Grok の提案が届きました：「{0}」（シートの名前 ▾ →「届いた提案」から見られます）', { 0: parsed.patch.title }), 8000);
     return null;
   });
 
@@ -3777,7 +3773,7 @@ export function startPrimary() {
     }
     const parsed = parsePatch(raw);
     if (!parsed.ok) {
-      toast('届いた提案を読めませんでした（ui-data\\patch-inbox）', 6000);
+      toast(tr('届いた提案を読めませんでした（ui-data\\patch-inbox）'), 6000);
       return;
     }
     showPatch(parsed.patch, parsed.dropped, 'inbox', () => void dropInboxPatch(fileId));
@@ -3792,15 +3788,15 @@ export function startPrimary() {
     if (inboxPatches.length === 0) return [];
     const out: MenuEntry[] = [];
     for (const p of inboxPatches.slice(0, 5)) {
-      out.push({ label: `${p.kind === 'interchange' ? '届いた取り込み' : '届いた提案'}：${[...p.title].slice(0, 24).join('')}`, hint: new Date(p.at).toLocaleString(), run: () => void openInboxPatch(p.fileId) });
+      out.push({ label: `${p.kind === 'interchange' ? tr('届いた取り込み') : tr('届いた提案')}：${[...p.title].slice(0, 24).join('')}`, hint: new Date(p.at).toLocaleString(), run: () => void openInboxPatch(p.fileId) });
     }
     out.push({
-      row: '届いた提案',
-      hint: `${inboxPatches.length} 件（ファイルは ui-data\\patch-inbox に残ります）`,
+      row: tr('届いた提案'),
+      hint: tr('{0} 件（ファイルは ui-data\\patch-inbox に残ります）', { 0: inboxPatches.length }),
       buttons: [
         {
-          label: '一覧を片づける',
-          confirm: 'もう一度押すと片づけます',
+          label: tr('一覧を片づける'),
+          confirm: tr('もう一度押すと片づけます'),
           run: () => {
             inboxPatches = [];
             void saveInboxPatches();
@@ -3824,16 +3820,16 @@ export function startPrimary() {
     e.preventDefault();
     const json = files.find((f) => /\.json$/i.test(f.name) || f.type === 'application/json');
     if (!json) {
-      toast('盤面に落とせるのは Grok の提案ファイル・取り込みファイル（.json）だけです');
+      toast(tr('盤面に落とせるのは Grok の提案ファイル・取り込みファイル（.json）だけです'));
       return;
     }
     if (json.size > IMPORT_FILE_BYTES) {
-      toast(`ファイルが大きすぎます（${IMPORT_FILE_LABEL} まで）`);
+      toast(tr('ファイルが大きすぎます（{0} まで）', { 0: IMPORT_FILE_LABEL }));
       return;
     }
     void json.text().then(
       (text) => openPatchText(text, 'drop'),
-      () => toast('ファイルを読めませんでした'),
+      () => toast(tr('ファイルを読めませんでした')),
     );
   });
 
@@ -3856,34 +3852,34 @@ export function startPrimary() {
 
   function refTitle(ref: CellRef): string {
     const cell = refCell(ref);
-    if (!cell) return '（見つからないセル）';
+    if (!cell) return tr('（見つからないセル）');
     const text = cell.kind === 'tab' ? cell.tab.title || cell.tab.url : memoTitle(cell.memo, 16);
-    return [...(text || '（題名なし）')].slice(0, 16).join('');
+    return [...(text || tr('（題名なし）'))].slice(0, 16).join('');
   }
 
   function boardLinkEntries(tab: Tab | undefined, memoId: string | null, x: number, y: number): MenuEntry[] {
     const ref = cellRefOf(tab, memoId);
     if (!ref) return [];
-    const out: MenuEntry[] = [{ section: '関連' }, { label: '関連づける…', hint: '種類 → 相手のセル', run: () => openBoardLinkKinds(ref, x, y) }];
+    const out: MenuEntry[] = [{ section: tr('関連') }, { label: tr('関連づける…'), hint: tr('種類 → 相手のセル'), run: () => openBoardLinkKinds(ref, x, y) }];
     const mine = boardLinks.forCell(ref);
     for (const link of mine.slice(0, 6)) {
       const other = link.from === ref ? link.to : link.from;
-      out.push({ label: `${boardKindName(link.kind)}：${refTitle(other)}`, hint: '線のメニュー', run: () => openBoardLinkMenu(link.id, x, y) });
+      out.push({ label: `${boardKindName(link.kind)}：${refTitle(other)}`, hint: tr('線のメニュー'), run: () => openBoardLinkMenu(link.id, x, y) });
     }
-    if (mine.length > 6) out.push({ label: `ほかに ${mine.length - 6} 本（線を押すとメニュー）`, disabled: true });
+    if (mine.length > 6) out.push({ label: tr('ほかに {0} 本（線を押すとメニュー）', { 0: mine.length - 6 }), disabled: true });
     return out;
   }
 
   function openBoardLinkKinds(ref: CellRef, x: number, y: number) {
     cellMenu.open(x, y, [
-      { section: `「${refTitle(ref)}」から関連づける：種類` },
+      { section: tr('「{0}」から関連づける：種類', { 0: refTitle(ref) }) },
       ...LINK_KINDS.map((k) => ({
-        label: k.kind === 'same' ? `● ${boardKindName(k.kind)}（向きなし）` : `● ${boardKindName(k.kind)}`,
-        hint: k.kind === 'same' ? `AとBは${boardKindName(k.kind)}` : `このセル → 相手`,
+        label: k.kind === 'same' ? tr('● {0}（向きなし）', { 0: boardKindName(k.kind) }) : `● ${boardKindName(k.kind)}`,
+        hint: k.kind === 'same' ? tr('AとBは{0}', { 0: boardKindName(k.kind) }) : tr('このセル → 相手'),
         run: () => sidebar.startBoardLink(ref, k.kind),
       })),
       'sep',
-      { label: '種類の名前を変える…', run: () => openBoardLinkNames(x, y, () => openBoardLinkKinds(ref, x, y)) },
+      { label: tr('種類の名前を変える…'), run: () => openBoardLinkNames(x, y, () => openBoardLinkKinds(ref, x, y)) },
     ]);
   }
 
@@ -3893,7 +3889,7 @@ export function startPrimary() {
     form.className = 'cell-menu-form board-link-names';
     const head = document.createElement('div');
     head.className = 'cell-menu-section';
-    head.textContent = `盤面の関連の種類の名前（${BOARD_LINK_NAME_MAX} 文字まで。空なら元の名前）`;
+    head.textContent = tr('盤面の関連の種類の名前（{0} 文字まで。空なら元の名前）', { 0: BOARD_LINK_NAME_MAX });
     form.append(head);
     const inputs = new Map<LinkKind, HTMLInputElement>();
     for (const k of LINK_KINDS) {
@@ -3912,8 +3908,8 @@ export function startPrimary() {
       const reset = document.createElement('button');
       reset.type = 'button';
       reset.className = 'cell-menu-small';
-      reset.textContent = '元に戻す';
-      reset.title = `「${LINK_KIND_DEFAULT_NAMES[k.kind]}」に戻す`;
+      reset.textContent = tr('元に戻す');
+      reset.title = tr('「{0}」に戻す', { 0: LINK_KIND_DEFAULT_NAMES[k.kind] });
       reset.addEventListener('click', () => {
         input.value = '';
         input.focus();
@@ -3927,18 +3923,18 @@ export function startPrimary() {
     const ok = document.createElement('button');
     ok.type = 'submit';
     ok.className = 'cell-menu-small';
-    ok.textContent = '登録する';
+    ok.textContent = tr('登録する');
     const all = document.createElement('button');
     all.type = 'button';
     all.className = 'cell-menu-small';
-    all.textContent = '全部元に戻す';
+    all.textContent = tr('全部元に戻す');
     all.addEventListener('click', () => {
       for (const input of inputs.values()) input.value = '';
     });
     const cancel = document.createElement('button');
     cancel.type = 'button';
     cancel.className = 'cell-menu-small';
-    cancel.textContent = 'やめる';
+    cancel.textContent = tr('やめる');
     cancel.addEventListener('click', () => (back ? back() : cellMenu.close()));
     buttons.append(ok, all, cancel);
     form.append(buttons);
@@ -3950,7 +3946,7 @@ export function startPrimary() {
       setBoardLinkNames(prefs.boardLinkNames);
       savePrefs(prefs);
       sidebar.render();
-      toast('盤面の関連の種類の名前を登録しました');
+      toast(tr('盤面の関連の種類の名前を登録しました'));
       if (back) back();
       else cellMenu.close();
     });
@@ -3963,18 +3959,18 @@ export function startPrimary() {
 
   function finishBoardLink(from: CellRef, to: CellRef, kind: LinkKind) {
     const result = boardLinks.add(from, to, kind);
-    if (result === 'self') toast('同じセルどうしは関連づけられません');
-    else if (result === 'duplicate') toast('その2つのセルは、もう関連づけてあります（線を押すと種類を変えられます）');
-    else if (result === 'full') toast('関連の線が多すぎます（500 本まで）');
-    else if (result === 'bad') toast('関連づけられませんでした');
-    else toast(`${boardLinkSentence(refTitle(from), refTitle(to), kind)}（線を押すとメニュー）`);
+    if (result === 'self') toast(tr('同じセルどうしは関連づけられません'));
+    else if (result === 'duplicate') toast(tr('その2つのセルは、もう関連づけてあります（線を押すと種類を変えられます）'));
+    else if (result === 'full') toast(tr('関連の線が多すぎます（500 本まで）'));
+    else if (result === 'bad') toast(tr('関連づけられませんでした'));
+    else toast(tr('{0}（線を押すとメニュー）', { 0: boardLinkSentence(refTitle(from), refTitle(to), kind) }));
   }
 
   // セルへ移る：盤面をそのセルまで動かして光らせる（ほかのシートなら切り替える）。ブラウザのタブは切り替えない
   function jumpToRef(ref: CellRef) {
     const cell = refCell(ref);
     if (!cell) {
-      toast('そのセルは、いまの盤面にありません（閉じたか、アーカイブしたシートにあります）');
+      toast(tr('そのセルは、いまの盤面にありません（閉じたか、アーカイブしたシートにあります）'));
       return;
     }
     const sheet = cell.kind === 'tab' ? cell.tab.sheet : cell.memo.sheet;
@@ -3996,7 +3992,7 @@ export function startPrimary() {
     const kinds: MenuButton[] = LINK_KINDS.map((k) => ({
       label: boardKindName(k.kind),
       pressed: k.kind === link.kind,
-      title: `線の色 ${k.color}`,
+      title: tr('線の色 {0}', { 0: k.color }),
       run: () => {
         boardLinks.setKind(id, k.kind);
         openBoardLinkMenu(id, x, y); // 文と押してある方を作り直す
@@ -4004,19 +4000,19 @@ export function startPrimary() {
     }));
     const where = (ref: CellRef) => {
       const cell = refCell(ref);
-      if (!cell) return '見つからない';
+      if (!cell) return tr('見つからない');
       const sheet = cell.kind === 'tab' ? cell.tab.sheet : cell.memo.sheet;
-      return sheet === sheets.current ? '' : `シート「${sheets.get(sheet)?.name ?? '?'}」`;
+      return sheet === sheets.current ? '' : tr('シート「{0}」', { 0: sheets.get(sheet)?.name ?? '?' });
     };
     const entries: MenuEntry[] = [
       { section: boardLinkSentence(refTitle(link.from), refTitle(link.to), link.kind) },
-      { label: '元へ移る', hint: where(link.from) || refTitle(link.from), run: () => jumpToRef(link.from) },
-      { label: '相手へ移る', hint: where(link.to) || refTitle(link.to), run: () => jumpToRef(link.to) },
-      { row: '種類', buttons: kinds },
-      { label: '種類の名前を変える…', run: () => openBoardLinkNames(x, y, () => openBoardLinkMenu(id, x, y)) },
+      { label: tr('元へ移る'), hint: where(link.from) || refTitle(link.from), run: () => jumpToRef(link.from) },
+      { label: tr('相手へ移る'), hint: where(link.to) || refTitle(link.to), run: () => jumpToRef(link.to) },
+      { row: tr('種類'), buttons: kinds },
+      { label: tr('種類の名前を変える…'), run: () => openBoardLinkNames(x, y, () => openBoardLinkMenu(id, x, y)) },
     ];
-    if (link.kind !== 'same') entries.push({ label: '向きを入れ替える', run: () => (boardLinks.reverse(id), openBoardLinkMenu(id, x, y)) });
-    entries.push({ row: '', buttons: [{ label: 'この関連を外す', confirm: 'もう一度押すと外す', close: true, run: () => boardLinks.remove(id) }] });
+    if (link.kind !== 'same') entries.push({ label: tr('向きを入れ替える'), run: () => (boardLinks.reverse(id), openBoardLinkMenu(id, x, y)) });
+    entries.push({ row: '', buttons: [{ label: tr('この関連を外す'), confirm: tr('もう一度押すと外す'), close: true, run: () => boardLinks.remove(id) }] });
     cellMenu.open(x, y, entries);
   }
 
@@ -4034,16 +4030,16 @@ export function startPrimary() {
     const { tabs, notes } = islandCells();
     const cells = [...tabs, ...notes];
     if (cells.length === 0) return [];
-    const out: MenuEntry[] = [{ section: '島' }];
-    out.push({ label: cells.length > 1 ? `選んだ ${cells.length} セルを島にする…` : 'このセルで島を作る…', run: () => makeIslandFromSelection(x, y) });
+    const out: MenuEntry[] = [{ section: tr('島') }];
+    out.push({ label: cells.length > 1 ? tr('選んだ {0} セルを島にする…', { 0: cells.length }) : tr('このセルで島を作る…'), run: () => makeIslandFromSelection(x, y) });
     const target = clicked ? islands.get(clicked) : undefined;
     if (target) {
       const outside = cells.filter((cell) => cell.island !== target.id).length;
-      if (outside > 0) out.push({ label: `島「${target.name}」に足す`, hint: `${outside}`, run: () => addSelectionToIsland(target.id) });
-      out.push({ label: `島「${target.name}」の名前・色…`, run: () => openIslandMenu(target.id, x, y) });
+      if (outside > 0) out.push({ label: tr('島「{0}」に足す', { 0: target.name }), hint: `${outside}`, run: () => addSelectionToIsland(target.id) });
+      out.push({ label: tr('島「{0}」の名前・色…', { 0: target.name }), run: () => openIslandMenu(target.id, x, y) });
     }
     const inIsland = cells.filter((cell) => cell.island).length;
-    if (inIsland > 0) out.push({ label: inIsland > 1 ? `選んだセルを島から出す（${inIsland}）` : 'このセルを島から出す', run: () => leaveIslandSelection() });
+    if (inIsland > 0) out.push({ label: inIsland > 1 ? tr('選んだセルを島から出す（{0}）', { 0: inIsland }) : tr('このセルを島から出す'), run: () => leaveIslandSelection() });
     return out;
   }
 
@@ -4053,7 +4049,7 @@ export function startPrimary() {
       label: '',
       color,
       pressed: color === current,
-      aria: `色 ${color}`,
+      aria: tr('色 {0}', { 0: color }),
       title: color,
       run: () => {
         for (const b of buttons) b.pressed = b.color === color;
@@ -4061,37 +4057,37 @@ export function startPrimary() {
         cellMenu.refresh();
       },
     }));
-    return { row: '色', buttons };
+    return { row: tr('色'), buttons };
   }
 
   function makeIslandFromSelection(x: number, y: number) {
     const { tabs, notes } = islandCells();
     const count = tabs.length + notes.length;
     if (count === 0) {
-      toast('島にするセルを選んでください（Ctrl+クリックで選び足す）');
+      toast(tr('島にするセルを選んでください（Ctrl+クリックで選び足す）'));
       return;
     }
     if (islands.list().length >= MAX_ISLAND_COUNT) {
-      toast(`島は ${MAX_ISLAND_COUNT} 個までです（使わない島を解散してください）`);
+      toast(tr('島は {0} 個までです（使わない島を解散してください）', { 0: MAX_ISLAND_COUNT }));
       return;
     }
     const initial = islandNameSuggestion([...tabs.map((t) => t.title), ...notes.map((m) => memoTitle(m, 20))], islands.list().length);
     cellMenu.prompt(
-      `島の名前（${count} セル）`,
+      tr('島の名前（{0} セル）', { 0: count }),
       initial,
       (raw) => {
         const name = normalizeIslandName(raw);
         let color = islands.nextColor();
         const run = (gather: boolean) => createIslandFrom(tabs.map((t) => t.id), notes.map((m) => m.id), name, color, gather);
         cellMenu.open(x, y, [
-          { section: `島「${name}」` },
+          { section: tr('島「{0}」', { 0: name }) },
           colorRow(color, (picked) => (color = picked)),
-          { label: 'その場で島にする', hint: 'セルは動かさない', run: () => run(false) },
-          { label: 'まとめて並べて島にする', hint: 'ひとかたまりに寄せる', run: () => run(true) },
+          { label: tr('その場で島にする'), hint: tr('セルは動かさない'), run: () => run(false) },
+          { label: tr('まとめて並べて島にする'), hint: tr('ひとかたまりに寄せる'), run: () => run(true) },
         ]);
       },
       { x, y },
-      { maxLength: 20, placeholder: '島の名前' },
+      { maxLength: 20, placeholder: tr('島の名前') },
     );
   }
 
@@ -4116,7 +4112,7 @@ export function startPrimary() {
     if (tabsNow.length > 0) store.setIsland(tabsNow, id);
     if (memosNow.length > 0) memos.setIsland(memosNow, id);
     if (gather) gatherIsland(tabsNow, memosNow, home);
-    toast(`島「${normalizeIslandName(name)}」を作りました（名前を右クリックで直せます）`);
+    toast(tr('島「{0}」を作りました（名前を右クリックで直せます）', { 0: normalizeIslandName(name) }));
   }
 
   // 島に入るセルを、ひとかたまりの空いたセルへ寄せる（タブもメモのセルも。ほかのセルと返事待ちの予約の場所は使わない）
@@ -4153,7 +4149,7 @@ export function startPrimary() {
     if (tabIds.length > 0) store.setIsland(tabIds, id);
     if (memoIds.length > 0) memos.setIsland(memoIds, id);
     pruneIslands();
-    toast(`島「${island.name}」に ${tabIds.length + memoIds.length} セル足しました`);
+    toast(tr('島「{0}」に {1} セル足しました', { 0: island.name, 1: tabIds.length + memoIds.length }));
   }
 
   function leaveIslandSelection() {
@@ -4175,14 +4171,14 @@ export function startPrimary() {
     const island = islands.get(id);
     if (!island) return;
     cellMenu.prompt(
-      '島の名前',
+      tr('島の名前'),
       island.name,
       (raw) => {
         const name = normalizeIslandName(raw);
         islands.update(id, { name });
       },
       at,
-      { maxLength: 20, placeholder: '島の名前' },
+      { maxLength: 20, placeholder: tr('島の名前') },
     );
   }
 
@@ -4196,19 +4192,18 @@ export function startPrimary() {
     const { tabs, notes } = islandCells();
     const outside = [...tabs, ...notes].filter((cell) => cell.island !== id).length;
     const entries: MenuEntry[] = [
-      { section: `島「${island.name}」（${tabsIn.length + memosIn.length} セル）` },
-      { label: '名前を変える…', hint: '名前をダブルクリック', run: () => renameIsland(id, { x, y }) },
+      { section: tr('島「{0}」（{1} セル）', { 0: island.name, 1: tabsIn.length + memosIn.length }) },
+      { label: tr('名前を変える…'), hint: tr('名前をダブルクリック'), run: () => renameIsland(id, { x, y }) },
       colorRow(island.color, (color) => islands.update(id, { color })),
-      { label: '島のセルを全部選ぶ', hint: `${here.tabs.length + here.memos.length}`, run: () => sidebar.setSelection(here.tabs, here.memos) },
+      { label: tr('島のセルを全部選ぶ'), hint: `${here.tabs.length + here.memos.length}`, run: () => sidebar.setSelection(here.tabs, here.memos) },
     ];
-    if (outside > 0) entries.push({ label: `選んだセルをこの島に足す`, hint: `${outside}`, run: () => addSelectionToIsland(id) });
+    if (outside > 0) entries.push({ label: tr('選んだセルをこの島に足す'), hint: `${outside}`, run: () => addSelectionToIsland(id) });
     const inside = [...tabs, ...notes].filter((cell) => cell.island === id).length;
-    if (inside > 0) entries.push({ label: '選んだセルを島から出す', hint: `${inside}`, run: () => leaveIslandSelection() });
-    if (BOT_FEATURES) entries.push({ label: 'この島を頼む', hint: '小窓', run: () => void openDraftWindow({ islandId: id }) }, 'sep'); // 公開版（rebuild-public.ps1）
+    if (inside > 0) entries.push({ label: tr('選んだセルを島から出す'), hint: `${inside}`, run: () => leaveIslandSelection() });
+    if (BOT_FEATURES) entries.push({ label: tr('この島を頼む'), hint: tr('小窓'), run: () => void openDraftWindow({ islandId: id }) }, 'sep'); // 公開版（rebuild-public.ps1）
     entries.push(
-      { row: '島の名前', buttons: islandNamesButtons() },
-      { row: '', buttons: [{ label: '解散（セルはそのまま）', confirm: 'もう一度押すと解散', close: true, run: () => removeIsland(id) }] },
-    );
+      { row: tr('島の名前'), buttons: islandNamesButtons() },
+      { row: '', buttons: [{ label: tr('解散（セルはそのまま）'), confirm: tr('もう一度押すと解散'), close: true, run: () => removeIsland(id) }] },    );
     cellMenu.open(x, y, entries);
   }
 
@@ -4224,7 +4219,7 @@ export function startPrimary() {
       sidebar.render();
       cellMenu.refresh();
     };
-    buttons.push({ label: '出す', pressed: prefs.showIslandNames, run: () => set(true) }, { label: '隠す', pressed: !prefs.showIslandNames, run: () => set(false) });
+    buttons.push({ label: tr('出す'), pressed: prefs.showIslandNames, run: () => set(true) }, { label: tr('隠す'), pressed: !prefs.showIslandNames, run: () => set(false) });
     return buttons;
   }
 
@@ -4270,7 +4265,7 @@ export function startPrimary() {
       if (liked === 3) emitEvent('liked', id);
     },
     addUserNote: (id, text) => {
-      store.addNote(id, { id: `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, text, createdAt: Date.now(), source: 'user', label: 'メモ' });
+      store.addNote(id, { id: `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, text, createdAt: Date.now(), source: 'user', label: tr('メモ') });
       emitEvent('note', id, text);
     },
     changeTags: (id, add, remove) => changeTabTags(id, add, remove),
@@ -4400,16 +4395,16 @@ export function startPrimary() {
     address.blur();
     const agentId = parseAgentId(text.trim().replace(/^"(.*)"$/, '$1'));
     if (!agentId || !bots.ready) {
-      toast('grokbot:// はアドレス欄からは開きません。Grok Bot アプリは、盤面のボットのセルを押すと開きます', 6000);
+      toast(tr('grokbot:// はアドレス欄からは開きません。Grok Bot アプリは、盤面のボットのセルを押すと開きます'), 6000);
       return;
     }
     const rect = address.getBoundingClientRect();
     const where = { x: rect.left, y: rect.bottom + 4 };
     cellMenu.open(where.x, where.y, [
-      { section: 'grokbot:// はアドレス欄からは開きません' },
-      { label: 'Grok Bot アプリは、盤面のボットのセルを押すと開きます', disabled: true },
-      { label: 'このリンクで、ボットのセルを置く…', run: () => newBotAt(sidebar.centerHex, where, agentId) },
-      { label: 'やめる', run: () => undefined },
+      { section: tr('grokbot:// はアドレス欄からは開きません') },
+      { label: tr('Grok Bot アプリは、盤面のボットのセルを押すと開きます'), disabled: true },
+      { label: tr('このリンクで、ボットのセルを置く…'), run: () => newBotAt(sidebar.centerHex, where, agentId) },
+      { label: tr('やめる'), run: () => undefined },
     ]);
     cellMenu.focusFirst();
   }
@@ -4616,7 +4611,7 @@ export function startPrimary() {
     if (host && host !== siteHost(from)) reminders.checkSite(host);
   }
   const reminders = new ReminderStore((reminder, late) => {
-    send({ type: 'notify', title: late ? 'リマインダー（起動していない間に過ぎたもの）' : 'リマインダー', body: reminder.text });
+    send({ type: 'notify', title: late ? tr('リマインダー（起動していない間に過ぎたもの）') : tr('リマインダー'), body: reminder.text });
     sendToRight({ kind: 'reminder', reminder, late });
   });
 
@@ -4696,12 +4691,12 @@ export function startPrimary() {
       return;
     }
     if (video.startsWith('f:')) {
-      tellMemo(glow ? '自分のファイルの動画は、先にタブで開いてから「マスで見る」を押してください' : '自分のファイルの動画は、先にタブで開いてから ▶ を押してください');
+      tellMemo(glow ? tr('自分のファイルの動画は、先にタブで開いてから「マスで見る」を押してください') : tr('自分のファイルの動画は、先にタブで開いてから ▶ を押してください'));
       return;
     }
     const id = await waitCreated(createTab(timedUrl(canonicalVideoUrl(video), start)), 12_000);
     if (id === null) {
-      tellMemo('動画を開けませんでした');
+      tellMemo(tr('動画を開けませんでした'));
       return;
     }
     if (glow) readerSeekPending = { video, start, glow }; // 時刻つきの URL なので移るのは要らないが、光らせるのは開いたあと
@@ -4745,7 +4740,7 @@ export function startPrimary() {
     if (open && !isSpecialCell(open)) return { memo: open };
     try {
       const spot = spotForNewMemo();
-      const placed = memos.add({ sheet: spot.sheet, pos: spot.pos, text: `🎬 ${title ?? '動画のメモ'}`, ...(spot.source ? { source: spot.source } : {}) });
+      const placed = memos.add({ sheet: spot.sheet, pos: spot.pos, text: `🎬 ${title ?? tr('動画のメモ')}`, ...(spot.source ? { source: spot.source } : {}) });
       if (!placed) return { reason: 'full' };
       memoPane.open(placed.id);
       if (spot.sheet === sheets.current) sidebar.flashMemo(placed.id);
@@ -4761,7 +4756,7 @@ export function startPrimary() {
     const path = await chooseMediaFile();
     if (!path) return;
     requestTab(fileUrlOf(path), { sheet, pos: at ?? undefined, activate: true });
-    toast('ファイルを開きました。六角で読む（左上の六角形のボタン）で区間セルにできます');
+    toast(tr('ファイルを開きました。六角で読む（左上の六角形のボタン）で区間セルにできます'));
   }
 
   // 画像ファイルをタブにする。中央は WebView が file:// を開く（UI は file: も data: も取りに行かない）。顔は縮図
@@ -4784,18 +4779,18 @@ export function startPrimary() {
   async function openImageFile(at: Hex | null) {
     const reply = await request((requestId) => ({ type: 'openImageFile', requestId }), 10 * 60_000);
     if (!reply || reply.type !== 'imageFile') {
-      toast('画像ファイルを選べませんでした');
+      toast(tr('画像ファイルを選べませんでした'));
       return;
     }
     if (!reply.path) return;
     if (reply.error === 'type') {
-      toast('画像ファイルを選んでください');
+      toast(tr('画像ファイルを選んでください'));
       return;
     }
     const thumb = await placeImageCell(reply.path, at, reply.image);
-    if (!reply.ok) toast(reply.error === 'missing' ? 'その画像ファイルは、もうありません' : reply.error === 'big' ? '画像が大きすぎます' : '縮図は作れませんでした');
-    else if (!thumb) toast('縮図は作れませんでした');
-    else toast('画像を開きました');
+    if (!reply.ok) toast(reply.error === 'missing' ? tr('その画像ファイルは、もうありません') : reply.error === 'big' ? tr('画像が大きすぎます') : tr('縮図は作れませんでした'));
+    else if (!thumb) toast(tr('縮図は作れませんでした'));
+    else toast(tr('画像を開きました'));
   }
 
   // クリップボードの画像をファイルにしてから、画像のセルにする（中央は file:// を開く。data: は顔の縮図だけ）
@@ -4808,11 +4803,11 @@ export function startPrimary() {
     }
     const saved = await request((requestId) => ({ type: 'saveClipboardImage', requestId, data: image }), 8_000);
     if (!saved || saved.type !== 'imageSaved' || !saved.ok || !saved.path) {
-      toast('画像を保存できませんでした');
+      toast(tr('画像を保存できませんでした'));
       return;
     }
     const thumb = await placeImageCell(saved.path, at, image);
-    toast(thumb ? '画像を開きました' : '縮図は作れませんでした');
+    toast(thumb ? tr('画像を開きました') : tr('縮図は作れませんでした'));
   }
 
   // ---------- 六角形スクショ（表示中のページを撮り、読む画面の面で六角形に切り取る） ----------
@@ -4865,14 +4860,14 @@ export function startPrimary() {
     abandonCrop();
     const tab = store.active;
     if (!tab || tab.asleep || (forTab !== null && tab.id !== forTab)) {
-      toast('表示中のページで撮れます');
+      toast(tr('表示中のページで撮れます'));
       return;
     }
     if (sidebars.reader?.visible) closeReader();
     if (linkCover) await new Promise((r) => window.setTimeout(r, 180)); // ページの右クリックのメニューが消えてから撮る
     const reply = await request((requestId) => ({ type: 'captureFull', requestId, id: tab.id }), 8_000);
     if (reply?.type !== 'capture' || !reply.ok || !reply.image) {
-      toast('ページを撮れませんでした');
+      toast(tr('ページを撮れませんでした'));
       return;
     }
     shotPending = { image: reply.image, url: tab.url, title: tab.title, at, sheet: sheets.current, forTab, linkCover };
@@ -4902,7 +4897,7 @@ export function startPrimary() {
         title: link.text,
         image: imageId ?? undefined,
         comment: result.comment || undefined,
-        lead: imageId ? '表紙をつけて、' : '表紙の画像は保存できませんでしたが、',
+        lead: imageId ? tr('表紙をつけて、') : tr('表紙の画像は保存できませんでしたが、'),
       });
       return;
     }
@@ -4913,11 +4908,11 @@ export function startPrimary() {
       const small = await shrinkImage(result.image, 256).catch(() => null);
       const imageId = small ? await memos.saveImage(small) : null;
       if (!imageId) {
-        toast('画像を保存できませんでした');
+        toast(tr('画像を保存できませんでした'));
         return;
       }
       store.setFace(id, { image: imageId, ...(result.comment ? { comment: result.comment } : {}) });
-      toast('切り取った六角形を、タブの画像にしました');
+      toast(tr('切り取った六角形を、タブの画像にしました'));
       return;
     }
     const source = /^https?:\/\//i.test(ctx.url) ? { url: ctx.url, title: ctx.title } : undefined;
@@ -4930,7 +4925,7 @@ export function startPrimary() {
       const memo = memos.add({ sheet, pos, text: result.comment, image: imageId ?? undefined, source });
       if (memo) {
         preview.showMemo(memo.id);
-        toast(imageId ? '六角形スクショを左のセルに置きました' : 'セルに置きましたが、画像を保存できませんでした');
+        toast(imageId ? tr('六角形スクショを左のセルに置きました') : tr('セルに置きましたが、画像を保存できませんでした'));
       }
     }
     if (result.to !== 'cell') {
@@ -5018,11 +5013,11 @@ export function startPrimary() {
     opts: { capture: boolean; afterMenu: boolean; shot?: { image: string; comment: string; page: string }; note?: string; text?: string; memo?: boolean; same?: boolean; materials?: MaterialSet; entry?: 'page' | 'memo' | 'shot' | 'nest' | 'cells' | 'cards'; to?: string },
   ) {
     if (shotPending) {
-      toast('六角形スクショを撮り終えてから、もう一度どうぞ');
+      toast(tr('六角形スクショを撮り終えてから、もう一度どうぞ'));
       return;
     }
     if (!bots.ready) {
-      toast('ボットの台帳を読み込んでいます。少し待ってから、もう一度どうぞ');
+      toast(tr('ボットの台帳を読み込んでいます。少し待ってから、もう一度どうぞ'));
       if (opts.shot) closeReader(); // 撮る画面のあとの読む画面を残さない
       return;
     }
@@ -5222,9 +5217,8 @@ export function startPrimary() {
     const bot = arrival.botId ? bots.get(arrival.botId) : undefined;
     if (!bot || !arrival.final || arrival.faint) return;
     for (const cell of cellsOfBot(bot.id)) sidebar.flashMemo(cell.id, 4000);
-    tellRight(bot.id, `🤖 ボット「${bot.name}」から${arrival.type === 'error' ? 'エラーの返事' : '返事'}が届きました（右の「ボットの欄」で読めます）`, true);
-    send({ type: 'notify', title: APP_TITLE, body: `${bot.name} から返事` });
-  });
+    tellRight(bot.id, tr('🤖 ボット「{0}」から{1}が届きました（右の「ボットの欄」で読めます）', { 0: bot.name, 1: arrival.type === 'error' ? 'エラーの返事' : '返事' }), true);
+    send({ type: 'notify', title: APP_TITLE, body: tr('{0} から返事', { 0: bot.name }) });  });
   // 返し先「六角メモにも届く」（依頼の小窓 v2・R10・D13）：確かめが通った 1 通目の返事（onReply。灰色・2 通目から・途中経過・エラーは来ない）を、
   //   その依頼が deliverTo: 'hex' で、まだ写していなければ六角メモに 1 マス写す（deliverReplyToHex）
   botInbox.onReply((reply) => void deliverReplyToHex(reply));
@@ -5261,24 +5255,24 @@ export function startPrimary() {
     const no = botInbox.noOf(requestId); // 言い換えなら #0010-2（R9）
     if (answer === 'reached') {
       // 聞かずに済ませたとき：戻したことだけを短く（替わっていて触らなかったときは黙っておく）
-      if (outcome === 'restored' || outcome === 'restoredImage') sayPaste(botId, `${no} が相手に届いたので、クリップボードを預かっておいた前の中身に戻しました${outcome === 'restoredImage' ? '（画像は長い辺 1600px までの写し）' : ''}`);
+      if (outcome === 'restored' || outcome === 'restoredImage') sayPaste(botId, tr('{0} が相手に届いたので、クリップボードを預かっておいた前の中身に戻しました{1}', { 0: no, 1: outcome === 'restoredImage' ? '（画像は長い辺 1600px までの写し）' : '' }));
       return;
     }
-    const head = answer === 'no' ? `${no}：この依頼は貼らずに、待つのをやめました。` : `${no}：貼った、と記録しました。`;
+    const head = answer === 'no' ? tr('{0}：この依頼は貼らずに、待つのをやめました。', { 0: no }) : tr('{0}：貼った、と記録しました。', { 0: no });
     sayPaste(botId, head + pasteRestoreText(outcome));
   }
   function pasteRestoreText(outcome: PasteRestore): string {
     switch (outcome) {
       case 'restored':
-        return 'クリップボードを、預かっておいた前の中身に戻しました（預かりは捨てました）';
+        return tr('クリップボードを、預かっておいた前の中身に戻しました（預かりは捨てました）');
       case 'restoredImage':
-        return 'クリップボードを、預かっておいた前の画像に戻しました（長い辺 1600px までの写しです。文字は戻していません）';
+        return tr('クリップボードを、預かっておいた前の画像に戻しました（長い辺 1600px までの写しです。文字は戻していません）');
       case 'cleared':
-        return '前の中身は戻せる形ではなかったので、クリップボードの依頼の文だけ消しました';
+        return tr('前の中身は戻せる形ではなかったので、クリップボードの依頼の文だけ消しました');
       case 'changed':
-        return 'クリップボードはもう別の中身だったので、そのままにしました';
+        return tr('クリップボードはもう別の中身だったので、そのままにしました');
       default:
-        return 'クリップボードに書けませんでした（前の中身には戻せませんでした）';
+        return tr('クリップボードに書けませんでした（前の中身には戻せませんでした）');
     }
   }
   // 貼りましたか？の結果の知らせ（右が見えていれば右、無ければ左）
@@ -5329,8 +5323,8 @@ export function startPrimary() {
     const when = absentWhen(lastSeenAt, new Date());
     const text =
       listed === came
-        ? `📮 不在票：${when} ${came} 通届きました（受け取り箱の「まず 1 枚」に並べました）`
-        : `📮 不在票：${when} ${came} 通届きました。まだ読んでいない返事 ${listed} 通を、受け取り箱の「まず 1 枚」に並べました`;
+        ? tr('📮 不在票：{0} {1} 通届きました（受け取り箱の「まず 1 枚」に並べました）', { 0: when, 1: came })
+        : tr('📮 不在票：{0} {1} 通届きました。まだ読んでいない返事 {2} 通を、受け取り箱の「まず 1 枚」に並べました', { 0: when, 1: came, 2: listed });
     if (rightReady || sidebars.right.visible) send({ type: 'relay', to: 'right', payload: { kind: 'botNotice', botId: '', text, notice: 'absent' } });
     else {
       absentPending = text;
@@ -5338,13 +5332,13 @@ export function startPrimary() {
     }
   }
   function absentWhen(since: number | null, now: Date): string {
-    if (!since) return '閉じていた間に';
+    if (!since) return tr('閉じていた間に');
     const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
     const s = new Date(since);
     const days = Math.round((day(now) - day(s)) / 86_400_000);
-    if (days <= 0) return '閉じていた間に';
-    if (days === 1) return s.getHours() >= 17 ? '昨夜' : '昨日から';
-    return `${days} 日前から`;
+    if (days <= 0) return tr('閉じていた間に');
+    if (days === 1) return s.getHours() >= 17 ? tr('昨夜') : tr('昨日から');
+    return tr('{0} 日前から', { 0: days });
   }
 
   // 未送信の箱（D18）：コピーに失敗した依頼を、下書き（drafts.json）に「未送信」として残す（番号・check は付けない。直せない失敗は残さない）
@@ -5369,12 +5363,12 @@ export function startPrimary() {
     if (!bot || !String(draft.text ?? '').trim()) return;
     const seat = bots.docked().indexOf(bot.id) + 1;
     const why: Record<string, string> = {
-      clipboard: 'クリップボードに書けませんでした（ほかのアプリが使っていたかもしれません）',
-      save: 'やり取りの記録を保存できませんでした',
-      notReady: '記録を読み込んでいるところでした',
-      otherWindow: '返事は別の窓で受け取っています',
-      tooLarge: '大きすぎました（256 KB まで）',
-      badUrl: 'ページの URL が依頼に付けられませんでした',
+      clipboard: tr('クリップボードに書けませんでした（ほかのアプリが使っていたかもしれません）'),
+      save: tr('やり取りの記録を保存できませんでした'),
+      notReady: tr('記録を読み込んでいるところでした'),
+      otherWindow: tr('返事は別の窓で受け取っています'),
+      tooLarge: tr('大きすぎました（256 KB まで）'),
+      badUrl: tr('ページの URL が依頼に付けられませんでした'),
     };
     void addSingleDraft({
       id: newDraftId(),
@@ -5389,7 +5383,7 @@ export function startPrimary() {
       attach: flagsOf({ url: draft.page?.url, title: draft.page?.title, selection: draft.page?.selection, body: draft.body, ...(draft.materials?.length ? { materials: draft.materials } : {}) }),
       req: draftWithoutMaterials(draft), // 失敗した文はそのまま残す。材料の配列は残さない（中身は文の中だけ）
       failed: true,
-      why: why[error] ?? 'コピーできませんでした',
+      why: why[error] ?? tr('コピーできませんでした'),
     });
   }
 
@@ -5484,10 +5478,10 @@ export function startPrimary() {
     if (!vocabFailed && !remindersFailed) return;
     toast(
       vocabFailed && remindersFailed
-        ? '単語帳とリマインダーの台帳を読めませんでした。いま入れたカードと置いたリマインダーは保存されません。ブラウザを開き直してください'
+        ? tr('単語帳とリマインダーの台帳を読めませんでした。いま入れたカードと置いたリマインダーは保存されません。ブラウザを開き直してください')
         : vocabFailed
-          ? '単語帳の台帳を読めませんでした。いま入れたカードは保存されません。ブラウザを開き直してください'
-          : 'リマインダーの台帳を読めませんでした。いま置いたリマインダーは保存されません。ブラウザを開き直してください',
+          ? tr('単語帳の台帳を読めませんでした。いま入れたカードは保存されません。ブラウザを開き直してください')
+          : tr('リマインダーの台帳を読めませんでした。いま置いたリマインダーは保存されません。ブラウザを開き直してください'),
       15000,
     );
   }
@@ -5530,7 +5524,7 @@ export function startPrimary() {
       { kind: 'word', front: clipChars(seed.front, 400), back: '', example: clipChars(seed.example, 300), note: seed.note, rotate: savedMarkNew() },
       (value) => {
         const added = vocab.add([{ ...value, source: seed.source, link: seed.link }]);
-        toast(added > 0 ? '単語帳に入れました。右の「単語帳」で見られます' : '同じカードがもうあります');
+        toast(added > 0 ? tr('単語帳に入れました。右の「単語帳」で見られます') : tr('同じカードがもうあります'));
       },
       seed.at,
     );
@@ -5538,12 +5532,12 @@ export function startPrimary() {
   function offerVocabFromMemo(id: string, at: { x: number; y: number }) {
     const memo = memos.get(id);
     if (!memo || isSpecialCell(memo)) return;
-    const front = memoTitle(memo, 80) || '（空のメモ）';
+    const front = memoTitle(memo, 80) || tr('（空のメモ）');
     const body = memo.text.replace(/\s+/g, ' ').trim();
     offerVocabCard({
       front,
       example: body && body !== front ? body : '',
-      note: '右の単語帳に入ります。カードの「セルへ」で、このメモへ戻れます',
+      note: tr('右の単語帳に入ります。カードの「セルへ」で、このメモへ戻れます'),
       link: { kind: 'memo', id },
       at,
     });
@@ -5554,13 +5548,13 @@ export function startPrimary() {
     const ids = cardsLinkedTo(vocab.snapshot().cards, cell).map((c) => c.id);
     if (ids.length === 0) return [];
     return [
-      { label: `つながったカード ${ids.length} 枚を見る`, hint: '右の単語帳', run: () => sendToRight({ kind: 'vocabFilter', ids, label: `セル：${clipChars(title, 24)}` }) },
+      { label: tr('つながったカード {0} 枚を見る', { 0: ids.length }), hint: tr('右の単語帳'), run: () => sendToRight({ kind: 'vocabFilter', ids, label: tr('セル：{0}', { 0: clipChars(title, 24) }) }) },
       {
-        label: 'このセルのカードを ⟳ に出す',
-        hint: 'めぐる表示の印',
+        label: tr('このセルのカードを ⟳ に出す'),
+        hint: tr('めぐる表示の印'),
         run: () => {
           for (const cardId of ids) vocab.update(cardId, { rotate: true });
-          toast(`${ids.length} 枚にめぐる表示の印を付けました`);
+          toast(tr('{0} 枚にめぐる表示の印を付けました', { 0: ids.length }));
         },
       },
     ];
@@ -5568,7 +5562,7 @@ export function startPrimary() {
   function offerVocabFromTab(id: number, at: { x: number; y: number }) {
     const tab = store.get(id);
     if (!tab) return;
-    const title = tab.title || tab.url || 'タブ';
+    const title = tab.title || tab.url || tr('タブ');
     const source = vocabPageSource(tab.url, tab.title);
     offerVocabCard({
       front: title,
@@ -5576,8 +5570,8 @@ export function startPrimary() {
       source,
       link: { kind: 'tab', id, url: tab.url },
       note: source
-        ? `右の単語帳に入ります。カードから、ページ「${clipChars(title, 24)}」とこのセルへ戻れます`
-        : '右の単語帳に入ります。カードの「セルへ」で、このセルへ戻れます',
+        ? tr('右の単語帳に入ります。カードから、ページ「{0}」とこのセルへ戻れます', { 0: clipChars(title, 24) })
+        : tr('右の単語帳に入ります。カードの「セルへ」で、このセルへ戻れます'),
       at,
     });
   }
@@ -5595,7 +5589,7 @@ export function startPrimary() {
     }
     front = front.replace(/\s+/g, ' ').trim();
     if (!front) {
-      toast('言葉を選ぶか、Alt+クリックで単語を選んでください');
+      toast(tr('言葉を選ぶか、Alt+クリックで単語を選んでください'));
       return;
     }
     const url = tab?.url || fallbackUrl;
@@ -5607,15 +5601,15 @@ export function startPrimary() {
       source,
       link: tab ? { kind: 'tab', id: tab.id, url: tab.url } : undefined,
       note: source
-        ? `右の単語帳に入ります。カードから、ページ「${clipChars(title || url, 24)}」とこのセルへ戻れます`
-        : '右の単語帳に入ります。カードの「セルへ」で、このセルへ戻れます',
+        ? tr('右の単語帳に入ります。カードから、ページ「{0}」とこのセルへ戻れます', { 0: clipChars(title || url, 24) })
+        : tr('右の単語帳に入ります。カードの「セルへ」で、このセルへ戻れます'),
     });
   }
   function offerVocabPick(id: number, front: string, example: string) {
     const tab = store.get(id);
     const word = front.replace(/\s+/g, ' ').trim();
     if (!word) {
-      toast('言葉を選ぶか、Alt+クリックで単語を選んでください');
+      toast(tr('言葉を選ぶか、Alt+クリックで単語を選んでください'));
       return;
     }
     const title = tab?.title || '';
@@ -5626,8 +5620,8 @@ export function startPrimary() {
       source,
       link: tab ? { kind: 'tab', id: tab.id, url: tab.url } : undefined,
       note: source
-        ? `右の単語帳に入ります。カードから、ページ「${clipChars(title || tab?.url || '', 24)}」とこのセルへ戻れます`
-        : '右の単語帳に入ります。カードの「セルへ」で、このセルへ戻れます',
+        ? tr('右の単語帳に入ります。カードから、ページ「{0}」とこのセルへ戻れます', { 0: clipChars(title || tab?.url || '', 24) })
+        : tr('右の単語帳に入ります。カードの「セルへ」で、このセルへ戻れます'),
     });
   }
 
@@ -5656,7 +5650,7 @@ export function startPrimary() {
     sessionWritable = true;
     sessionNotice.hideRecovery();
     saveSession(false);
-    toast('盤面の保存を始めました');
+    toast(tr('盤面の保存を始めました'));
   }
   function saveSession(final: boolean) {
     // 読めなかった台帳は、決めるまで書かない（data を付けない。閉じるときの final は C++ に届ける）
@@ -5681,10 +5675,10 @@ export function startPrimary() {
   shelf.append(shelfTabs, shelfItems, shelfToggle);
   board.after(shelf);
   const SHELF_VIEWS: { id: ShelfView; label: string }[] = [
-    { id: 'downloads', label: 'ダウンロード' },
-    { id: 'closed', label: '最近閉じた' },
-    { id: 'captures', label: '撮ったもの' },
-    { id: 'sheets', label: 'シート' },
+    { id: 'downloads', label: tr('ダウンロード') },
+    { id: 'closed', label: tr('最近閉じた') },
+    { id: 'captures', label: tr('撮ったもの') },
+    { id: 'sheets', label: tr('シート') },
   ];
   const SHELF_CAPTURES = 12; // 撮ったものは新しい 12 件まで（縮図は小さく出すだけ）
   const SHELF_SHEETS = 12;
@@ -5713,7 +5707,7 @@ export function startPrimary() {
     const open = prefs.shelfOpen;
     shelf.classList.toggle('collapsed', !open);
     shelfToggle.textContent = open ? '▾' : '▴';
-    shelfToggle.title = open ? '棚をたたむ' : '棚を開く';
+    shelfToggle.title = open ? tr('棚をたたむ') : tr('棚を開く');
     shelfToggle.setAttribute('aria-label', shelfToggle.title);
     shelfTabs.replaceChildren(
       ...SHELF_VIEWS.map((view) => {
@@ -5743,20 +5737,20 @@ export function startPrimary() {
   }
 
   function downloadChips(): HTMLElement[] {
-    if (downloadItems.length === 0) return [shelfEmpty('ダウンロードしたファイルはまだありません')];
+    if (downloadItems.length === 0) return [shelfEmpty(tr('ダウンロードしたファイルはまだありません'))];
     return downloadItems.map((item) => {
       const chip = el('button', 'download-chip', item.name);
       chip.type = 'button';
       const size = formatBytes(item.bytes);
-      chip.title = size ? `${item.name}（${size}）。右クリックでフォルダを開く・棚から外す` : `${item.name}。右クリックでフォルダを開く・棚から外す`;
+      chip.title = size ? tr('{0}（{1}）。右クリックでフォルダを開く・棚から外す', { 0: item.name, 1: size }) : tr('{0}。右クリックでフォルダを開く・棚から外す', { 0: item.name });
       chip.addEventListener('click', () => send({ type: 'openDownload', id: item.id }));
       chip.addEventListener('contextmenu', (event) => {
         event.preventDefault();
         const id = item.id;
         cellMenu.open(event.clientX, event.clientY, [
-          { label: '開く', run: () => send({ type: 'openDownload', id }) },
-          { label: 'フォルダを開く', run: () => send({ type: 'revealDownload', id }) },
-          { label: '棚から外す', hint: 'ファイルは残る', run: () => send({ type: 'forgetDownload', id }) },
+          { label: tr('開く'), run: () => send({ type: 'openDownload', id }) },
+          { label: tr('フォルダを開く'), run: () => send({ type: 'revealDownload', id }) },
+          { label: tr('棚から外す'), hint: tr('ファイルは残る'), run: () => send({ type: 'forgetDownload', id }) },
         ]);
       });
       return chip;
@@ -5767,17 +5761,17 @@ export function startPrimary() {
   function reopenClosed(key?: string) {
     const item = closedTabs.take(key ?? closedTabs.list()[0]?.key ?? '');
     if (!item) {
-      toast('最近閉じたタブはありません');
+      toast(tr('最近閉じたタブはありません'));
       return;
     }
     const sheet = sheets.get(item.sheet) ? item.sheet : sheets.current;
     requestTab(item.url, { sheet, pos: item.pos, title: item.title, favicon: item.favicon, parentId: null });
-    toast(sheet === item.sheet ? `開き直しました: ${item.title || item.url}` : `開き直しました（元のシートが無いので、今のシートに）: ${item.title || item.url}`);
+    toast(sheet === item.sheet ? tr('開き直しました: {0}', { 0: item.title || item.url }) : tr('開き直しました（元のシートが無いので、今のシートに）: {0}', { 0: item.title || item.url }));
   }
 
   function closedChips(): HTMLElement[] {
     const items = closedTabs.list();
-    if (items.length === 0) return [shelfEmpty('最近閉じたタブはありません（閉じると、ここから開き直せます。Ctrl+Shift+T）')];
+    if (items.length === 0) return [shelfEmpty(tr('最近閉じたタブはありません（閉じると、ここから開き直せます。Ctrl+Shift+T）'))];
     return items.map((item) => {
       const chip = el('button', 'download-chip shelf-closed');
       chip.type = 'button';
@@ -5791,15 +5785,15 @@ export function startPrimary() {
       }
       chip.append(document.createTextNode(item.title || item.url));
       const where = sheets.get(item.sheet)?.name;
-      chip.title = `${item.title || item.url}\n${item.url}\n${new Date(item.at).toLocaleString()}${where ? `・シート「${where}」` : ''}\n押すと開き直す（元の場所へ）。右クリックで一覧から外す`;
+      chip.title = tr('{0}\n{1}\n{2}{3}\n押すと開き直す（元の場所へ）。右クリックで一覧から外す', { 0: item.title || item.url, 1: item.url, 2: new Date(item.at).toLocaleString(), 3: where ? `・シート「${where}」` : '' });
       chip.addEventListener('click', () => reopenClosed(item.key));
       chip.addEventListener('contextmenu', (event) => {
         event.preventDefault();
         const key = item.key;
         cellMenu.open(event.clientX, event.clientY, [
-          { label: '開く', run: () => reopenClosed(key) },
-          { label: '一覧から外す', run: () => closedTabs.remove(key) },
-          { label: 'すべて消す', run: () => closedTabs.clear() },
+          { label: tr('開く'), run: () => reopenClosed(key) },
+          { label: tr('一覧から外す'), run: () => closedTabs.remove(key) },
+          { label: tr('すべて消す'), run: () => closedTabs.clear() },
         ]);
       });
       return chip;
@@ -5808,7 +5802,7 @@ export function startPrimary() {
 
   function captureChips(): HTMLElement[] {
     const items = captureItems.slice(0, SHELF_CAPTURES);
-    if (items.length === 0) return [shelfEmpty('撮ったものはまだありません')];
+    if (items.length === 0) return [shelfEmpty(tr('撮ったものはまだありません'))];
     return items.map((item) => {
       const chip = el('button', 'download-chip shelf-capture');
       chip.type = 'button';
@@ -5823,7 +5817,7 @@ export function startPrimary() {
         chip.append(el('span', 'shelf-thumb shelf-thumb-empty', '…'));
       }
       chip.append(document.createTextNode(new Date(item.createdAt).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })));
-      chip.title = '押すと、右の「撮影」でこの件を開く';
+      chip.title = tr('押すと、右の「撮影」でこの件を開く');
       chip.addEventListener('click', () => revealCapture(item.id));
       return chip;
     });
@@ -5835,13 +5829,13 @@ export function startPrimary() {
     for (const id of sheetSlots.list) if (id && sheets.get(id) && !ids.includes(id)) ids.push(id);
     for (const sheet of sheets.recent()) if (!ids.includes(sheet.id)) ids.push(sheet.id);
     const list = ids.slice(0, SHELF_SHEETS).flatMap((id) => sheets.get(id) ?? []);
-    if (list.length <= 1) return [shelfEmpty('ほかのシートはまだありません（左上のシートの名前から作れます）')];
+    if (list.length <= 1) return [shelfEmpty(tr('ほかのシートはまだありません（左上のシートの名前から作れます）'))];
     return list.map((sheet) => {
       const here = sheet.id === sheets.current;
       const chip = el('button', here ? 'download-chip shelf-sheet current' : 'download-chip shelf-sheet', here ? `● ${sheet.name}` : sheet.name);
       chip.type = 'button';
       chip.style.setProperty('--sheet', sheet.color);
-      chip.title = here ? `シート「${sheet.name}」（いまのシート）` : `シート「${sheet.name}」へ移る`;
+      chip.title = here ? tr('シート「{0}」（いまのシート）', { 0: sheet.name }) : tr('シート「{0}」へ移る', { 0: sheet.name });
       chip.addEventListener('click', () => jumpToSheet(sheet.id));
       return chip;
     });
@@ -5854,12 +5848,12 @@ export function startPrimary() {
     const popped = popouts.get(id);
     if (popped) {
       return [
-        { label: '小窓（ライブ）をサイドバーへ戻す', run: () => send({ type: 'dockPopout', id }) },
-        { label: popped.top ? '小窓の最前面をやめる' : '小窓を最前面に固定する', run: () => send({ type: 'popoutTop', id, top: !popped.top }) },
+        { label: tr('小窓（ライブ）をサイドバーへ戻す'), run: () => send({ type: 'dockPopout', id }) },
+        { label: popped.top ? tr('小窓の最前面をやめる') : tr('小窓を最前面に固定する'), run: () => send({ type: 'popoutTop', id, top: !popped.top }) },
       ];
     }
     const full = popouts.size >= MAX_POPOUTS;
-    return [{ label: '小窓で出す（ライブ）', hint: full ? `${MAX_POPOUTS} つまで` : '動いたまま', disabled: full, run: () => popOut(id) }];
+    return [{ label: tr('小窓で出す（ライブ）'), hint: full ? tr('{0} つまで', { 0: MAX_POPOUTS }) : tr('動いたまま'), disabled: full, run: () => popOut(id) }];
   }
 
   function popOut(id: number) {
@@ -5876,10 +5870,10 @@ export function startPrimary() {
     const popped = popoutId !== null && store.get(popoutId) !== undefined;
     popoutButton.hidden = !(popped || canPopout(active));
     const docking = popped && (!active || popouts.has(active.id) || !canPopout(active) || popouts.size >= MAX_POPOUTS);
-    popoutButton.textContent = docking ? '小窓を戻す' : '小窓';
+    popoutButton.textContent = docking ? tr('小窓を戻す') : tr('小窓');
     popoutButton.title = docking
-      ? '小窓を大きい窓に戻す'
-      : '小窓にする（最前面）。YouTube や音声を前に置いたまま、ほかのタブを読めます';
+      ? tr('小窓を大きい窓に戻す')
+      : tr('小窓にする（最前面）。YouTube や音声を前に置いたまま、ほかのタブを読めます');
   }
 
   function formatBytes(bytes: number) {
@@ -5900,8 +5894,8 @@ export function startPrimary() {
     downloadsSeen = true;
     downloadItems = items;
     if (prefs.shelfView === 'downloads') renderShelf();
-    if (fresh.length === 1) toast(`保存しました: ${fresh[0].name}`);
-    else if (fresh.length > 1) toast(`保存しました（${fresh.length} 件）`);
+    if (fresh.length === 1) toast(tr('保存しました: {0}', { 0: fresh[0].name }));
+    else if (fresh.length > 1) toast(tr('保存しました（{0} 件）', { 0: fresh.length }));
   }
 
   popoutButton.addEventListener('click', () => {
@@ -5931,38 +5925,38 @@ export function startPrimary() {
       hosts,
     });
     if (!material) {
-      toast('今日の材料がありません。今日開いたページ、今日見たハート、今日のメモ、今日の単語のどれかがあると書けます', 6000);
+      toast(tr('今日の材料がありません。今日開いたページ、今日見たハート、今日のメモ、今日の単語のどれかがあると書けます'), 6000);
       return;
     }
     dailyBusy = true;
     dailyButton.disabled = true;
-    dailyButton.textContent = '書いています…';
+    dailyButton.textContent = tr('書いています…');
     try {
       const first = readAiSettings(null);
       const settings = { apiKey: first.practice ? null : await fetchApiKey(), practice: first.practice, model: first.model };
       const result = await writeDaily(material, settings);
       const sheet = sheets.current;
       const pos = placeCluster(allCells(sheet), 1, anchorOn(sheet))[0];
-      const memo = pos ? memos.add({ sheet, pos, text: formatDaily(material, result), tags: ['ふりかえり'] }) : null;
+      const memo = pos ? memos.add({ sheet, pos, text: formatDaily(material, result), tags: [tr('ふりかえり')] }) : null;
       let lines = 0;
       for (const item of result.lines) {
         const tab = store.get(item.id);
         const line = cleanComment(item.line);
         if (!tab || tab.liked <= 0 || !line) continue;
         if (tab.notes.some((n) => n.id === 'sleep-line')) store.removeNote(tab.id, 'sleep-line');
-        store.addNote(tab.id, { id: 'sleep-line', text: line, createdAt: Date.now(), source: 'ai', label: '一行' });
+        store.addNote(tab.id, { id: 'sleep-line', text: line, createdAt: Date.now(), source: 'ai', label: tr('一行') });
         if (!tab.comment) store.setFace(tab.id, { comment: line });
         lines += 1;
       }
       if (!memo) {
-        toast('ノートを置けませんでした（メモが多すぎます）');
+        toast(tr('ノートを置けませんでした（メモが多すぎます）'));
         return;
       }
       preview.showMemo(memo.id);
-      const cost = result.cost > 0 ? `（約 $${result.cost.toFixed(3)}）` : first.practice ? '（練習）' : '';
-      const heart = lines > 0 ? `ハート ${lines} 件に、休眠したあとでも読める一行を残しました。` : '';
+      const cost = result.cost > 0 ? tr('（約 ${0}）', { 0: result.cost.toFixed(3) }) : first.practice ? tr('（練習）') : '';
+      const heart = lines > 0 ? tr('ハート {0} 件に、休眠したあとでも読める一行を残しました。', { 0: lines }) : '';
       const near = result.near ? ` ${BUDGET_NEAR_NOTE}` : '';
-      toast(`今日のふりかえりを、メモのセルに置きました。${heart}${cost}${near}`.trim(), 8000);
+      toast(tr('今日のふりかえりを、メモのセルに置きました。{0}{1}{2}', { 0: heart, 1: cost, 2: near }).trim(), 8000);
     } catch (error) {
       const friendly = describeError(error);
       const message = error instanceof BudgetError ? error.message : friendly !== 'うまくいきませんでした' ? friendly : error instanceof Error && error.message ? error.message : friendly;
@@ -5970,7 +5964,7 @@ export function startPrimary() {
     } finally {
       dailyBusy = false;
       dailyButton.disabled = false;
-      dailyButton.textContent = '今日';
+      dailyButton.textContent = tr('今日');
     }
   }
 
@@ -6020,8 +6014,8 @@ export function startPrimary() {
         if (msg.background) {
           sidebar.flash(msg.id);
           const added = store.get(msg.id);
-          const where = added && added.sheet !== sheets.current ? `シート「${sheets.get(added.sheet)?.name ?? ''}」の` : '';
-          toast(`${info?.addedLead ?? '新しいタブを、'}${where}セルに追加しました（ページはこのまま${where ? '。左上の ▾ から開けます' : ''}）`);
+          const where = added && added.sheet !== sheets.current ? tr('シート「{0}」の', { 0: sheets.get(added.sheet)?.name ?? '' }) : '';
+          toast(tr('{0}{1}セルに追加しました（ページはこのまま{2}）', { 0: info?.addedLead ?? '新しいタブを、', 1: where, 2: where ? '。左上の ▾ から開けます' : '' }));
         }
         flushExternalUrls(); // 前回のタブを並べ終えたら、外から頼まれていたページを開く
         if (typeof msg.requestId === 'number') {
@@ -6198,7 +6192,7 @@ export function startPrimary() {
         break;
       case 'botLinkBlocked':
         // ページのリンクから grokbot:// を開こうとしたので、C++ が止めた（S1.11）
-        toast('ページのリンクからは Grok Bot アプリを開きません（止めました）。アプリは、盤面のボットのセルを押すと開きます', 6000);
+        toast(tr('ページのリンクからは Grok Bot アプリを開きません（止めました）。アプリは、盤面のボットのセルを押すと開きます'), 6000);
         break;
       case 'linkMenu':
         // ページの右クリックのメニュー：リンクをセルに追加（ページはこのまま）・六角スクショを表紙にして追加
@@ -6223,9 +6217,9 @@ export function startPrimary() {
         break;
       case 'downloadResult':
         if (msg.note) toast(msg.note);
-        else if (msg.error === 'missing') toast('ファイルが見つかりません');
-        else if (msg.error === 'failed') toast('開けませんでした');
-        else if (msg.error === 'mock') toast('練習用の画面では、ファイルは開けません');
+        else if (msg.error === 'missing') toast(tr('ファイルが見つかりません'));
+        else if (msg.error === 'failed') toast(tr('開けませんでした'));
+        else if (msg.error === 'mock') toast(tr('練習用の画面では、ファイルは開けません'));
         break;
       case 'popout': {
         const before = popouts.size;
@@ -6233,10 +6227,10 @@ export function startPrimary() {
         for (const item of msg.list ?? (msg.id === null ? [] : [{ id: msg.id, slot: 0, top: true }])) popouts.set(item.id, { slot: item.slot, top: item.top });
         popoutId = msg.id;
         refreshPopoutButton();
-        if (msg.error === 'full') toast(`ライブの小窓は ${MAX_POPOUTS} つまでです。どれかをサイドバーへ戻してください`);
-        else if (msg.error === 'failed') toast('小窓を作れませんでした');
-        else if (popouts.size > before) toast('小窓に出しました。窓のタイトルを右クリックすると、最前面の切り替え・サイドバーへ戻すができます');
-        else if (popouts.size < before) toast('小窓をサイドバーへ戻しました');
+        if (msg.error === 'full') toast(tr('ライブの小窓は {0} つまでです。どれかをサイドバーへ戻してください', { 0: MAX_POPOUTS }));
+        else if (msg.error === 'failed') toast(tr('小窓を作れませんでした'));
+        else if (popouts.size > before) toast(tr('小窓に出しました。窓のタイトルを右クリックすると、最前面の切り替え・サイドバーへ戻すができます'));
+        else if (popouts.size < before) toast(tr('小窓をサイドバーへ戻しました'));
         break;
       }
       case 'popoutPlace': {
@@ -6252,7 +6246,7 @@ export function startPrimary() {
         const sticking = pinnedAppId ? apps.get(pinnedAppId) : undefined;
         if (sticking && !overlapTold.has(sticking.id)) {
           overlapTold.add(sticking.id);
-          toast(`「${sticking.name}」は大きさを変えられないので、サイドバーに重なることがあります`);
+          toast(tr('「{0}」は大きさを変えられないので、サイドバーに重なることがあります', { 0: sticking.name }));
         }
         break;
       }
@@ -6262,7 +6256,7 @@ export function startPrimary() {
         if (change === 'failed') sessionNotice.setSaveFailed(SAVE_FAILED_TEXT);
         if (change === 'recovered') {
           sessionNotice.setSaveFailed(null);
-          toast('盤面の保存が戻りました');
+          toast(tr('盤面の保存が戻りました'));
         }
         break;
       }
@@ -6273,8 +6267,8 @@ export function startPrimary() {
         if (ended) {
           toast(
             msg.reason === 'denied'
-              ? `「${ended.name}」を動かせなくなったので、追従をやめました`
-              : `「${ended.name}」の窓が閉じたので、追従をやめました`,
+              ? tr('「{0}」を動かせなくなったので、追従をやめました', { 0: ended.name })
+              : tr('「{0}」の窓が閉じたので、追従をやめました', { 0: ended.name }),
           );
         }
         preview.render();
@@ -6295,7 +6289,7 @@ export function startPrimary() {
           const hosts = await ensureBlocklist();
           const set = takeMaterials(items, hosts.length ? { hosts } : undefined);
           void openBotAsk(
-            { url: 'https://example.com/materials', title: '材料の試し', selection: '' },
+            { url: 'https://example.com/materials', title: tr('材料の試し'), selection: '' },
             { capture: false, afterMenu: false, ...(set.items.length ? { materials: set } : {}) },
           );
         })();
@@ -6492,44 +6486,44 @@ export function startPrimary() {
   }
   // 型を貼るときの id の指定（B3-2a）が使えなかった理由。断るときは何も書かない
   function pastedIdsText(why: Extract<SendRepliesResult, { ok: false }>['idsWhy']): string {
-    const head = '型を貼れませんでした（カードの id の指定が使えません：';
+    const head = tr('型を貼れませんでした（カードの id の指定が使えません：');
     switch (why) {
       case 'limit':
-        return `${head}30 枚までです）`;
+        return tr('{0}30 枚までです）', { 0: head });
       case 'count':
-        return `${head}貼る枚数と数が合いません）`;
+        return tr('{0}貼る枚数と数が合いません）', { 0: head });
       case 'dup':
-        return `${head}指定の中で重なっています）`;
+        return tr('{0}指定の中で重なっています）', { 0: head });
       case 'taken':
-        return `${head}このメモにもう同じ id があります）`;
+        return tr('{0}このメモにもう同じ id があります）', { 0: head });
       default:
-        return `${head}形が正しくありません）`;
+        return tr('{0}形が正しくありません）', { 0: head });
     }
   }
   function sendRefusalText(done: Extract<SendRepliesResult, { ok: false }>): string {
     switch (done.why) {
       case 'ledger':
-        return '送れませんでした（メモの台帳を読めていません）';
+        return tr('送れませんでした（メモの台帳を読めていません）');
       case 'invalid':
-        return '送れませんでした（中身を読めません）';
+        return tr('送れませんでした（中身を読めません）');
       case 'from':
-        return 'このカードは送れませんでした（メモがもうありません）';
+        return tr('このカードは送れませんでした（メモがもうありません）');
       case 'to':
-        return '送り先のメモは使えません';
+        return tr('送り先のメモは使えません');
       case 'same':
-        return '同じメモへは送れません';
+        return tr('同じメモへは送れません');
       case 'place':
-        return '新しいメモを置けませんでした（置く：空いた場所がない）';
+        return tr('新しいメモを置けませんでした（置く：空いた場所がない）');
       case 'full-memos':
-        return '新しいメモを置けませんでした（置く：メモがいっぱい）';
+        return tr('新しいメモを置けませんでした（置く：メモがいっぱい）');
       case 'empty':
-        return '送るカードがありません';
+        return tr('送るカードがありません');
       case 'missing':
-        return 'そのカードは、もうありません';
+        return tr('そのカードは、もうありません');
       case 'full':
-        return `送り先に入りきりません（あと ${done.room ?? 0} 件まで、送るのは ${done.need ?? 0} 件です）`;
+        return tr('送り先に入りきりません（あと {0} 件まで、送るのは {1} 件です）', { 0: done.room ?? 0, 1: done.need ?? 0 });
       default:
-        return '送れませんでした';
+        return tr('送れませんでした');
     }
   }
   // 右の「検索」の区画に短い知らせを出す（右が見えているときだけ）
@@ -6569,7 +6563,7 @@ export function startPrimary() {
       id = await waitCreated(createTab(url), 12_000);
       if (jump !== quoteJump) return;
       if (id === null) {
-        tell('上のページを開けませんでした');
+        tell(tr('上のページを開けませんでした'));
         return;
       }
     }
@@ -6577,7 +6571,7 @@ export function startPrimary() {
     const ready = await waitUntilShown(id, 12_000, !existing);
     if (jump !== quoteJump || ready === 'replaced') return;
     if (ready !== 'ready') {
-      tell(ready === 'gone' ? '上のページを開けませんでした' : 'ページの読み込みが終わらないので、引用したところを色づけできませんでした');
+      tell(ready === 'gone' ? tr('上のページを開けませんでした') : tr('ページの読み込みが終わらないので、引用したところを色づけできませんでした'));
       return;
     }
     // タブを表に出した直後は、ページの配置が済むまで少し待つ
@@ -6585,7 +6579,7 @@ export function startPrimary() {
     if (jump !== quoteJump) return;
     const tab = store.get(id);
     if (!tab || tab.asleep || store.activeId !== id || !samePage(tab.url, url)) {
-      tell('上のページを開けませんでした');
+      tell(tr('上のページを開けませんでした'));
       return;
     }
     // 読み終わった後に文を描くページがあるので、見つからなければ少し待って2回まで探し直す
@@ -6593,24 +6587,24 @@ export function startPrimary() {
       const reply = await request((requestId) => ({ type: 'evalInTab', requestId, id, script }), 8_000);
       if (jump !== quoteJump) return;
       if (reply?.type !== 'evalResult') {
-        tell('上のページからの返事が来ませんでした（色づけ：返事なし）');
+        tell(tr('上のページからの返事が来ませんでした（色づけ：返事なし）'));
         return;
       }
       if (!reply.ok) {
         tell(
           reply.error === 'noPage'
-            ? '上のページを開けませんでした（色づけ：noPage）'
-            : `上のページに、引用の場所を伝えられませんでした（色づけ：${reply.error ?? '理由なし'}）`,
+            ? tr('上のページを開けませんでした（色づけ：noPage）')
+            : tr('上のページに、引用の場所を伝えられませんでした（色づけ：{0}）', { 0: reply.error ?? '理由なし' }),
         );
         return;
       }
       const value = (typeof reply.value === 'object' && reply.value !== null ? reply.value : {}) as { found?: unknown; painted?: unknown };
       if (value.found === true) {
-        tell(value.painted === false ? '引用したところへ移りました（色づけ：ページの中では塗れず、ブラウザに任せた）' : '引用したところを色づけました');
+        tell(value.painted === false ? tr('引用したところへ移りました（色づけ：ページの中では塗れず、ブラウザに任せた）') : tr('引用したところを色づけました'));
         return;
       }
       if (attempt >= 2) {
-        tell('このページの今の文には、引用したところを色づけできませんでした（色づけ：文が見つからない）');
+        tell(tr('このページの今の文には、引用したところを色づけできませんでした（色づけ：文が見つからない）'));
         return;
       }
       await new Promise((resolve) => window.setTimeout(resolve, 800));
@@ -6637,11 +6631,11 @@ export function startPrimary() {
     if (store.activeId !== existing.id) send({ type: 'activateTab', id: existing.id });
     const ready = await waitUntilShown(existing.id, 12_000);
     if (ready !== 'ready') {
-      tellMemo('動画のタブを開けませんでした');
+      tellMemo(tr('動画のタブを開けませんでした'));
       return;
     }
     await seekVideo(existing.id, start, true);
-    tellMemo('同じ動画のタブで、その時刻へ移りました');
+    tellMemo(tr('同じ動画のタブで、その時刻へ移りました'));
   }
 
   // メモのセルへ移る（単語カードの「セルへ」と同じ）。別のシートなら切り替え、印を付け、見える所まで動かし、少し光らせる
@@ -6650,7 +6644,7 @@ export function startPrimary() {
     const memo = memos.get(id);
     if (!memo || isSpecialCell(memo)) return 'そのメモのセルは、もうありません';
     if (!sheets.get(memo.sheet)) return 'そのシートは、もうありません';
-    if (memo.sheet !== sheets.current && !switchSheet(memo.sheet)) return '書きかけの欄を閉じてから移ってください';
+    if (memo.sheet !== sheets.current && !switchSheet(memo.sheet)) return tr('書きかけの欄を閉じてから移ってください');
     sidebar.setSelection([], [memo.id]);
     sidebar.reveal(memo.pos);
     sidebar.flashMemo(memo.id);
@@ -6669,7 +6663,7 @@ export function startPrimary() {
     }
     const tab = findVocabTab(store.all(), link);
     if (!tab) {
-      toast('そのタブのセルは、もうありません');
+      toast(tr('そのタブのセルは、もうありません'));
       return;
     }
     if (tab.sheet !== sheets.current && !switchSheet(tab.sheet)) return;
@@ -6778,7 +6772,7 @@ export function startPrimary() {
         // 下の区画で落としたファイルの文。ほかの入口と同じくバイトで数える（前は字数で、日本語なら 3 MB 相当まで通っていた）
         if (typeof action.text === 'string') {
           if (withinImportBytes(action.text)) openPatchText(action.text, 'drop');
-          else toast(`ファイルが大きすぎます（${IMPORT_FILE_LABEL} まで）`);
+          else toast(tr('ファイルが大きすぎます（{0} まで）', { 0: IMPORT_FILE_LABEL }));
         }
         break;
       case 'openAsIsland':
@@ -6984,7 +6978,7 @@ export function startPrimary() {
         const memo = memos.get(action.id);
         const reply = memo?.replies?.find((r) => r.id === action.replyId);
         if (!memo || !reply?.image) {
-          tellMemo('そのカードの画像は、もうありません');
+          tellMemo(tr('そのカードの画像は、もうありません'));
           break;
         }
         captureShotToRight(reply.image, 'memoCard', memoTitle(memo, 40) || memo.source?.title || '');
@@ -7029,7 +7023,7 @@ export function startPrimary() {
       case 'addReply':
         // 相棒のキャラが書いた返信（考察を残す道具）は、書いたキャラの名前つき
         if (action.by) {
-          if (!addReplyTo(action.ref, action.parent, action.text, action.by)) toast('返信を足せませんでした（返信先が消えたか、返信が多すぎます）');
+          if (!addReplyTo(action.ref, action.parent, action.text, action.by)) toast(tr('返信を足せませんでした（返信先が消えたか、返信が多すぎます）'));
         } else {
           threadActions.add(action.ref, action.parent, action.text);
         }
@@ -7038,16 +7032,16 @@ export function startPrimary() {
         // 相棒の考察（道具）は、表示中のタブの近くの空いたセルに（表示中のタブのシートに）
         //   レターなど、使う人が「盤面に置く」を押したもの（label あり）は、今見ているシートに
         const sheet = action.label ? sheets.current : (store.active?.sheet ?? sheets.current);
-        const kind = action.label ?? '考察';
+        const kind = action.label ?? tr('考察');
         const pos = placeCluster(allCells(sheet), 1, anchorOn(sheet))[0];
         // 「ボットから届いた返事」の印（who 'bot'）は、ボットの欄の botToMemo だけが付ける
         const by = action.by && action.by.who !== 'bot' ? action.by : undefined;
         const memo = pos ? memos.add({ sheet, pos, text: action.text, by, label: action.label }) : null;
         if (memo) {
           preview.showMemo(memo.id);
-          toast(sheet === sheets.current ? `相棒の${kind}を、メモのセルに置きました` : `相棒の${kind}を、シート「${sheets.get(sheet)?.name ?? ''}」のメモのセルに置きました（表示中のタブのシート。左上の ▾ から開けます）`);
+          toast(sheet === sheets.current ? tr('相棒の{0}を、メモのセルに置きました', { 0: kind }) : tr('相棒の{0}を、シート「{1}」のメモのセルに置きました（表示中のタブのシート。左上の ▾ から開けます）', { 0: kind, 1: sheets.get(sheet)?.name ?? '' }));
         } else {
-          toast('メモのセルを置けませんでした（メモが多すぎます）');
+          toast(tr('メモのセルを置けませんでした（メモが多すぎます）'));
         }
         break;
       }
@@ -7059,19 +7053,19 @@ export function startPrimary() {
         const sheet = isSheetId(action.sheet) ? action.sheet : RIGHT_MEMO_SHEET;
         sheets.ensure([sheet]);
         if (!sheets.get(sheet)) {
-          toast('シートが多すぎて、右のメモのシートを作れません（100 枚まで）。使わないシートを消してから、もう一度書いてください');
+          toast(tr('シートが多すぎて、右のメモのシートを作れません（100 枚まで）。使わないシートを消してから、もう一度書いてください'));
           break;
         }
         const want = isHex(action.pos) ? action.pos : { q: 0, r: 0 };
         const pos = nearestFree(want, (h) => isTaken(h, sheet));
-        if (!memos.add({ sheet, pos, text })) toast('メモを書けませんでした（メモのセルが多すぎます）');
+        if (!memos.add({ sheet, pos, text })) toast(tr('メモを書けませんでした（メモのセルが多すぎます）'));
         break;
       }
       case 'addRightSheet':
         // 右の「メモ」の区画の ＋・セットに保存：新しいシートを作る（id は右が決めたもの）
         if (!isSheetId(action.id) || sheets.get(action.id)) break;
         sheets.ensure([action.id], action.name);
-        if (!sheets.get(action.id)) toast('シートが多すぎて作れません（100 枚まで）。使わないシートを消してから、もう一度足してください');
+        if (!sheets.get(action.id)) toast(tr('シートが多すぎて作れません（100 枚まで）。使わないシートを消してから、もう一度足してください'));
         break;
       case 'dropEmptySheet': {
         // 右で作ったシートが、何も書かずにタブから外れた：本当に空なら片づける（メイン・右のメモ・今見ているシート・入口のあるシートは残す）
@@ -7168,7 +7162,7 @@ export function startPrimary() {
         if (!memo || isSpecialCell(memo)) break;
         // 呼び出し側が id を決めたとき（B2-3a）：形が違う・このメモにもう同じ id があるなら、付け替えずに断る。省略したときは今までと同じ
         if (action.replyId !== undefined && replyIdProblem(memo.replies ?? [], action.replyId) !== null) {
-          toast('コメントを足せませんでした（カードの id が正しくないか、すでに使われています）');
+          toast(tr('コメントを足せませんでした（カードの id が正しくないか、すでに使われています）'));
           break;
         }
         // 「＋コメント」の「読む画面の今のマスと結ぶ」（V2b・D24）：形が合わない・読む画面の動画と違うときは、結ばずに足して知らせる（文は落とさない）
@@ -7176,7 +7170,7 @@ export function startPrimary() {
         const linked = at && at.video === readerVideo() ? at : undefined;
         const added = memos.addReply(action.id, null, action.text, undefined, { quote: action.quote, image: action.image, file: action.file, ...(linked ? { at: linked } : {}) }, action.replyId);
         if (!added) {
-          toast('コメントを足せませんでした（返信が多すぎます）');
+          toast(tr('コメントを足せませんでした（返信が多すぎます）'));
         } else {
           // 「次の行に」：一番上のカードだけ。置けない番地なら placeReply は呼ばず、ふつうの次の番地のまま
           if (action.nextRow === true) {
@@ -7185,7 +7179,7 @@ export function startPrimary() {
             if (slot !== null) memos.placeReply(action.id, added.id, slot);
           }
           if (action.at !== undefined && !linked) {
-            tellMemo(at ? '読む画面の動画が替わったので、マスと結ばずに足しました' : 'マスと結べなかったので、結ばずに足しました', { memo: action.id });
+            tellMemo(at ? tr('読む画面の動画が替わったので、マスと結ばずに足しました') : tr('マスと結べなかったので、結ばずに足しました'), { memo: action.id });
           }
         }
         break;
@@ -7195,12 +7189,12 @@ export function startPrimary() {
         if (typeof action.id !== 'string' || typeof action.image !== 'string' || typeof action.text !== 'string') break;
         if (action.fromReply !== undefined && typeof action.fromReply !== 'string') break;
         const imageOk = isShotImageId(action.image);
-        const placed = imageOk ? memos.placeAnnotatedCard(action.id, action.image, action.text, action.fromReply) : { ok: false as const, note: 'その画像は、もうありません' };
+        const placed = imageOk ? memos.placeAnnotatedCard(action.id, action.image, action.text, action.fromReply) : { ok: false as const, note: tr('その画像は、もうありません') };
         if (!placed.ok) {
           tellMemo(placed.note, { memo: action.id, ...(imageOk ? { dropShot: action.image } : {}) });
           break;
         }
-        tellMemo('書き足した版を足しました', { openMemo: action.id, undoSend: placed.token });
+        tellMemo(tr('書き足した版を足しました'), { openMemo: action.id, undoSend: placed.token });
         break;
       }
       case 'changeReplyTags': {
@@ -7209,8 +7203,8 @@ export function startPrimary() {
         const add = Array.isArray(action.add) ? action.add : [];
         const remove = Array.isArray(action.remove) ? action.remove : [];
         const done = memos.changeReplyTags(action.id, action.replyId, add, remove);
-        if (done.result === 'refused') tellMemo('このカードのタグは変えられませんでした（メモの台帳を読めていないか、カードがもうありません）', { memo: action.id });
-        else if (done.over) tellMemo(`タグは1つに ${MAX_TAGS_PER_TAB} 個までです（ほかのタグを外してから付けてください）`, { memo: action.id });
+        if (done.result === 'refused') tellMemo(tr('このカードのタグは変えられませんでした（メモの台帳を読めていないか、カードがもうありません）'), { memo: action.id });
+        else if (done.over) tellMemo(tr('タグは1つに {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB }), { memo: action.id });
         break;
       }
       case 'changeReplyLinks': {
@@ -7219,9 +7213,9 @@ export function startPrimary() {
         const add = Array.isArray(action.add) ? action.add : [];
         const remove = Array.isArray(action.remove) ? action.remove : [];
         const done = memos.changeReplyLinks(action.id, action.replyId, add, remove);
-        if (done.result === 'refused') tellMemo('このカードの関連は変えられませんでした（メモの台帳を読めていないか、カードがもうありません）', { memo: action.id });
-        else if (done.over) tellMemo(`関連は 1 枚のカードから ${MAX_LINKS_PER_CARD} 本までです（ほかの関連を外してから付けてください）`, { memo: action.id });
-        else if (done.refusedLinks > 0) tellMemo('その相手とは結べませんでした（相手のカードがもう無いか、もう「同じ」でつながっています）', { memo: action.id });
+        if (done.result === 'refused') tellMemo(tr('このカードの関連は変えられませんでした（メモの台帳を読めていないか、カードがもうありません）'), { memo: action.id });
+        else if (done.over) tellMemo(tr('関連は 1 枚のカードから {0} 本までです（ほかの関連を外してから付けてください）', { 0: MAX_LINKS_PER_CARD }), { memo: action.id });
+        else if (done.refusedLinks > 0) tellMemo(tr('その相手とは結べませんでした（相手のカードがもう無いか、もう「同じ」でつながっています）'), { memo: action.id });
         break;
       }
       case 'moveReply':
@@ -7246,10 +7240,10 @@ export function startPrimary() {
         if (done.result === 'refused')
           tellMemo(
             done.why === 'ledger'
-              ? '並べ替えられませんでした（台帳を読めていません）'
+              ? tr('並べ替えられませんでした（台帳を読めていません）')
               : action.command === 'placeReply'
-                ? 'そこには置けませんでした（ほかのカードがあるか、カードが見つかりません）'
-                : '並べ替えられませんでした（相手のカードが見つかりません）',
+                ? tr('そこには置けませんでした（ほかのカードがあるか、カードが見つかりません）')
+                : tr('並べ替えられませんでした（相手のカードが見つかりません）'),
           );
         if (done.result !== 'changed') memoPane.resend();
         break;
@@ -7258,11 +7252,11 @@ export function startPrimary() {
         threadActions.edit(action.ref, action.replyId, action.text);
         break;
       case 'setMemoLinkNames':
-        if (typeof action.id === 'string' && !memos.setLinkNames(action.id, action.names)) tellMemo('このメモの関連の名前は変えられませんでした');
+        if (typeof action.id === 'string' && !memos.setLinkNames(action.id, action.names)) tellMemo(tr('このメモの関連の名前は変えられませんでした'));
         break;
       case 'setMemoLinkSet':
         if (typeof action.id === 'string' && (action.setId === null || typeof action.setId === 'string') && !memos.setLinkSet(action.id, action.setId))
-          tellMemo('このメモの呼称セットは変えられませんでした');
+          tellMemo(tr('このメモの呼称セットは変えられませんでした'));
         break;
       case 'clearMemoLinkSet':
         if (typeof action.setId === 'string') memos.clearLinkSet(action.setId);
@@ -7293,27 +7287,27 @@ export function startPrimary() {
         const fromSearch = action.from === 'search';
         const memo = typeof action.id === 'string' ? memos.get(action.id) : undefined;
         if (!memo || isSpecialCell(memo)) {
-          tellMemo('そのメモは、もうありません（一覧：見つからない）');
-          if (fromSearch) tellSearch('そのメモは、もうありません');
+          tellMemo(tr('そのメモは、もうありません（一覧：見つからない）'));
+          if (fromSearch) tellSearch(tr('そのメモは、もうありません'));
           break;
         }
         const asked = typeof action.replyId === 'string' ? action.replyId : undefined;
         const replyId = asked && (memo.replies ?? []).some((r) => r.id === asked) ? asked : undefined;
         // 右の検索から、別のメモを開こうとしていて、下に書きかけがあるときは、開かない
         if (fromSearch && memoPaneDraft && memoPane.openId !== null && memoPane.openId !== memo.id) {
-          tellMemo('書きかけがあります。送るか消してから開いてください');
-          tellSearch('下の区画に書きかけがあります。送るか消してから開いてください');
+          tellMemo(tr('書きかけがあります。送るか消してから開いてください'));
+          tellSearch(tr('下の区画に書きかけがあります。送るか消してから開いてください'));
           break;
         }
         memoPane.open(memo.id, replyId);
         if (memo.sheet === sheets.current) sidebar.reveal(memo.pos);
-        if (asked && !replyId) tellMemo('そのコメントは、もうありません（メモだけ開きました）');
+        if (asked && !replyId) tellMemo(tr('そのコメントは、もうありません（メモだけ開きました）'));
         break;
       }
       case 'setBoardMemo': {
         // ボードが見るメモ（M1：左が写しを送るだけ。画面からはまだ送らない）。id は信用せず形を確かめる
         if (action.id !== null && typeof action.id !== 'string') break;
-        if (!memoPane.setBoardMemo(action.id)) tellMemo('そのメモは、もうありません（ボードのメモ：見つからない）');
+        if (!memoPane.setBoardMemo(action.id)) tellMemo(tr('そのメモは、もうありません（ボードのメモ：見つからない）'));
         break;
       }
       case 'newMemoForPane': {
@@ -7321,7 +7315,7 @@ export function startPrimary() {
           const spot = spotForNewMemo();
           const placed = memos.add({ sheet: spot.sheet, pos: spot.pos, text: '', ...(spot.source ? { source: spot.source } : {}) });
           if (!placed) {
-            tellMemo('新しいメモを置けませんでした（置く：メモがいっぱい）');
+            tellMemo(tr('新しいメモを置けませんでした（置く：メモがいっぱい）'));
             break;
           }
           memoPane.open(placed.id);
@@ -7329,9 +7323,9 @@ export function startPrimary() {
             sidebar.reveal(placed.pos);
             sidebar.flashMemo(placed.id);
           }
-          tellMemo('新しいメモを作りました');
+          tellMemo(tr('新しいメモを作りました'));
         } catch (err) {
-          tellMemo(err instanceof Error && err.message === 'nospace' ? '新しいメモを置けませんでした（置く：空いた場所がない）' : '新しいメモを置けませんでした（置く：途中で止まった）');
+          tellMemo(err instanceof Error && err.message === 'nospace' ? tr('新しいメモを置けませんでした（置く：空いた場所がない）') : tr('新しいメモを置けませんでした（置く：途中で止まった）'));
         }
         break;
       }
@@ -7345,23 +7339,23 @@ export function startPrimary() {
               pasted.why === 'ids'
                 ? pastedIdsText(pasted.idsWhy)
                 : pasted.why === 'full'
-                ? `型を貼れませんでした（このメモに入りきりません。あと ${pasted.room ?? 0} 枚まで、型は ${pasted.need ?? 0} 枚です。上限は ${MAX_REPLIES} 枚）`
+                ? tr('型を貼れませんでした（このメモに入りきりません。あと {0} 枚まで、型は {1} 枚です。上限は {2} 枚）', { 0: pasted.room ?? 0, 1: pasted.need ?? 0, 2: MAX_REPLIES })
                 : pasted.why === 'invalid'
-                  ? '型を貼れませんでした（型の中身を読めません）'
+                  ? tr('型を貼れませんでした（型の中身を読めません）')
                   : pasted.why === 'to'
-                    ? '型を貼れませんでした（このメモには貼れません）'
+                    ? tr('型を貼れませんでした（このメモには貼れません）')
                     : sendRefusalText(pasted),
               { memo: action.to },
             );
             break;
           }
-          tellMemo(`型「${pasted.name ?? ''}」を貼りました（${pasted.tops} 枚）`, { openMemo: pasted.toId, undoSend: pasted.token });
+          tellMemo(tr('型「{0}」を貼りました（{1} 枚）', { 0: pasted.name ?? '', 1: pasted.tops }), { openMemo: pasted.toId, undoSend: pasted.token });
           break;
         }
         if (typeof action.from !== 'string' || !Array.isArray(action.replyIds)) break;
         // ids は型を貼るときだけ。型のないカードの送りに付いていたら、何も送らずに断る（B3-2a）
         if (action.ids !== undefined) {
-          tellMemo('送れませんでした（カードの id を決められるのは、型を貼るときだけです）');
+          tellMemo(tr('送れませんでした（カードの id を決められるのは、型を貼るときだけです）'));
           break;
         }
         const mode = action.mode === 'move' || action.mode === 'copy' ? action.mode : null;
@@ -7377,7 +7371,7 @@ export function startPrimary() {
             const linkSet = linkSetForNewMemo({ book: linkNameBook, source: memos.get(action.from) ?? null });
             create = { sheet: spot.sheet, pos: spot.pos, text: '', ...(spot.source ? { source: spot.source } : {}), ...(linkSet ? { linkSet } : {}) };
           } catch (err) {
-            tellMemo(err instanceof Error && err.message === 'nospace' ? '新しいメモを置けませんでした（置く：空いた場所がない）' : '新しいメモを置けませんでした（置く：途中で止まった）');
+            tellMemo(err instanceof Error && err.message === 'nospace' ? tr('新しいメモを置けませんでした（置く：空いた場所がない）') : tr('新しいメモを置けませんでした（置く：途中で止まった）'));
             break;
           }
         }
@@ -7387,10 +7381,10 @@ export function startPrimary() {
           break;
         }
         const dest = memos.get(done.toId);
-        const title = done.created ? '新しいメモ' : dest ? memoTitle(dest) || '（空のメモ）' : 'メモ';
-        const verb = mode === 'move' ? '移しました' : '写しました';
-        const nameNote = done.kept > 0 ? '。関連の呼び名は送り先の呼称に従います' : '';
-        tellMemo(`「${title}」へ ${done.tops} 枚を${verb}${nameNote}`, { openMemo: done.toId, undoSend: done.token });
+        const title = done.created ? tr('新しいメモ') : dest ? memoTitle(dest) || tr('（空のメモ）') : tr('メモ');
+        const verb = mode === 'move' ? tr('移しました') : tr('写しました');
+        const nameNote = done.kept > 0 ? tr('。関連の呼び名は送り先の呼称に従います') : '';
+        tellMemo(tr('「{0}」へ {1} 枚を{2}{3}', { 0: title, 1: done.tops, 2: verb, 3: nameNote }), { openMemo: done.toId, undoSend: done.token });
         if (done.created && dest && dest.sheet === sheets.current) {
           sidebar.reveal(dest.pos);
           sidebar.flashMemo(dest.id);
@@ -7400,8 +7394,8 @@ export function startPrimary() {
       case 'undoSendReplies': {
         if (typeof action.token !== 'string') break;
         const undone = memos.undoSend(action.token);
-        if (!undone.ok) tellMemo(undone.why === 'stale' ? '元に戻せませんでした（そのあとにメモが変わっています）' : '元に戻せませんでした');
-        else tellMemo('送りを元に戻しました');
+        if (!undone.ok) tellMemo(undone.why === 'stale' ? tr('元に戻せませんでした（そのあとにメモが変わっています）') : tr('元に戻せませんでした'));
+        else tellMemo(tr('送りを元に戻しました'));
         break;
       }
       case 'setMemoText':
@@ -7413,7 +7407,7 @@ export function startPrimary() {
       case 'removeReply': {
         // undoToken（B3-3a。省略できる）：形が悪ければ何も消さずに断る。メモのカードだけに効く（タブのメモへの返信は台帳の外なので控えない）
         if (action.undoToken !== undefined && !isRestoreToken(action.undoToken)) {
-          tellMemo('削除できませんでした（元に戻す印の形が正しくありません）');
+          tellMemo(tr('削除できませんでした（元に戻す印の形が正しくありません）'));
           break;
         }
         if (action.undoToken !== undefined && action.ref.kind === 'memo') memos.removeReply(action.ref.id, action.replyId, action.undoToken);
@@ -7423,12 +7417,12 @@ export function startPrimary() {
       case 'restoreReplies': {
         // 削除の取り消し（B3-3a。画面からはまだ送らない。ボードの Undo が使う＝B3-3b）。id・token は信用せず形を検査する
         if (typeof action.id !== 'string' || !isRestoreToken(action.token)) {
-          tellMemo('元に戻せませんでした');
+          tellMemo(tr('元に戻せませんでした'));
           break;
         }
         const restored = memos.restoreReplies(action.id, action.token);
-        if (!restored.ok) tellMemo(restored.why === 'stale' ? '元に戻せませんでした（そのあとにメモが変わっています）' : '元に戻せませんでした', { memo: action.id });
-        else tellMemo('削除を元に戻しました', { memo: action.id });
+        if (!restored.ok) tellMemo(restored.why === 'stale' ? tr('元に戻せませんでした（そのあとにメモが変わっています）') : tr('元に戻せませんでした'), { memo: action.id });
+        else tellMemo(tr('削除を元に戻しました'), { memo: action.id });
         break;
       }
       case 'copyComment':
@@ -7483,7 +7477,7 @@ export function startPrimary() {
       case 'dockBot': {
         if (!bots.ready || !isBotId(action.botId)) break;
         const result = bots.dock(action.botId);
-        if (result === 'full') toast(`右下に置ける Grok Bot は ${MAX_DOCK_BOTS} 体までです`);
+        if (result === 'full') toast(tr('右下に置ける Grok Bot は {0} 体までです', { 0: MAX_DOCK_BOTS }));
         else if (result !== 'ok') relayBots(); // 右の写しを正しい形に戻す
         break;
       }
@@ -7497,13 +7491,13 @@ export function startPrimary() {
         // 新しいボットを台帳に入れて、右下に置く（同じエージェントの id のボットがいれば、新しく作らずにそれを置く）
         if (!bots.ready || !isAgentId(action.agentId)) break;
         if (bots.docked().length >= MAX_DOCK_BOTS) {
-          toast(`右下に置ける Grok Bot は ${MAX_DOCK_BOTS} 体までです`);
+          toast(tr('右下に置ける Grok Bot は {0} 体までです', { 0: MAX_DOCK_BOTS }));
           relayBots();
           break;
         }
         const bot = bots.list().find((b) => b.agentId === action.agentId) ?? bots.add(String(action.name ?? ''), action.agentId);
         if (!bot) {
-          toast('ボットが多すぎて、台帳に入れられません（200 体まで）');
+          toast(tr('ボットが多すぎて、台帳に入れられません（200 体まで）'));
           relayBots();
           break;
         }
@@ -7558,14 +7552,14 @@ export function startPrimary() {
         };
         const bot = bots.get(action.botId);
         if (!bot) {
-          sayRight('送り先の Grok Bot が台帳に見つかりません。右のボットの欄を開き直してから、もう一度どうぞ', 7000);
+          sayRight(tr('送り先の Grok Bot が台帳に見つかりません。右のボットの欄を開き直してから、もう一度どうぞ'), 7000);
           break;
         }
         if (!bot.agentId) {
-          sayRight(`「${bot.name}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ`, 6000);
+          sayRight(tr('「{0}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ', { 0: bot.name }), 6000);
           break;
         }
-        void launchBotApp(bot.id, undefined, sayRight, `Grok Bot アプリで「${bot.name}」のチャットを開きました。画像はコピーしてあるので、チャットに貼って（Ctrl+V）から、小窓の「② 文をコピー」を押してください`);
+        void launchBotApp(bot.id, undefined, sayRight, tr('Grok Bot アプリで「{0}」のチャットを開きました。画像はコピーしてあるので、チャットに貼って（Ctrl+V）から、小窓の「② 文をコピー」を押してください', { 0: bot.name }));
         break;
       }
       case 'botToMemo':
@@ -7597,7 +7591,7 @@ export function startPrimary() {
           const bot = bots.get(botId);
           if (!pasteWatch.again(botId, requestId)) relayBots();
           else if (bot?.agentId) void launchBotApp(bot.id, requestNo(requestId), (msg) => sayPaste(bot.id, msg));
-          else sayPaste(botId, 'このボットにはリンクがまだないので、アプリを開けませんでした（右クリック →「リンクを貼る…」）');
+          else sayPaste(botId, tr('このボットにはリンクがまだないので、アプリを開けませんでした（右クリック →「リンクを貼る…」）'));
         }
         break;
       }
@@ -7609,7 +7603,7 @@ export function startPrimary() {
           relayBots();
           break;
         }
-        const msg = mode === 'two' ? '次からは、画像を付けた依頼を 2 回に分けて貼ります（① 画像 → ② 文）。巣の ⚙「みんなに聞く」の「画像の貼り方」で戻せます' : '次からは、画像と文を一つの貼り付けで送ります（試し）';
+        const msg = mode === 'two' ? tr('次からは、画像を付けた依頼を 2 回に分けて貼ります（① 画像 → ② 文）。巣の ⚙「みんなに聞く」の「画像の貼り方」で戻せます') : tr('次からは、画像と文を一つの貼り付けで送ります（試し）');
         if (isBotId(action.botId) && bots.get(action.botId)) sayPaste(action.botId, msg);
         else toast(msg, 6000);
         break;
@@ -7622,11 +7616,11 @@ export function startPrimary() {
           tellRight(action.botId, msg);
         };
         if (!bot) {
-          sayRight('送り先の Grok Bot が台帳に見つかりません。右のボットの欄を開き直してから、もう一度どうぞ', 7000);
+          sayRight(tr('送り先の Grok Bot が台帳に見つかりません。右のボットの欄を開き直してから、もう一度どうぞ'), 7000);
           break;
         }
         if (!bot.agentId) {
-          sayRight(`「${bot.name}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ`, 6000);
+          sayRight(tr('「{0}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ', { 0: bot.name }), 6000);
           break;
         }
         void botSender.send({ botId: bot.id, text: '', ping: true, role: null }, { say: sayRight }).then((sent) => {
@@ -7646,10 +7640,10 @@ export function startPrimary() {
         // 中継の見張りの「いま取りに行く」（R8・D18）：C++ に今すぐ見回ってもらう（最後に見回った時刻が新しくなる）
         void botInbox.refreshStatus(true).then((status) => {
           const text = !status
-            ? 'ブラウザの本体から返事がありませんでした。もう一度どうぞ'
+            ? tr('ブラウザの本体から返事がありませんでした。もう一度どうぞ')
             : status.owner
-              ? '返事を取りに行きました。届いたものは、受け取り箱に出ます'
-              : '返事は別の窓で受け取っています（この窓では取りに行けません）';
+              ? tr('返事を取りに行きました。届いたものは、受け取り箱に出ます')
+              : tr('返事は別の窓で受け取っています（この窓では取りに行けません）');
           tellRight('', text);
         });
         break;
@@ -7692,20 +7686,20 @@ export function startPrimary() {
         const status = botInbox.groupStatus(group);
         const who = status.seats[0]?.botId ?? status.summary?.botId ?? '';
         if (!status.team) {
-          if (who) tell(who, 'この組はグループではないので、まとめ役には渡せません');
+          if (who) tell(who, tr('この組はグループではないので、まとめ役には渡せません'));
           break;
         }
         const lead = bots.get(botTeams.teams()[status.team]?.lead ?? '');
         if (!lead) {
-          if (who) tell(who, 'まとめ役が決まっていません。⚙ の「役」→「グループ」で選べます');
+          if (who) tell(who, tr('まとめ役が決まっていません。⚙ の「役」→「グループ」で選べます'));
           break;
         }
         if (!lead.agentId) {
-          tell(lead.id, `まとめ役「${lead.name}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ`);
+          tell(lead.id, tr('まとめ役「{0}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ', { 0: lead.name }));
           break;
         }
         if (!status.seats.some((seat) => seat.state === 'replied')) {
-          tell(lead.id, 'まだ届いた返事がありません。1通届いてから、まとめ役に渡せます');
+          tell(lead.id, tr('まだ届いた返事がありません。1通届いてから、まとめ役に渡せます'));
           break;
         }
         const team = status.team;
@@ -7735,15 +7729,15 @@ export function startPrimary() {
           tellRight(action.botId, msg);
         };
         if (!bot) {
-          sayRight('送り先の Grok Bot が台帳に見つかりません。右のボットの欄を開き直してから、もう一度どうぞ', 7000);
+          sayRight(tr('送り先の Grok Bot が台帳に見つかりません。右のボットの欄を開き直してから、もう一度どうぞ'), 7000);
           break;
         }
         if (!text) {
-          sayRight('送る文が空なので、コピーしませんでした。アプリは開いていません', 7000);
+          sayRight(tr('送る文が空なので、コピーしませんでした。アプリは開いていません'), 7000);
           break;
         }
         if (!bot.agentId) {
-          sayRight(`「${bot.name}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ`, 6000);
+          sayRight(tr('「{0}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ', { 0: bot.name }), 6000);
           break;
         }
         botDrafts.set(bot.id, text);
@@ -7774,15 +7768,15 @@ export function startPrimary() {
           answerHook(ticket, action.botId, { ok: false, error: 'noHook', message: msg }); // 待っている小窓にも（R11）
         };
         if (!bot) {
-          refuse('送り先の Grok Bot が台帳に見つかりません。右のボットの欄を開き直してから、もう一度どうぞ', 7000);
+          refuse(tr('送り先の Grok Bot が台帳に見つかりません。右のボットの欄を開き直してから、もう一度どうぞ'), 7000);
           break;
         }
         if (!text) {
-          refuse(hook ? '送る文が空なので、送りませんでした' : '送る文が空なので、コピーしませんでした。アプリは開いていません', 7000);
+          refuse(hook ? tr('送る文が空なので、送りませんでした') : tr('送る文が空なので、コピーしませんでした。アプリは開いていません'), 7000);
           break;
         }
         if (!bot.agentId) {
-          refuse(`「${bot.name}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ`, 6000);
+          refuse(tr('「{0}」にはリンクがまだありません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ', { 0: bot.name }), 6000);
           break;
         }
         const raw = action.page;
@@ -7816,7 +7810,7 @@ export function startPrimary() {
           const origin = chatOnly ? [] : liveCardOrigins(action.origin);
           const asked = rewriteMaterialsInText(text, wires).trim();
           if (!asked) {
-            refuse(hook ? '送る文が空なので、送りませんでした' : '送る文が空なので、コピーしませんでした。アプリは開いていません', 7000);
+            refuse(hook ? tr('送る文が空なので、送りませんでした') : tr('送る文が空なので、コピーしませんでした。アプリは開いていません'), 7000);
             return;
           }
           const draft: DraftRequest = {
@@ -7852,7 +7846,7 @@ export function startPrimary() {
               sayRight(sent.message, 9000);
               return;
             }
-            sayRight(`依頼 ${sent.no ?? ''} を中継へ直接送りました（貼る手は要りません。返事は受け取り箱に届きます）`, 6000);
+            sayRight(tr('依頼 {0} を中継へ直接送りました（貼る手は要りません。返事は受け取り箱に届きます）', { 0: sent.no ?? '' }), 6000);
             if (choice) botLastRequest.set(choice); // 送れたときだけ「前回送った依頼」にする（R6）
             if (typeof action.cardId === 'string' && !draft.group && sent.requestId) grokCards.markSent(action.cardId, sent.requestId); // 札から開いた依頼（Grok Cards の段 5）
             return;
@@ -7863,7 +7857,7 @@ export function startPrimary() {
                 bot.id,
                 undefined,
                 sayRight,
-                `Grok Bot アプリで「${bot.name}」のチャットを開きました。頼む文はコピーしてあるので、貼り付けて（Ctrl+V）送ってください（アプリのチャットだけ：受け取り箱には届かず、記録もしません）`,
+                tr('Grok Bot アプリで「{0}」のチャットを開きました。頼む文はコピーしてあるので、貼り付けて（Ctrl+V）送ってください（アプリのチャットだけ：受け取り箱には届かず、記録もしません）', { 0: bot.name }),
               );
           }
           const sent = await botSender.send(draftWithoutMaterials(draft), after);
@@ -7899,17 +7893,17 @@ export function startPrimary() {
       tellRight(botId, text, false, fileId);
     };
     if (!Number.isInteger(index) || index < 0 || index >= ORIGIN_MAX) {
-      say('その出どころはありません');
+      say(tr('その出どころはありません'));
       return;
     }
     const found = await botInbox.findMessage(botId, fileId);
     if (!found || found.message.type !== 'reply' || found.entry.grey === true || found.entry.match !== 'ok') {
-      say('その返事が記録に見つかりませんでした');
+      say(tr('その返事が記録に見つかりませんでした'));
       return;
     }
     const origin = botInbox.cardOrigin(botId, fileId, index);
     if (!origin) {
-      say('その出どころはありません');
+      say(tr('その出どころはありません'));
       return;
     }
     const placed = memos.placeReplyCard(origin.memo, origin.reply, found.message.text ?? '');
@@ -7917,8 +7911,8 @@ export function startPrimary() {
       say(placed.note);
       return;
     }
-    tellMemo('カードにしました', { openMemo: origin.memo, undoSend: placed.token });
-    tellRight(botId, '新しい一番上のカードにしました（下の区画の「元に戻す」で戻せます）', false, fileId);
+    tellMemo(tr('カードにしました'), { openMemo: origin.memo, undoSend: placed.token });
+    tellRight(botId, tr('新しい一番上のカードにしました（下の区画の「元に戻す」で戻せます）'), false, fileId);
   }
 
   // 返事をメモにする（右のボットの欄で押したときだけ。botToMemo）
@@ -7930,7 +7924,7 @@ export function startPrimary() {
     if (!bot) return;
     const found = await botInbox.findMessage(botId, fileId);
     if (!found) {
-      tellRight(botId, 'その返事が記録に見つかりませんでした（古い記録は片づけています）');
+      tellRight(botId, tr('その返事が記録に見つかりませんでした（古い記録は片づけています）'));
       return;
     }
     const { entry, message } = found;
@@ -7938,19 +7932,19 @@ export function startPrimary() {
     const suggestion = memoIndex === undefined ? undefined : message.memos?.[memoIndex];
     if (memoIndex !== undefined && !suggestion) return;
     const body = botMessageMemoText(bot.name, message, { grey, no: entry.requestId ? requestNo(entry.requestId) : undefined, suggestion }, MAX_MEMO_TEXT);
-    const kind = suggestion ? '提案' : message.type === 'error' ? 'エラー' : message.type === 'notice' ? '知らせ' : message.type === 'progress' ? '途中経過' : '返事';
-    const tags = normalizeTags([...(grey ? ['未確認'] : []), ...(suggestion?.tags ?? [])]);
+    const kind = suggestion ? tr('提案') : message.type === 'error' ? tr('エラー') : message.type === 'notice' ? tr('知らせ') : message.type === 'progress' ? tr('途中経過') : tr('返事');
+    const tags = normalizeTags([...(grey ? [tr('未確認')] : []), ...(suggestion?.tags ?? [])]);
     const by = { who: 'bot', name: bot.name };
-    const cutNote = body.cut ? '（長いので、メモに入る分だけにしました）' : '';
+    const cutNote = body.cut ? tr('（長いので、メモに入る分だけにしました）') : '';
     if (to === 'hex') {
       const target = savedHexMemoTarget();
       if (!target) {
-        tellRight(botId, '六角メモの送り先がまだ決まっていません（相棒の設定の「六角メモへ」で、送り先のノートを選んでください）');
+        tellRight(botId, tr('六角メモの送り先がまだ決まっていません（相棒の設定の「六角メモへ」で、送り先のノートを選んでください）'));
         return;
       }
       const thread = await botInbox.thread(botId);
       if (thread?.items.some((i) => i.kind === 'message' && i.fileId === fileId && i.sent.includes('hex')) && memoIndex === undefined) {
-        tellRight(botId, 'この返事は、もう六角メモへ送ってあります（2回は送りません）');
+        tellRight(botId, tr('この返事は、もう六角メモへ送ってあります（2回は送りません）'));
         return;
       }
       const record: HexMemoRecord = {
@@ -7963,19 +7957,19 @@ export function startPrimary() {
       const outcome = await sendToHexMemo(target, [record]);
       const card = memoIndex === undefined ? fileId : undefined; // 回答カードの下にも結果を出す（S3.10）
       if (!outcome.ok) {
-        tellRight(botId, `六角メモへ送れませんでした（${outcome.error}）`, false, card);
+        tellRight(botId, tr('六角メモへ送れませんでした（{0}）', { 0: outcome.error }), false, card);
         return;
       }
       if (memoIndex === undefined) botInbox.noteToMemo(botId, fileId, 'hex');
       // 「六角メモ『ノート』ノートに n マスで保存しました」（S3.10。ノートは送り先の最後の名前。書き込み先は相棒の設定で選んだノートだけ）
       const board = target.label.split(' › ').pop() || target.label;
       const cells = 'placed' in outcome && outcome.placed > 0 ? outcome.placed : 1;
-      const head = grey ? `未確認の${kind}を、` : '';
+      const head = grey ? tr('未確認の{0}を、', { 0: kind }) : '';
       tellRight(
         botId,
         'pending' in outcome
-          ? `${head}六角メモ「${board}」ノートへ ${cells} マスを送りました（${outcome.message}）${cutNote}`
-          : `${head}六角メモ「${board}」ノートに ${cells} マスで保存しました ✓${cutNote}`,
+          ? tr('{0}六角メモ「{1}」ノートへ {2} マスを送りました（{3}）{4}', { 0: head, 1: board, 2: cells, 3: outcome.message, 4: cutNote })
+          : tr('{0}六角メモ「{1}」ノートに {2} マスで保存しました ✓{3}', { 0: head, 1: board, 2: cells, 3: cutNote }),
         false,
         card,
       );
@@ -7994,12 +7988,12 @@ export function startPrimary() {
       near = cell?.pos ?? anchorOn(sheet);
     }
     if (!sheets.get(sheet)) {
-      tellRight(botId, 'メモを置くシートを作れませんでした（シートが多すぎます）');
+      tellRight(botId, tr('メモを置くシートを作れませんでした（シートが多すぎます）'));
       return;
     }
     const placed = memos.add({ sheet, pos: nearestFree(near, (h) => isTaken(h, sheet)), text: body.text, by, label: kind, tags });
     if (!placed) {
-      tellRight(botId, 'メモのセルを置けませんでした（メモのセルが多すぎます）');
+      tellRight(botId, tr('メモのセルを置けませんでした（メモのセルが多すぎます）'));
       return;
     }
     if (memoIndex === undefined) botInbox.noteToMemo(botId, fileId, to);
@@ -8007,8 +8001,8 @@ export function startPrimary() {
       if (sheet === sheets.current) sidebar.flashMemo(placed.id);
       preview.showMemo(placed.id);
     }
-    const where = to === 'right' ? '右のメモ' : `「${bot.name}」のセルの隣のメモのセル${sheet !== sheets.current ? `（シート「${sheets.get(sheet)?.name ?? ''}」）` : ''}`;
-    tellRight(botId, `${grey ? '未確認の' : ''}${kind}を、${where}に置きました${cutNote}`);
+    const where = to === 'right' ? tr('右のメモ') : tr('「{0}」のセルの隣のメモのセル{1}', { 0: bot.name, 1: sheet !== sheets.current ? `（シート「${sheets.get(sheet)?.name ?? ''}」）` : '' });
+    tellRight(botId, tr('{0}{1}を、{2}に置きました{3}', { 0: grey ? '未確認の' : '', 1: kind, 2: where, 3: cutNote }));
   }
 
   // 返し先「六角メモにも届く」（依頼の小窓 v2・R10・D13・Q6）：確かめが通った返事を、今の「六角メモで開く」と同じ道（相棒の設定で選んだノート・
@@ -8025,7 +8019,7 @@ export function startPrimary() {
     hexTried.add(requestId);
     const target = savedHexMemoTarget();
     if (!target) {
-      tellRight(botId, '六角メモに写せませんでした（相棒の設定の「六角メモへ」で、送り先のノートを選んでください。選んだあとは、カードの「六角メモで開く」で送れます）', false, fileId);
+      tellRight(botId, tr('六角メモに写せませんでした（相棒の設定の「六角メモへ」で、送り先のノートを選んでください。選んだあとは、カードの「六角メモで開く」で送れます）'), false, fileId);
       return;
     }
     const thread = await botInbox.thread(botId);
@@ -8036,18 +8030,18 @@ export function startPrimary() {
     const record: HexMemoRecord = {
       text: await redactBlockedUrls(body.text),
       createdAt: new Date().toISOString(),
-      tags: normalizeTags(['GrokBot', bot.name, '返事']),
+      tags: normalizeTags(['GrokBot', bot.name, tr('返事')]),
       ...(urls.length ? { urls } : {}), // 画像は送らない
     };
     const outcome = await sendToHexMemo(target, [record]);
     if (!outcome.ok) {
-      tellRight(botId, `六角メモに写せませんでした（${outcome.error}）。カードの「六角メモで開く」で、もう一度送れます`, false, fileId);
+      tellRight(botId, tr('六角メモに写せませんでした（{0}）。カードの「六角メモで開く」で、もう一度送れます', { 0: outcome.error }), false, fileId);
       return;
     }
     const board = target.label.split(' › ').pop() || target.label;
-    const cut = body.cut ? '（長いので、メモに入る分だけ）' : '';
+    const cut = body.cut ? tr('（長いので、メモに入る分だけ）') : '';
     const note =
-      'pending' in outcome ? `六角メモ「${board}」ノートへ写しを送りました（${outcome.message}）${cut}` : `六角メモ「${board}」ノートに写しました ✓（受け取り箱で確かめたあと、自動で）${cut}`;
+      'pending' in outcome ? tr('六角メモ「{0}」ノートへ写しを送りました（{1}）{2}', { 0: board, 1: outcome.message, 2: cut }) : tr('六角メモ「{0}」ノートに写しました ✓（受け取り箱で確かめたあと、自動で）{1}', { 0: board, 1: cut });
     botInbox.markDelivered(botId, requestId, note);
     botInbox.noteToMemo(botId, fileId, 'hex');
     tellRight(botId, note, false, fileId);
@@ -8075,7 +8069,7 @@ export function startPrimary() {
     if (!bot) return;
     const found = await botInbox.findMessage(botId, fileId);
     if (!found) {
-      tellRight(botId, 'その返事が記録に見つかりませんでした（古い記録は片づけています）', false, fileId);
+      tellRight(botId, tr('その返事が記録に見つかりませんでした（古い記録は片づけています）'), false, fileId);
       return;
     }
     const { entry, message } = found;
@@ -8084,27 +8078,27 @@ export function startPrimary() {
     const page = entry.requestId ? botInbox.requestPage(botId, entry.requestId) : undefined;
     const tab = page ? [...store.all()].sort((a, b) => Number(b.id === store.activeId) - Number(a.id === store.activeId)).find((t) => stripUrlQuery(t.url) === page) : undefined;
     if (tab) {
-      store.addNote(tab.id, { id: `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, text, createdAt: Date.now(), source: 'ai', label: 'Grok の回答' });
-      tellRight(botId, `タブ「${tab.title || tab.url}」のメモに、要約と出典を残しました`, false, fileId);
+      store.addNote(tab.id, { id: `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, text, createdAt: Date.now(), source: 'ai', label: tr('Grok の回答') });
+      tellRight(botId, tr('タブ「{0}」のメモに、要約と出典を残しました', { 0: tab.title || tab.url }), false, fileId);
       return;
     }
     const sheet = isSheetId(rightSheet) ? rightSheet : RIGHT_MEMO_SHEET;
     sheets.ensure([sheet]);
-    const placed = sheets.get(sheet) ? memos.add({ sheet, pos: nearestFree({ q: 0, r: 0 }, (h) => isTaken(h, sheet)), text, by: { who: 'bot', name: bot.name }, label: '返事', tags: [] }) : null;
+    const placed = sheets.get(sheet) ? memos.add({ sheet, pos: nearestFree({ q: 0, r: 0 }, (h) => isTaken(h, sheet)), text, by: { who: 'bot', name: bot.name }, label: tr('返事'), tags: [] }) : null;
     if (!placed) {
-      tellRight(botId, '右のメモに置けませんでした（メモのセルが多すぎます）', false, fileId);
+      tellRight(botId, tr('右のメモに置けませんでした（メモのセルが多すぎます）'), false, fileId);
       return;
     }
     botInbox.noteToMemo(botId, fileId, 'right');
-    const why = page ? '依頼に付けたページのタブが、もう開いていない' : '依頼にページを付けていない（か、覚えていない古い依頼の）';
-    tellRight(botId, `${why}ので、右のメモに要約と出典を残しました`, false, fileId);
+    const why = page ? tr('依頼に付けたページのタブが、もう開いていない') : tr('依頼にページを付けていない（か、覚えていない古い依頼の）');
+    tellRight(botId, tr('{0}ので、右のメモに要約と出典を残しました', { 0: why }), false, fileId);
   }
 
   // ページの右クリック「📝 下のメモに引用」と Ctrl+Shift+Q。文が空のときは、左がページに選んだ文を聞く
   async function quoteIntoMemo(tabId: number, url: string, text: string) {
     const memoId = memoPane.openId;
     if (!memoPane.isOpen() || !memoId) {
-      toast('下の区画が開いていません');
+      toast(tr('下の区画が開いていません'));
       return;
     }
     const tab = (tabId ? store.get(tabId) : undefined) ?? store.active ?? undefined;
@@ -8113,21 +8107,21 @@ export function startPrimary() {
     let title = tab?.title ?? '';
     if (!selection) {
       if (!tab || tab.asleep) {
-        tellMemo('上のページがありません（引用：ページなし）');
+        tellMemo(tr('上のページがありません（引用：ページなし）'));
         return;
       }
       const pageText = await requestPageText(tab.id);
       if (!memoPane.isOpen() || memoPane.openId !== memoId) return;
       if (pageText.error === 'timeout') {
-        tellMemo('上のページからの返事が来ませんでした（引用：返事なし）');
+        tellMemo(tr('上のページからの返事が来ませんでした（引用：返事なし）'));
         return;
       }
       if (pageText.error === 'noPage') {
-        tellMemo('上のページがありません（引用：ページなし）');
+        tellMemo(tr('上のページがありません（引用：ページなし）'));
         return;
       }
       if (pageText.error) {
-        tellMemo('上のページの文を読めませんでした（引用：読めない）');
+        tellMemo(tr('上のページの文を読めませんでした（引用：読めない）'));
         return;
       }
       selection = (pageText.selection ?? '').trim();
@@ -8137,19 +8131,19 @@ export function startPrimary() {
       pageUrl = tab.url;
     }
     if (!selection) {
-      tellMemo('上のページで文を選んでから押してください');
+      tellMemo(tr('上のページで文を選んでから押してください'));
       return;
     }
     const quote = parseQuote({ text: selection, url: pageUrl, title });
     if (!quote) {
-      tellMemo('このページのアドレスでは引用を残せません（引用：アドレス）');
+      tellMemo(tr('このページのアドレスでは引用を残せません（引用：アドレス）'));
       return;
     }
     if (!memos.addReply(memoId, null, '', undefined, { quote })) {
-      toast('コメントを足せませんでした（返信が多すぎます）');
+      toast(tr('コメントを足せませんでした（返信が多すぎます）'));
       return;
     }
-    tellMemo('引用を入れました');
+    tellMemo(tr('引用を入れました'));
   }
 
   function runShortcut(action: ShortcutAction) {
@@ -8173,7 +8167,7 @@ export function startPrimary() {
         };
         const id = usable(last) ? last : usable(preview.focusMemo) ? preview.focusMemo : null;
         if (!id) {
-          toast('メモのセルをダブルクリックすると開きます');
+          toast(tr('メモのセルをダブルクリックすると開きます'));
           break;
         }
         memoPane.open(id);
@@ -8201,6 +8195,7 @@ export function startPrimary() {
   }
 
   applyView();
+  send({ type: 'setLang', pref: loadLangPref() }); // C++ 側の言葉を UI の言語の設定にそろえる（次の起動から。英語版 E4）
   send({ type: 'ready' });
 }
 

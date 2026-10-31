@@ -2,6 +2,7 @@
 //   DOM も localStorage も使わない（ui/test/memo-card-board-place.test.ts）。**まだ画面からは呼ばれない**（C3 で配線する。旗の段 "2" は C2）
 //   決めごと：持ち主は同時に 1 つだけ。あとから「上に出す」を選んだほうが上に出て、先のほうは下へ戻す（U3）。読み込み直しで両方が上と読めたときは Grok Cards を残す
 //   段の旗が無いものは、値が残っていても下として読む。旗の段 "2" が無く、ボードを上に出したことも無ければ、ホストへ渡す命令は今まで（grok-cards-place.ts）と同じ
+import { t } from './i18n';
 import { escAction, boardTabClick, boardTabShown, chromeFor, type Chrome, type ChromeInput, type EscAction, type PaneTab } from './grok-cards-tabs';
 import { normalizeCardsPlace, type CardsPlace } from './grok-cards-place';
 
@@ -69,8 +70,8 @@ export function changePlaces(gates: PlaceGates, current: Places, req: PlaceReque
 
 // 取り合いで下へ戻したときの一言
 export const PLACE_BUMP_NOTE: Record<PlaceWho, string> = {
-  cards: 'Grok Cards を下に戻しました（ボードを上に出したため）',
-  board: 'ボードを下に戻しました（Grok Cards を上に出したため）',
+  cards: t('Grok Cards を下に戻しました（ボードを上に出したため）'),
+  board: t('ボードを下に戻しました（Grok Cards を上に出したため）'),
 };
 export const bumpNote = (bumped: PlaceWho | null): string => (bumped === null ? '' : PLACE_BUMP_NOTE[bumped]);
 
@@ -82,21 +83,21 @@ export function hostCommandFor(owner: UpperOwner, sentUpper: boolean): '' | 'upp
 }
 
 // 「上に出す／下に戻す」ボタンの名前と説明（ボードの上の帯の右端。上に出せるとき（段 "2"）だけ出す）。上に出すと下の区画のページが隠れるので、説明に書く
-export const PLACE_BUTTON_LABEL: Record<BoardPlace, string> = { bottom: '上に出す', upper: '下に戻す' };
+export const PLACE_BUTTON_LABEL: Record<BoardPlace, string> = { bottom: t('上に出す'), upper: t('下に戻す') };
 export const PLACE_BUTTON_TITLE: Record<BoardPlace, string> = {
-  bottom: 'ボードを上の半分に出します（ページは隠れます。下のメモと一緒に見られます）',
-  upper: 'ボードを下の帯に戻します（ページが見えるようになります）',
+  bottom: t('ボードを上の半分に出します（ページは隠れます。下のメモと一緒に見られます）'),
+  upper: t('ボードを下の帯に戻します（ページが見えるようになります）'),
 };
 // 上に出しているときのボードのタブの説明
-export const BOARD_TAB_TITLE_UPPER = '押すと下の面に戻します（ページは隠れています）';
+export const BOARD_TAB_TITLE_UPPER = t('押すと下の面に戻します（ページは隠れています）');
 // 上の入れ物の境目（分割線）の読み上げの名前。持ち主ごと
 export const SPLIT_LABEL: Record<'cards' | 'board', string> = {
-  cards: 'Grok Cards とメモの境目。上下の矢印キーで変わり、ダブルクリックで半分に戻します',
-  board: 'ボードとメモの境目。上下の矢印キーで変わり、ダブルクリックで半分に戻します',
+  cards: t('Grok Cards とメモの境目。上下の矢印キーで変わり、ダブルクリックで半分に戻します'),
+  board: t('ボードとメモの境目。上下の矢印キーで変わり、ダブルクリックで半分に戻します'),
 };
 
 // ボードのタブの名前（上に出しているときは Grok Cards と同じ形）
-export const boardTabLabel = (place: BoardPlace): string => (place === 'upper' ? '↑ 上に出ています' : 'ボード');
+export const boardTabLabel = (place: BoardPlace): string => (place === 'upper' ? t('↑ 上に出ています') : t('ボード'));
 
 // 「ボード」タブを押したとき：上に出していれば下へ戻す。そうでなければ今までと同じ
 export type BoardTabClickFor = 'show-board' | 'stay' | 'place-bottom';

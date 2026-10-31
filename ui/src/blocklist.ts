@@ -2,12 +2,13 @@
 //   指定したサイトの本文・選んだ文・アドレス・画像・字幕を、相棒と Grok Bot に自動で添付しない。
 //   人が自分で書いた頼む文は止めない。ホストの照合と文の中の置き換えは blocklist-match.ts。C++ は文を取るだけ。
 //   三つの画面（左・右・読む画面）はそれぞれ、送る直前にファイルを読み直す。
+import { t } from './i18n';
 import { hostFromUrl, isBlockedHost, isBlockedUrl, normalizeHost, redactBlockedUrlText } from './blocklist-match';
 import { readData, writeData } from './data';
 
 export { hostFromUrl, isBlockedHost, isBlockedUrl, normalizeHost, redactBlockedUrlText };
 
-export const BLOCK_NOTE = 'このサイトは渡しません';
+export const BLOCK_NOTE = t('このサイトは渡しません');
 
 const FILE = 'blocklist.json';
 const MAX_HOSTS = 200;

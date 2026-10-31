@@ -3,8 +3,9 @@
 //   C++（browser.cpp の WatchShortcuts）が先に取るのは Ctrl＋英字・Tab などだけ。Delete・Esc は取らない。Ctrl+Shift+Y は左（C++）が使う
 //   Delete は、文字を書く欄（input・textarea・select・contenteditable）にフォーカスがないときだけ。つまんでいる最中・範囲選択の最中・小窓や確認が開いているあいだ・線を引く途中は効かない
 //   C4：ボードを「上に出している」あいだは、下のメモの帯も同時に見える。そこで Ctrl+A・Ctrl+Z 系・Delete・スペース（移動）は、フォーカスがボードの面の中、またはどこにも無い（かつ、最後に押した所が下の帯でない）ときだけ効かせる。境目（tabindex=0 の分割線）・下の帯・その小窓にフォーカスがあるときは効かせない。下に出しているとき（今まで）は、場所を問わず今までどおり
+import { t } from './i18n';
 
-export const BOARD_KEY_HINT = 'ホイール：拡大縮小／空きをドラッグ：移動／Shift＋ドラッグ：範囲選択／Ctrl+A：全選択／Delete：削除／Ctrl+Z：元に戻す／Esc：選びを外す';
+export const BOARD_KEY_HINT = t('ホイール：拡大縮小／空きをドラッグ：移動／Shift＋ドラッグ：範囲選択／Ctrl+A：全選択／Delete：削除／Ctrl+Z：元に戻す／Esc：選びを外す');
 
 // ボタンに付ける aria-keyshortcuts
 export const KEYSHORTCUTS = { remove: 'Delete', undo: 'Control+Z', redo: 'Control+Shift+Z Control+Y' } as const;

@@ -3,6 +3,7 @@
 //   ・右の確かめ（parseTalk）：左を通って来た材料の形を読む（形は信じない）
 //   ・相棒に送る指示文（talkPrompt）と、やり取りをカードにする本文（talkCardText）
 //   ・読み込むのは reader-ai-card.ts の secLabel、reader-links.ts の isVideoKey・parseSpans・型 ReplySpan、threads.ts の MAX_REPLY_TEXT だけ。純粋な関数だけ（DOM・window・Date.now・Math.random を使わない）。外へ送らない
+import { t as tr } from './i18n';
 import { secLabel } from './reader-ai-card';
 import { isVideoKey, parseSpans, type ReplySpan } from './reader-links';
 import { MAX_REPLY_TEXT } from './threads';
@@ -10,7 +11,7 @@ import { MAX_REPLY_TEXT } from './threads';
 // やり取りの型（tsukkomi＝ツッコんでみる、guess＝続きを当てる、socratic＝問いでふりかえる、duo＝二人の掛け合い）
 export type TalkMode = 'tsukkomi' | 'guess' | 'socratic' | 'duo';
 export const TALK_MODES: readonly TalkMode[] = ['tsukkomi', 'guess', 'socratic', 'duo'];
-export const TALK_MODE_NAME: Record<TalkMode, string> = { tsukkomi: 'ツッコんでみる', guess: '続きを当てる', socratic: '問いでふりかえる', duo: '二人の掛け合い' };
+export const TALK_MODE_NAME: Record<TalkMode, string> = { tsukkomi: tr('ツッコんでみる'), guess: tr('続きを当てる'), socratic: tr('問いでふりかえる'), duo: tr('二人の掛け合い') };
 export const TALK_QUESTIONS = 3; // 問いでふりかえるの問いの数
 export const TALK_CONTEXT = 4; // 止めたマスの前に渡すマスの数
 export const TALK_RANGE_CAP = 6000; // 範囲の字幕の字数の上限（コードポイント）
@@ -144,7 +145,7 @@ export function talkMaterial(
     const before = timedIn(cells, 0, anchor).slice(-TALK_CONTEXT);
     return {
       ...common,
-      label: `${secLabel(at.sec)} のマス`,
+      label: tr('{0} のマス', { 0: secLabel(at.sec) }),
       context: [...before, at].map(lineOf),
       hidden: after.map(lineOf),
       spans: [at, ...after].map(spanOf),
@@ -255,18 +256,18 @@ export function talkPrompt(m: TalkMaterial, answer?: string, round?: number): st
     return `${r} 問目への答え：「${ans}」\nこれで問いは終わりです。三つの答えをふりかえって、使う人が気づいたことと、次に見るとよい所を、まとめてください（200 字くらいまで。箇条書きでよい）。`;
   }
   // duo（答えは使わない）
-  return withHead(`範囲の字幕（${m.label}）：\n${ctx}\nこの範囲の面白さの作りについて、「Claude：」と「${m.second ?? 'ミツ'}：」の二人の会話の形で、交互に話してください。一人の言葉は短く、4〜6 回のやりとりで。`);
+  return withHead(`範囲の字幕（${m.label}）：\n${ctx}\nこの範囲の面白さの作りについて、「Claude：」と「${m.second ?? tr('ミツ')}：」の二人の会話の形で、交互に話してください。一人の言葉は短く、4〜6 回のやりとりで。`);
 }
 
 // やり取りのカードの本文：1 行目は見出し。tsukkomi・guess は「▶ 時刻〔札〕文」の行と、答えの行（まとめて空なら付けない）。そのあと返事の行（前後を取り、空の行は捨てる）。全体が MAX_REPLY_TEXT 字を超えるなら、それより 1 字少なく切って「…」
 export function talkCardText(m: TalkMaterial, reply: string, answer?: string): string {
-  const out: string[] = [`${TALK_MODE_NAME[m.mode]}・${m.label}`];
+  const out: string[] = [tr('{0}・{1}', { 0: TALK_MODE_NAME[m.mode], 1: m.label })];
   if (m.mode === 'tsukkomi' || m.mode === 'guess') {
     const last = lastOf(m.context);
-    if (last) out.push(`▶ ${last.t}〔${m.mode === 'tsukkomi' ? 'ボケ' : '止めた所'}〕${firstChars(last.text, TALK_CARD_TEXT_MAX)}`);
-    for (const h of m.hidden) out.push(`▶ ${h.t}〔本物〕${firstChars(h.text, TALK_CARD_TEXT_MAX)}`);
+    if (last) out.push(`▶ ${last.t}〔${m.mode === 'tsukkomi' ? tr('ボケ') : tr('止めた所')}〕${firstChars(last.text, TALK_CARD_TEXT_MAX)}`);
+    for (const h of m.hidden) out.push(tr('▶ {0}〔本物〕{1}', { 0: h.t, 1: firstChars(h.text, TALK_CARD_TEXT_MAX) }));
     const ans = firstChars(squash(answer ?? ''), TALK_ANSWER_MAX);
-    if (ans !== '') out.push(`私：${ans}`);
+    if (ans !== '') out.push(tr('私：{0}', { 0: ans }));
   }
   for (const raw of reply.split(/\r\n|\r|\n/)) {
     const line = raw.trim();

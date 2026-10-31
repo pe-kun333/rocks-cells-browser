@@ -11,7 +11,7 @@
     />
     <!-- 見た目のテーマを、CSS より先に <html> へ付ける（最初の一瞬の色。CSP でインラインは動かないのでファイル） -->
     <script src="/theme-boot.js"></script>
-    <title>Rocks-cells Browser Ver0.031β</title>
+    <title>Rocks-cells Browser Ver0.031β-en</title>
   </head>
   <body>
     <header class="toolbar">
@@ -59,6 +59,12 @@
           <div class="menu-sep" role="separator"></div>
           <button role="menuitemcheckbox" data-theme-pages aria-checked="true">ページの明暗もテーマに合わせる</button>
           <button role="menuitem" data-theme-reset>既定に戻す</button>
+          <div class="menu-sep" role="separator"></div>
+          <div class="theme-menu-head"><b>言語 / Language</b></div>
+          <button role="menuitemradio" data-lang="auto">自動（Windows の言語に合わせる）</button>
+          <button role="menuitemradio" data-lang="ja">日本語</button>
+          <button role="menuitemradio" data-lang="en">English</button>
+          <p class="theme-slots lang-note"></p>
         </div>
       </div>
       <div class="menu-wrap">

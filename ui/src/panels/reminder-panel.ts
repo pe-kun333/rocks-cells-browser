@@ -1,5 +1,6 @@
 // リマインダーのパネル（右サイドバー）。自分で置く・延ばす・取り消す・元に戻す・指す先へ行く（K2b）
 //   台帳は左だけが書く。ここは host に頼む（add・cancel）。AI は呼ばない。画面の文字は textContent で入れる
+import { t } from '../i18n';
 import { clockOf, dayLabel, MAX_AHEAD_MS, newReminderId, type PresetTime, parseWhen, presetTimes, REPEATS, repeatLabel, siteHost, snoozedCopy, triggeredReminder, triggerLabel } from '../reminder-when';
 import { reminderBy, reminderLink, reminderRepeat, reminderTrigger } from '../reminders';
 import { remainingLabel } from '../rotate';
@@ -24,7 +25,7 @@ const UNDO_MS = 5_000; // 取り消したあと「元に戻す」を出してい
 const STATUS_MS = 4_000; // 置いたあとの「M/D HH:MM に知らせます」を出している時間
 const UNDO_TEXT_MAX = 20; // 元に戻す札に出す文の字数
 const FIRED_SHOW = 10; // 鳴ったものの列で先に見せる件数（残りは「もっと見る」で全部）
-const FIRED_STATE_LABEL: Record<FiredState, string> = { fired: '鳴った', done: '済み', snoozed: '延ばした', cancelled: '取り消した' };
+const FIRED_STATE_LABEL: Record<FiredState, string> = { fired: t('鳴った'), done: t('済み'), snoozed: t('延ばした'), cancelled: t('取り消した') };
 
 function option(value: string, label: string): HTMLOptionElement {
   const o = el('option', '', label);
@@ -35,7 +36,7 @@ function option(value: string, label: string): HTMLOptionElement {
 export class ReminderPanel {
   readonly element = el('section', 'panel-section reminder-panel');
   private readonly list = el('div', 'reminder-list');
-  private readonly toggle = el('button', 'reminder-add', '＋リマインダー');
+  private readonly toggle = el('button', 'reminder-add', t('＋リマインダー'));
   private readonly form = el('form', 'reminder-form');
   private readonly input = el('input');
   private readonly hint = el('div', 'reminder-when-hint');
@@ -64,7 +65,7 @@ export class ReminderPanel {
   constructor(private readonly host: ReminderPanelHost) {
     this.input.type = 'text';
     this.input.maxLength = 300;
-    this.input.placeholder = '例：30分後に休憩／明日9時 会議';
+    this.input.placeholder = t('例：30分後に休憩／明日9時 会議');
     this.input.autocomplete = 'off';
     this.input.setAttribute('aria-label', '知らせる文（頭に時刻を書いてもよい）');
     this.time.type = 'datetime-local';
@@ -77,16 +78,16 @@ export class ReminderPanel {
     this.toggle.setAttribute('aria-expanded', 'false');
     this.anchor.hidden = true;
     this.kindSelect.setAttribute('aria-label', 'いつ知らせるか');
-    this.kindSelect.replaceChildren(option('time', '時刻で'), option('startup', '次に起動したとき')); // 開くたびに、サイトの選びを作り直す（buildKinds）
+    this.kindSelect.replaceChildren(option('time', t('時刻で')), option('startup', t('次に起動したとき'))); // 開くたびに、サイトの選びを作り直す（buildKinds）
 
-    const cancel = el('button', 'reminder-cancel', 'やめる');
+    const cancel = el('button', 'reminder-cancel', t('やめる'));
     cancel.type = 'button';
-    const submit = el('button', 'reminder-submit', '置く');
+    const submit = el('button', 'reminder-submit', t('置く'));
     submit.type = 'submit';
     const buttons = el('div', 'reminder-form-buttons');
     buttons.append(cancel, submit);
     this.repeat.setAttribute('aria-label', '繰り返し');
-    const noRepeat = el('option', '', '繰り返しなし');
+    const noRepeat = el('option', '', t('繰り返しなし'));
     noRepeat.value = '';
     this.repeat.append(noRepeat, ...REPEATS.map(([key, name]) => {
       const option = el('option', '', name);
@@ -127,7 +128,7 @@ export class ReminderPanel {
 
     const toolbar = el('div', 'reminder-toolbar');
     toolbar.append(this.toggle);
-    this.element.append(el('div', 'panel-subtitle', 'リマインダー'), toolbar, this.form, this.status, this.list, this.firedBox);
+    this.element.append(el('div', 'panel-subtitle', t('リマインダー')), toolbar, this.form, this.status, this.list, this.firedBox);
     this.render([]);
     this.renderFired([]);
     window.setInterval(() => this.renderList(), TICK_MS); // 「あと n 分」を進める（一覧だけ。置く欄は作り直さない）
@@ -174,10 +175,10 @@ export class ReminderPanel {
   // いつ知らせるか：サイトの選びは、今のタブがサイトのときだけ出す（開くたびに作り直す）
   private buildKinds() {
     const tab = this.host.activeTab();
-    const options = [option('time', '時刻で')];
+    const options = [option('time', t('時刻で'))];
     const host = tab ? siteHost(tab.url) : null;
     if (host !== null) options.push(option('site', triggerLabel({ kind: 'site', host }))); // 「次に example.com を開いたとき」
-    options.push(option('startup', '次に起動したとき'));
+    options.push(option('startup', t('次に起動したとき')));
     this.kindSelect.replaceChildren(...options);
     this.kindSelect.value = 'time';
   }
@@ -236,7 +237,7 @@ export class ReminderPanel {
     const name = el('span', 'reminder-anchor-name', tab.title);
     name.title = tab.title;
     const label = el('label', 'reminder-anchor-label');
-    label.append(this.linkCheck, el('span', '', '今のタブに結ぶ'), name);
+    label.append(this.linkCheck, el('span', '', t('今のタブに結ぶ')), name);
     this.anchor.replaceChildren(label);
   }
 
@@ -244,14 +245,14 @@ export class ReminderPanel {
   private updateHint() {
     if (this.kindSelect.value !== 'time') {
       const trigger = this.triggerOf(this.kindSelect.value);
-      this.hint.textContent = trigger ? `${triggerLabel(trigger)}に知らせます` : '今のタブはサイトではありません（http・https のページで置いてください）';
+      this.hint.textContent = trigger ? t('{0}に知らせます', { 0: triggerLabel(trigger) }) : t('今のタブはサイトではありません（http・https のページで置いてください）');
       return;
     }
     const now = Date.now();
     const parsed = parseWhen(this.input.value, now);
     this.hint.textContent = parsed
-      ? `${dayLabel(parsed.dueAt, now)} ${clockOf(parsed.dueAt)} に知らせます（文の頭の時刻を使います）`
-      : '時刻は下で選びます';
+      ? t('{0} {1} に知らせます（文の頭の時刻を使います）', { 0: dayLabel(parsed.dueAt, now), 1: clockOf(parsed.dueAt) })
+      : t('時刻は下で選びます');
   }
 
   // 置く：時刻は「文の頭」→「押しボタン」→「時刻の欄」の順に決める。文は、読んだ時刻の後ろの残り（読めなければ打った文）
@@ -264,7 +265,7 @@ export class ReminderPanel {
     const parsed = parseWhen(this.input.value, now);
     const text = parsed ? parsed.text : this.input.value.trim();
     if (text === '') {
-      this.fail('知らせる文を書いてください');
+      this.fail(t('知らせる文を書いてください'));
       return;
     }
     let dueAt: number | null = parsed ? parsed.dueAt : null;
@@ -277,7 +278,7 @@ export class ReminderPanel {
       dueAt = Number.isNaN(at) ? null : at;
     }
     if (dueAt === null || dueAt <= now || dueAt > now + MAX_AHEAD_MS) {
-      this.fail('時刻を選んでください（今より後、400 日まで）');
+      this.fail(t('時刻を選んでください（今より後、400 日まで）'));
       return;
     }
 
@@ -293,19 +294,19 @@ export class ReminderPanel {
     if (!this.host.add(reminder)) return; // いっぱい（知らせは host が出す）。欄はそのまま
     this.closeForm();
     const at = new Date(dueAt);
-    this.showStatus(`${at.getMonth() + 1}/${at.getDate()} ${clockOf(dueAt)} に知らせます`);
+    this.showStatus(t('{0}/{1} {2} に知らせます', { 0: at.getMonth() + 1, 1: at.getDate(), 2: clockOf(dueAt) }));
   }
 
   // 引き金で置く（K4b）：文は打ったまま（頭の時刻も読まない）。時刻では鳴らさない。繰り返しは使わない
   private placeTriggered() {
     const text = this.input.value.trim();
     if (text === '') {
-      this.fail('知らせる文を書いてください');
+      this.fail(t('知らせる文を書いてください'));
       return;
     }
     const trigger = this.triggerOf(this.kindSelect.value);
     if (trigger === null) {
-      this.fail('今のタブはサイトではありません（http・https のページで置いてください）');
+      this.fail(t('今のタブはサイトではありません（http・https のページで置いてください）'));
       return;
     }
     const extra: Partial<Reminder> = { by: 'user' };
@@ -318,7 +319,7 @@ export class ReminderPanel {
     }
     if (!this.host.add(triggeredReminder(text, trigger, Date.now(), extra))) return; // いっぱい（知らせは host が出す）。欄はそのまま
     this.closeForm();
-    this.showStatus(`${triggerLabel(trigger)}に知らせます`);
+    this.showStatus(t('{0}に知らせます', { 0: triggerLabel(trigger) }));
   }
 
   private fail(message: string) {
@@ -344,11 +345,11 @@ export class ReminderPanel {
     const now = Date.now();
     // 台帳を読めなかったときは、一覧の先頭に帯を出す（K0b。0 件のときも出す）
     const band = this.failed
-      ? [el('div', 'panel-note field-error', 'リマインダーの台帳を読めませんでした。いま置いたリマインダーは保存されません。ブラウザを開き直してください')]
+      ? [el('div', 'panel-note field-error', t('リマインダーの台帳を読めませんでした。いま置いたリマインダーは保存されません。ブラウザを開き直してください'))]
       : [];
     const undo = this.undo ? [this.undoCard(this.undo)] : [];
     if (this.reminders.length === 0) {
-      this.list.replaceChildren(...band, ...undo, el('div', 'reminder-empty', 'まだありません。「＋リマインダー」で置くか、相棒に「30分後に休憩をリマインドして」のように頼めます'));
+      this.list.replaceChildren(...band, ...undo, el('div', 'reminder-empty', t('まだありません。「＋リマインダー」で置くか、相棒に「30分後に休憩をリマインドして」のように頼めます')));
       return;
     }
     const rows: HTMLElement[] = [];
@@ -366,7 +367,7 @@ export class ReminderPanel {
     }
     const triggered = this.reminders.filter((r) => reminderTrigger(r) !== undefined).sort((a, b) => a.createdAt - b.createdAt);
     if (triggered.length > 0) {
-      rows.push(el('div', 'reminder-day', '引き金'));
+      rows.push(el('div', 'reminder-day', t('引き金')));
       for (const reminder of triggered) rows.push(this.row(reminder, now));
     }
     this.list.replaceChildren(...band, ...undo, ...rows);
@@ -390,7 +391,7 @@ export class ReminderPanel {
 
     const by = reminderBy(reminder);
     const mark = el('span', `reminder-by ${by}`);
-    mark.title = by === 'user' ? '自分で置きました' : '相棒が置きました';
+    mark.title = by === 'user' ? t('自分で置きました') : t('相棒が置きました');
     const main = el('div', 'reminder-main');
     main.append(mark, el('span', 'reminder-message', reminder.text));
 
@@ -401,7 +402,7 @@ export class ReminderPanel {
 
     const later = el('button', 'reminder-snooze-toggle', '⏲');
     later.type = 'button';
-    later.title = '延ばす';
+    later.title = t('延ばす');
     later.setAttribute('aria-label', '延ばす');
     later.setAttribute('aria-expanded', String(this.snoozeFor === reminder.id));
     later.addEventListener('click', () => {
@@ -411,13 +412,13 @@ export class ReminderPanel {
 
     const done = el('button', 'reminder-done', '✓'); // 済み（K3）：鳴る前に済ませる。繰り返しは左が次の回を送り返す
     done.type = 'button';
-    done.title = '済みにする（繰り返しは次の回へ）';
+    done.title = t('済みにする（繰り返しは次の回へ）');
     done.setAttribute('aria-label', '済みにする（繰り返しは次の回へ）');
     done.addEventListener('click', () => this.doneOne(reminder));
 
     const remove = el('button', 'reminder-remove', '×');
     remove.type = 'button';
-    remove.title = 'このリマインダーを取り消す';
+    remove.title = t('このリマインダーを取り消す');
     remove.setAttribute('aria-label', 'このリマインダーを取り消す');
     remove.addEventListener('click', () => this.cancelOne(reminder));
 
@@ -429,16 +430,16 @@ export class ReminderPanel {
   private linkButton(link: VocabLink, title?: string): HTMLButtonElement {
     const button = el('button', 'reminder-link', this.linkName(link, title));
     button.type = 'button';
-    button.title = 'そのセルへ行く';
+    button.title = t('そのセルへ行く');
     button.addEventListener('click', () => this.host.openLink(link));
     return button;
   }
 
   // 単語カードの札（K4b）：押すと、右の「単語帳」でそのカードを開く（host が決める）
   private cardButton(id: string): HTMLButtonElement {
-    const button = el('button', 'reminder-link', '📇 単語帳で開く');
+    const button = el('button', 'reminder-link', t('📇 単語帳で開く'));
     button.type = 'button';
-    button.title = '右の「単語帳」で、このカードを開きます';
+    button.title = t('右の「単語帳」で、このカードを開きます');
     button.addEventListener('click', () => this.host.openCard?.(id));
     return button;
   }
@@ -453,10 +454,10 @@ export class ReminderPanel {
       if (memo?.title) return memo.title;
     }
     if (title) return title;
-    const kind = link.kind === 'tab' ? 'タブ' : 'メモ';
+    const kind = link.kind === 'tab' ? t('タブ') : t('メモ');
     // メモの一覧がまだ届いていないときは、見つからないとは言わない
     if (link.kind === 'memo' && this.host.memos() === null) return kind;
-    return `${kind}（見つかりません）`;
+    return t('{0}（見つかりません）', { 0: kind });
   }
 
   // 延ばす先の行（来週は出さない）。同じ id で置き直す
@@ -467,7 +468,7 @@ export class ReminderPanel {
   // 延ばす先の押しボタンの行（一覧の行と鳴ったものの列で同じ見た目）
   private presetSnoozeRow(now: number, pick: (dueAt: number) => void): HTMLElement {
     const row = el('div', 'reminder-snooze');
-    row.append(el('span', 'reminder-snooze-label', '延ばす'));
+    row.append(el('span', 'reminder-snooze-label', t('延ばす')));
     for (const preset of presetTimes(now)) {
       if (preset.key === 'week') continue;
       const button = el('button', 'reminder-snooze-btn', preset.label);
@@ -488,7 +489,7 @@ export class ReminderPanel {
   private doneOne(reminder: Reminder) {
     if (this.snoozeFor === reminder.id) this.snoozeFor = null;
     this.reminders = this.reminders.filter((r) => r.id !== reminder.id);
-    this.showUndo(reminder, '済みにしました');
+    this.showUndo(reminder, t('済みにしました'));
     this.host.done(reminder.id, false);
     this.renderList();
   }
@@ -502,7 +503,7 @@ export class ReminderPanel {
     this.renderList();
   }
 
-  private showUndo(reminder: Reminder, said = '取り消しました') {
+  private showUndo(reminder: Reminder, said = t('取り消しました')) {
     window.clearTimeout(this.undoTimer);
     this.undo = { reminder, said };
     this.undoTimer = window.setTimeout(() => {
@@ -515,10 +516,10 @@ export class ReminderPanel {
     const chars = [...reminder.text];
     const short = chars.length > UNDO_TEXT_MAX ? `${chars.slice(0, UNDO_TEXT_MAX).join('')}…` : reminder.text;
     const card = el('div', 'reminder-undo');
-    const button = el('button', 'reminder-undo-btn', '元に戻す');
+    const button = el('button', 'reminder-undo-btn', t('元に戻す'));
     button.type = 'button';
     button.addEventListener('click', () => this.restore(reminder));
-    card.append(el('span', 'reminder-undo-text', `「${short}」を${said}`), button);
+    card.append(el('span', 'reminder-undo-text', t('「{0}」を{1}', { 0: short, 1: said })), button);
     return card;
   }
 
@@ -543,7 +544,7 @@ export class ReminderPanel {
   private paintFired() {
     const now = Date.now();
     const unfinished = this.fired.filter((f) => f.state === 'fired').length;
-    const head = el('button', 'reminder-fired-head', `鳴ったもの ${this.fired.length} 件${unfinished > 0 ? `（済んでいない ${unfinished} 件）` : ''}`);
+    const head = el('button', 'reminder-fired-head', t('鳴ったもの {0} 件{1}', { 0: this.fired.length, 1: unfinished > 0 ? `（済んでいない ${unfinished} 件）` : '' }));
     head.type = 'button';
     head.setAttribute('aria-expanded', String(this.firedOpen));
     head.addEventListener('click', () => {
@@ -558,8 +559,8 @@ export class ReminderPanel {
   private firedBody(now: number): HTMLElement {
     const body = el('div', 'reminder-fired-body');
     const notes: HTMLElement[] = [];
-    if (this.firedFailed) notes.push(el('div', 'panel-note field-error', '鳴ったものの記録を読めませんでした。この起動では残りません'));
-    if (this.fired.length === 0) notes.push(el('div', 'reminder-empty', '鳴ったものはまだありません'));
+    if (this.firedFailed) notes.push(el('div', 'panel-note field-error', t('鳴ったものの記録を読めませんでした。この起動では残りません')));
+    if (this.fired.length === 0) notes.push(el('div', 'reminder-empty', t('鳴ったものはまだありません')));
     const shown = this.firedAll ? this.fired : this.fired.slice(0, FIRED_SHOW);
     const rows: HTMLElement[] = [];
     for (const item of shown) {
@@ -568,7 +569,7 @@ export class ReminderPanel {
     }
     body.append(...notes, ...rows);
     if (!this.firedAll && this.fired.length > FIRED_SHOW) {
-      const more = el('button', 'reminder-snooze-btn', `もっと見る（あと ${this.fired.length - FIRED_SHOW} 件）`);
+      const more = el('button', 'reminder-snooze-btn', t('もっと見る（あと {0} 件）', { 0: this.fired.length - FIRED_SHOW }));
       more.type = 'button';
       more.addEventListener('click', () => {
         this.firedAll = true;
@@ -598,13 +599,13 @@ export class ReminderPanel {
 
     const acts = el('div', 'reminder-fired-acts');
     if (item.state === 'fired') {
-      const done = el('button', 'reminder-snooze-btn reminder-fired-act', '✓ 済み');
+      const done = el('button', 'reminder-snooze-btn reminder-fired-act', t('✓ 済み'));
       done.type = 'button';
-      done.title = '済みにします（「鳴ったもの」に残ります）';
+      done.title = t('済みにします（「鳴ったもの」に残ります）');
       done.addEventListener('click', () => this.host.done(item.id, true));
       const later = el('button', 'reminder-snooze-toggle', '⏲');
       later.type = 'button';
-      later.title = '延ばす';
+      later.title = t('延ばす');
       later.setAttribute('aria-label', '延ばす');
       later.setAttribute('aria-expanded', String(this.firedSnoozeFor === item.id));
       later.addEventListener('click', () => {
@@ -613,13 +614,13 @@ export class ReminderPanel {
       });
       acts.append(done, later);
     }
-    const card = el('button', 'reminder-snooze-btn reminder-fired-act', 'カードに');
+    const card = el('button', 'reminder-snooze-btn reminder-fired-act', t('カードに'));
     card.type = 'button';
-    card.title = 'この文を単語カードにします';
+    card.title = t('この文を単語カードにします');
     card.addEventListener('click', () => this.host.toCard(item.text));
-    const again = el('button', 'reminder-snooze-btn reminder-fired-act', 'もう一度');
+    const again = el('button', 'reminder-snooze-btn reminder-fired-act', t('もう一度'));
     again.type = 'button';
-    again.title = 'この文で、時刻を選び直して置きます';
+    again.title = t('この文で、時刻を選び直して置きます');
     again.addEventListener('click', () => this.again(item.text));
     acts.append(card, again);
     text.append(acts);

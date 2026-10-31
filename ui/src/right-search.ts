@@ -2,6 +2,7 @@
 //   ・左から届くメモ・コメントの結果と合わせて並べる（mergeRows）
 //   ・台帳は読むだけ。置き場は目次だけを探す（本文のファイルは読まない）
 //   ・照合と抜き出しは search.ts（正規化の結果は、文が同じあいだ覚えて使い回す）
+import { t as tr } from './i18n';
 import { type CaptureItem, captureFromTitle, HIDDEN_TEXT } from './captures';
 import { clockOf, dayLabel, triggerLabel } from './reminder-when';
 import { fold, type Folded, hasAll, queryWords, type SearchItem, type Snippet, snippetOf } from './search';
@@ -41,10 +42,10 @@ export interface LocalSources {
 const TITLE_MAX = 40;
 
 const SCOPE_TITLE: Record<CaptureItem['scope'], string> = {
-  center: '中央を撮ったもの',
-  window: '窓全体を撮ったもの',
-  desktop: 'デスクトップを撮ったもの',
-  region: '範囲を撮ったもの',
+  center: tr('中央を撮ったもの'),
+  window: tr('窓全体を撮ったもの'),
+  desktop: tr('デスクトップを撮ったもの'),
+  region: tr('範囲を撮ったもの'),
 };
 
 // 正規化の結果の覚え（文が同じあいだは使い回す。語があるときの 1 回の検索で使わなかったものは消す）
@@ -104,8 +105,8 @@ export function searchLocal(src: LocalSources, query: string): LocalItem[] {
         {
           kind: 'tab',
           id: String(tab.id),
-          title: clip(tab.title || hostOf(tab.url) || tab.url || '新しいタブ'),
-          label: 'タブ',
+          title: clip(tab.title || hostOf(tab.url) || tab.url || tr('新しいタブ')),
+          label: tr('タブ'),
           at: null,
           lastUsed: tab.lastUsed,
           sheet: tab.sheet,
@@ -113,53 +114,53 @@ export function searchLocal(src: LocalSources, query: string): LocalItem[] {
         () => [
           ['', tab.title],
           ['URL', tab.url],
-          ['タグ', hashTags(tab.tags)],
-          ['ひとこと', tab.comment ?? ''],
-          ['タブのメモ', tab.notes.map((n) => n.text).join('\n')],
-          ['タブのメモのコメント', tab.notes.flatMap((n) => (n.replies ?? []).map((r) => r.text)).join('\n')],
+          [tr('タグ'), hashTags(tab.tags)],
+          [tr('ひとこと'), tab.comment ?? ''],
+          [tr('タブのメモ'), tab.notes.map((n) => n.text).join('\n')],
+          [tr('タブのメモのコメント'), tab.notes.flatMap((n) => (n.replies ?? []).map((r) => r.text)).join('\n')],
         ],
       );
     }
   }
 
   for (const item of src.captures ?? []) {
-    const title = clip(firstLine(item.comment)) || (item.source?.title ? clip(item.source.title) : '') || (item.from ? clip(captureFromTitle(item.from)) : '') || (item.video ? '録画' : SCOPE_TITLE[item.scope]);
-    add({ kind: 'capture', id: item.id, title, label: item.video ? '撮影・録画' : '撮影', at: item.createdAt }, () => [
+    const title = clip(firstLine(item.comment)) || (item.source?.title ? clip(item.source.title) : '') || (item.from ? clip(captureFromTitle(item.from)) : '') || (item.video ? tr('録画') : SCOPE_TITLE[item.scope]);
+    add({ kind: 'capture', id: item.id, title, label: item.video ? tr('撮影・録画') : tr('撮影'), at: item.createdAt }, () => [
       ['', item.comment],
-      ['ページ名', item.source?.title ?? ''],
-      ['送った元', item.from?.name ?? ''],
-      ['スタンプ', item.marks.map((m) => m.note).join('\n')],
-      ['線の文字', item.strokes.map((s) => s.text).join('\n')],
+      [tr('ページ名'), item.source?.title ?? ''],
+      [tr('送った元'), item.from?.name ?? ''],
+      [tr('スタンプ'), item.marks.map((m) => m.note).join('\n')],
+      [tr('線の文字'), item.strokes.map((s) => s.text).join('\n')],
       // 読んだ文字：チェックが入り、表の追加の行でなく、隠していない、空でない行だけ（pageText は探さない）
-      ['読んだ文字', (item.ocr ?? []).filter((l) => l.on && !l.table && l.text !== HIDDEN_TEXT && l.text.trim()).map((l) => l.text).join('\n')],
+      [tr('読んだ文字'), (item.ocr ?? []).filter((l) => l.on && !l.table && l.text !== HIDDEN_TEXT && l.text.trim()).map((l) => l.text).join('\n')],
     ]);
   }
 
   for (const item of src.vault ?? []) {
-    add({ kind: 'vault', id: item.id, title: clip(item.title.trim()) || '（題名なし）', label: `置き場・${VAULT_KIND_LABELS[item.kind]}`, at: item.createdAt }, () => [
+    add({ kind: 'vault', id: item.id, title: clip(item.title.trim()) || tr('（題名なし）'), label: tr('置き場・{0}', { 0: VAULT_KIND_LABELS[item.kind] }), at: item.createdAt }, () => [
       ['', item.title],
-      ['はじめの文', item.preview],
-      ['タグ', hashTags(item.tags)],
-      ['ページ名', item.source.pageTitle ?? ''],
-      ['話した人', [item.source.speaker ?? '', ...(item.source.members ?? [])].join(' ')],
-      ['トピック', item.source.topic ?? ''],
+      [tr('はじめの文'), item.preview],
+      [tr('タグ'), hashTags(item.tags)],
+      [tr('ページ名'), item.source.pageTitle ?? ''],
+      [tr('話した人'), [item.source.speaker ?? '', ...(item.source.members ?? [])].join(' ')],
+      [tr('トピック'), item.source.topic ?? ''],
     ]);
   }
 
   for (const card of src.vocab ?? []) {
-    add({ kind: 'vocab', id: card.id, title: clip(firstLine(card.front)) || '（空のカード）', label: card.kind === 'quiz' ? '単語帳・問い' : '単語帳・言葉', at: card.createdAt }, () => [
+    add({ kind: 'vocab', id: card.id, title: clip(firstLine(card.front)) || tr('（空のカード）'), label: card.kind === 'quiz' ? tr('単語帳・問い') : tr('単語帳・言葉'), at: card.createdAt }, () => [
       ['', card.front],
-      ['意味・答え', card.back],
-      ['例文', card.example ?? ''],
-      ['ページ名', card.source?.title ?? ''],
+      [tr('意味・答え'), card.back],
+      [tr('例文'), card.example ?? ''],
+      [tr('ページ名'), card.source?.title ?? ''],
     ]);
   }
 
   // リマインダーは左の台帳の写し（まだ鳴っていないもの）を探す。題名は本文の 1 行目
   for (const r of src.reminders ?? []) {
-    add({ kind: 'reminder', id: r.id, title: clip(firstLine(r.text)) || '（空のリマインダー）', label: `リマインダー・${r.trigger ? triggerLabel(r.trigger) : `${dayLabel(r.dueAt, Date.now())} ${clockOf(r.dueAt)}`}`, at: r.createdAt }, () => [
+    add({ kind: 'reminder', id: r.id, title: clip(firstLine(r.text)) || tr('（空のリマインダー）'), label: tr('リマインダー・{0}', { 0: r.trigger ? triggerLabel(r.trigger) : `${dayLabel(r.dueAt, Date.now())} ${clockOf(r.dueAt)}` }), at: r.createdAt }, () => [
       ['', r.text],
-      ['指す先', r.title ?? ''],
+      [tr('指す先'), r.title ?? ''],
     ]);
   }
 
