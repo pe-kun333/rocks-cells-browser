@@ -1,3 +1,4 @@
+import { BOT_FEATURES } from '../features';
 // 整理のパネル（右サイドバー）：タグと島
 //   ・タグの一覧（押すと、そのタグのタブだけを盤面で目立たせる）
 //   ・いいね1・2・3（タブとメモの ♥ の段階。押すと、その段階だけを目立たせる。タグとは同時に付かない）
@@ -139,6 +140,7 @@ export class OrganizePanel {
       const swatch = el('span', 'island-swatch');
       swatch.style.setProperty('--data', island.color);
       const ask = el('button', 'ai-small', 'この島を頼む');
+      if (!BOT_FEATURES) ask.style.display = 'none'; // 公開版（rebuild-public.ps1）
       ask.title = 'この島の名前と、入っているメモを、依頼の小窓の材料にします。となりのメモは集めません。アプリは開きません';
       ask.addEventListener('click', () => this.host.askLeft({ command: 'askIsland', islandId: island.id }));
       const remove = el('button', 'ai-small', '解散');

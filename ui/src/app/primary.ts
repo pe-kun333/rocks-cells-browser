@@ -3076,7 +3076,7 @@ export function startPrimary() {
             sidebar.setSelection(tabsIn, memosIn);
           },
         });
-        entries.push({ label: 'この島を頼む', hint: '小窓', run: () => void openDraftWindow({ islandId: island.id }) });
+        if (BOT_FEATURES) entries.push({ label: 'この島を頼む', hint: '小窓', run: () => void openDraftWindow({ islandId: island.id }) });
       }
       entries.push(...islandEntriesForSelection(island?.id ?? null, info.x, info.y));
       if (total === 1) entries.push(...boardLinkEntries(info.id !== null ? store.get(info.id) : undefined, info.memo, info.x, info.y));
@@ -4204,9 +4204,8 @@ export function startPrimary() {
     if (outside > 0) entries.push({ label: `選んだセルをこの島に足す`, hint: `${outside}`, run: () => addSelectionToIsland(id) });
     const inside = [...tabs, ...notes].filter((cell) => cell.island === id).length;
     if (inside > 0) entries.push({ label: '選んだセルを島から出す', hint: `${inside}`, run: () => leaveIslandSelection() });
+    if (BOT_FEATURES) entries.push({ label: 'この島を頼む', hint: '小窓', run: () => void openDraftWindow({ islandId: id }) }, 'sep'); // 公開版（rebuild-public.ps1）
     entries.push(
-      { label: 'この島を頼む', hint: '小窓', run: () => void openDraftWindow({ islandId: id }) },
-      'sep',
       { row: '島の名前', buttons: islandNamesButtons() },
       { row: '', buttons: [{ label: '解散（セルはそのまま）', confirm: 'もう一度押すと解散', close: true, run: () => removeIsland(id) }] },
     );
