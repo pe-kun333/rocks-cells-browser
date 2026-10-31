@@ -9,6 +9,7 @@ import { type BoardLink, type CellRef, findDuplicate } from './board-links';
 import { type Hex, hexKey, nearestFree } from './hex';
 import { isLinkKind, type LinkKind, MAX_LINKS_PER_CARD, pruneLinks, type ReplyLink } from './memo-card-links';
 import type { MemoCell } from './memocells';
+import { parseAt } from './reader-links';
 import { normalizeSheetName } from './sheets';
 import { normalizeTag, normalizeTags } from './tags';
 import { MAX_REPLIES, MAX_REPLY_TEXT, parseQuote, type Reply, type ReplyAuthor } from './threads';
@@ -153,6 +154,7 @@ export interface IxCard {
   tags: unknown;
   links: unknown;
   quote: unknown;
+  at: unknown; // 結んだ区間（plan-reader-video の V0。一番上のカードだけ台帳に入れる）
   keep: Record<string, unknown>; // x_*（黙って残す）
   unknown: Record<string, unknown>; // 知らない項目（残して数える）
   dropped: Record<string, unknown>; // 受けない項目（image・file）
@@ -230,7 +232,7 @@ const SHEET_KEYS = new Set(['id', 'name', 'color', 'createdAt']);
 const ISLAND_KEYS = new Set(['id', 'name', 'color']);
 const MEMO_KEYS = new Set(['id', 'sheet', 'pos', 'text', 'tags', 'liked', 'island', 'replies', 'by', 'label', 'createdAt', 'updatedAt']);
 const MEMO_DROP = new Set(['portal', 'bot', 'app', 'capture', 'image', 'source', 'linkNames', 'linkSet']);
-const CARD_KEYS = new Set(['id', 'parent', 'text', 'createdAt', 'editedAt', 'by', 'rank', 'tags', 'links', 'quote']);
+const CARD_KEYS = new Set(['id', 'parent', 'text', 'createdAt', 'editedAt', 'by', 'rank', 'tags', 'links', 'quote', 'at']);
 const CARD_DROP = new Set(['image', 'file']);
 const BOARD_LINK_KEYS = new Set(['id', 'from', 'to', 'kind']);
 
@@ -354,6 +356,7 @@ export function parseInterchange(raw: unknown): InterchangeParse {
         tags: card.tags,
         links: card.links,
         quote: card.quote,
+        at: card.at,
         keep: ck.keep,
         unknown: ck.unknown,
         dropped: ck.dropped,
@@ -830,18 +833,21 @@ export function planInterchange(doc: InterchangeDoc, world: InterchangeWorld, ch
       if (ca.original !== undefined) xBy[`${memoId}/${id}`] = ca.original;
       if (ca.replaced) memoProblems.add('authorReplaced');
       const quote = parseQuote(c.quote);
+      const at = top ? parseAt(c.at) : undefined; // 結んだ区間（一番上のカードだけ）
       const parts = splitLongText(c.text);
       if (parts.length > 1) memoProblems.add('longCard');
       const x: Record<string, unknown> = { ...c.keep };
       if (count(c.unknown)) x.unknown = c.unknown;
       if (count(c.dropped)) x.dropped = c.dropped;
       if (quote === undefined && c.quote !== undefined) x.dropped = { ...((x.dropped as Record<string, unknown>) ?? {}), quote: c.quote };
-      // 返信のタグ・関連・rank は台帳が読まないので extra に（⚠ は出さない）
+      if (top && at === undefined && c.at !== undefined) x.dropped = { ...((x.dropped as Record<string, unknown>) ?? {}), at: c.at };
+      // 返信のタグ・関連・rank・結んだ区間は台帳が読まないので extra に（⚠ は出さない）
       if (!top) {
         const keepOnReply: Record<string, unknown> = {};
         if (c.tags !== undefined) keepOnReply.tags = c.tags;
         if (c.links !== undefined) keepOnReply.links = c.links;
         if (c.rank !== undefined) keepOnReply.rank = c.rank;
+        if (c.at !== undefined) keepOnReply.at = c.at;
         if (count(keepOnReply)) x.onReply = keepOnReply;
       }
       // x_opinion の targets も新しいカードの id に（付け替えられないものは unmappedTargets に元のまま）
@@ -907,6 +913,7 @@ export function planInterchange(doc: InterchangeDoc, world: InterchangeWorld, ch
         ...(cardTags.length ? { tags: cardTags } : {}),
         ...(links.length ? { links } : {}),
         ...(r !== undefined ? { rank: r } : {}),
+        ...(at ? { at } : {}),
       });
       // 長いカードの続き：そのカードへの返信「（続き）」（続きの続きはその下へ）
       let prev = id;

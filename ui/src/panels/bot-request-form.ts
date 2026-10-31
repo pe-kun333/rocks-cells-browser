@@ -16,7 +16,7 @@
 //       前と同じで（R6・D14。組の行の「その他 ▾」の前）：前回送った依頼の選び方（左の last-request.json の写し lastRequest）を当てる。
 //         定型の組と定型・宛て先・返し先・朱書き・URL／題名／選んだ文の印を戻し、本文は外す。書きかけの依頼文には触らない（空のときだけ定型を入れる）。
 //         Ctrl+Shift+G を素早く 2 回でも同じ（左が時刻で見て botAsk の same。open の same）。送るときの選び方は DraftRequest の choice（choiceNow。文は入れない）
-//       依頼文：複数行。空でも、選んだ文・本文・画像のどれかが付いていれば送れる（役が補う一文を頼む文にする。impliedText）。
+//       依頼文：複数行。空でも、選んだ文・本文・画像・材料のどれかが付いていれば送れる（役が補う一文を頼む文にする。impliedText）。
 //         何も付けていなければ送れない。みんなに聞く・グループは今までどおり文が要る
 //         打ちながら候補（R4a）：最後の行が今の組の定型の頭と同じなら、下に候補を出し、→（行の終わりで）か Ctrl+Space で取り込む
 //         （押してもよい）。日本語入力の変換中は出さない。Tab は欄を移るまま
@@ -89,6 +89,8 @@
 //     （JSON が無いと返事が受け取り箱に届かず、写せない）。選ぶと、どの送り方（1体・六角スクショ・代表・1体ずつ・グループ・まとめ役）の依頼にも
 //     deliverTo: 'hex'（draftFromForm・createAskAllRun・askLeadDraft の opts）。左が確かめの通った返事を、相棒の設定で選んだノートに写す。
 //     送る前の 1 行の返し先は「受け取り箱 → 六角メモにも写す」、選び方（R6）の replyTo は 'memo'（「前と同じで」で戻る）
+//   ・返し先「カードにする」（段 D6）：返し先の 4 つ目（cardRadio）。選び方の replyTo は 'card'（「前と同じで」で戻る）。自動では置かない。
+//     送るとき、印のオンのカード材料を origin にして左へ渡す（pending.json にだけ。届いた返事の回答カードに［カードにする］が出る）
 //   ・隠す候補（依頼の小窓 v2・R7c）：書き足しの面がメール・電話番号・鍵らしき文字の行を点線で示す。戻ったとき候補が残っていても止めない（隠すかは本人）が、
 //     カードの 1 行に「候補 n 未決」、送る前の 1 行に「画像 1 枚（候補 n 未決）」と出す。何も描かず候補だけ見た書き足しも持っておく（keptEdit）
 //   ・check は知らない（作るのは左）。動き（アニメーション）は使わない。色は CSS 変数だけ（明るい画面・暗い画面。sheets.css の .brf）
@@ -127,11 +129,13 @@ import {
 } from '../bot-presets';
 import type { BotLastChoice, BotLastReplyTo, BotLastRequest } from '../bot-last-request';
 import { type BotSender, type DraftAttach, draftFromForm, type DraftRequest, HOOK_REFUSE, type SendAfter, type SendResult, sendableUrl } from '../bot-send';
+import { cardOrigins, type MaterialRef, type MaterialSet, materialRefsOf, materialsLine, serializeMaterials } from '../draft-materials';
 import { addSingleDraft, type BotDraft, flagsOf, markDraftCopied, newDraftId, putAskAllDrafts } from '../drafts';
 import { BOT_COST_NOTE, type BotLineSeg, renderBotLine } from '../send-preview';
 import { BOT_LIMITS, type BotDeliverTo, cleanBotLine, cleanBotText, countInvisible, findSecretish } from '../bot-replies';
 import { savedHexMemoTarget } from '../integrations/hexmemo';
 import { el } from '../util';
+import { MaterialList } from './bot-request-materials';
 import type { MergeAskInfo } from './bot-nest-merge';
 import type { ImageEditPrior, ImageEditResult } from './bot-image-edit';
 import { type ShotCopy, type ShotLook, ShotSteps, type ShotStepsHost } from './bot-shot-steps';
@@ -196,7 +200,7 @@ export interface BotRequestFormOpen {
   handoff?: { group: number; team: BotRoleGroup }; // まとめ役に渡す（G3）。この文を、役を足さずに同じ組のまとめとして送る
   // 定型（依頼の小窓 v2・R4a。左の presets.json の組・手元・棚の写し。無い・組が無いときは定型の欄を出さない）
   presets?: BotPresets;
-  entry: BotPresetEntry; // 開いた入口（ページ・メモのセル・六角スクショ・巣）。はじめの定型の組を決める
+  entry: BotPresetEntry; // 開いた入口（ページ・メモのセル・六角スクショ・巣・セル・カード）。はじめの定型の組を決める
   // 前回送った依頼の選び方（R6。左の last-request.json の写し）と、開いたらすぐ「前と同じで」を当てるか（Ctrl+Shift+G を素早く 2 回）
   lastRequest?: BotLastRequest;
   same?: boolean;
@@ -209,6 +213,8 @@ export interface BotRequestFormOpen {
   passTo?: string;
   retryOf?: { requestId: string; no: string };
   presetIds?: string[];
+  materials?: MaterialSet; // 材料（段 D2）。印のオンオフは小窓の中だけ
+  materialRefs?: MaterialRef[]; // 下書きの参照だけ（中身は読めない。見つかりませんとして外す）
 }
 
 export interface BotRequestFormHost {
@@ -268,6 +274,7 @@ const IMPLIED_BY_ROLE: Record<string, string> = {
 };
 const IMPLIED_DEFAULT = '選んだ文について答えてください。';
 const IMPLIED_IMAGE = '添えた画像について答えてください。';
+const IMPLIED_MATERIAL = '添えた材料について答えてください。';
 
 // 朱書き（R3・D8）：押した言葉を頼む文の末尾に 1 行で入れる。group が同じもの（至急とじっくり）は片方だけ。
 //   id は前回の依頼を戻す（R6 の last-request.json の stamps）ときの名前なので変えない
@@ -281,8 +288,8 @@ const STAMPS: readonly { id: string; label: string; say: string; group?: string 
 
 // 鍵の見張り（R2・D5）：見る欄と、帯・知らせでの呼び名。外せるのはカードの欄だけ（依頼文は置き換えるか、自分で消す）。
 //   前の返事の要点の行（R5）も送る文なので見る（外すときは行の印を外す）
-type SecretKey = 'selection' | 'body' | 'text' | 'role' | 'prior';
-const SECRET_WHERE: Record<SecretKey, string> = { selection: '選んだ文', body: '本文', text: '依頼文', role: '役の文', prior: '前の返事の要点' };
+type SecretKey = 'selection' | 'body' | 'text' | 'role' | 'prior' | 'material';
+const SECRET_WHERE: Record<SecretKey, string> = { selection: '選んだ文', body: '本文', text: '依頼文', role: '役の文', prior: '前の返事の要点', material: '材料' };
 const SECRET_LABEL_RE = /〔鍵(\d{1,4})〕/g;
 const SECRET_FLASH_MS = 600; // 送れないのに押したとき、帯を光らせておく時間（動きは付けない。枠の色を出して消すだけ）
 
@@ -381,10 +388,12 @@ export class BotRequestForm {
   private readonly text = el('textarea', 'brf-text');
   private readonly attachBox = el('fieldset', 'brf-group');
   private readonly attachList = el('div', 'brf-attach');
+  private readonly materialList = new MaterialList();
   private readonly checks = new Map<AttachKey, HTMLInputElement>();
   private readonly relayRadio = el('input', 'brf-radio');
   private readonly chatRadio = el('input', 'brf-radio');
   private readonly memoRadio = el('input', 'brf-radio'); // 六角メモにも届く（R10）
+  private readonly cardRadio = el('input', 'brf-radio'); // カードにする（段 D6。届いてから押す。自動では置かない）
   private readonly replyNote = el('p', 'brf-note');
   private readonly toSelect = el('select', 'brf-select');
   private readonly toNote = el('p', 'brf-note');
@@ -443,6 +452,7 @@ export class BotRequestForm {
   private readonly secretMask = el('button', 'brf-button', '〔鍵1〕に置き換えて送る');
   private readonly secretDropSelection = el('button', 'brf-button', '選んだ文を外す');
   private readonly secretDropBody = el('button', 'brf-button', '本文を外す');
+  private readonly secretDropMaterial = el('button', 'brf-button', '材料を外す');
   private secretFlash = 0;
   private secretWhy = ''; // 帯が出ているとき、送れないわけ（ボタンの説明と知らせ）
   private readonly guide = el('div', 'brf-guide'); // みんなに聞く A の案内（S3.6）
@@ -501,7 +511,7 @@ export class BotRequestForm {
     textLabel.htmlFor = this.text.id;
     this.text.rows = 3;
     this.text.maxLength = BOT_LIMITS.requestChars;
-    this.text.placeholder = 'Grok Bot に頼むこと（空でも、選んだ文や本文を付けていれば送れます。Ctrl+Enter でコピーしてアプリを開く・Esc でやめる）';
+    this.text.placeholder = 'Grok Bot に頼むこと（空でも、選んだ文や本文や材料を付けていれば送れます。Ctrl+Enter でコピーしてアプリを開く・Esc でやめる）';
     this.text.addEventListener('input', (e) => {
       this.refresh();
       if (!(e as InputEvent).isComposing) this.updateCandidate();
@@ -587,6 +597,12 @@ export class BotRequestForm {
         'memo',
         '六角メモにも届く（確かめたあと、ブラウザが写す・箱にも残る）',
         '返事は受け取り箱に届きます。確かめが通ったら、ブラウザが六角メモ（相棒の設定の「六角メモへ」で選んだノート）に 1 マス写します。アプリのチャットだけとは一緒に選べません（JSON が無いと届かないので）',
+      ),
+      radio(
+        this.cardRadio,
+        'card',
+        'カードにする（届いてから押す）',
+        '返事は受け取り箱に届きます。届いてから回答カードの［カードにする］を押すと、新しい一番上のカードになります。押すまで台帳は変わりません',
       ),
       this.replyNote,
     );
@@ -692,7 +708,11 @@ export class BotRequestForm {
     this.secretDropBody.type = 'button';
     this.secretDropBody.title = '本文を、鍵らしき文字ごと送るものから外します';
     this.secretDropBody.addEventListener('click', () => this.dropSecret('body'));
-    this.secretBar.append(secretMark, this.secretText, this.secretMask, this.secretDropSelection, this.secretDropBody);
+    this.secretDropMaterial.type = 'button';
+    this.secretDropMaterial.hidden = true;
+    this.secretDropMaterial.title = '材料を、鍵らしき文字ごと送るものから外します';
+    this.secretDropMaterial.addEventListener('click', () => this.dropSecret('material'));
+    this.secretBar.append(secretMark, this.secretText, this.secretMask, this.secretDropSelection, this.secretDropBody, this.secretDropMaterial);
 
     // 下：Ctrl+Enter の案内・履歴に入れない印・やめる・そのまま送る（R11）・コピーしてアプリを開く
     const foot = this.foot;
@@ -795,9 +815,12 @@ export class BotRequestForm {
     this.roleInput.value = '';
     this.rawUrl = options.context?.url;
     this.secretBar.classList.remove('brf-secret-flash');
+    this.loadMaterials(options.materials, options.materialRefs);
     this.renderAttach(this.rawUrl);
     this.renderTargets(options.to);
     this.status.textContent = options.note ?? '';
+    const materialNotes = (options.materials?.notes ?? []).filter((line) => line && line !== this.status.textContent);
+    if (materialNotes.length) this.status.textContent = [this.status.textContent, ...materialNotes].filter((line) => line).join('。');
     this.skipCloseDraft = options.skipCloseDraft === true;
     this.hideConfirm(false);
     if (options.presetIds?.length) this.insertPresets(options.presetIds); // 頼み方を直す（R9）：元の依頼の定型を行に戻す
@@ -866,6 +889,7 @@ export class BotRequestForm {
     this.editLines = [];
     this.editLoads++;
     window.removeEventListener('resize', this.onResize);
+    this.materialList.clear();
     if (draft) void addSingleDraft(draft);
     this.host.closed(text, anySent);
   }
@@ -877,15 +901,18 @@ export class BotRequestForm {
     if (!typed || !target?.linked || this.toSelect.value === ASK_ALL) return null;
     const attach = this.attach();
     const edited = this.editedRoleText(target); // 直した役の文（R3。今回だけ）も下書きに残す
-    const masker = secretMasker(attach.selection, attach.body, typed, edited, ...(attach.priorReply?.lines ?? []));
+    const masker = secretMasker(attach.selection, attach.body, typed, edited, ...(attach.priorReply?.lines ?? []), ...this.materialTexts());
     if (attach.selection) attach.selection = masker.mask(attach.selection);
     if (attach.body) attach.body = masker.mask(attach.body);
     const text = masker.mask(typed);
     const roleText = edited === undefined ? undefined : masker.mask(edited);
     if (attach.priorReply) attach.priorReply = { ...attach.priorReply, lines: attach.priorReply.lines.map((line) => masker.mask(line)) }; // 前の返事の要点の行（R5）
+    for (const item of this.materialList.list()) if (item.kind !== 'image' && item.text) item.text = masker.mask(item.text); // 材料の文も（下書きには中身を残さない）
     const image = !!this.shot?.active;
     const stamped = this.withStamps(text); // 朱書きは頼む文の末尾に（R3）。下書きの見出しの text は打った文のまま
     const asked = image && this.shot ? `${stamped}\n\n${this.shot.imageLine()}` : stamped;
+    const plain: DraftAttach = { url: attach.url, title: attach.title, selection: attach.selection, body: attach.body, priorReply: attach.priorReply }; // 下書きの文には材料の中身を入れない（参照だけ。Q3）
+    const refs = materialRefsOf(this.materialList.list());
     return {
       id: newDraftId(),
       createdAt: Date.now(),
@@ -897,8 +924,9 @@ export class BotRequestForm {
       next: true,
       chatOnly: this.chatOnly,
       attach: flagsOf(attach, image),
+      ...(refs.length ? { materialRefs: refs } : {}),
       req: {
-        ...draftFromForm(target.id, asked, attach, { chatOnly: this.chatOnly, role: target.role ?? null, deliverTo: this.deliverTo }),
+        ...draftFromForm(target.id, asked, plain, { chatOnly: this.chatOnly, role: target.role ?? null, deliverTo: this.deliverTo }),
         ...(roleText !== undefined ? { roleText } : {}),
         ...(this.follow ? { parentRequestId: this.follow.reply.requestId } : {}), // 続きの元（R5。下書きからコピーしても糸になる）
         ...(this.retryOf ? { retryOf: this.retryOf.requestId } : {}), // 言い換えの元（R9。下書きからコピーしても #0010-2）
@@ -984,6 +1012,7 @@ export class BotRequestForm {
       label.append(input, textBox);
       rows.push(label);
     }
+    if (this.materialList.hasItems()) rows.push(this.materialList.element); // 材料（段 D2）。画像のカードより上
     if (this.clip) rows.push(this.clipCard(this.clip)); // クリップボードの画像の候補（R7a）
     if (!rows.length) rows.push(el('p', 'brf-note', '付けられるものはありません（頼む文だけを送ります）'));
     this.attachList.replaceChildren(...rows);
@@ -1188,7 +1217,7 @@ export class BotRequestForm {
     this.via.textContent = image ? (one ? '画像入り 1 回で貼る' : 'クリップボードで2回貼る') : 'クリップボードで送る';
     this.text.placeholder = image
       ? `この画像について Grok Bot に頼むこと（例：これは何？・この図を説明して。空でも送れます）。${one ? '画像と文を一つの貼り付けで貼ります（試し）' : '① 画像 → ② 文の順に貼ります'}`
-      : 'Grok Bot に頼むこと（空でも、選んだ文や本文を付けていれば送れます。Ctrl+Enter でコピーしてアプリを開く・Esc でやめる）';
+      : 'Grok Bot に頼むこと（空でも、選んだ文や本文や材料を付けていれば送れます。Ctrl+Enter でコピーしてアプリを開く・Esc でやめる）';
   }
 
   // 宛て先の一覧（巣の席 → 巣に置いていないボット → みんな）。グループに頼むときは、そのグループに固定する
@@ -1278,12 +1307,16 @@ export class BotRequestForm {
 
   // 返し先の種類（1 行の鍵・選び方の replyTo。R6・R10）
   private replyKind(chatOnly = this.chatOnly, deliverTo = this.deliverTo): BotLastReplyTo {
-    return chatOnly ? 'chat' : deliverTo ? 'memo' : 'inbox';
+    if (chatOnly) return 'chat';
+    if (deliverTo) return 'memo';
+    if (this.cardRadio.checked) return 'card';
+    return 'inbox';
   }
 
   // 返し先の説明（六角メモは、相棒の設定で選んだノートの名前も。まだ選んでいなければそう書く）
   private replyNoteText(): string {
     if (this.chatOnly) return '返事の決まりと依頼の JSON を付けず、記録もしません（付けた情報は頼む文の後ろに入ります。返事は受け取り箱に届きません）';
+    if (this.cardRadio.checked) return '返事は受け取り箱に届きます。届いてから回答カードの［カードにする］を押すと、新しい一番上のカードになります（押すまで台帳は変わりません）';
     if (!this.deliverTo) return '返事は中継から受け取り箱に届きます（返事の決まりと依頼の JSON を付けます）';
     const target = savedHexMemoTarget();
     const board = target ? target.label.split(' › ').pop() || target.label : '';
@@ -1298,6 +1331,8 @@ export class BotRequestForm {
     for (const [key, input] of this.checks) if (input.checked && this.context[key]) a[key] = this.context[key];
     const prior = this.priorReply();
     if (prior) a.priorReply = prior;
+    const wire = serializeMaterials(this.materialList.list()).wire;
+    if (wire.length) a.materials = wire;
     return a;
   }
 
@@ -1415,7 +1450,7 @@ export class BotRequestForm {
       : !filled
         ? all
           ? 'みんなに聞くときは、依頼文を書くと押せます'
-          : '依頼文を書くか、選んだ文・本文を付けると押せます'
+          : '依頼文を書くか、選んだ文・本文・材料を付けると押せます'
         : !target?.linked
           ? '宛て先を選ぶと押せます'
           : plan?.way === 'each'
@@ -1436,7 +1471,10 @@ export class BotRequestForm {
   }
 
   private howWords(kind: BotLastReplyTo): string {
-    return kind === 'chat' ? 'アプリのチャットだけ（JSON・記録なし）' : kind === 'memo' ? '受け取り箱 → 六角メモにも写す' : '受け取り箱へ';
+    if (kind === 'chat') return 'アプリのチャットだけ（JSON・記録なし）';
+    if (kind === 'memo') return '受け取り箱 → 六角メモにも写す';
+    if (kind === 'card') return '受け取り箱 → カードにする（届いてから押す）';
+    return '受け取り箱へ';
   }
 
   // 渡し止めのサイトなら、URL・選んだ文・本文・スクショを外す。人が書いた頼む文は残す。
@@ -1478,7 +1516,7 @@ export class BotRequestForm {
     const target = this.target();
     const all = this.toSelect.value === ASK_ALL;
     if (!typed && (all || this.handoff || !this.hasPayload(this.attach(), !!this.shot?.active))) {
-      this.status.textContent = all || this.handoff ? '依頼文が空です。書いてから、もう一度どうぞ' : '頼む中身がありません。依頼文を書くか、選んだ文・本文・画像を付けてください';
+      this.status.textContent = all || this.handoff ? '依頼文が空です。書いてから、もう一度どうぞ' : '頼む中身がありません。依頼文を書くか、選んだ文・本文・画像・材料を付けてください';
       this.text.focus();
       return;
     }
@@ -1493,7 +1531,7 @@ export class BotRequestForm {
     }
     // 渡し止めで選んだ文・本文が消えたら、空の依頼文では送れない（withholdBlocked のあとでもう一度見る）
     if (!typed && !this.hasPayload(this.attach(), !!this.shot?.active)) {
-      this.status.textContent = '頼む中身がありません。依頼文を書くか、選んだ文・本文・画像を付けてください';
+      this.status.textContent = '頼む中身がありません。依頼文を書くか、選んだ文・本文・画像・材料を付けてください';
       this.text.focus();
       return;
     }
@@ -1592,13 +1630,20 @@ export class BotRequestForm {
     return true;
   }
 
+  // 印のオンのカード材料を出どころにする（段 D6。文は持たない。10 件まで）。左がまだあるカードだけ覚える
+  private withOrigin(req: DraftRequest): DraftRequest {
+    const origin = cardOrigins(this.materialList.list());
+    return origin.length ? { ...req, origin } : req;
+  }
+
   // 1つ送って閉じる（1体・B）。after：画像入り 1 回の写し（R7d）
   private async sendOne(req: DraftRequest, target: BotRequestTarget, after?: SendAfter) {
     const hook = this.sending === 'hook'; // webhook（R11）：中継へ直接。結果を待ってから閉じる
     this.busy = true;
     this.refresh();
     this.status.textContent = hook ? '中継へ送っています…（答えを 15 秒ほど待ちます）' : 'コピーしています…';
-    const result = await this.host.sender.send(hook ? { ...req, via: 'hook' } : req, after);
+    const stamped = this.withOrigin(req);
+    const result = await this.host.sender.send(hook ? { ...stamped, via: 'hook' } : stamped, after);
     this.busy = false;
     if (!result.ok) {
       this.status.textContent = result.message;
@@ -1618,14 +1663,40 @@ export class BotRequestForm {
 
   // 1体に頼むとき、文が空でも送れる中身があるか（選んだ文・本文・画像。R1・D4）
   private hasPayload(attach: DraftAttach, image: boolean): boolean {
-    return !!attach.selection || !!attach.body || image;
+    return !!attach.selection || !!attach.body || image || !!attach.materials?.length;
   }
 
-  // 依頼文が空のときに頼む文にする、役が補う一文（R1・D4。計画の Q10）
+  // 依頼文が空のときに頼む文にする、役が補う一文（R1・D4。計画の Q10）。材料だけのときは材料について
   private impliedText(target: BotRequestTarget | undefined, image: boolean): string {
-    if (image && !this.attach().selection && !this.attach().body) return IMPLIED_IMAGE;
+    const attach = this.attach();
+    if (image && !attach.selection && !attach.body) return IMPLIED_IMAGE;
+    if (!image && !attach.selection && !attach.body && attach.materials?.length) return IMPLIED_MATERIAL;
     const name = target?.role?.name ?? '';
     return IMPLIED_BY_ROLE[name] ?? IMPLIED_DEFAULT;
+  }
+
+  // 開いたときの材料。中身があるときはコピーして印を付け外しできるようにする。参照だけなら、送れないカード
+  private loadMaterials(set: MaterialSet | undefined, refs: MaterialRef[] | undefined) {
+    if (set?.items.length) {
+      this.materialList.set(
+        set.items.map((item) => ({ ...item, ...(item.tags ? { tags: [...item.tags] } : {}) })),
+        (note) => {
+          if (note) this.status.textContent = note;
+          this.refresh();
+        },
+      );
+      return;
+    }
+    if (refs?.length) {
+      this.materialList.setMissing(refs, () => this.refresh());
+      return;
+    }
+    this.materialList.clear();
+  }
+
+  // 材料の文（鍵の番号を数える。印を外したものも含む）
+  private materialTexts(): string[] {
+    return this.materialList.list().flatMap((item) => (item.kind !== 'image' && item.text ? [item.text] : []));
   }
 
   // ---------- 定型（R4a・D9） ----------
@@ -1921,6 +1992,7 @@ export class BotRequestForm {
       ['text', this.text.value],
       ['role', this.roleOne() ? this.roleInput.value : undefined], // 役の文（R3。1体のときだけ欄が送られる）
       ['prior', attach.priorReply?.lines.join('\n')], // 前の返事の要点の行（R5。印を付けたものだけ）
+      ['material', this.materialList.list().flatMap((item) => (item.on && item.kind !== 'image' && item.text ? [item.text] : [])).join('\n')],
     ];
     const found: { key: SecretKey; count: number }[] = [];
     for (const [key, value] of sources) {
@@ -1940,11 +2012,12 @@ export class BotRequestForm {
       this.secretWhy = '';
       return false;
     }
-    const range = secretRange(nextSecretLabel(this.context.selection, this.context.body, this.text.value, this.roleInput.value, ...this.followTexts()), found.reduce((sum, f) => sum + f.count, 0));
+    const range = secretRange(nextSecretLabel(this.context.selection, this.context.body, this.text.value, this.roleInput.value, ...this.followTexts(), ...this.materialTexts()), found.reduce((sum, f) => sum + f.count, 0));
     this.secretText.textContent = `送る文のどこか（${found.map((f) => SECRET_WHERE[f.key]).join('／')}）に鍵らしき文字があります。このままでは送れません`;
     this.secretMask.textContent = `${range}に置き換えて送る`;
     this.secretDropSelection.hidden = !found.some((f) => f.key === 'selection');
     this.secretDropBody.hidden = !found.some((f) => f.key === 'body');
+    this.secretDropMaterial.hidden = !found.some((f) => f.key === 'material');
     const ways = found.map((f) => (f.key === 'text' || f.key === 'role' ? `${SECRET_WHERE[f.key]}から消す` : f.key === 'prior' ? `${SECRET_WHERE.prior}の行の印を外す` : `${SECRET_WHERE[f.key]}を外す`));
     this.secretWhy = `鍵らしき文字を${range}に置き換えるか、${ways.join('か、')}まで送れません`;
     return true;
@@ -1964,7 +2037,7 @@ export class BotRequestForm {
   //   送るのは、このあと使う人が「コピーしてアプリを開く」を押したとき
   private maskSecrets() {
     const attach = this.attach();
-    const masker = secretMasker(this.context.selection, this.context.body, this.text.value, this.roleInput.value, ...this.followTexts());
+    const masker = secretMasker(this.context.selection, this.context.body, this.text.value, this.roleInput.value, ...this.followTexts(), ...this.materialTexts());
     if (attach.selection) this.context.selection = masker.mask(attach.selection);
     if (attach.body) this.context.body = masker.mask(attach.body);
     // 前の返事の要点の行（R5。印を付けた行だけ。描き直して見本にも生の値を残さない）
@@ -1979,6 +2052,7 @@ export class BotRequestForm {
       const maskedRole = masker.mask(role);
       if (maskedRole !== role) this.roleInput.value = maskedRole; // 役の文を直したことになる（今回だけ。roleText で送る）
     }
+    this.materialList.maskTexts((value) => masker.mask(value));
     if (masker.used()) {
       this.renderAttach(this.rawUrl, true);
       this.status.textContent = `${secretRange(masker.first, masker.used())}に置き換えました。元の値は残しません`;
@@ -1988,7 +2062,14 @@ export class BotRequestForm {
   }
 
   // 「選んだ文を外す」「本文を外す」：カードの印を外す（鍵らしき文字ごと、どこにも入らない）
-  private dropSecret(key: 'selection' | 'body') {
+  private dropSecret(key: 'selection' | 'body' | 'material') {
+    if (key === 'material') {
+      this.materialList.dropSecrets();
+      this.status.textContent = '材料を、鍵らしき文字ごと外しました（どこにも入りません）';
+      this.refresh();
+      (this.secretBar.hidden ? this.sendButton : this.secretMask).focus({ preventScroll: true });
+      return;
+    }
     const input = this.checks.get(key);
     if (!input) return;
     input.checked = false;
@@ -2203,9 +2284,8 @@ export class BotRequestForm {
     const seatIndex = run.index;
     const choice = this.runChoice;
     const presetIds = this.runPresetIds;
-    // 選び方（R6）と使った定型（R9）を席の依頼に載せる
-    const sender: BotSender =
-      choice || presetIds.length ? { send: (req, after) => this.host.sender.send({ ...req, ...(choice ? { choice } : {}), ...(presetIds.length ? { presetIds } : {}) }, after) } : this.host.sender;
+    // 選び方（R6）と使った定型（R9）と、出どころのカード（段 D6）を席の依頼に載せる
+    const sender: BotSender = { send: (req, after) => this.host.sender.send(this.withOrigin({ ...req, ...(choice ? { choice } : {}), ...(presetIds.length ? { presetIds } : {}) }), after) };
     const { result, req, target } = await sendAskAllSeat(run, sender);
     this.busy = false;
     if (result.ok) await markDraftCopied(run.group, seatIndex);
@@ -2294,6 +2374,8 @@ export class BotRequestForm {
     if (attach.selection) items.push(`選んだ文 ${n(chars(attach.selection))} 字`);
     if (attach.priorReply) items.push(`続き：${requestNo(attach.priorReply.requestId)} の要点 ${n(attach.priorReply.lines.length)} 行`); // R5
     if (attach.body) items.push(`本文 ${n(chars(attach.body))} 字`);
+    const matLine = materialsLine(this.materialList.list());
+    if (matLine) items.push(matLine);
     if (image) {
       const open = openHints(this.imageEdit()?.hints); // 隠す候補の未決（R7c）
       items.push(open ? `画像 1 枚（候補 ${open} 未決）` : '画像 1 枚');
@@ -2304,7 +2386,8 @@ export class BotRequestForm {
     const roleChars = this.handoff ? 0 : this.roleOne() ? chars(cleanRoleText(this.roleInput.value)) : chars(roleInstructions(roleTarget?.role ?? null, roleTarget?.seat));
     const own = chars(text);
     const prior = (attach.priorReply?.lines ?? []).reduce((sum, line) => sum + chars(line), 0);
-    const attached = (attach.url ? chars(attach.url) : 0) + (attach.title ? chars(attach.title) : 0) + (attach.selection ? chars(attach.selection) : 0) + prior + (attach.body ? chars(attach.body) : 0);
+    const matChars = (attach.materials ?? []).reduce((sum, item) => sum + (item.text ? chars(item.text) : 0) + (item.url ? chars(item.url) : 0), 0);
+    const attached = (attach.url ? chars(attach.url) : 0) + (attach.title ? chars(attach.title) : 0) + (attach.selection ? chars(attach.selection) : 0) + prior + (attach.body ? chars(attach.body) : 0) + matChars;
     const total = roleChars + own + attached;
     const now: Record<string, string> = {
       to: `→ ${to}`,
@@ -2312,7 +2395,7 @@ export class BotRequestForm {
       chars: `全体 ${n(total)} 字（役 ${n(roleChars)}・自分 ${n(own)}・添えたもの ${n(attached)}）／2 万字`,
       reply: this.howWords(reply),
     };
-    const kinds = [attach.url && 'url', attach.title && 'title', attach.selection && 'selection', attach.priorReply && 'prior', attach.body && 'body', image && 'image'];
+    const kinds = [attach.url && 'url', attach.title && 'title', attach.selection && 'selection', attach.priorReply && 'prior', attach.body && 'body', image && 'image', attach.materials?.length && 'materials'];
     const keys: LineKeys = { to: this.toKey(), items: kinds.filter(Boolean).join(','), reply };
     if (!this.openKeys) this.openKeys = { ...keys };
     this.keysNow = keys;
@@ -2578,6 +2661,7 @@ export class BotRequestForm {
     // 返し先（六角メモにも届くも戻す。R10）
     if (last.replyTo === 'chat' && !this.chatRadio.disabled) this.chatRadio.checked = true;
     else if (last.replyTo === 'memo' && !this.memoRadio.disabled) this.memoRadio.checked = true;
+    else if (last.replyTo === 'card') this.cardRadio.checked = true;
     else this.relayRadio.checked = true;
     // 朱書き（至急とじっくりは片方だけ。両方あれば前のもの）
     const groups = new Set<string>();
@@ -2725,7 +2809,7 @@ export class BotRequestForm {
     this.busy = true;
     this.refresh();
     this.status.textContent = `中継へ送っています…（${total} 体。1 体ずつ答えを待ちます）`;
-    const sender: BotSender = { send: (req, after) => this.host.sender.send({ ...req, via: 'hook', ...(choice ? { choice } : {}), ...(presetIds.length ? { presetIds } : {}) }, after) };
+    const sender: BotSender = { send: (req, after) => this.host.sender.send(this.withOrigin({ ...req, via: 'hook', ...(choice ? { choice } : {}), ...(presetIds.length ? { presetIds } : {}) }), after) };
     const results = await sendAskAllAtOnce(run, sender);
     this.busy = false;
     const made = run.sent.filter(Boolean).length;

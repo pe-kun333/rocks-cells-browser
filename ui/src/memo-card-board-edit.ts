@@ -72,6 +72,20 @@ export function spotForNewCard(view: BoardView, viewport: { w: number; h: number
   return null;
 }
 
+// 新しいカードを、あるカード（anchor の左上）の右（right）か下（down）に置く場所：升目（190×96＋隙間）1 つずつその向きへ進み、
+//   ほかのカードに重ならない最初の所へ。±10,000 の外・SPOT_RINGS 歩より先は使わない。見つからなければ null
+export function spotBeside(anchor: Pt, dir: 'right' | 'down', taken: readonly Pt[], size: { w: number; h: number } = BOARD_CARD): Pt | null {
+  const step = dir === 'right' ? { x: BOARD_CARD.w + BOARD_CARD.gap, y: 0 } : { x: 0, y: BOARD_CARD.h + BOARD_CARD.gap };
+  const lim = BOARD_LIMITS.coord;
+  for (let k = 1; k <= SPOT_RINGS; k++) {
+    const raw = { x: anchor.x + step.x * k, y: anchor.y + step.y * k };
+    if (Math.abs(raw.x) > lim || Math.abs(raw.y) > lim) return null;
+    const p = { x: cleanCoord(raw.x), y: cleanCoord(raw.y) };
+    if (!taken.some((t) => overlaps(p, t, size))) return p;
+  }
+  return null;
+}
+
 // 足す命令（id は先に決める。B2-3a）。文は台帳と同じに整える（空なら null）
 export function addCommand(memoId: string, id: string, text: string): RelayCommand | null {
   const clean = cleanReplyText(text);

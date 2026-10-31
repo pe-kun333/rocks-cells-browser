@@ -63,6 +63,7 @@ import {
   type BotPresetLife,
   type BotPresets,
   type BotPresetSet,
+  addDefaultPresetSet,
   DEFAULT_PRESETS,
   newPresetId,
   normalizePresets,
@@ -1605,7 +1606,7 @@ export class BotNestSettings {
   // 組を替える軸（Q7：入口だけ。サイト・子は選べるが「次の版で」と出して、入口のまま）
   private axisRows(): HTMLElement[] {
     const axes: { value: string; label: string; hint: string }[] = [
-      { value: 'entry', label: '入口', hint: 'ページ／メモのセル／六角スクショ／巣／続けて聞く。開いた入口で、はじめの組が決まります' },
+      { value: 'entry', label: '入口', hint: 'ページ／メモのセル／六角スクショ／巣／続けて聞く／セル／カード。開いた入口で、はじめの組が決まります' },
       { value: 'site', label: 'サイト', hint: 'サイトごとに、最後に使った組をはじめの組に（次の版で）' },
       { value: 'bot', label: '子', hint: '宛て先の役で組が替わる（次の版で）' },
     ];
@@ -1658,21 +1659,28 @@ export class BotNestSettings {
     const title = el('div', 'bns-section-title bns-pre-title');
     title.append(el('span', '', `手元（${PRESET_HAND_MAX}）：組「${set.name}」`), el('span', 'bns-pre-hint', '小窓で数字キー 1〜6 で入る'));
     const nodes = [this.labeled('組（入口ごと）', chips)];
-    // R4a で書いた presets.json には「続けて聞く」の組が無い（R5 で用意した組。無ければ小窓は「調べもの」の組で開く）。押したときだけ足す
-    const follow = DEFAULT_PRESETS.sets.find((s) => s.entry === 'follow');
-    if (follow && !presets.sets.some((s) => s.entry === 'follow')) {
-      const add = this.presetButton(`組「${follow.name}」を用意する`, 'bns-pre-add-follow', `入口「${PRESET_ENTRY_LABEL.follow}」の組と、用意した定型 6 つを足します（いまは「調べもの」の組で開きます）`, () => {
-        const next = this.presetsCopy();
-        if (!next) return;
-        const stamp = new Date().toISOString();
-        for (const id of follow.hand) {
-          const p = DEFAULT_PRESETS.presets.find((x) => x.id === id);
-          if (p && !next.presets.some((x) => x.id === id)) next.presets.push({ ...p, createdAt: stamp, keptAt: stamp });
-        }
-        next.sets.push({ ...follow, hand: [...follow.hand] });
-        this.presetSetId = follow.id;
-        this.commitPresets(next, `組「${follow.name}」を用意しました（入口「${PRESET_ENTRY_LABEL.follow}」）`, `bns-pre-set-${follow.id}`);
-      });
+    // ファイルに組が無い入口（続きは R5、セルとカードは段 D5）。押したときだけ足す。今ある定型は消さない
+    const missing: { entry: 'follow' | 'cells' | 'cards'; key: string; fallback: string }[] = [
+      { entry: 'follow', key: 'bns-pre-add-follow', fallback: '調べもの' },
+      { entry: 'cells', key: 'bns-pre-add-cells', fallback: '読みもの' },
+      { entry: 'cards', key: 'bns-pre-add-cards', fallback: '調べもの' },
+    ];
+    for (const item of missing) {
+      const source = DEFAULT_PRESETS.sets.find((s) => s.entry === item.entry);
+      if (!source || presets.sets.some((s) => s.entry === item.entry)) continue;
+      const add = this.presetButton(
+        `組「${source.name}」を用意する`,
+        item.key,
+        `入口「${PRESET_ENTRY_LABEL[item.entry]}」の組と、用意した定型 6 つを足します（いまは「${item.fallback}」の組で開きます）`,
+        () => {
+          const next = this.presetsCopy();
+          if (!next) return;
+          const added = addDefaultPresetSet(next, item.entry);
+          if (!added) return;
+          this.presetSetId = source.id;
+          this.commitPresets(added, `組「${source.name}」を用意しました（入口「${PRESET_ENTRY_LABEL[item.entry]}」）`, `bns-pre-set-${source.id}`);
+        },
+      );
       nodes.push(add);
     }
     return [...nodes, title, list, el('p', 'bns-note', `手元は時間では沈みません（${PRESET_SINK_DAYS} 日使わないと灰色になるだけ）`)];

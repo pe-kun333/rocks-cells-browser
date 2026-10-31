@@ -26,8 +26,9 @@
 //   ・画像と文を一つの貼り付けで（依頼の小窓 v2・R7d）：botAsk の nest.pasteMode を小窓の pasteMode に渡す（html のときだけ。既定は 2 回貼り）
 //   ・webhook「そのまま送る」（依頼の小窓 v2・R11）：botAsk の hook（宛先と鍵の「ある／ない」）を小窓に渡す。結果は relay の botHookResult を
 //     hookResult で AskLeftSender に渡す。届かなかった依頼の切り替えは命令 botHookFallback
+import { askAttachmentKey } from '../draft-materials';
 import { normalizeLastRequest } from '../bot-last-request';
-import { normalizePresets } from '../bot-presets';
+import { normalizePresets, presetOpenEntry } from '../bot-presets';
 import { AnswerLinesAsker, AskLeftSender } from '../bot-send';
 import { cleanRecentReplies } from '../bots';
 import { copyShotImage, copyShotText, openShotFolder, saveShotImage } from '../bot-shot';
@@ -102,7 +103,10 @@ export class ReaderAsk {
     const context = p.context ?? {};
     const shot = p.shot && typeof p.shot.image === 'string' && /^data:image\//.test(p.shot.image) ? p.shot : null;
     const candidate = !shot && p.candidate && typeof p.candidate.image === 'string' && /^data:image\//.test(p.candidate.image) ? p.candidate.image : ''; // R7a
-    const key = JSON.stringify([context.url ?? '', context.title ?? '', context.selection ?? '', shot ? [shot.image.length, shot.image.slice(-64), shot.comment] : '']);
+    const key = askAttachmentKey(
+      [context.url ?? '', context.title ?? '', context.selection ?? '', shot ? [shot.image.length, shot.image.slice(-64), shot.comment] : ''],
+      (p.materials?.items ?? []).map((item) => item.key),
+    );
     const lastRequest = p.lastRequest ? normalizeLastRequest(p.lastRequest) : null; // 前回送った依頼の選び方（R6。形を確かめ直す）
     const same = p.same === true;
     if (this.isOpen && key === this.key) {
@@ -138,7 +142,7 @@ export class ReaderAsk {
       nest: { askAll: nest.askAll === 'lead' ? 'lead' : 'each', ...(typeof nest.lead === 'string' ? { lead: nest.lead } : {}) },
       pasteMode: nest.pasteMode === 'html' ? 'html' : 'two', // 画像の貼り方（R7d。巣の設定。html と書いてあるときだけ 1 回）
       heading: shot ? 'Grok に送る（六角スクショ）' : 'Grok に調べてもらう',
-      entry: shot || p.entry === 'shot' ? 'shot' : p.entry === 'memo' ? 'memo' : 'page',
+      entry: presetOpenEntry(p.entry, !!shot),
       ...(presets ? { presets } : {}),
       ...(lastRequest ? { lastRequest } : {}),
       ...(same ? { same } : {}),
@@ -146,6 +150,7 @@ export class ReaderAsk {
       ...(p.note ? { note: p.note } : {}),
       ...(shot ? { image: shot.image, text: String(shot.comment ?? '') } : typeof p.text === 'string' ? { text: p.text } : {}),
       ...(candidate ? { candidate: { image: candidate } } : {}), // クリップボードの画像の候補（R7a。印は外した状態）
+      ...(p.materials?.items.length ? { materials: p.materials } : {}), // 材料（段 D2）
     });
   }
 

@@ -3,6 +3,7 @@
 import { fingerprint } from '../ai/history';
 import { readData, writeData } from '../data';
 import type { LiveComment } from './live-ai';
+import type { LoopSet } from '../reader-loop';
 
 export interface CellMark {
   liked: number; // ♥ の段階（0〜3）
@@ -27,6 +28,27 @@ export interface ReaderSaved {
   comments?: LiveComment[]; // AI と一緒に見たときの、相棒のひとこと
   liveCells?: { text: string; start: number; end: number; para?: boolean }[]; // ライブキャプションで聞き取ったマス
   ja?: Record<string, string>; // 区間セルの日本語（マスの指紋 → 訳）
+  drafts?: { key: string; text: string }[]; // 一行の欄の下書き（マスの指紋 → 書きかけ。古い順・10 まで。plan-reader-video の V1b）
+  sets?: LoopSet[]; // 名前つきの組（選んだ区間と回し方。20 まで。読むときは parseLoopSets。plan-reader-video の V3b-3）
+  aiSpent?: number; // この動画で頼み板の AI に使った額の目安（ドル。見せるだけ。この機能だけの上限は無い。plan-reader-video の V4a・D6）
+}
+
+export const MAX_DRAFTS = 10;
+export const MAX_DRAFT_TEXT = 500;
+
+// 保存してあった下書きを読む（形の合わないもの・空・同じマスの 2 つ目は捨てる。新しい 10 件まで）
+export function parseDrafts(raw: unknown): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!Array.isArray(raw)) return out;
+  for (const item of raw) {
+    if (typeof item !== 'object' || item === null) continue;
+    const { key, text } = item as Record<string, unknown>;
+    if (typeof key !== 'string' || !key || key.length > 40 || typeof text !== 'string') continue;
+    const clean = [...text.trim()].slice(0, MAX_DRAFT_TEXT).join('');
+    if (!clean || out.has(key)) continue;
+    out.set(key, clean);
+  }
+  return new Map([...out].slice(-MAX_DRAFTS));
 }
 
 // マスの見分け方：本文の指紋＋同じ本文の何番目か

@@ -67,19 +67,22 @@ import {
   WebhookSender,
 } from '../bot-send';
 import { copyShotWithText, type ShotRef } from '../bot-shot';
+import { acceptMaterialWires, rewriteMaterialsInText, takeMaterials, type MaterialDraft, type MaterialSet } from '../draft-materials';
+import { CardMaterials, CellMaterials, cleanAskWithCards } from './draft-sources';
 import { addSingleDraft, flagsOf, newDraftId } from '../drafts';
 import { botAnswerLine, botAnswerNoteText, botAnswerOneLine, botAnswerPoints } from '../bot-markdown';
-import { BOT_LIMITS, cleanBotLine, cleanPresetIds, cutChars, isBotMark, RELAY_REQUEST_ID_RE, stripUrlQuery } from '../bot-replies';
+import { BOT_LIMITS, type BotCardOrigin, cleanBotLine, cleanOrigins, cleanPresetIds, cutChars, isBotMark, ORIGIN_MAX, RELAY_REQUEST_ID_RE, stripUrlQuery } from '../bot-replies';
 import { cleanRoleText } from '../bot-roles';
 import { buildTeamHandoffText } from '../bot-teams';
 import { byPosition, type CellItem, type CellSet, CellSetStore, cellsOfTabs, hexMemoRecords, readClipboard, writeCellsToClipboard } from '../cellsets';
 import { HOME_URL, SEARCH_URL } from '../config';
 import { captureImageName, type CaptureFromKind, clipFromName, isCaptureId } from '../captures';
-import { deleteData, readData, writeData } from '../data';
+import { deleteData, readData, readDataChecked, writeData } from '../data';
 import { type Hex, hexKey, nearestFree } from '../hex';
 import { loadTagRegistry, savedHexMemoTarget, sendToHexMemo } from '../integrations/hexmemo';
-import { ISLAND_ASK_MAX, islandAskText } from '../island-ask';
 import { IslandStore, islandNameSuggestion, layoutIslands, newIslandId, placeCluster, placeShape } from '../islands';
+import { emptyLinkNameBook, LINK_NAME_SETS_FILE, type LinkNameBook, normalizeLinkNameBook } from '../link-name-sets';
+import { linkNameBookOfIds, linkSetForNewMemo, rememberedLinkSet } from '../link-set-for-new';
 import { LINK_KIND_DEFAULT_NAMES, LINK_KINDS, type LinkKind, MAX_LINKS_PER_CARD } from '../memo-card-links';
 import { BOARD_LINK_NAME_MAX, boardKindName, parseBoardLinkNames, setBoardLinkNames } from '../board-links';
 import { buildExport, type ExportScope, exportFileName } from '../grok-export';
@@ -87,6 +90,7 @@ import { type AppliedStep, applyItem, type GrokPatch, type ImportSheetUndo, isBa
 import { GrokPatchView } from '../panels/grok-patch-view';
 import { BoardLinkStore, boardLinkSentence, type CellRef, findDuplicate, memoRef, tabRef } from '../board-links';
 import { MemoPaneHost, readMemoPanePrefs } from '../memo-pane-host';
+import { isShotImageId } from '../annotate-card-plan';
 import { isRestoreToken, isSpecialCell, MAX_MEMO_TEXT, type MemoCell, type MemoDraft, memoTitle, MemoStore, newMemoId, toMemoIndexItem, toRightMemo, type SendRepliesResult } from '../memocells';
 import { searchMemos } from '../memo-search';
 import { CellMenu, type MenuButton, type MenuEntry, showToast } from '../panels/cell-menu';
@@ -102,7 +106,11 @@ import { ReadingTracker } from '../reading';
 import { ReminderStore } from '../reminders';
 import { siteHost } from '../reminder-when';
 import { chooseMediaFile, fileNameOf, isImageFileUrl, isMediaFileUrl } from '../reader/media';
-import { isVideoUrl } from '../reader/youtube';
+import { canonicalVideoUrl, isVideoUrl, seekVideo, timedUrl } from '../reader/youtube';
+import { readerVideoKey, sameVideo } from '../reader/video-key';
+import { parseAt, type ReaderRefusal, withLinkedSpans } from '../reader-links';
+import { readerLinksView } from '../reader-links-view';
+import { exportCards } from '../reader-export';
 import { savedMarkNew } from '../rotate';
 import { newLaneId, RouteRecorder, routeLayout, routeName, RouteStore, type TabTrail } from '../routes';
 import { normalizeIslandName, toSavedTab, toSession } from '../session';
@@ -123,7 +131,7 @@ import { type Tab, TAB_LOOKS, type TabLook, TabStore, cleanComment } from '../ta
 import { TagButtonStore } from '../tagbuttons';
 import { changeTagList, MAX_TAGS_PER_TAB, normalizeTags, TAG_PALETTE } from '../tags';
 import { cardsLinkedTo, cardsOnPage, findVocabTab, type VocabLink, VocabStore } from '../vocab';
-import { MAX_REPLIES, type PendingReply, parseQuote, quoteMarkScript, regraft, type Reply, type ReplyAuthor, samePage, type ThreadRef, threadKey } from '../threads';
+import { MAX_REPLIES, nextRowSlot, type PendingReply, parseQuote, quoteMarkScript, regraft, type Reply, type ReplyAuthor, samePage, type ThreadRef, threadKey } from '../threads';
 import { Thumbnails } from '../thumbs';
 import type { CompanionEvent, HexMemoRecord, IslandDraft, PreviewPlacement, RelayCommand, RelayPayload, SidebarState, TabNote } from '../types';
 import { $, debounce, el, throttle } from '../util';
@@ -132,7 +140,7 @@ import type { ShelfView } from '../prefs';
 import { IMPORT_FILE_BYTES, IMPORT_FILE_LABEL, withinImportBytes } from '../import-limits';
 import { detectJsonKind, parseInterchange, readJson } from '../memo-interchange';
 import { type ArchiveResult, createInterchangeFlow } from './interchange-flow';
-import { newReplyId, replyIdProblem } from '../threads';
+import { newReplyId, parseAuthor, replyIdProblem } from '../threads';
 import { newSheetId } from '../sheets';
 
 export function startPrimary() {
@@ -283,7 +291,7 @@ export function startPrimary() {
   let botAppMissing = false; // Grok Bot アプリが見つからなかった（openBotApp が noApp）。開けたら戻す。覚えておくのはこの窓が開いている間だけ
   const board = $('board');
   // 下のメモの区画。盤面より先に作る（ダブルクリックから呼ぶ）。拡大表示は、あとからつながる
-  const paneHooks: { preview: { render(): void } | null } = { preview: null };
+  const paneHooks: { preview: { render(): void } | null; readerLinks?: () => void } = { preview: null };
   const memoPane = new MemoPaneHost({
     memos,
     sheets,
@@ -292,7 +300,30 @@ export function startPrimary() {
     onOpenChange: (id) => {
       sidebar.setPaneMemo(id);
       paneHooks.preview?.render();
+      paneHooks.readerLinks?.(); // 結ぶ先のメモが替わった（六角で見るの写し。V2a-1）
     },
+  });
+  // 新しいメモの呼称セット（試し）
+  //   直前＝下の区画で開いているメモ。閉じていれば、最後に開いたメモ（lastMemo。再起動しても残る。別のファイルは足さない）
+  //   そのメモの linkSet が台帳に残っていれば、新しいふつうのメモに付ける。消えていれば付けない（既定）
+  //   台帳を書くのは下の区画だけ。左は起動時に読む。あとの増減は noteLinkNameSetIds。まだ知る前は付けない
+  let linkNameBook: LinkNameBook | null = null;
+  let linkNameBookFromPane = false;
+  const noteLinkNameBook = (book: LinkNameBook, fromPane: boolean) => {
+    if (!fromPane && linkNameBookFromPane) return;
+    if (fromPane) linkNameBookFromPane = true;
+    linkNameBook = book;
+  };
+  const rememberedLinkSetId = () =>
+    rememberedLinkSet({
+      openId: memoPane.openId,
+      lastMemoId: readMemoPanePrefs().lastMemo,
+      linkSetOf: (id) => memos.get(id)?.linkSet,
+    });
+  memos.useLinkSetForNewMemos(() => linkSetForNewMemo({ book: linkNameBook, remembered: rememberedLinkSetId() }));
+  void readDataChecked<unknown>(LINK_NAME_SETS_FILE).then((read) => {
+    if (read.status === 'ok') noteLinkNameBook(normalizeLinkNameBook(read.value), false);
+    else if (read.status === 'missing') noteLinkNameBook(emptyLinkNameBook(), false);
   });
   let pinnedAppId: string | null = null; // いま中央に出しているアプリ（もう一度ダブルクリックで最前面をやめる）
   let pinnedMemoId: string | null = null;
@@ -1214,6 +1245,17 @@ export function startPrimary() {
     }
   }
 
+  // 段 D7：メモのセルの顔の画像を書き足す。下の区画が閉じていれば先に開く。渡すのはメモの id だけ
+  function askAnnotateFace(id: string) {
+    const memo = memos.get(id);
+    if (!memo?.image || isSpecialCell(memo)) {
+      toast('その画像は、もうありません');
+      return;
+    }
+    memoPane.open(id);
+    send({ type: 'relay', to: 'memo', payload: { kind: 'annotateMemoImage', id } });
+  }
+
   // 「画像を貼る」を足して、開いたあとに画像の有無で押せるようにする（open の直後に返す関数を呼ぶ）
   function queueCellImage(entries: MenuEntry[], target: CellImageTarget) {
     const entry: { label: string; hint?: string; disabled?: boolean; run?: () => void } = { label: '画像を貼る', hint: '確かめています…', disabled: true };
@@ -1221,6 +1263,11 @@ export function startPrimary() {
     if (cellHasFaceImage(target)) {
       entries.push({ label: '画像を外す', run: () => clearCellImage(target) });
       entries.push({ label: '🖼 画像を撮影に送る', hint: '大きく開く', run: () => sendCellImageToCapture(target) });
+      // 段 D7：ふつうのメモの顔だけ。入口・ボット・アプリ・撮ったもの・タブには出さない。左は id だけを下の区画へ渡す
+      if (target.kind === 'memo') {
+        const face = memos.get(target.id);
+        if (face?.image && !isSpecialCell(face)) entries.push({ label: '書き足す…', hint: '新しいカードに足す', run: () => askAnnotateFace(face.id) });
+      }
     }
     return () => {
       const token = cellMenu.token();
@@ -2981,6 +3028,7 @@ export function startPrimary() {
     let armImage: (() => void) | null = null;
     if ((info.id !== null || info.memo !== null) && total > 0) {
       entries.push({ section: total > 1 ? `選んだセル ${total} 個` : info.memo ? 'このメモのセル' : 'このセル' });
+      if (total > 1) if (BOT_FEATURES) entries.push({ label: '🔍 Grok に頼む', run: () => void openDraftWindow({ tabs: selection, memos: memoSelection }) });
       if (info.memo !== null && total === 1) {
         const id = info.memo;
         if (memoPane.isOpen(id)) entries.push({ label: '下の区画を閉じる', run: () => memoPane.close() });
@@ -2996,6 +3044,7 @@ export function startPrimary() {
       }
       if (info.id !== null && total === 1) {
         const id = info.id;
+        if (BOT_FEATURES) entries.push({ label: '🔍 Grok に頼む', run: () => void openDraftWindow({ tabs: [id] }) });
         entries.push({ label: '見た目（画像・コメント）…', run: () => void editTabFace(id) });
         entries.push(cardWinEntry({ kind: 'tab', id }));
         const tab = store.get(id);
@@ -3027,7 +3076,7 @@ export function startPrimary() {
             sidebar.setSelection(tabsIn, memosIn);
           },
         });
-        entries.push({ label: 'この島を頼む', hint: '小窓', run: () => openIslandAsk(island.id, memoSelection) });
+        entries.push({ label: 'この島を頼む', hint: '小窓', run: () => void openDraftWindow({ islandId: island.id }) });
       }
       entries.push(...islandEntriesForSelection(island?.id ?? null, info.x, info.y));
       if (total === 1) entries.push(...boardLinkEntries(info.id !== null ? store.get(info.id) : undefined, info.memo, info.x, info.y));
@@ -3150,60 +3199,107 @@ export function startPrimary() {
     }
   });
 
-  // 段階16。島に入っているメモと、いま選んでいるメモだけを右に見せる。となりは集めない。アプリは開かない
-  function openIslandAsk(islandId: string, extraIds: string[]) {
-    const island = islands.get(islandId);
-    if (!island) {
+  // 段 D3。左のタブ・複数選択・島から、材料つきで依頼の小窓を開く。送らない。台帳も書かない。
+  //   メモ 1 個は今の askGrokFromMemo のまま。右の整理の「この島を頼む」も、島の id だけでここを開く（段 D8b）
+  async function openDraftWindow(req: { tabs?: readonly number[]; memos?: readonly string[]; islandId?: string }) {
+    const island = req.islandId ? islands.get(req.islandId) : undefined;
+    if (req.islandId && !island) {
       toast('その島はもうありません');
       return;
     }
-    const seen = new Set<string>();
-    const chosen: MemoCell[] = [];
-    const take = (memo: MemoCell | undefined) => {
-      if (!memo || seen.has(memo.id) || isSpecialCell(memo) || !memo.text.trim()) return;
-      seen.add(memo.id);
-      chosen.push(memo);
+    const hosts = await ensureBlocklist();
+    const memoCopy = (id: string) => {
+      const memo = memos.get(id);
+      if (!memo) return null;
+      return {
+        id: memo.id,
+        text: memo.text,
+        pos: memo.pos,
+        ...(memo.portal ? { portal: memo.portal } : {}),
+        ...(memo.bot ? { bot: memo.bot } : {}),
+        ...(memo.app ? { app: memo.app } : {}),
+        ...(memo.capture ? { capture: memo.capture } : {}),
+      };
     };
-    for (const memo of memos.list()) if (memo.island === islandId) take(memo);
-    for (const id of extraIds) take(memos.get(id));
-    const shown = chosen.slice(0, ISLAND_ASK_MAX);
-    islandOffer = { islandId, ids: shown.map((memo) => memo.id) };
-    const payload: Extract<RelayPayload, { kind: 'islandAskPick' }> = {
-      kind: 'islandAskPick',
-      islandId,
-      name: island.name,
-      memos: shown.map((memo) => ({ id: memo.id, title: memoTitle(memo, 40) || 'メモ' })),
-      more: Math.max(0, chosen.length - shown.length),
-    };
-    if (sidebars.right.visible && rightReady) {
-      islandAskPending = null;
-      send({ type: 'relay', to: 'right', payload });
-    } else {
-      islandAskPending = payload;
-      if (!sidebars.right.visible) send({ type: 'setSidebar', side: 'right', visible: true });
-    }
+    const set = CellMaterials.collect({
+      hosts,
+      blocked: (url) => isBlockedUrl(url, hosts),
+      ...(island
+        ? {
+            island: {
+              id: island.id,
+              name: island.name,
+              memos: memos.list().flatMap((memo) => {
+                if (memo.island !== island.id) return [];
+                const copy = memoCopy(memo.id);
+                return copy ? [copy] : [];
+              }),
+            },
+          }
+        : {
+            tabs: (req.tabs ?? []).flatMap((id) => {
+              const tab = store.get(id);
+              return tab ? [{ uid: tab.uid, title: tab.title, url: tab.url, ...(tab.comment ? { comment: tab.comment } : {}), pos: tab.pos }] : [];
+            }),
+            memos: (req.memos ?? []).flatMap((id) => {
+              const copy = memoCopy(id);
+              return copy ? [copy] : [];
+            }),
+          }),
+    });
+    const blockedNote = set.blocked > 0 ? set.notes.find((line) => line.includes(BLOCK_NOTE)) : undefined;
+    await openBotAsk(
+      { url: '', title: '', selection: '' },
+      {
+        capture: false,
+        afterMenu: false,
+        ...(blockedNote ? { note: blockedNote } : {}),
+        entry: 'cells',
+        ...(set.items.length ? { materials: set } : {}),
+      },
+    );
   }
 
-  async function fillIslandAsk(islandId: string, memoIds: string[]) {
-    const offer = islandOffer;
-    const island = islands.get(islandId);
-    if (!island || !offer || offer.islandId !== islandId) {
-      toast('もう一度「この島を頼む」から選んでください');
+  // 段 D4・D5。下のカード、または Grok Cards の列から、依頼の小窓を開く。送らない。台帳も書かない。
+  //   カードは入口 cards。列の「小窓で書く」（replies が無く to だけ）は巣のまま。
+  async function openCardsAsk(action: { memo?: string; replies?: string[]; linked?: 'none' | 'one'; to?: string }) {
+    const hosts = await ensureBlocklist();
+    const cleaned = cleanAskWithCards(action);
+    if (!cleaned) return;
+    const memo = cleaned.memo ? memos.get(cleaned.memo) : undefined;
+    if (cleaned.replies.length > 0 && !memo) {
+      toast('そのメモはもうありません');
       return;
     }
-    const allowed = new Set(offer.ids);
-    const picked = memoIds
-      .filter((id) => allowed.has(id))
-      .map((id) => memos.get(id))
-      .filter((memo): memo is MemoCell => !!memo && !isSpecialCell(memo));
-    const text = await redactBlockedUrls(
-      islandAskText(
-        island.name,
-        picked.map((memo) => ({ title: memoTitle(memo, 40) || 'メモ', text: memo.text })),
-      ),
+    const set =
+      memo && cleaned.replies.length > 0
+        ? CardMaterials.collect({
+            hosts,
+            memoId: memo.id,
+            replies: (memo.replies ?? []).map((reply) => ({
+              id: reply.id,
+              parent: reply.parent,
+              text: reply.text,
+              createdAt: reply.createdAt,
+              ...(reply.rank !== undefined ? { rank: reply.rank } : {}),
+              ...(reply.tags ? { tags: reply.tags } : {}),
+              ...(reply.links ? { links: reply.links.map((link) => ({ to: link.to })) } : {}),
+            })),
+            ids: cleaned.replies,
+            linked: cleaned.linked,
+          })
+        : null;
+    const column = cleaned.replies.length === 0 && !!cleaned.to;
+    await openBotAsk(
+      { url: '', title: '', selection: '' },
+      {
+        capture: false,
+        afterMenu: false,
+        entry: column ? 'nest' : 'cards',
+        ...(cleaned.to ? { to: cleaned.to } : {}),
+        ...(set?.items.length ? { materials: set } : {}),
+      },
     );
-    if (!sidebars.right.visible) send({ type: 'setSidebar', side: 'right', visible: true });
-    send({ type: 'relay', to: 'right', payload: { kind: 'islandAsk', text } });
   }
 
   // ---------- Grok 用に書き出す（export.v1。grok-export.ts） ----------
@@ -4109,7 +4205,7 @@ export function startPrimary() {
     const inside = [...tabs, ...notes].filter((cell) => cell.island === id).length;
     if (inside > 0) entries.push({ label: '選んだセルを島から出す', hint: `${inside}`, run: () => leaveIslandSelection() });
     entries.push(
-      { label: 'この島を頼む', hint: '小窓', run: () => openIslandAsk(id, sidebar.memoSelection()) },
+      { label: 'この島を頼む', hint: '小窓', run: () => void openDraftWindow({ islandId: id }) },
       'sep',
       { row: '島の名前', buttons: islandNamesButtons() },
       { row: '', buttons: [{ label: '解散（セルはそのまま）', confirm: 'もう一度押すと解散', close: true, run: () => removeIsland(id) }] },
@@ -4545,13 +4641,119 @@ export function startPrimary() {
     const place = readerVideoPlace();
     send({ type: 'setSidebar', side: 'reader', visible: true, split: video ? place.layout : false, width: place.width, height: place.height });
     if (readerReady) send({ type: 'relay', to: 'reader', payload: { kind: 'readerOpen', tabId: id, url: tab.url, title: tab.title } });
+    relayReaderLinks();
+    flushReaderSeek();
   }
   function closeReader() {
     readerTab = null;
+    relayReaderLinks();
+    dropReaderPending();
     shotPending = null;
     capturePending = null;
     abandonCrop();
     if (sidebars.reader?.visible) send({ type: 'setSidebar', side: 'reader', visible: false });
+  }
+
+  // ---------- 六角で見る：結んだカードの写しを読む画面へ押す（plan-reader-video の V2a-1・D16） ----------
+  //   読む画面が動画（YouTube・自分のファイル）を開いている間だけ。台帳が変わった・結ぶ先のメモ（下の区画で開いているメモ）が替わった・読む画面を開いたとき
+  //   動画でなくなったら null を一度だけ送る。下の区画には聞かない（下の区画の面は開くまで無い）
+  const readerVideo = (): string | null => {
+    const tab = readerTab === null ? undefined : store.get(readerTab);
+    return tab ? readerVideoKey(tab.url) : null;
+  };
+  let readerLinksSent = false;
+  const relayReaderLinks = debounce(() => {
+    if (!readerReady) return;
+    const video = readerVideo();
+    if (!video && !readerLinksSent) return;
+    readerLinksSent = video !== null;
+    const view = video && memos.ready ? readerLinksView(memos.list(), video, memoPane.openId) : null;
+    send({ type: 'relay', to: 'reader', payload: { kind: 'readerLinks', view } });
+  }, 150);
+  memos.onChange(relayReaderLinks);
+  paneHooks.readerLinks = relayReaderLinks;
+
+  // カードの「▶ 時刻」（openReaderAt。V2a-3・S4）：読む画面がその動画を開いていればそこで移る。開いていなければ、同じ動画のタブを
+  //   前に出して読む画面を出し（開いたあとにその時刻へ）、無ければ時刻つきの URL を新しいタブで開いて読む画面を出す。自分のファイルは知らせるだけ
+  //   glow（カードの「マスで見る」。V2b）：開いていればその時刻へは移らずに光らせるだけ。開いていなければ、開いてその時刻へ移ってから光らせる
+  type ReaderGlowAsk = { memoId: string; replyId: string };
+  let readerSeekPending: { video: string; start: number; glow?: ReaderGlowAsk } | null = null; // 読む画面を開いたら渡す時刻（と光らせるカード）
+  function flushReaderSeek() {
+    const pending = readerSeekPending;
+    if (!pending || !readerReady || readerVideo() !== pending.video) return;
+    readerSeekPending = null;
+    send({ type: 'relay', to: 'reader', payload: { kind: 'readerSeek', video: pending.video, start: pending.start } });
+    if (pending.glow) send({ type: 'relay', to: 'reader', payload: { kind: 'readerGlow', ...pending.glow } });
+  }
+  async function openReaderAt(video: string, start: number, glow?: ReaderGlowAsk) {
+    if (readerTab !== null && readerVideo() === video && sidebars.reader?.visible) {
+      send({ type: 'relay', to: 'reader', payload: glow ? { kind: 'readerGlow', ...glow } : { kind: 'readerSeek', video, start } });
+      return;
+    }
+    const existing = store.all().find((t) => readerVideoKey(t.url) === video);
+    if (existing) {
+      readerSeekPending = { video, start, ...(glow ? { glow } : {}) };
+      openReader(existing.id); // 前に出したあと読む画面を出し、readerOpen のあとに readerSeek（flushReaderSeek）
+      return;
+    }
+    if (video.startsWith('f:')) {
+      tellMemo(glow ? '自分のファイルの動画は、先にタブで開いてから「マスで見る」を押してください' : '自分のファイルの動画は、先にタブで開いてから ▶ を押してください');
+      return;
+    }
+    const id = await waitCreated(createTab(timedUrl(canonicalVideoUrl(video), start)), 12_000);
+    if (id === null) {
+      tellMemo('動画を開けませんでした');
+      return;
+    }
+    if (glow) readerSeekPending = { video, start, glow }; // 時刻つきの URL なので移るのは要らないが、光らせるのは開いたあと
+    openReader(id); // 時刻つきの URL なので、その時刻から始まる（読む画面は再生位置のマスへ）
+  }
+
+  // 読む画面が立てた「AI のカードを書いている途中」の印（D17）。読む画面を閉じたら残さない
+  const readerPending = new Set<string>(); // threadKey と who
+  function setReaderPending(memoId: string, on: boolean, who: string, name: string) {
+    const key = threadKey({ kind: 'memo', id: memoId });
+    const others = replyPending.filter((p) => !(p.key === key && p.parent === null && p.who === who));
+    if (on) readerPending.add(`${key}\n${who}`);
+    else readerPending.delete(`${key}\n${who}`);
+    setReplyPending(on ? [...others, { key, parent: null, who, name }] : others);
+  }
+  function dropReaderPending() {
+    if (readerPending.size === 0) return;
+    const gone = new Set(readerPending);
+    readerPending.clear();
+    setReplyPending(replyPending.filter((p) => !(p.parent === null && gone.has(`${p.key}\n${p.who}`))));
+  }
+
+  // 読む画面からの「結んだカードを足す」「線を足す外す」の返事（足せても断っても必ず返す。D18）
+  //   to：頼んだ面（右の相棒の「📌 カードへ」は右。V5）
+  function readerCardDone(seq: number, replyId: string, result: { ok: true; memoId: string } | { ok: false; reason: ReaderRefusal; memoId?: string }, to: 'reader' | 'right' = 'reader') {
+    send({
+      type: 'relay',
+      to,
+      payload: { kind: 'readerCardDone', seq, ok: result.ok, replyId, ...(result.memoId ? { memoId: result.memoId } : {}), ...(result.ok ? {} : { reason: result.reason }) },
+    });
+  }
+
+  // 結ぶ先のメモ（Q2）：頼みに memoId があればそれ。無ければ今下の区画で開いているメモ。開いていない・特別なセルなら、その動画のメモを作って下の区画で開く
+  function readerTargetMemo(memoId: string | undefined, title: string | undefined): { memo: MemoCell } | { reason: ReaderRefusal } {
+    if (memoId !== undefined) {
+      const memo = memos.get(memoId);
+      if (!memo) return { reason: 'gone' };
+      return isSpecialCell(memo) ? { reason: 'special' } : { memo };
+    }
+    const open = memos.get(memoPane.openId);
+    if (open && !isSpecialCell(open)) return { memo: open };
+    try {
+      const spot = spotForNewMemo();
+      const placed = memos.add({ sheet: spot.sheet, pos: spot.pos, text: `🎬 ${title ?? '動画のメモ'}`, ...(spot.source ? { source: spot.source } : {}) });
+      if (!placed) return { reason: 'full' };
+      memoPane.open(placed.id);
+      if (spot.sheet === sheets.current) sidebar.flashMemo(placed.id);
+      return { memo: placed };
+    } catch {
+      return { reason: 'full' };
+    }
   }
 
   // 自分の音声・動画のファイルを、新しいタブで開く（同じ名前の字幕があれば、六角で読むときに読む）
@@ -4814,7 +5016,7 @@ export function startPrimary() {
   //   same：Ctrl+Shift+G を素早く 2 回押した（R6。小窓が開いたらすぐ「前と同じで」を当てる）
   async function openBotAsk(
     context: { url: string; title: string; selection: string },
-    opts: { capture: boolean; afterMenu: boolean; shot?: { image: string; comment: string; page: string }; note?: string; text?: string; memo?: boolean; same?: boolean },
+    opts: { capture: boolean; afterMenu: boolean; shot?: { image: string; comment: string; page: string }; note?: string; text?: string; memo?: boolean; same?: boolean; materials?: MaterialSet; entry?: 'page' | 'memo' | 'shot' | 'nest' | 'cells' | 'cards'; to?: string },
   ) {
     if (shotPending) {
       toast('六角形スクショを撮り終えてから、もう一度どうぞ');
@@ -4845,7 +5047,7 @@ export function startPrimary() {
     const selection = cutChars(String(safeContext.selection ?? '').trim(), ASK_SELECTION_MAX).text;
     const candidate = await clipRead;
     const docked = bots.docked();
-    const to = rightBot && docked.includes(rightBot) ? rightBot : docked[0];
+    const to = opts.to ?? (rightBot && docked.includes(rightBot) ? rightBot : docked[0]);
     askPending = {
       kind: 'botAsk',
       bots: botBriefs(),
@@ -4864,11 +5066,12 @@ export function startPrimary() {
           : {}),
       ...(candidate ? { candidate: { image: candidate } } : {}), // クリップボードの画像の候補（R7a。印は小窓で外した状態）
       ...(botPresets.ready ? { presets: botPresets.view() } : {}), // 定型（R4a）。入口は撮る画面からなら shot（渡し止めで画像を外しても）
-      entry: opts.shot ? 'shot' : opts.memo ? 'memo' : 'page',
+      entry: opts.shot ? 'shot' : (opts.entry ?? (opts.memo ? 'memo' : 'page')),
       ...lastRequestPayload(), // 前回送った依頼の選び方（R6）。same：Ctrl+Shift+G を素早く 2 回（開いたらすぐ当てる）
       ...(opts.same ? { same: true } : {}),
       ...(botInbox.ready ? { replies: recentReplies(botInbox.requestList()) } : {}), // 「続きとして」の選び口（R5。文は入れない）
       hook: hookHas, // webhook「そのまま送る」を押せるか（R11。「ある／ない」だけ）
+      ...(opts.materials?.items.length ? { materials: opts.materials } : {}),
     };
     // 読む画面を出す（出ていても送る：キーボードの入力先が小窓に移る）
     send({ type: 'setSidebar', side: 'reader', visible: true, ...(overReader ? {} : { split: false }) });
@@ -4996,8 +5199,6 @@ export function startPrimary() {
   // 右のボットの欄で見ているボット（右が botSelect で知らせる）の、やり取りの写し（check は入れない）
   let rightBot: string | null = null;
   let botOpenPending: string | null = null; // 右サイドバーが動き出したら開いてもらうボット（カードの「やり取りを見る」）
-  let islandAskPending: Extract<RelayPayload, { kind: 'islandAskPick' }> | null = null; // 右が動いたら出す「この島を頼む」
-  let islandOffer: { islandId: string; ids: string[] } | null = null; // いま見せているメモ（これ以外の id は下書きに入れない）
   const relayBotThread = debounce(() => {
     if (!rightBot || (!rightReady && !sidebars.right.visible)) return;
     const botId = rightBot;
@@ -5148,6 +5349,21 @@ export function startPrimary() {
   }
 
   // 未送信の箱（D18）：コピーに失敗した依頼を、下書き（drafts.json）に「未送信」として残す（番号・check は付けない。直せない失敗は残さない）
+  function draftWithoutMaterials(draft: DraftRequest): DraftRequest {
+    const req: DraftRequest = { ...draft };
+    delete req.materials;
+    return req;
+  }
+
+  // 段 D6：送る直前に、出どころのカードがまだ一番上としてあるか見る。無い・特別なセル・下の返信は落とす（押すボタンも出ない）
+  function liveCardOrigins(raw: unknown): BotCardOrigin[] {
+    return cleanOrigins(raw).filter((origin) => {
+      const memo = memos.get(origin.memo);
+      if (!memo || isSpecialCell(memo)) return false;
+      return (memo.replies ?? []).some((reply) => reply.id === origin.reply && reply.parent === null);
+    });
+  }
+
   function keepUnsent(draft: DraftRequest, error: SendError) {
     if (error === 'badBot' || error === 'emptyText') return;
     const bot = bots.get(draft.botId);
@@ -5171,8 +5387,8 @@ export function startPrimary() {
       ...(seat > 0 ? { seat } : {}),
       next: true,
       chatOnly: draft.chatOnly === true,
-      attach: flagsOf({ url: draft.page?.url, title: draft.page?.title, selection: draft.page?.selection, body: draft.body }),
-      req: draft,
+      attach: flagsOf({ url: draft.page?.url, title: draft.page?.title, selection: draft.page?.selection, body: draft.body, ...(draft.materials?.length ? { materials: draft.materials } : {}) }),
+      req: draftWithoutMaterials(draft), // 失敗した文はそのまま残す。材料の配列は残さない（中身は文の中だけ）
       failed: true,
       why: why[error] ?? 'コピーできませんでした',
     });
@@ -5901,10 +6117,6 @@ export function startPrimary() {
           send({ type: 'relay', to: 'right', payload: { kind: 'botOpen', botId: botOpenPending } });
           botOpenPending = null;
         }
-        if (sidebars.right.visible && rightReady && islandAskPending) {
-          send({ type: 'relay', to: 'right', payload: islandAskPending });
-          islandAskPending = null;
-        }
         relayBotThread();
         if (sidebars.right.visible && rightReady) {
           flushReminders(); // 閉じていた右サイドバーを、もう一度開いた
@@ -5925,6 +6137,9 @@ export function startPrimary() {
           else if (askPending) send({ type: 'relay', to: 'reader', payload: askPending });
           else if (tab) send({ type: 'relay', to: 'reader', payload: { kind: 'readerOpen', tabId: tab.id, url: tab.url, title: tab.title } });
           askPending = null;
+          readerLinksSent = false;
+          relayReaderLinks();
+          flushReaderSeek();
         } else if (msg.payload.kind === 'requestState') {
           // 右サイドバーが開いた：台帳の写しと、これまでに撮ったサムネイルを渡す
           relayState();
@@ -5948,10 +6163,6 @@ export function startPrimary() {
           if (botOpenPending) {
             send({ type: 'relay', to: 'right', payload: { kind: 'botOpen', botId: botOpenPending } });
             botOpenPending = null;
-          }
-          if (islandAskPending) {
-            send({ type: 'relay', to: 'right', payload: islandAskPending });
-            islandAskPending = null;
           }
           relayBotThread();
           resendMemoIndex();
@@ -6078,6 +6289,19 @@ export function startPrimary() {
         // webhook の答えが、待つのをやめた（16 秒）あとに届いた（R11）：受けたなら「受けた」に直す（コピーへ切り替えたあとなら何もしない）
         if (msg.ok && typeof msg.botRequestId === 'string' && RELAY_REQUEST_ID_RE.test(msg.botRequestId)) botInbox.markHook(null, msg.botRequestId, { ok: true });
         break;
+      case 'mockAskMaterials': {
+        // 開発用（C++ は送らない）。材料つきで依頼の小窓を開く
+        const items = Array.isArray(msg.items) ? msg.items.filter((item): item is MaterialDraft => !!item && typeof item === 'object') : [];
+        void (async () => {
+          const hosts = await ensureBlocklist();
+          const set = takeMaterials(items, hosts.length ? { hosts } : undefined);
+          void openBotAsk(
+            { url: 'https://example.com/materials', title: '材料の試し', selection: '' },
+            { capture: false, afterMenu: false, ...(set.items.length ? { materials: set } : {}) },
+          );
+        })();
+        break;
+      }
       case 'flush':
         shuttingDown = true; // アーカイブ：閉じる途中は、新しいアーカイブと戻すを受けない
         noteBotSeen(); // 不在票の「昨夜」などの言葉に使う（R8）
@@ -6328,6 +6552,10 @@ export function startPrimary() {
     if (page.protocol !== 'http:' && page.protocol !== 'https:') return;
     if (dest.protocol !== 'http:' && dest.protocol !== 'https:') return;
     if (!samePage(url, fragmentUrl)) return;
+    if (readerVideoKey(url)?.length === 11) {
+      void openVideoQuote(url);
+      return;
+    }
     const jump = ++quoteJump;
     const tell = (text: string) => {
       if (jump === quoteJump) tellMemo(text);
@@ -6393,6 +6621,30 @@ export function startPrimary() {
     }
   }
 
+  // YouTube の引用（六角で見るの結んだカード。V2a-3・S5）：同じ動画のタブがあれば前に出してその時刻へ（新しいタブを作らない）。
+  //   無ければ時刻つきの URL を新しいタブで開く。字幕はページの文ではないので、引用の色づけはしない
+  async function openVideoQuote(url: string) {
+    let start = 0;
+    try {
+      start = Number((new URL(url).searchParams.get('t') ?? '0').replace(/s$/, '')) || 0;
+    } catch {
+      start = 0;
+    }
+    const existing = store.all().find((t) => sameVideo(t.url, url));
+    if (!existing) {
+      createTab(url);
+      return;
+    }
+    if (store.activeId !== existing.id) send({ type: 'activateTab', id: existing.id });
+    const ready = await waitUntilShown(existing.id, 12_000);
+    if (ready !== 'ready') {
+      tellMemo('動画のタブを開けませんでした');
+      return;
+    }
+    await seekVideo(existing.id, start, true);
+    tellMemo('同じ動画のタブで、その時刻へ移りました');
+  }
+
   // メモのセルへ移る（単語カードの「セルへ」と同じ）。別のシートなら切り替え、印を付け、見える所まで動かし、少し光らせる
   //   移れなければ、下の区画やカードに出す短い理由。移れたら null
   function focusMemoOnBoard(id: string): string | null {
@@ -6448,6 +6700,7 @@ export function startPrimary() {
           no: item.no,
           ...(item.group ? { group: item.group } : {}),
           ...(item.final ? { fileId: item.final.fileId } : {}),
+          ...(item.origin?.length ? { origin: item.origin.map((origin) => ({ ...origin })) } : {}),
         })),
       groups: () => botInbox.requestList().groups.map((group) => ({ group: group.group, states: group.seats.map((seat) => seat.state) })),
       replyText: async (botId, fileId) => {
@@ -6510,11 +6763,11 @@ export function startPrimary() {
       case 'removeIsland':
         removeIsland(action.id);
         break;
-      case 'openIslandAsk':
-        openIslandAsk(action.islandId, sidebar.memoSelection());
+      case 'askIsland':
+        void openDraftWindow({ islandId: action.islandId }); // 右の整理。盤面の島と同じ材料つきの小窓。台帳は書かない
         break;
-      case 'fillIslandAsk':
-        void fillIslandAsk(action.islandId, action.memoIds);
+      case 'askWithCards':
+        void openCardsAsk(action);
         break;
       case 'leaveIsland':
         store.setIsland([action.id], null);
@@ -6539,6 +6792,122 @@ export function startPrimary() {
         store.setReadEdges(action.id, action.edges);
         if (action.finished) tracker.announce(action.id);
         break;
+      // 六角で見る：結んだカードを足す（V2a-1。形は types.ts。返事は readerCardDone）
+      case 'readerCard': {
+        if (typeof action.seq !== 'number' || typeof action.replyId !== 'string') break;
+        const seq = action.seq;
+        const replyId = action.replyId;
+        const to = action.replyTo === 'right' ? 'right' : 'reader';
+        const fail = (reason: ReaderRefusal, memoId?: string) => readerCardDone(seq, replyId, { ok: false, reason, ...(memoId ? { memoId } : {}) }, to);
+        if (!memos.writableLedger) {
+          fail('ledger');
+          break;
+        }
+        const at = parseAt(action.at);
+        if (typeof action.text !== 'string' || !at || (action.memoId !== undefined && typeof action.memoId !== 'string')) {
+          fail('form');
+          break;
+        }
+        if (at.video !== readerVideo()) {
+          fail('video'); // 読む画面が開いている動画と違う（開き直した途中など）
+          break;
+        }
+        const target = readerTargetMemo(action.memoId, at.title);
+        if ('reason' in target) {
+          fail(target.reason, action.memoId);
+          break;
+        }
+        const memo = target.memo;
+        if ((memo.replies ?? []).length >= MAX_REPLIES) {
+          fail('full', memo.id);
+          break;
+        }
+        if (replyIdProblem(memo.replies ?? [], replyId) !== null) {
+          fail('form', memo.id);
+          break;
+        }
+        const by = action.by === undefined ? undefined : parseAuthor(action.by);
+        const added = memos.addReply(memo.id, null, action.text, by, { quote: action.quote, at }, replyId);
+        if (!added) fail('form', memo.id);
+        else readerCardDone(seq, replyId, { ok: true, memoId: memo.id }, to);
+        break;
+      }
+      // 六角で見る：今あるカードに線を足す・外す（V2a-1。文は変えない）
+      case 'readerLink': {
+        if (typeof action.seq !== 'number' || typeof action.replyId !== 'string' || typeof action.memoId !== 'string') break;
+        const seq = action.seq;
+        const replyId = action.replyId;
+        const memoId = action.memoId;
+        const fail = (reason: ReaderRefusal) => readerCardDone(seq, replyId, { ok: false, reason, memoId });
+        if (!memos.writableLedger) {
+          fail('ledger');
+          break;
+        }
+        const memo = memos.get(memoId);
+        if (!memo) {
+          fail('gone');
+          break;
+        }
+        if (isSpecialCell(memo)) {
+          fail('special');
+          break;
+        }
+        const reply = (memo.replies ?? []).find((r) => r.id === replyId && r.parent === null);
+        if (!reply) {
+          fail('gone');
+          break;
+        }
+        if (action.video !== readerVideo()) {
+          fail('video');
+          break;
+        }
+        const next = withLinkedSpans(reply.at, action.video, action.title, action.add, action.remove);
+        if (!next.ok) {
+          fail(next.why);
+          break;
+        }
+        if (memos.setReplyAt(memo.id, reply.id, next.at) === 'refused') fail('form');
+        else readerCardDone(seq, replyId, { ok: true, memoId: memo.id });
+        break;
+      }
+      // 六角で見る：右の相棒とのやり取りの型（V5）。渡し止めのサイトなら知らせて止める（材料の形は右が確かめる）
+      case 'readerTalk': {
+        if (typeof action.url !== 'string' || typeof action.talk !== 'object' || action.talk === null) break;
+        const talk = action.talk;
+        void (async () => {
+          if (await pageIsBlocked(action.url)) {
+            toast(BLOCK_NOTE);
+            return;
+          }
+          sendToRight({ kind: 'readerTalk', talk });
+        })();
+        break;
+      }
+      // 六角で見る：YouTube のコメント用に写す（V6e）。台帳全体から、その動画と結んだ自分のカードを時刻の順に返す（読むだけ）。
+      //   台帳がまだ読めていなければ null（読む画面が「作り直す」で頼み直す）
+      case 'readerExport': {
+        if (typeof action.seq !== 'number' || typeof action.video !== 'string') break;
+        const cards = memos.ready ? exportCards(memos.list(), action.video) : null;
+        send({ type: 'relay', to: 'reader', payload: { kind: 'readerExportDone', seq: action.seq, cards } });
+        break;
+      }
+      // 六角で見る：カードの「▶ 時刻」（V2a-3）
+      case 'openReaderAt': {
+        if (typeof action.video !== 'string' || typeof action.start !== 'number' || !Number.isFinite(action.start)) break;
+        const raw: unknown = action.glow;
+        const glow =
+          typeof raw === 'object' && raw !== null && typeof (raw as { memoId?: unknown }).memoId === 'string' && typeof (raw as { replyId?: unknown }).replyId === 'string'
+            ? { memoId: (raw as { memoId: string }).memoId, replyId: (raw as { replyId: string }).replyId }
+            : undefined;
+        void openReaderAt(action.video, Math.max(0, action.start), glow);
+        break;
+      }
+      // 六角で見る：AI のカードを書いている途中の印（V2a-1 で受け口。使うのは V4b）
+      case 'readerAiPending': {
+        if (typeof action.memoId !== 'string' || typeof action.who !== 'string' || typeof action.name !== 'string') break;
+        setReaderPending(action.memoId, action.on === true, action.who.slice(0, 20), action.name.slice(0, 20));
+        break;
+      }
       case 'askCompanion':
         void (async () => {
           if (await pageIsBlocked(action.url)) {
@@ -6803,9 +7172,36 @@ export function startPrimary() {
           toast('コメントを足せませんでした（カードの id が正しくないか、すでに使われています）');
           break;
         }
-        if (!memos.addReply(action.id, null, action.text, undefined, { quote: action.quote, image: action.image, file: action.file }, action.replyId)) {
+        // 「＋コメント」の「読む画面の今のマスと結ぶ」（V2b・D24）：形が合わない・読む画面の動画と違うときは、結ばずに足して知らせる（文は落とさない）
+        const at = action.at === undefined ? undefined : parseAt(action.at);
+        const linked = at && at.video === readerVideo() ? at : undefined;
+        const added = memos.addReply(action.id, null, action.text, undefined, { quote: action.quote, image: action.image, file: action.file, ...(linked ? { at: linked } : {}) }, action.replyId);
+        if (!added) {
           toast('コメントを足せませんでした（返信が多すぎます）');
+        } else {
+          // 「次の行に」：一番上のカードだけ。置けない番地なら placeReply は呼ばず、ふつうの次の番地のまま
+          if (action.nextRow === true) {
+            const before = (memos.get(action.id)?.replies ?? []).filter((r) => r.id !== added.id);
+            const slot = nextRowSlot(before);
+            if (slot !== null) memos.placeReply(action.id, added.id, slot);
+          }
+          if (action.at !== undefined && !linked) {
+            tellMemo(at ? '読む画面の動画が替わったので、マスと結ばずに足しました' : 'マスと結べなかったので、結ばずに足しました', { memo: action.id });
+          }
         }
+        break;
+      }
+      case 'addAnnotatedCard': {
+        // 段 D7：下の区画が shots に書いたあとに、id と箱の問いだけを渡す。断ったら、そのファイルを消すよう知らせる
+        if (typeof action.id !== 'string' || typeof action.image !== 'string' || typeof action.text !== 'string') break;
+        if (action.fromReply !== undefined && typeof action.fromReply !== 'string') break;
+        const imageOk = isShotImageId(action.image);
+        const placed = imageOk ? memos.placeAnnotatedCard(action.id, action.image, action.text, action.fromReply) : { ok: false as const, note: 'その画像は、もうありません' };
+        if (!placed.ok) {
+          tellMemo(placed.note, { memo: action.id, ...(imageOk ? { dropShot: action.image } : {}) });
+          break;
+        }
+        tellMemo('書き足した版を足しました', { openMemo: action.id, undoSend: placed.token });
         break;
       }
       case 'changeReplyTags': {
@@ -6872,6 +7268,11 @@ export function startPrimary() {
       case 'clearMemoLinkSet':
         if (typeof action.setId === 'string') memos.clearLinkSet(action.setId);
         break;
+      case 'noteLinkNameSetIds': {
+        if (!Array.isArray(action.ids)) break;
+        noteLinkNameBook(linkNameBookOfIds(action.ids), true);
+        break;
+      }
       case 'setMemoLiked': {
         const memo = memos.get(action.id);
         if (!memo || isSpecialCell(memo) || typeof action.liked !== 'number') break;
@@ -6973,7 +7374,9 @@ export function startPrimary() {
         if (toId === null) {
           try {
             const spot = spotForNewMemo();
-            create = { sheet: spot.sheet, pos: spot.pos, text: '', ...(spot.source ? { source: spot.source } : {}) };
+            // カードを新しいメモへ送るときは、送り元のセット（選んでいなければ既定。直前の別セットには戻さない）
+            const linkSet = linkSetForNewMemo({ book: linkNameBook, source: memos.get(action.from) ?? null });
+            create = { sheet: spot.sheet, pos: spot.pos, text: '', ...(spot.source ? { source: spot.source } : {}), ...(linkSet ? { linkSet } : {}) };
           } catch (err) {
             tellMemo(err instanceof Error && err.message === 'nospace' ? '新しいメモを置けませんでした（置く：空いた場所がない）' : '新しいメモを置けませんでした（置く：途中で止まった）');
             break;
@@ -7170,6 +7573,9 @@ export function startPrimary() {
         if (action.to === 'cell' || action.to === 'right' || action.to === 'hex') {
           void botToMemo(action.botId, String(action.fileId ?? ''), action.to, Number.isInteger(action.memo) ? action.memo : undefined);
         }
+        break;
+      case 'botToCard':
+        void botToCard(action.botId, String(action.fileId ?? ''), action.origin);
         break;
       case 'botToTab':
         // 回答カードの「タブに残す」（S3.10。右で押したときだけ）
@@ -7400,15 +7806,23 @@ export function startPrimary() {
           return {
             ...raw,
             to: raw.to.all ? { all: true } : { botId: bot.id, ...(seat > 0 ? { seat } : {}) },
-            replyTo: chatOnly ? 'chat' : action.deliverTo === 'hex' ? 'memo' : 'inbox', // 六角メモにも届く（R10）は、依頼に写す先があるときだけ
+            replyTo: chatOnly ? 'chat' : action.deliverTo === 'hex' ? 'memo' : raw.replyTo === 'card' ? 'card' : 'inbox', // 六角メモにも届く（R10）は写す先があるとき。カードにする（D6）は押すまで置かない
           };
         })();
         void (async () => {
-          const blockedPage = page ? await pageIsBlocked(page.url) : false;
+          const hosts = await ensureBlocklist();
+          const blockedPage = page ? isBlockedUrl(page.url, hosts) : false;
           if (blockedPage) sayRight(BLOCK_NOTE);
+          const wires = action.materials !== undefined ? acceptMaterialWires(action.materials, (url) => isBlockedUrl(url, hosts)) : undefined;
+          const origin = chatOnly ? [] : liveCardOrigins(action.origin);
+          const asked = rewriteMaterialsInText(text, wires).trim();
+          if (!asked) {
+            refuse(hook ? '送る文が空なので、送りませんでした' : '送る文が空なので、コピーしませんでした。アプリは開いていません', 7000);
+            return;
+          }
           const draft: DraftRequest = {
             botId: bot.id,
-            text,
+            text: asked,
             ...(!chatOnly && page && !blockedPage ? { page } : {}),
             ...(!chatOnly && !blockedPage && typeof action.body === 'string' && action.body ? { body: action.body } : {}),
             ...(action.role !== undefined ? { role: action.role } : {}),
@@ -7427,11 +7841,13 @@ export function startPrimary() {
             ...(cleanPresetIds(action.presetIds).length ? { presetIds: cleanPresetIds(action.presetIds) } : {}),
             // 返し先「六角メモにも届く」（R10）：'hex' だけ。アプリのチャットだけと両立しない（JSON が無く、返事が受け取り箱に届かない）
             ...(!chatOnly && action.deliverTo === 'hex' ? { deliverTo: 'hex' as const } : {}),
+            ...(wires?.length ? { materials: wires } : {}), // 件数の印だけ。送るときは外す（文の枠にはもう入っている）
+            ...(origin.length ? { origin } : {}), // 出どころ（段 D6）。pending.json にだけ。押すまでカードは足さない
           };
           const after: SendAfter = { say: sayRight, ...(image ? { image } : {}) };
           if (hook) {
             // 中継へ直接（R11）：画像あり・鍵が無いときは WebhookSender が断る（依頼は作らない）。届かなければ依頼は残す（未送信の箱には入れない。小窓が開いたまま切り替えを出す）
-            const sent = await hookSender.send(draft, after);
+            const sent = await hookSender.send(draftWithoutMaterials(draft), after);
             answerHook(ticket, bot.id, sent);
             if (!sent.ok) {
               sayRight(sent.message, 9000);
@@ -7451,7 +7867,7 @@ export function startPrimary() {
                 `Grok Bot アプリで「${bot.name}」のチャットを開きました。頼む文はコピーしてあるので、貼り付けて（Ctrl+V）送ってください（アプリのチャットだけ：受け取り箱には届かず、記録もしません）`,
               );
           }
-          const sent = await botSender.send(draft, after);
+          const sent = await botSender.send(draftWithoutMaterials(draft), after);
           if (!sent.ok) {
             sayRight(sent.message, 7000);
             keepUnsent(draft, sent.error); // 未送信の箱へ（R8。「送り方を選び直す…」「下書きに戻す」）
@@ -7473,6 +7889,37 @@ export function startPrimary() {
   //   fileId：どの返事のことか（右の回答カードの下に、結果の1行を出す。S3.10）
   function tellRight(botId: string, text: string, bubble = false, fileId?: string) {
     if (rightReady || sidebars.right.visible) send({ type: 'relay', to: 'right', payload: { kind: 'botNotice', botId, text, ...(bubble ? { bubble } : {}), ...(fileId ? { fileId } : {}) } });
+  }
+
+  // 返事を新しい一番上のカードにする（段 D6。回答カードの［カードにする］を押したときだけ。押すまで台帳は変えない）
+  //   文は記録から読み直す（右の写しは 4,000 字までに切ってあるため）。元のカードが無ければ何も書かない
+  async function botToCard(botId: string, fileId: string, index: number) {
+    if (!bots.get(botId) || !fileId) return;
+    const say = (text: string) => {
+      toast(text);
+      tellRight(botId, text, false, fileId);
+    };
+    if (!Number.isInteger(index) || index < 0 || index >= ORIGIN_MAX) {
+      say('その出どころはありません');
+      return;
+    }
+    const found = await botInbox.findMessage(botId, fileId);
+    if (!found || found.message.type !== 'reply' || found.entry.grey === true || found.entry.match !== 'ok') {
+      say('その返事が記録に見つかりませんでした');
+      return;
+    }
+    const origin = botInbox.cardOrigin(botId, fileId, index);
+    if (!origin) {
+      say('その出どころはありません');
+      return;
+    }
+    const placed = memos.placeReplyCard(origin.memo, origin.reply, found.message.text ?? '');
+    if (!placed.ok) {
+      say(placed.note);
+      return;
+    }
+    tellMemo('カードにしました', { openMemo: origin.memo, undoSend: placed.token });
+    tellRight(botId, '新しい一番上のカードにしました（下の区画の「元に戻す」で戻せます）', false, fileId);
   }
 
   // 返事をメモにする（右のボットの欄で押したときだけ。botToMemo）

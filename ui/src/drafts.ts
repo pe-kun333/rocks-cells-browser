@@ -5,6 +5,7 @@
 //   コピーに失敗した依頼は、左が failed と why（短いわけ）を付けて入れる（addSingleDraft）。「下書きに戻す」で印を外す（unfailDraft）
 import { type AskAllRun, type AskAllTarget, askAllSeatDraft } from './bot-ask-all';
 import { type DraftAttach, type DraftRequest } from './bot-send';
+import type { MaterialRef } from './draft-materials';
 import { readData, writeData } from './data';
 
 export const DRAFT_DAYS = 7;
@@ -18,6 +19,7 @@ export interface DraftFlags {
   selection: boolean;
   body: boolean;
   image: boolean;
+  materials: number; // 付けた材料の件数（段 D2。中身は持たない。0 は無し）
 }
 
 export interface BotDraft {
@@ -37,6 +39,7 @@ export interface BotDraft {
   req: DraftRequest; // コピーするときに、今の送り方へ渡す中身
   failed?: true; // コピーに失敗した（R8。未送信の箱で「送り方を選び直す…」「下書きに戻す」）
   why?: string; // 失敗のわけ（短い文。左が決めたもの）
+  materialRefs?: MaterialRef[]; // 閉じたときに付けていた材料の参照だけ（段 D2・Q3。中身は持たない。読み直しは D3・D4）
 }
 
 interface DraftFile {
@@ -59,7 +62,7 @@ function emit(drafts: BotDraft[]) {
 }
 
 export function flagsOf(attach: DraftAttach, image = false): DraftFlags {
-  return { title: !!attach.title, url: !!attach.url, selection: !!attach.selection, body: !!attach.body, image };
+  return { title: !!attach.title, url: !!attach.url, selection: !!attach.selection, body: !!attach.body, image, materials: attach.materials?.length ?? 0 };
 }
 
 function fresh(drafts: BotDraft[], now = Date.now()): BotDraft[] {

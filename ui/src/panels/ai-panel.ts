@@ -66,8 +66,11 @@ import { companionCostNote, renderSendPreview } from '../send-preview';
 import { assertBudget, type BudgetView, BudgetError, BUDGET_NEAR_NOTE, formatUsd, loadBudget, MAX_CAP, onBudget, setBudgetCap } from '../ai/budget';
 import { onMessage, send } from '../bridge';
 import { type HexMemoTarget, loadCatalog, sendToHexMemo, targetsOf } from '../integrations/hexmemo';
-import type { CompanionEvent, HexMemoRecord, Reminder, TabNote } from '../types';
-import type { ReplyAuthor } from '../threads';
+import type { CompanionEvent, HexMemoRecord, RelayCommand, Reminder, TabNote } from '../types';
+import { newReplyId, type ReplyAuthor } from '../threads';
+import { secLabel } from '../reader-ai-card';
+import type { ReaderRefusal } from '../reader-links';
+import { parseTalk, TALK_MODE_NAME, TALK_QUESTIONS, type TalkMaterial, talkCardText, talkPrompt } from '../reader-talk';
 import { clamp, el } from '../util';
 import type { CardDraft, CardKind } from '../vocab';
 import type { VaultDraft } from '../vault';
@@ -90,6 +93,7 @@ export interface AiPanelHost {
   conversationToVault(): void; // 今の会話を、見たままの画像と文字のデータでデータ置き場に残す
   askBot?(text: string): boolean; // 相棒の返事を、ボットの下書きの小窓に入れる（段階7。コピーもアプリも開かない）
   reminderActions?(reminder: Reminder): ReminderAction[]; // リマインダーの吹き出しのボタン（延ばす・そのセルへ。K2。AI は呼ばない）
+  askLeft(action: RelayCommand): void; // 左へ頼む（六角で見るのやり取りの「▶ 時刻」「📌 カードへ」。plan-reader-video の V5）
 }
 
 // リマインダーの吹き出しのボタン 1 つ（K2）
@@ -162,6 +166,11 @@ export class AiPanel {
   private readonly input = el('textarea', 'ai-text');
   private readonly attach = el('input');
   private readonly sendButton = el('button', 'ai-send', '送る');
+  // 六角で見るのやり取りの型（plan-reader-video の V5）：始めた材料と、何問目まで出したか（ふりかえる）。答えを待つ間は、送る文を材料と基準で包む
+  private talk: { m: TalkMaterial; round: number } | null = null;
+  private readonly talkBar = el('div', 'ai-talk-bar');
+  private talkSeq = 0;
+  private readonly talkWaiting = new Map<number, number>(); // 「📌 カードへ」の頼みの番号 → 返事の id
   private readonly deepButton = el('button', 'ai-deep'); // さらに考える（フェイブルが確認なしで進化する）
   private readonly historyButton = el('button', 'ai-small', '履歴');
   readonly letters = new LetterStore(); // 月の窓（右サイドバーの上）も、同じ一覧を映す
@@ -453,6 +462,177 @@ export class AiPanel {
     void this.companion.ask('chat', input, false, undefined, { images, display: `✎ メモ：${quoted.length > 60 ? `${quoted.slice(0, 60)}…` : quoted}` });
   }
 
+  // ---------- 六角で見るのやり取りの型（plan-reader-video の V5。D10・D11） ----------
+  //   読む画面が組んだ材料（左が渡し止めを見てから届く）で始める。ツッコむ・当てるは、使う人が送った文を本物の字幕と基準で包んで送る
+  //   （答えるまで本物は見せない）。ふりかえるは 3 問のあとにまとめ、掛け合いは 1 回。道具は渡さない（bare）。返事には「▶ 時刻」と「📌 カードへ」
+  async startTalk(raw: unknown) {
+    const m = parseTalk(raw);
+    if (!m) return;
+    await this.restored;
+    if (!this.prefs.open) this.setOpen(true);
+    this.view = 'chat';
+    const t = { m, round: 0 };
+    this.talk = t;
+    const name = TALK_MODE_NAME[m.mode];
+    if (m.mode === 'tsukkomi' || m.mode === 'guess') {
+      const last = m.context[m.context.length - 1];
+      this.companion.announce(
+        m.mode === 'tsukkomi'
+          ? `🎬 ${name}：${last.t} の「${last.text}」にツッコんでみてください（本物の返しは隠しています。点は付けず、短さ・型・間で返します）`
+          : `🎬 ${name}：${last.t} の「${last.text}」で止めました。このあと何と続くでしょう。予想を書いて送ってください`,
+      );
+      this.render();
+      this.input.focus();
+      return;
+    }
+    this.render();
+    const reply = await this.talkAsk(talkPrompt(m), `🎬 ${name}（${m.label}）`);
+    if (this.talk !== t) return; // 途中でやめた・ほかの型を始めた
+    if (!reply) return this.endTalk();
+    if (m.mode === 'duo') {
+      this.tagTalk(reply, m);
+      return this.endTalk();
+    }
+    t.round = 1;
+    this.render();
+  }
+
+  // 使う人の答えを待っているか（ツッコむ・当てるはまだ答えていない、ふりかえるは問いを出したあと）
+  private talkTakesAnswer(): boolean {
+    const t = this.talk;
+    if (!t || this.companion.busy) return false;
+    return t.m.mode === 'socratic' ? t.round >= 1 : (t.m.mode === 'tsukkomi' || t.m.mode === 'guess') && t.round === 0;
+  }
+
+  // 使う人の答えを、材料と基準で包んで送る。ふりかえるは 3 問目の答えのあとのまとめを、ツッコむ・当てるは返事を、カードに残せるようにする
+  private async answerTalk(text: string) {
+    const t = this.talk;
+    if (!t) return;
+    const m = t.m;
+    if (m.mode === 'socratic') {
+      const round = t.round;
+      t.round = 0; // 返事が来るまでは答えを包まない
+      this.render();
+      const reply = await this.talkAsk(talkPrompt(m, text, round), text);
+      if (this.talk !== t) return;
+      if (!reply) return this.endTalk();
+      if (round >= TALK_QUESTIONS) {
+        this.tagTalk(reply, m);
+        return this.endTalk();
+      }
+      t.round = round + 1;
+      this.render();
+      return;
+    }
+    t.round = 1; // 答えた（もう包まない）
+    this.render();
+    const reply = await this.talkAsk(talkPrompt(m, text), text);
+    if (reply) this.tagTalk(reply, m, text);
+    if (this.talk === t) this.endTalk();
+  }
+
+  // 包んだ文を相棒に送り、その返事（失敗・付け足しなしは null）を返す。画面には display だけを出す
+  private async talkAsk(prompt: string, display: string): Promise<ChatEntry | null> {
+    if (!prompt) return null;
+    const before = this.companion.entries.at(-1)?.id ?? -1;
+    await this.companion.ask('chat', prompt, false, undefined, { display, bare: true });
+    return [...this.companion.entries].reverse().find((e) => e.id > before && e.role === 'assistant' && !e.error && !e.passed && !!e.text) ?? null;
+  }
+
+  // 返事にカードへ残す材料を付ける（字幕は止めたマスだけにして残す。会話記録を重くしない）
+  private tagTalk(reply: ChatEntry, m: TalkMaterial, answer?: string) {
+    this.companion.markTalk(reply.id, { m: { ...m, context: m.context.slice(-1) }, ...(answer ? { answer } : {}) });
+  }
+
+  private endTalk() {
+    this.talk = null;
+    this.render();
+  }
+
+  // やり取りの型の帯（型の名前・今すること・やめる）と、欄の案内。型の外では帯を隠す（案内は render が付ける）
+  private renderTalkBar() {
+    const t = this.talk;
+    this.talkBar.hidden = !t;
+    if (!t) {
+      this.talkBar.replaceChildren();
+      return;
+    }
+    const m = t.m;
+    const waiting = '返事を待っています';
+    const hint =
+      m.mode === 'tsukkomi'
+        ? t.round === 0
+          ? 'ツッコミを書いて送る（本物の返しは、送ったあとに出ます）'
+          : waiting
+        : m.mode === 'guess'
+          ? t.round === 0
+            ? '予想を書いて送る（本物の続きは、送ったあとに出ます）'
+            : waiting
+          : m.mode === 'socratic'
+            ? t.round === 0
+              ? waiting
+              : `${t.round} 問目の答えを書いて送る（全部で ${TALK_QUESTIONS} 問）`
+            : waiting;
+    this.input.placeholder = hint;
+    const stop = el('button', 'ai-small', 'やめる');
+    stop.type = 'button';
+    stop.title = 'やり取りの型をやめて、ふつうの会話に戻る';
+    stop.addEventListener('click', () => {
+      this.endTalk();
+      this.input.focus();
+    });
+    this.talkBar.replaceChildren(el('span', 'ai-talk-name', `🎬 ${TALK_MODE_NAME[m.mode]}（${m.label}）`), el('span', 'ai-talk-hint', hint), stop);
+  }
+
+  // やり取りの返事の「▶ 時刻」（読む画面のその時刻へ）と「📌 カードへ」（区間と結んだカードを下の区画へ）
+  private talkButtons(entry: ChatEntry, talk: NonNullable<ChatEntry['talk']>): HTMLElement[] {
+    const play = el('button', 'ai-small', `▶ ${secLabel(talk.m.sec)}`);
+    play.title = '読む画面でこの時刻へ（開いていなければ、その動画を開きます）';
+    play.addEventListener('click', () => this.host.askLeft({ command: 'openReaderAt', video: talk.m.video, start: talk.m.sec }));
+    const card = el('button', 'ai-small', talk.card ? 'カードにしました ✓' : '📌 カードへ');
+    card.title = 'このやり取りを、区間と結んだカードにして下の区画へ（読む画面でその動画を開いているときだけ）';
+    if (!talk.card) card.addEventListener('click', () => this.sendTalkCard(entry, talk));
+    return [play, card];
+  }
+
+  // 「📌 カードへ」：左に結んだカードを頼む（返事は右へ。結ぶ先は今の下の区画のメモ、無ければ左が動画のメモを作る）
+  private sendTalkCard(entry: ChatEntry, talk: NonNullable<ChatEntry['talk']>) {
+    const m = talk.m;
+    const seq = ++this.talkSeq;
+    this.talkWaiting.set(seq, entry.id);
+    this.host.askLeft({
+      command: 'readerCard',
+      seq,
+      replyId: newReplyId(),
+      text: talkCardText(m, entry.text, talk.answer),
+      by: { who: entry.speaker ?? 'main', name: entry.speakerName ?? 'Claude' },
+      at: { video: m.video, ...(m.title ? { title: m.title } : {}), spans: m.spans, kind: 'talk' },
+      replyTo: 'right',
+    });
+  }
+
+  // 「📌 カードへ」の返事（左の readerCardDone）：足せたら印、断られたら理由を会話の下に 1 行
+  onTalkCardDone(done: { seq: number; ok: boolean; reason?: ReaderRefusal }) {
+    const entryId = this.talkWaiting.get(done.seq);
+    if (entryId === undefined) return;
+    this.talkWaiting.delete(done.seq);
+    if (done.ok) {
+      this.companion.markTalk(entryId, { card: true });
+      return;
+    }
+    const why =
+      done.reason === 'video'
+        ? '読む画面でその動画を開いているときに押してください'
+        : done.reason === 'full'
+          ? 'メモのコメントがいっぱい（300）です'
+          : done.reason === 'ledger'
+            ? 'メモの台帳を読めていません'
+            : done.reason === 'special'
+              ? '下の区画で開いているのが入口やボットのセルです'
+              : '形が合いませんでした';
+    this.companion.announce(`📌 カードにできませんでした：${why}`);
+  }
+
   // 月の窓の「会話に残す」。呼び出しはしない。Claude に送らないお知らせとして、いまの会話の下に1行足す
   async keepMoonComment(text: string) {
     await this.restored;
@@ -590,6 +770,10 @@ export class AiPanel {
       if (!text) return;
       this.input.value = '';
       this.view = 'chat';
+      if (this.talkTakesAnswer()) {
+        void this.answerTalk(text); // やり取りの型の答え（V5）：材料と基準で包んで送る
+        return;
+      }
       void this.companion.ask('chat', text, this.attach.checked, this.prefs.target);
     });
     const row = el('div', 'ai-form-row');
@@ -607,7 +791,8 @@ export class AiPanel {
     form.append(this.targets, this.adviceRow, this.input, row);
 
     this.buildPreview();
-    this.chat.append(header, this.membersPanel, this.settings, this.log, this.previewHost, this.phraseBar.element, form, this.phraseBar.editor);
+    this.talkBar.hidden = true;
+    this.chat.append(header, this.membersPanel, this.settings, this.log, this.previewHost, this.phraseBar.element, this.talkBar, form, this.phraseBar.editor);
   }
 
   // 頼みごとのボタン：決まった頼み方・文言を送る・入力欄に入れる
@@ -1905,6 +2090,7 @@ export class AiPanel {
     this.status.textContent = who + STATUS[c.state] + (c.practice ? '（練習モード）' : '');
     this.renderTargets();
     this.input.placeholder = `${this.targetLabel(this.prefs.target)}に話しかける…（Enter で送る・Shift+Enter で改行）`;
+    this.renderTalkBar(); // やり取りの型の間は、上の帯と欄の案内を替える（V5）
     this.chat.hidden = !this.prefs.open;
     this.cost.textContent = c.practice ? '練習モード' : `約 $${c.totalCost.toFixed(3)}`;
     this.keyState.textContent = c.hasKey ? '保存済み（暗号化してこのパソコンに保存）' : 'まだ保存されていません';
@@ -2676,6 +2862,7 @@ export class AiPanel {
       ask.title = 'この返事を、ボットへの依頼の下書きに入れます。小窓が開くだけで、コピーもアプリも動きません。今見ているページは付けません';
       ask.addEventListener('click', () => void this.askBotFrom(entry));
       actions.append(keep, hex, vocab, vault, copy, ask);
+      if (entry.talk) actions.prepend(...this.talkButtons(entry, entry.talk)); // やり取りの返事（V5）：▶ 時刻・📌 カードへ
       box.append(actions);
       if (this.cardDraft?.entryId === entry.id) box.append(this.cardForm(entry, this.cardDraft));
       if (entry.kept?.hexMemo) {

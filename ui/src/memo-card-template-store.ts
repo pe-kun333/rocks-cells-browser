@@ -152,10 +152,11 @@ export function templatePickState(n: number): { enabled: boolean; hint: string }
 // 登録の小窓に出す、数の 2 行
 export function describeTemplateReport(report: TemplateReport): { counts: string; excluded: string } {
   const { children, images, quotes } = report.skipped;
-  const none = children + images + quotes + report.cutLinks === 0;
+  const spans = report.skipped.spans ?? 0;
+  const none = children + images + quotes + report.cutLinks + spans === 0;
   return {
     counts: `${report.cards}枚・関連 ${report.links}本${report.holes !== undefined ? `・空欄 ${report.holes}個` : ''}`,
-    excluded: none ? '含めないもの：なし' : `含めないもの：画像 ${images}・引用 ${quotes}・返信 ${children}・外へ出る関連 ${report.cutLinks}本`,
+    excluded: none ? '含めないもの：なし' : `含めないもの：画像 ${images}・引用 ${quotes}・返信 ${children}・外へ出る関連 ${report.cutLinks}本${spans > 0 ? `・結んだ区間 ${spans}` : ''}`,
   };
 }
 

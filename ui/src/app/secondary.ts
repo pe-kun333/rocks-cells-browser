@@ -539,6 +539,7 @@ export function startSecondary() {
     conversationToVault: () => void vaultPanel.saveConversation(),
     askBot: (text) => askCompanionBot(text),
     reminderActions: (reminder) => reminderBubbleActions(reminder),
+    askLeft: (action) => askLeft(action),
   });
   // 右下の Grok-Bot の巣（相棒の並びの下。6つの席の六角形の輪。席を押すと選び、ダブルクリックで Grok Bot アプリのチャットが開く。第3段 S3.2）
   //   相棒の顔・切り替え・入力欄はそのまま。台帳は左が持つので、写しを見て、変えたいときは左に頼む
@@ -945,6 +946,10 @@ export function startSecondary() {
           ai.onEvent(msg.payload.event);
         } else if (msg.payload.kind === 'reminder') {
           void ai.onReminder(msg.payload.reminder, msg.payload.late);
+        } else if (msg.payload.kind === 'readerTalk') {
+          void ai.startTalk(msg.payload.talk); // 六角で見るのやり取りの型（V5。形は右で確かめる）
+        } else if (msg.payload.kind === 'readerCardDone') {
+          ai.onTalkCardDone(msg.payload); // 右の「📌 カードへ」の返事（V5）
         } else if (msg.payload.kind === 'askCompanion') {
           const payload = msg.payload;
           void (async () => {
@@ -1022,10 +1027,6 @@ export function startSecondary() {
           botDock.openHandoff(msg.payload); // まとめ役に渡す文を小窓へ（G3）。コピーするまでアプリは開かない
         } else if (msg.payload.kind === 'botOpen') {
           botPanel.open(msg.payload.botId); // 盤面のカードの「やり取りを見る」
-        } else if (msg.payload.kind === 'islandAskPick') {
-          organizePanel.showAsk(msg.payload); // この島を頼む：入れるメモを見せる（段階16）
-        } else if (msg.payload.kind === 'islandAsk') {
-          botDock.openIsland(msg.payload.text); // 選んだ文を依頼の小窓へ。コピーもアプリも開かない
         } else if (msg.payload.kind === 'botNotice') {
           // 左がボットのことで決めた知らせ（依頼をコピーした など）。返事が届いた知らせは相棒の吹き出しで（Q7。見えていれば出さない）
           if (msg.payload.fileId) botPanel.cardNote(msg.payload.fileId, msg.payload.text); // 回答カードの下の1行（S3.10）

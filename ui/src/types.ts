@@ -2,11 +2,13 @@ import type { TagButtonBook, TagButtonsOp } from './tagbuttons';
 import type { BoardLink } from './board-links';
 // いくつかのファイルで共通して使う型
 import type { BotLastChoice, BotLastRequest } from './bot-last-request';
+import type { BotCardOrigin } from './bot-replies';
 import type { BotPreset, BotPresetEntry, BotPresetReview, BotPresets, BotPresetSet } from './bot-presets';
 import type { BotRole, BotRoleGroup } from './bot-roles';
 import type { BotTeams } from './bot-teams';
 import type { BotAnswerLines, BotAwayView, BotBrief, BotBriefState, BotGroupReply, BotInboxStatus, BotNest, BotRecentReply, BotRequestList, BotThreadView } from './bots';
 import type { BotPasteAsk } from './bot-send';
+import type { MaterialSet, MaterialWire } from './draft-materials';
 import type { Hex } from './hex';
 import type { LikeLevel } from './likes';
 import type { CaptureBlur, CaptureFromKind, CaptureMark, CaptureStroke, HideRect } from './captures';
@@ -14,6 +16,9 @@ import type { HideMode } from './capture-hide';
 import type { ReplyLink } from './memo-card-links';
 import type { CardTemplate } from './memo-card-templates';
 import type { MemoIndexItem, RightMemo } from './memocells';
+import type { ReaderLinksView, ReaderNow, ReaderRefusal, ReplyAt, ReplySpan } from './reader-links';
+import type { TalkMaterial } from './reader-talk';
+import type { ExportCard } from './reader-export';
 import type { RouteJournal, RoutesState, TabTrail } from './routes';
 import type { SearchItem, SearchSort } from './search';
 import type { Sheet } from './sheets';
@@ -244,8 +249,9 @@ export type RelayCommand =
   | { command: 'addTags'; changes: { id: number; tags: string[] }[] }
   | { command: 'createIslands'; islands: IslandDraft[] } // 島を作って、入るタブを寄せる
   | { command: 'removeIsland'; id: string } // 島をなくす（タブはそのまま）
-  | { command: 'openIslandAsk'; islandId: string } // この島を頼む：入れるメモを右に見せる（アプリは開かない）
-  | { command: 'fillIslandAsk'; islandId: string; memoIds: string[] } // 選んだメモの文を、依頼の小窓へ入れる
+  | { command: 'askIsland'; islandId: string } // 右の整理の「この島を頼む」。左が盤面と同じ材料つきの小窓を開く（送らない。台帳は書かない）
+  // 段 D4。下のカード（memo・replies・linked）か、Grok Cards の列（to だけ）から依頼の小窓を開く。送らない
+  | { command: 'askWithCards'; memo?: string; replies?: string[]; linked?: 'none' | 'one'; to?: string }
   | { command: 'leaveIsland'; id: number } // タブを島から出す
   | { command: 'previewIslands'; islands: IslandDraft[] | null } // 島の案を盤面に点線で見せる
   | { command: 'grokPatchText'; text: string; name: string } // 下の区画に落とした Grok の提案ファイル（JSON）の文。左で一覧を出す
@@ -260,6 +266,26 @@ export type RelayCommand =
   | { command: 'openReader'; id: number } // このタブを六角で読む
   | { command: 'readerProgress'; id: number; edges: number; finished: boolean } // 読む画面での読み進み
   | { command: 'askCompanion'; text: string; title: string; url: string } // 相棒に聞く（右サイドバーを開いて渡す）
+  // 六角で見る（動画の区間セル）のマスとカードを結ぶ（docs/plan-reader-video.md §6。形は段 V0、使うのは V2a・V2b・V4）
+  //   readerCard（読む画面 → 左）：結んだカードを 1 枚足す。replyId は読む画面が決める（threads.ts の REPLY_ID_RE）。
+  //     memoId が無ければ、今下の区画で開いているメモ（無い・特別なセルなら、その動画のメモを作って下の区画で開く。Q2）。
+  //     by は AI のカードだけ（V4）。左は at を parseAt で確かめ、足せても断っても readerCardDone を必ず返す（seq で照らす。D18）
+  //     replyTo（V5）：右の相棒の「📌 カードへ」から頼んだとき、返事 readerCardDone を右へ返す
+  | { command: 'readerCard'; seq: number; replyId: string; memoId?: string; text: string; quote?: ReplyQuote; by?: ReplyAuthor; at: ReplyAt; replyTo?: 'right' }
+  //   readerTalk（読む画面 → 左）：右の相棒とのやり取りの型を始める（V5）。左は url が渡し止めのサイトなら知らせて止め、そうでなければ右へ渡す
+  | { command: 'readerTalk'; talk: TalkMaterial; url: string }
+  //   readerLink（読む画面 → 左）：今ある一番上のカードに線を足す（add）・外す（remove はマスの指紋）。文は変えない。
+  //     カードがほかの動画に結んであれば断る（1 枚のカードは 1 本の動画だけ）。返事は readerCardDone
+  | { command: 'readerLink'; seq: number; memoId: string; replyId: string; video: string; title?: string; add?: ReplySpan[]; remove?: string[] }
+  //   readerAiPending（読む画面 → 左）：AI のカードを書いている途中の印（左の PendingReply に載せる・外す。D17）
+  | { command: 'readerAiPending'; memoId: string; on: boolean; who: string; name: string }
+  //   readerExport（読む画面 → 左）：YouTube のコメント用に写す（V6e）。左は台帳全体から、その動画と結んだ自分のカードを集めて
+  //     readerExportDone で返す（読むだけ。台帳は変えない）
+  | { command: 'readerExport'; seq: number; video: string }
+  //   openReaderAt（下の区画 → 左）：カードの「▶ 時刻」。読む画面がその動画を開いていれば readerSeek を渡す。開いていなければ、
+  //     同じ動画のタブを探して前に出し、無ければ時刻つきの URL を新しいタブで開いて読む画面を出す（自分のファイルは知らせるだけ）
+  //     glow（カードの「マスで見る」。V2b）：読む画面がその動画を開いていれば移らずに readerGlow だけ。開いていなければ、開いてその時刻へ移ってから光らせる
+  | { command: 'openReaderAt'; video: string; start: number; glow?: { memoId: string; replyId: string } }
   // 順路
   | { command: 'setRouteRecording'; recording: boolean }
   | { command: 'showRoute'; id: string | null } // 盤面にこの順路を出す（null は表示中のタブの順路）
@@ -380,6 +406,11 @@ export type RelayCommand =
       //   ticket：結果を relay の botHookResult で返すときの合い札（右と読む画面の AskLeftSender が待つ。英数字 6〜40 字）
       via?: 'hook';
       ticket?: string;
+      // 材料（段 D2）。最大 30。画像の kind は左が落とす。request.v1 の page・body には入れず、添えた情報の枠の文を左が確かめ直す
+      materials?: MaterialWire[];
+      // 出どころ（段 D6）。付けていたカードだけ（最大 10）。左は、一番上のカードがまだあるものだけ pending.json に覚える。
+      //   request.v1 には入れない。［カードにする］を押すまで、台帳のカードは足さない
+      origin?: BotCardOrigin[];
     }
   // 「続きとして」の要点の行（依頼の小窓 v2・R5）：左がその依頼の確かめが通った返事を記録から読み、要点の行（botAnswerPoints）と
   //   頭の 1 行（botAnswerLine）を relay の botAnswerLines で右と読む画面へ返す（渡し止めのアドレスは伏せる。check は入れない）
@@ -414,6 +445,9 @@ export type RelayCommand =
   // 返事をメモにする（押したときだけ）。to：cell＝ボットのセルの隣のメモのセル・right＝右のメモ・hex＝六角メモ。
   //   memo：返事の「メモにしてね」の提案の何番目か（無ければ返事の全体）。fileId は記録の中の返事（左が記録から読み直す）
   | { command: 'botToMemo'; botId: string; fileId: string; to: 'cell' | 'right' | 'hex'; memo?: number }
+  // 返事を新しい一番上のカードにする（段 D6。押したときだけ）。origin は出どころの番号（0 から）。
+  //   左が記録から文を読み直し、元のカードから関連「補足」を 1 本足す。押すまで台帳は変えない
+  | { command: 'botToCard'; botId: string; fileId: string; origin: number }
   // 回答カードの「タブに残す」（S3.10）：依頼に付けたページのタブがまだあれば、そのタブのメモに要約と出典を残す（無ければ右のメモへ）。左が記録から読み直す
   | { command: 'botToTab'; botId: string; fileId: string }
   // Grok Visions（S3.7b。visions.ts）：残した Vision を1件消す（使う人が月の窓・ボットの欄の札で確かめてから。ファイルを消すのは左だけ）
@@ -427,7 +461,13 @@ export type RelayCommand =
   // 下の区画でコメントのカードを足す（parent は null。引用・画像は M3 で付ける。形は左が確かめる）
   //   replyId：新しいカードの id を呼び出し側が決めたいとき（B2-3a。ボードがカードを足す位置を、足す前に保存するため）。省略すると左が決める（今までどおり）。
   //   形は [A-Za-z0-9_-]{1,64}。形が違う・そのメモにもう同じ id があるときは、付け替えずにこの命令を断る（知らせを出す）
-  | { command: 'addMemoComment'; id: string; text: string; quote?: ReplyQuote; image?: string; file?: string; replyId?: string }
+  // at（V2b）：下の区画の「＋コメント」の「読む画面の今のマスと結ぶ」。左は parseAt で確かめ、読む画面の動画と違えば結ばずに足す（文は落とさない）
+  // nextRow（試し）：省略できる。true のとき、一番上のカードを、いちばん下のカードの次の行の 1 列目に置く。
+  //   その番地が MAX_RANK か lastPlaceableSlot を越えるときは、ふつうの次の番地。返信（addReply）には使わない
+  | { command: 'addMemoComment'; id: string; text: string; quote?: ReplyQuote; image?: string; file?: string; replyId?: string; at?: ReplyAt; nextRow?: boolean }
+  // 書き足した画像を、同じメモの新しい一番上のカードにする（段 D7）。image は shots の id。text は箱の問い（空でもよい）。
+  //   fromReply：元のカード。一番上なら関連「補足」を 1 本。無ければセルの顔から（線は付けない）。画像の data URL は渡さない
+  | { command: 'addAnnotatedCard'; id: string; image: string; text: string; fromReply?: string }
   | { command: 'changeReplyTags'; id: string; replyId: string; add: string[]; remove: string[] } // 下の区画のカードのタグを足す・外す（一番上のカードだけ。足し引きの差分。左が断ることもある。依頼② T1。画面は T2）
   // 下の区画のカードの関連を足す・外す（replyId が元の一番上のカード。差分。外すのは同じ相手・同じ種類だけ。同じ相手に別の種類を足すと置き換え。
   //   左が断ることもある：台帳を読めていない・相手が一番上のカードに無い・逆向きの「同じ」がある・10 本を超える。計画 docs/plan-memo-card-links.md の L1）
@@ -439,6 +479,7 @@ export type RelayCommand =
   | { command: 'setMemoLinkNames'; id: string; names: Partial<Record<import('./memo-card-links').LinkKind, string>> | null } // 試し：このメモだけの関連の種類の名前（セットを選んでいないときに使う）
   | { command: 'setMemoLinkSet'; id: string; setId: string | null } // 試し：このメモが使う呼称セット。null で外す（ほかのメモは変えない）
   | { command: 'clearMemoLinkSet'; setId: string } // 試し：呼称セットを消したとき、その id を使っていたメモ全部から外す
+  | { command: 'noteLinkNameSetIds'; ids: string[] } // 試し：下の区画が、呼称セットの台帳にある id を知らせる（左は link-name-sets.json を書かない。新しいメモに、消えた id を付けないため）
   | { command: 'placeReply'; id: string; replyId: string; slot: number } // 試し：一番上のカードを空いた番地（行 × 3 ＋ 列）へ（断った・変わらなかったときも写しを送り直す）
   | { command: 'packReplies'; id: string } // 試し：カードの空きを詰める（並べた順のまま）
   | { command: 'resetReplyOrder'; id: string } // 下の区画のカードの並べた順を消す（作った順に戻す。断った・変わらなかったときも写しを送り直す）
@@ -448,7 +489,7 @@ export type RelayCommand =
   // 下の区画でこのメモを開く（M5 の一覧）。replyId：下の区画でそのカードへ移る　from：右の検索から（書きかけがあれば、左が別のメモを開かずに知らせる。S1b）
   | { command: 'openMemoPane'; id: string; replyId?: string; from?: 'search' }
   | { command: 'searchMemos'; seq: number; query: string; sort: SearchSort; limit: number } // 右の「検索」の区画：メモとコメントを探して（左が台帳を読むだけで探し、searchResults で返す）
-  | { command: 'newMemoForPane' } // 新しいメモを作って、下で開く（M5）
+  | { command: 'newMemoForPane' } // 新しいメモを作って、下で開く（M5）。呼称セットは、直前に開いていたメモのもの（左が付ける）
   | { command: 'setBoardMemo'; id: string | null } // ボードが見るメモを、下の区画とは別に選ぶ（null で外す＝下と同じ）。左が memoBoardView で写しを送る。選べない（無い・特別なセル）ときは断る（plan-board-memo-switch の M1。画面からはまだ送らない）
   // 下の区画のカードを、別のメモへ移す・写す（to が null なら新しいメモを作って入れる。左が一度に確かめて、台帳へは 1 回だけ書く）
   | { command: 'sendReplies'; from: string; replyIds: string[]; to: string | null; mode: 'move' | 'copy'; template?: CardTemplate; ids?: string[] } // template があるときは型を貼る（from は空・replyIds は空・to は貼り先のメモ・mode は copy）。ids（B3-2a。型を貼るときだけ）：貼る新しいカードの id を呼び出し側が決める（型のカードと同じ順・同じ数・30 枚まで・[A-Za-z0-9_-]{1,64}・指定の中でも台帳にも重ならない）。使えなければ全体を断る。省略すると左が決める（今までどおり）
@@ -491,6 +532,26 @@ export type RelayPayload =
   | { kind: 'reminder'; reminder: Reminder; late: boolean } // 時間になった（late = 起動していない間に過ぎていた）
   | { kind: 'remindersFired'; items: FiredReminder[]; failed?: boolean } // 鳴ったものの記録の写し（K3。failed：記録を読めなかった）
   | { kind: 'readerOpen'; tabId: number; url: string; title: string } // 読む画面に、このタブを読んでもらう
+  // 六角で見るのマスとカードの線（docs/plan-reader-video.md §6。形は段 V0、使うのは V2a・V2b・V4）
+  //   readerCardDone（左 → 読む画面）：readerCard・readerLink の返事（断ったら読む画面は書きかけを下書きに戻す。D18）
+  | { kind: 'readerCardDone'; seq: number; ok: boolean; replyId: string; memoId?: string; reason?: ReaderRefusal }
+  //   readerLinks（左 → 読む画面）：結んだカードの写し（読む画面が動画を開いている間、カードが変わったら押す。保存しない。D16）
+  | { kind: 'readerLinks'; view: ReaderLinksView | null }
+  //   readerSeek（左 → 読む画面）：その時刻へ移って再生する（カードの「▶ 時刻」。読む画面がその動画を開いているときだけ）
+  | { kind: 'readerSeek'; video: string; start: number }
+  //   落ちてもよい一時の連絡（下の区画の面は開くまで無い。数と区間は readerLinks に頼る。D16）
+  //   readerGlow（左・下の区画 → 読む画面）：カードの「マスで見る」（null で消す。光らせるのは左の openReaderAt の glow から、消すのは下の区画から直に。V2b）
+  //   readerNow（読む画面 → 下の区画）：今のマスと、そのマスと結んだカード（変わったときだけ。null：読む画面が動画を開いていない）
+  //   readerChapters（読む画面 → 下の区画）：チャプターの一覧（時刻順の仕切り）
+  //   readerPing（下の区画 → 読む画面）：今のマスとチャプターを送り直して（下の区画が動き出したとき。読む画面が無ければ落ちる）
+  | { kind: 'readerGlow'; memoId: string; replyId: string | null }
+  | { kind: 'readerNow'; now: ReaderNow | null }
+  | { kind: 'readerChapters'; video: string; chapters: { start: number; title: string }[] }
+  | { kind: 'readerPing' }
+  //   readerTalk（左 → 右）：やり取りの型の材料（右は parseTalk で確かめてから始める。V5）
+  | { kind: 'readerTalk'; talk: TalkMaterial }
+  //   readerExportDone（左 → 読む画面）：readerExport の返事（時刻の順。cards が null なら台帳をまだ読めていない。読む画面は parseExportCards で確かめる。V6e）
+  | { kind: 'readerExportDone'; seq: number; cards: ExportCard[] | null }
   // 読む画面で、六角形スクショを撮ってもらう（tabImage：タブの画像にする　linkCover：表紙にして、リンクをセルに追加する）
   | { kind: 'shotStart'; image: string; title: string; purpose?: 'tabImage' | 'linkCover' }
   // 読む画面の重ね窓に、依頼の小窓を開いてもらう（S3.11。ページの右クリック・Ctrl+Shift+G・メモのセルの「🔍 Grok に調べてもらう」）
@@ -516,15 +577,16 @@ export type RelayPayload =
       // クリップボードの画像の候補（依頼の小窓 v2・R7a・D15）：左が開くときに読んだ画像（長い辺 1600px の JPEG の data URL。Base64 90 万字まで）。
       //   小窓は印を外した状態のカードで出し、付けたときだけ写しを取って 2 回貼りで送る。六角スクショ（shot）・渡し止めのときは無い
       candidate?: { image: string };
-      // 定型（依頼の小窓 v2・R4a。presets.json の組・手元・棚の写し。左が読み終えるまでは無い）と、開いた入口（page・memo・shot。はじめの組を決める）
+      // 定型（依頼の小窓 v2・R4a。presets.json の組・手元・棚の写し。左が読み終えるまでは無い）と、開いた入口（page・memo・shot・nest・cells・cards。はじめの組を決める）
       presets?: BotPresets;
-      entry?: Exclude<BotPresetEntry, 'nest' | 'follow'>;
+      entry?: Exclude<BotPresetEntry, 'follow'>;
       // 前回送った依頼の選び方（R6。last-request.json の写し。無ければ無し）と、Ctrl+Shift+G を素早く 2 回押した（開いたらすぐ「前と同じで」を当てる）
       lastRequest?: BotLastRequest;
       same?: boolean;
       // 「続きとして」の選び口（R5。受け取り箱の一覧の写しの、確かめが通った返事 5 件。文は入れない）
       replies?: BotRecentReply[];
       hook?: boolean; // webhook「そのまま送る」の宛先と鍵があるか（R11。「ある／ない」だけ。値は持たない）
+      materials?: MaterialSet; // 材料（段 D2）。小窓の材料欄に出す。無いときは今までと同じ小窓
     }
   // 相棒に、この部分について聞く（from：六角で読む画面から・メモのセルから。image：見せる画像の data URL）
   | { kind: 'askCompanion'; text: string; title: string; url: string; from?: 'reader' | 'memo' | 'shot'; image?: string }
@@ -605,10 +667,6 @@ export type RelayPayload =
   | { kind: 'botHookResult'; ticket: string; botId: string; ok: boolean; requestId?: string; no?: string; message?: string; fallback?: boolean }
   // 盤面のボットのセルのカードの「やり取りを見る」：右のボットの欄でこのボットを開く
   | { kind: 'botOpen'; botId: string }
-  // 段階16。この島を頼む：入れるメモの一覧（全文はまだ渡さない）。more は一度に出せなかった件数
-  | { kind: 'islandAskPick'; islandId: string; name: string; memos: { id: string; title: string }[]; more: number }
-  // 選んだメモの文。依頼の小窓に入れるだけ（コピーもアプリも開かない）
-  | { kind: 'islandAsk'; text: string }
   // ボットのことで、右に出してほしい短い知らせ（依頼をコピーした・アプリを開いた・メモにした など。文は左が決めたものだけ）
   //   bubble：相棒の吹き出しで知らせる（頼んだ依頼への返事が届いたときだけ。決まった文。そのボットのやり取りが見えていれば出さない）
   //   notice：absent＝不在票（R8。ブラウザを閉じている間に届いた返事の数。受け取り箱の上に 1 枚。botId は空のことがある）
@@ -618,7 +676,9 @@ export type RelayPayload =
   | { kind: 'memoPane'; view: MemoPaneView | null } // 下のメモの区画へ、開いているメモの写し（閉じていれば null）
   // ボードが見るメモの写し（下の区画の memoPane とは別。setBoardMemo で選んだメモ。選んでいる間だけ送り、外した・消えたときは null を一度だけ送る。M1：送るだけ・受け口は M2）
   | { kind: 'memoBoardView'; view: MemoPaneView | null }
-  | { kind: 'memoPaneNotice'; text: string; openMemo?: string; undoSend?: string; memo?: string } // 下の区画に出してほしい短いお知らせ（openMemo・undoSend は、送ったあとの「送り先を開く」「元に戻す」）
+  | { kind: 'memoPaneNotice'; text: string; openMemo?: string; undoSend?: string; memo?: string; dropShot?: string } // 下の区画に出してほしい短いお知らせ（openMemo・undoSend は、送ったあとの「送り先を開く」「元に戻す」。dropShot は、断った書き足しの画像 id。区画が自分で書いたファイルだけ消す）
+  // 段 D7：メモのセルの顔の画像を書き足す。左はメモの id だけを渡す（画像の中身は渡さない）。下の区画が shots を読んで面を開く
+  | { kind: 'annotateMemoImage'; id: string }
   // 下の区画のカードから、右のタグのボタン（セット）を変えてと頼む・右が変えたあとの台帳を返す
   | { kind: 'tagButtonsOp'; op: TagButtonsOp; seq: number }
   | { kind: 'tagButtonsDone'; seq: number; book: TagButtonBook }
@@ -632,7 +692,7 @@ export type RelayPayload =
       bots: { id: string; name: string }[];
       dock: string[];
       refused: boolean;
-      requests?: { requestId: string; botId: string; state: string; createdAt: number; no: string; group?: number; fileId?: string }[];
+      requests?: { requestId: string; botId: string; state: string; createdAt: number; no: string; group?: number; fileId?: string; origin?: BotCardOrigin[] }[];
       groups?: { group: number; states: string[] }[];
       requestsReady?: boolean;
     }

@@ -1,5 +1,7 @@
+import { BOT_FEATURES } from '../features';
 // 下の区画の「メモ｜Grok Cards」（段 3・4）
 //   段 "3" は常にオン（旗は廃止）なので、この「無いとき」の道は今は通らない。旗 "3" が無いときは、札も列も足さない。メモの升目・ドラッグ・詰めは、このタブを出していないあいだ今までどおり
+import type { BotCardOrigin } from '../bot-replies';
 import { cardsStageOn, onCardsStore, readCardsDevState, readCardsPlace, readColumnPrefs, readQueue, shownCountLine, writeCardsOpen, writeCardsPlace, writeColumnPrefs } from '../cards-stages';
 import { columnKey, orderColumns, withAddedColumn } from '../grok-cards-columns';
 import { cardArrivedLabel, requestArrivedLabel } from '../grok-cards-arrived';
@@ -23,6 +25,7 @@ export interface GrokRequestSnap {
   no: string;
   group?: number;
   fileId?: string;
+  origin?: BotCardOrigin[];
 }
 
 export interface GrokCardsData {
@@ -621,7 +624,15 @@ class GrokCardsView {
       this.render();
       this.root.querySelector<HTMLTextAreaElement>(`[data-key="compose:${CSS.escape(address)}"]`)?.focus();
     });
-    col.append(head, add);
+    const write = el('button', 'grok-cards-add', '小窓で書く');
+    write.type = 'button';
+    if (!BOT_FEATURES) write.style.display = 'none'; // 公開版（rebuild-public.ps1）
+    write.addEventListener('click', () => {
+      this.o.ask({ command: 'askWithCards', to: address === 'all' ? '*all' : address });
+    });
+    const tools = el('div', 'grok-cards-col-tools');
+    tools.append(add, write);
+    col.append(head, tools);
     if (cardsStageOn('4') && this.composeOpen.has(address)) col.append(this.composer(address));
     const cards = this.data.cards.filter((card) => {
       const parsed = parseAddress(card.tags);
@@ -751,6 +762,17 @@ class GrokCardsView {
     if (kind === 'replied' && request?.fileId) {
       box.append(this.btn('回答を開く', () => this.o.ask({ command: 'showGrokReply', id: card.id })));
       box.append(this.btn('メモにする', () => this.o.ask({ command: 'botToMemo', botId: request.botId, fileId: request.fileId as string, to: 'right' })));
+      // 段 D6：出どころがある返事だけ。押すまで台帳は変わらない
+      const origins = request.origin ?? [];
+      origins.forEach((_, i) => {
+        box.append(
+          this.btn(
+            origins.length === 1 ? 'カードにする' : `カードにする（${i + 1}）`,
+            () => this.o.ask({ command: 'botToCard', botId: request.botId, fileId: request.fileId as string, origin: i }),
+            '押すまで台帳は変わりません。新しい一番上のカードを足し、元のカードから関連「補足」を 1 本引きます',
+          ),
+        );
+      });
       return;
     }
     if (kind === 'error') {
@@ -763,9 +785,10 @@ class GrokCardsView {
     }
   }
 
-  private btn(label: string, run: () => void): HTMLButtonElement {
+  private btn(label: string, run: () => void, title?: string): HTMLButtonElement {
     const button = el('button', 'grok-card-open', label);
     button.type = 'button';
+    if (title) button.title = title;
     button.addEventListener('click', run);
     return button;
   }

@@ -1,3 +1,4 @@
+import { BOT_FEATURES } from '../features';
 // 「ボード」タブの面（B1-4 読むだけ、B2-1 カードを動かして保存、B2-2 選ぶ・まとめて動かす・見ている位置の保存）
 //   カードは DOM、線は SVG（ズームでぼけない）。位置は memo-card-board.ts の layoutCards（保存したものがあればそれ、なければ仮の升目）
 //   B2-1：カードを左ボタンのドラッグで動かし、離したときに saveBoard で保存する（動かしたカードだけが入る。ほかは仮の位置のまま）。つまんでいる間は影つきで浮かせ、線は追従する
@@ -18,7 +19,7 @@ import { CellMenu, type MenuEntry } from '../panels/cell-menu';
 import { tagArea } from '../panels/tag-pad';
 import { MAX_TAGS_PER_TAB, registeredTagNames } from '../tags';
 import type { RelayCommand } from '../types';
-import { addBlockedNote, addCommand, cardAppeared, cardsGone, cardTextIs, deleteCommands, editCheck, editCommand, kindChoices, linkAddPlan, linkIs, linkRemoveCommand, liveSelection, makeReplyId, relationsOf, type Relation, spotForNewCard, tagCommands, tagFullCount, templateBlockedNote, templateOffsets, toolState, unionTags } from '../memo-card-board-edit';
+import { addBlockedNote, addCommand, cardAppeared, cardsGone, cardTextIs, deleteCommands, editCheck, editCommand, kindChoices, linkAddPlan, linkIs, linkRemoveCommand, liveSelection, makeReplyId, relationsOf, type Relation, spotBeside, spotForNewCard, tagCommands, tagFullCount, templateBlockedNote, templateOffsets, toolState, unionTags } from '../memo-card-board-edit';
 import { readDataChecked } from '../data';
 import { pasteDoneText, pastedAppeared, planBoardPaste, planRepaste, pasteToolNote } from '../memo-card-board-paste';
 import { addUndoCommand, linkKindOf, linkSetCommand, linkStateIs, moveTargets, newUndoToken, pasteUndoCommand, REDO_STALE_NOTE, restoreCommand, restoreMoves, UNDO_STALE_NOTE, undoBlockedNote, undoButtons, undoDoneText, UndoStack, type UndoDir, type UndoOp } from '../memo-card-board-undo';
@@ -96,6 +97,9 @@ const STATUS_MS = 8000;
 const WATCH_MS = 3000; // 送った命令の結果が左の写しに現れるのを待つ長さ
 const KNOWN_MAX = 30; // 読んだ・保存したボードの写しを覚えておく数（メモを替えた直後に、前のメモの見ている位置を保存するため）
 
+
+// ←↑→↓ で見ている場所を動かす量（画面の画素。→ で右の方が見える＝面は左へ）
+const BOARD_ARROW_PAN: Record<string, [number, number]> = { ArrowLeft: [60, 0], ArrowRight: [-60, 0], ArrowUp: [0, 60], ArrowDown: [0, -60] };
 export class MemoBoardPanel {
   readonly root = el('div', 'memo-board');
   private readonly btn = el('button', 'memo-board-expand', expandLabel(false));
@@ -149,6 +153,7 @@ export class MemoBoardPanel {
   private readonly linkAddBtn = el('button', 'memo-board-tool', '線を足す');
   private readonly linkRemoveBtn = el('button', 'memo-board-tool', '線を外す…');
   private readonly templateBtn = el('button', 'memo-board-tool', '型にする…');
+  private readonly askBtn = el('button', 'memo-board-tool', 'Grok に頼む');
   private readonly pasteBtn = el('button', 'memo-board-tool', '型を貼る ▾');
   private readonly undoBtn = el('button', 'memo-board-tool', '元に戻す');
   private readonly redoBtn = el('button', 'memo-board-tool', 'やり直す');
@@ -800,6 +805,22 @@ export class MemoBoardPanel {
         this.removeSelected();
         return;
       }
+      // ←↑→↓＝見ている場所を動かす（書く欄・ボタンにフォーカスがあるとき・小窓が開いているとき・つまんでいる最中は効かない）
+      if (BOARD_ARROW_PAN[e.key] && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && !e.isComposing && !inField && !modal && !this.drag && !this.marquee) {
+        e.preventDefault();
+        const [dx, dy] = BOARD_ARROW_PAN[e.key];
+        this.view = panBy(this.view, dx, dy);
+        this.applyView();
+        this.touchView();
+        return;
+      }
+      // Enter＝カードを足す（［＋足す］を押したのと同じ。書く欄・ボタンにフォーカスがあるとき・小窓が開いているとき・つまんでいる最中・足せないときは効かない）
+      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && !e.isComposing && !e.repeat && !inField && !modal && !this.drag && !this.marquee) {
+        if (this.tools.hidden || this.addBtn.disabled) return;
+        e.preventDefault(); // 開いた書く欄に、この Enter の改行が入らないように
+        this.addBtn.click();
+        return;
+      }
       if (e.code !== 'Space' || e.repeat || inField) return;
       this.space = true;
       this.stage.classList.add('is-space');
@@ -1106,6 +1127,12 @@ export class MemoBoardPanel {
     this.cmds?.ask(action);
   }
 
+  // 段 D4。選んだカードを材料に、依頼の小窓を開く（直接つながるカードは印を外して足す）。台帳は書かない
+  private askSelected() {
+    if (!this.memoId || this.selected.size === 0) return;
+    this.ask({ command: 'askWithCards', memo: this.memoId, replies: [...this.selected], linked: 'one' });
+  }
+
   private buildTools() {
     const buttons: [HTMLButtonElement, () => void][] = [
       [this.undoBtn, () => this.runUndo('undo')],
@@ -1116,6 +1143,7 @@ export class MemoBoardPanel {
       [this.linkAddBtn, () => this.startLink()],
       [this.linkRemoveBtn, () => this.openRemoveLinks()],
       [this.templateBtn, () => this.openTemplate()],
+      [this.askBtn, () => this.askSelected()],
       [this.pasteBtn, () => void this.openPasteMenu()],
       [this.tidyBtn, () => this.openTidy()],
     ];
@@ -1138,7 +1166,7 @@ export class MemoBoardPanel {
     cancel.type = 'button';
     cancel.addEventListener('click', () => this.closeCompose());
     const actions = el('div', 'memo-board-compose-actions');
-    actions.append(ok, cancel, el('span', 'memo-board-compose-hint', 'Ctrl+Enter でも決められます'));
+    actions.append(ok, cancel, el('span', 'memo-board-compose-hint', 'Ctrl+Enter でも決められます（足すときは Ctrl+Enter で選んだカードの右・Shift+Enter で下に）'));
     this.compose.append(this.composeLabel, this.composeText, actions);
     this.compose.hidden = true;
     this.compose.addEventListener('submit', (e) => {
@@ -1153,7 +1181,11 @@ export class MemoBoardPanel {
         this.closeCompose();
       } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        this.submitCompose();
+        if (this.composing?.kind === 'add') this.submitAdd(this.composeText.value, 'right'); // 足すとき：選んだカードの右へ
+        else this.submitCompose();
+      } else if (e.key === 'Enter' && e.shiftKey && !e.altKey && this.composing?.kind === 'add') {
+        e.preventDefault(); // 足すとき：選んだカードの下へ（書き直すときの Shift+Enter は今までどおり改行）
+        this.submitAdd(this.composeText.value, 'down');
       }
     });
 
@@ -1264,6 +1296,11 @@ export class MemoBoardPanel {
     set(this.linkAddBtn, st.linkAdd);
     set(this.linkRemoveBtn, st.linkRemove);
     set(this.templateBtn, st.template);
+    const askNote = this.selected.size === 0 ? '先にカードを選んでください' : '選んだカードを材料にして、依頼の小窓を開きます（直接つながるカードは印を外して足します）';
+    this.askBtn.disabled = this.selected.size === 0;
+    if (!BOT_FEATURES) this.askBtn.style.display = 'none'; // 公開版（rebuild-public.ps1）
+    this.askBtn.title = askNote;
+    this.askBtn.setAttribute('aria-label', `Grok に頼む。${askNote}`);
     set(this.pasteBtn, st.paste);
     this.pasteBtn.setAttribute('aria-haspopup', 'menu');
     const ub = undoButtons({ undo: this.undo.peekUndo(), redo: this.undo.peekRedo(), busy: this.undoBusy, load: this.loaded });
@@ -1336,7 +1373,7 @@ export class MemoBoardPanel {
     }
     this.cancelLink();
     this.composing = mode;
-    this.composeLabel.textContent = mode.kind === 'add' ? '新しいカードの文（見ている場所の真ん中に足します）' : 'カードの文を書き直す';
+    this.composeLabel.textContent = mode.kind === 'add' ? '新しいカードの文（見ている場所の真ん中に足します。Ctrl+Enter で選んだカードの右・Shift+Enter で下に）' : 'カードの文を書き直す';
     this.composeText.value = text;
     this.compose.hidden = false;
     this.composeText.focus();
@@ -1357,7 +1394,8 @@ export class MemoBoardPanel {
   }
 
   // カードを足す：id を先に決めて命令に入れる（B2-3a）。左の写しにそのカードが現れてから、座標を保存する（断られたら何も書かない）
-  private submitAdd(text: string) {
+  // dir：Ctrl+Enter は右・Shift+Enter は下。選んだカードが 1 枚のときだけその横へ（ないとき・空きがないときは、今までどおり真ん中）
+  private submitAdd(text: string, dir?: 'right' | 'down') {
     const snap = this.source?.get() ?? null;
     const memoId = this.memoId;
     if (!snap || !memoId || snap.memoId !== memoId) return;
@@ -1372,7 +1410,10 @@ export class MemoBoardPanel {
       this.flash(id ? '文が空です' : 'カードの id を決められませんでした。もう一度お試しください', 'warn');
       return;
     }
-    const spot = spotForNewCard(this.view, this.viewport(), [...this.pos.values()]);
+    const anchorId = dir && this.selected.size === 1 ? [...this.selected][0] : undefined;
+    const anchor = anchorId !== undefined ? this.pos.get(anchorId) : undefined;
+    const taken = [...this.pos.values()];
+    const spot = (anchor && dir ? spotBeside(anchor, dir, taken) : null) ?? spotForNewCard(this.view, this.viewport(), taken);
     if (!spot) {
       this.flash('置ける空きが見つかりませんでした（見ている場所を動かしてからお試しください）', 'warn');
       return;

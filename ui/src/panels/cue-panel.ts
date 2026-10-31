@@ -24,7 +24,7 @@ import {
   rollCueDay,
   saveCueSettings,
 } from '../cues';
-import { addSingleDraft, newDraftId, type BotDraft } from '../drafts';
+import { addSingleDraft, flagsOf, newDraftId, type BotDraft } from '../drafts';
 import type { PageText } from '../bridge';
 import { el } from '../util';
 
@@ -294,7 +294,7 @@ export class CuePanel {
       ...(target.roleName ? { roleName: target.roleName } : {}),
       next: true,
       chatOnly: false,
-      attach: { title: !!card.title, url: !!card.url, selection: !!selection, body: false, image: false },
+      attach: flagsOf({ url: card.url, title: card.title, ...(selection ? { selection } : {}) }),
       req: draftFromForm(target.id, text, { url: card.url, title: card.title, ...(selection ? { selection } : {}) }, { role: target.role ?? null }),
     };
     await addSingleDraft(draft);

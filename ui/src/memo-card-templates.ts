@@ -152,6 +152,7 @@ export interface TemplateReport {
     images: number;
     quotes: number;
     machineTags: number; // 宛て:・送った:・貼った:
+    spans?: number; // 結んだ区間（六角で見るの線）のあるカード。1 枚以上のときだけ付く（plan-reader-video の S8）
   };
   holes?: number; // 穴あきのときだけ：空欄の数
 }
@@ -188,6 +189,7 @@ export function buildTemplateFromCards(
   const offsets = input.offsets && sending.every((r) => input.offsets?.[r.id] !== undefined) ? input.offsets : null;
 
   const skipped = { children: 0, images: 0, quotes: 0, machineTags: 0 };
+  let spanCards = 0; // 結んだ区間（at）のあるカード（型のカードには入れない。report の skipped.spans に 1 以上のときだけ出す）
   const cards: TemplateCard[] = [];
   for (const [i, reply] of sending.entries()) {
     const text = cleanReplyText(reply.text.trim() ? reply.text : cardLabel(reply, 80));
@@ -197,6 +199,7 @@ export function buildTemplateFromCards(
     skipped.machineTags += rawTags.filter((t) => isMachineTag(normalizeTag(t))).length;
     if (reply.image) skipped.images += 1;
     if (reply.quote) skipped.quotes += 1;
+    if (reply.at) spanCards += 1;
     skipped.children += descendantsOf(replies, reply.id).length;
     cards.push({
       key: `k${i}`,
@@ -233,7 +236,7 @@ export function buildTemplateFromCards(
   return {
     ok: true,
     template,
-    report: { cards: cards.length, links: links.length, cutLinks: linkTravel(replies, wanted).cut, skipped, ...(mode === 'hole' ? { holes: extractHoles(template).length } : {}) },
+    report: { cards: cards.length, links: links.length, cutLinks: linkTravel(replies, wanted).cut, skipped: spanCards > 0 ? { ...skipped, spans: spanCards } : skipped, ...(mode === 'hole' ? { holes: extractHoles(template).length } : {}) },
   };
 }
 

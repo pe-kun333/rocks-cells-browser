@@ -99,6 +99,8 @@ export type HostMessage =
   //   captureWindow / captureDesktop / captureRegion（C5）：窓全体・この画面のデスクトップ・範囲
   //   captureImage（依頼① I1）：ページの画像の上の右クリック「🖼 画像を撮影に送る」。url は画像の URL（http・https で 8,192 字以下のときだけ。ほかは空）、text は空
   | { type: 'linkMenu'; action: 'background' | 'shotCover' | 'askGrok' | 'memoQuote' | 'captureCenter' | 'captureWindow' | 'captureDesktop' | 'captureRegion' | 'captureRecord' | 'captureImage' | 'vocabCard'; id: number; url: string; text: string }
+  // 開発用（C++ は送らない）。左の偽物 __mockAskMaterials が、材料つきで依頼の小窓を開く
+  | { type: 'mockAskMaterials'; items: unknown }
   // ページの Alt+クリック「単語帳へ」。front は単語、example は前後の文。URL はタブの台帳を使う（ページの申告は使わない）
   | { type: 'vocabPick'; id: number; front: string; example: string }
   | ({ type: 'pageText' } & PageText)
@@ -371,6 +373,9 @@ declare global {
     //   text に選んだ文を渡すと右クリックの「🔍 Grok に調べてもらう」、空なら Ctrl+Shift+G。url はページの URL（http・https 以外は空にして渡す）。
     //   依頼の小窓は読む画面（/?surface=reader を同じブラウザの別のタブで開いておく）に出る
     __mockAskGrok?: (text?: string, url?: string) => void;
+    // npm run dev の偽物だけ（左）：材料つきで依頼の小窓を開く（段 D2）。items は makeMaterial に渡す形。
+    //   読む画面（/?surface=reader を同じブラウザの別のタブで開いておく）に出る
+    __mockAskMaterials?: (items?: unknown[]) => void;
     // npm run dev の偽物だけ（左）：ページの右クリック「単語帳のカードにする」の代わり
     __mockVocabCard?: (text?: string, url?: string) => void;
     // npm run dev の偽物だけ：この面の仮のクリップボードの中身（S3.12 の確かめ用。image は画像が入っているか）。
@@ -393,6 +398,11 @@ declare global {
     __mockCaptureImage?: (opts?: { rect?: { x: number; y: number; width: number; height: number }; reason?: string; url?: string; src?: string }) => void;
     // npm run dev の偽物だけ：この面に、別の面から届いたふりでリレーを渡す（Grok Cards の見本）
     __mockRelay?: (payload: RelayPayload) => void;
+    // npm run dev の偽物だけ（読む画面）：偽物の動画の今の様子（V1m）。読む画面で __mockRelay({ kind: 'readerOpen', tabId: 1, url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', title: '偽物の動画' }) を呼ぶと区間セルが並ぶ
+    __mockVideo?: () => { id: string; title: string; duration: number; time: number; paused: boolean; rate: number; at: number };
+    // npm run dev の偽物だけ（読む画面）：偽物の動画の字幕の本数を替える（5 秒ずつ。動画の長さも合わせる。900 マスで切れる形の確かめ用。V6d）。
+    //   替えたあと「字幕を読み直す」か readerOpen を流し直す
+    __mockVideoSegments?: (n: number) => void;
     // npm run dev の偽物だけ（左）：C++ の代わりに appActive を届ける（R8 の確かめ用。false＝アプリへ移った・true＝戻った）。
     //   届けなければ、偽物ではアプリへ移らなかった扱い（「貼りましたか？」は送ってから askPastedSec 秒あと）
     __mockAppActive?: (active: boolean) => void;
@@ -469,6 +479,55 @@ function createMockHost(emit: (msg: HostMessage) => void) {
     const from: Side = surface === 'left' ? 'right' : 'left';
     emit({ type: 'relayed', from, payload });
   };
+  // 偽物の動画（V1m。npm run dev だけ。読む画面の区間セルの確かめ用）。時間は、見ている（止まっていない）あいだだけ進む
+  const mockVideo = { id: 'dQw4w9WgXcQ', title: '偽物の動画：漫才の練習', duration: 240, time: 0, paused: true, rate: 1, at: 0 };
+  // 今の再生位置。止まっていなければ、前に見たときからの経過 × 速さだけ進める。duration で止める
+  const mockVideoTime = (): number => {
+    const now = Date.now();
+    if (!mockVideo.paused) mockVideo.time += ((now - mockVideo.at) / 1000) * mockVideo.rate;
+    mockVideo.at = now;
+    if (mockVideo.time >= mockVideo.duration) {
+      mockVideo.time = mockVideo.duration;
+      mockVideo.paused = true;
+    }
+    return mockVideo.time;
+  };
+  // 偽物の字幕の文（12 本。掛け合いらしい短い文。同じ文が 4 回ずつ出る）
+  const SAMPLE = [
+    'どうもー、よろしくお願いしますー。今日もいいネタ持ってきました',
+    'いやいや、それはおかしいやろ。なんで急に話が変わるねん',
+    'ちょっと待って、今の言い方はひどくないですか',
+    '夏休みの宿題、もう全部終わらせたんですよ、ほんまに',
+    '嘘つけ、昨日の夜ずっとゲームしてたの知ってるで',
+    'お前が言うたんやろ、時間どおりに来いって',
+    'ほな、次はあなたの番ですよ、遠慮せんと早よどうぞ',
+    'そんなん誰が信じるねん、ちゃんと証拠出してや',
+    '証拠ならここにあります、写真も動画もばっちり',
+    'もうええわ、二人ともちょっと落ち着いて話しましょか',
+    '落ち着いてますよ、冷静すぎて逆にこわいくらい',
+    'ありがとうございましたー、また来週もよろしくー',
+  ];
+  // 偽物の字幕：48 本・5 秒ずつ、チャプターは 3 つ（台本の返事の形は読む画面の transcript と同じ）。本数は __mockVideoSegments で替えられる
+  let mockSegments = 48;
+  window.__mockVideoSegments = (n) => {
+    mockSegments = Math.max(1, Math.min(20_000, Math.floor(n)));
+    mockVideo.duration = mockSegments * 5;
+    mockVideo.time = Math.min(mockVideo.time, mockVideo.duration);
+  };
+  const mockTranscript = () => ({
+    videoId: mockVideo.id,
+    title: mockVideo.title,
+    duration: mockVideo.duration,
+    chapters: [
+      { start: 0, title: 'つかみ' },
+      { start: 80, title: '本ネタ' },
+      { start: 180, title: 'オチ' },
+    ],
+    segments: Array.from({ length: mockSegments }, (_, i) => ({ start: i * 5, end: i * 5 + 5, text: SAMPLE[i % SAMPLE.length] })),
+    source: 'panel' as const,
+  });
+  // 今の偽物の動画の様子（確かめ用。window.__mockVideo() で見る）
+  window.__mockVideo = () => ({ ...mockVideo, time: mockVideoTime() });
   // 盤面の「画像を貼る」用。localStorage の data URL があればそれ、無ければ画像を入れたふりの小さな JPEG。fetch は使わない
   const mockClipboardPicture = (): string | null => {
     const seeded = localStorage.getItem('honeycomb.mockClipboardImageData');
@@ -577,6 +636,9 @@ function createMockHost(emit: (msg: HostMessage) => void) {
       // C++ と同じく、http・https 以外の URL と 4,000 字を超えた分は送らない
       const pageUrl = /^https?:\/\//i.test(url) ? url : '';
       emit({ type: 'linkMenu', action: 'askGrok', id: activeTab, url: pageUrl, text: [...String(text)].slice(0, 4000).join('') });
+    };
+    window.__mockAskMaterials = (items = []) => {
+      emit({ type: 'mockAskMaterials', items });
     };
     window.__mockVocabCard = (text = 'ドーパミン', url = 'https://example.com/guide') => {
       emit({ type: 'linkMenu', action: 'vocabCard', id: activeTab, url, text });
@@ -774,6 +836,46 @@ function createMockHost(emit: (msg: HostMessage) => void) {
             value = { ok: false, reason: 'none' };
           }
           reply({ type: 'evalResult', requestId: msg.requestId, ok: true, value });
+          break;
+        }
+        // 偽物の動画（V1m）：台本の中の決まった文字列で見分け、上から順に最初に合ったものを返す（字幕・再生の様子・移る・再生と停止・速さ）
+        const script = typeof msg.script === 'string' ? msg.script : '';
+        if (script.includes('transcript-segment-view-model')) {
+          reply({ type: 'evalResult', requestId: msg.requestId, ok: true, value: mockTranscript() });
+          break;
+        }
+        if (script.includes('ad-showing')) {
+          const value = { videoId: mockVideo.id, hasMedia: true, time: mockVideoTime(), paused: mockVideo.paused, duration: mockVideo.duration, ad: false };
+          reply({ type: 'evalResult', requestId: msg.requestId, ok: true, value });
+          break;
+        }
+        if (script.includes('seekTo(')) {
+          // 移る：seekTo(秒, true) の秒と、その後の if (true|false)（再生もするか）を読む
+          const to = /seekTo\(([\d.]+), true\)/.exec(script);
+          const play = /if \((true|false)\)/.exec(script);
+          mockVideoTime();
+          const sec = to ? Number(to[1]) : NaN;
+          if (Number.isFinite(sec)) mockVideo.time = Math.min(Math.max(sec, 0), mockVideo.duration);
+          if (play?.[1] === 'true') mockVideo.paused = false;
+          mockVideo.at = Date.now();
+          reply({ type: 'evalResult', requestId: msg.requestId, ok: true, value: true });
+          break;
+        }
+        if (script.includes('const play = v.paused')) {
+          // 再生と停止：今の状態を反対にし、再生を始めたら true、止めたら false
+          mockVideoTime();
+          mockVideo.paused = !mockVideo.paused;
+          mockVideo.at = Date.now();
+          reply({ type: 'evalResult', requestId: msg.requestId, ok: true, value: !mockVideo.paused });
+          break;
+        }
+        if (script.includes('const rate = ')) {
+          // 速さ：const rate = 数; を読み、位置を確定してから速さを入れ替える。返事はその数
+          const rate = /const rate = ([\d.]+);/.exec(script);
+          const next = rate ? Number(rate[1]) : NaN;
+          mockVideoTime();
+          if (Number.isFinite(next) && next > 0) mockVideo.rate = next;
+          reply({ type: 'evalResult', requestId: msg.requestId, ok: true, value: mockVideo.rate });
           break;
         }
         reply({ type: 'evalResult', requestId: msg.requestId, ok: false, error: 'noPage' });

@@ -4,7 +4,10 @@ import { BOT_FEATURES } from '../features';
 import { armConfirm } from '../confirm-arm';
 import { requestPageText } from '../ai/page';
 import { type HostMessage, onMessage, request, send } from '../bridge';
-import { readData, readDataChecked, writeData } from '../data';
+import { planAnnotatedCard } from '../annotate-card-plan';
+import { readImageHints } from '../bot-image-hints';
+import { deleteData, readData, readDataChecked, writeData } from '../data';
+import { BotImageEdit, cardImageEditLabels, type ImageEditResult } from '../panels/bot-image-edit';
 import { loadTagRegistry } from '../integrations/hexmemo';
 import { MAX_MEMO_TEXT, type MemoIndexItem, memoTitle } from '../memocells';
 import { cardFilterRow, cardTagCandidates, cardTagCounts, chainOrder, visibleTops } from '../memo-card-filter';
@@ -53,13 +56,35 @@ import {
 } from '../panels/thread-view';
 import { MAX_TAGS_PER_TAB, normalizeTag, registeredTagNames, tagColor } from '../tags';
 import type { MemoPaneView, RelayCommand } from '../types';
-import { CARD_COLUMNS, countUnder, createdTops, hasSlotGaps, MAX_REPLIES, MAX_REPLY_TEXT, orderedTops, parseQuote, pathTo, type PendingReply, quoteFragmentUrl, quoteSourceLabel, REPLY_FOLD, type Reply, type ReplyQuote, topSlots, withPlacedTop } from '../threads';
+import { parseAiCardText, secLabel } from '../reader-ai-card';
+import type { ReaderAiKind, ReaderNow, ReplyAt } from '../reader-links';
+import { timeOrder } from '../reader-time-order';
+import { addedCardPlaceText, CARD_COLUMNS, countUnder, createdTops, hasSlotGaps, MAX_REPLIES, MAX_REPLY_TEXT, nextRowAddPlan, orderedTops, parseQuote, pathTo, type PendingReply, quoteFragmentUrl, quoteSourceLabel, REPLY_FOLD, type Reply, type ReplyQuote, topSlots, withPlacedTop } from '../threads';
 import { el } from '../util';
 import { IMPORT_FILE_BYTES, IMPORT_FILE_LABEL } from '../import-limits';
 import { boardSnapshot, templateSource } from '../memo-board-source';
 import { boardMemoInfo, noticeTarget, skipLowerSentBar } from '../memo-board-pick';
 
 const SAVE_MS = 500;
+const ARROW_SCROLL_STEP = 60; // 書く欄が空のときの ↑↓ で、カードの区画を一度に流す量（px）
+const NEXT_ROW_KEY = 'honeycomb.memoNextRow'; // 「次の行に」（下の区画だけ。オンのあいだ、新しい一番上のカードを次の行の 1 列目へ）
+
+function readNextRow(): boolean {
+  try {
+    return localStorage.getItem(NEXT_ROW_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeNextRow(on: boolean) {
+  try {
+    localStorage.setItem(NEXT_ROW_KEY, on ? '1' : '0');
+  } catch {
+    // 覚えられなくても、今開いている区画では選んだまま
+  }
+}
+
 const FLASH_MS = 1600; // 右の検索から移ったカードを光らせる長さ
 const PENDING_ORDER_MS = 2000; // 頼んだ並べ替えを、写しが来ないまま見せておく長さ（plan-memo-card-order の O2）
 
@@ -121,7 +146,7 @@ export function startMemoPane() {
   });
   const newBtn = el('button', 'memo-pane-tool', '＋ 新しいメモ');
   newBtn.type = 'button';
-  newBtn.title = '表示中のタブの近くに、空のメモのセルを置いて、ここで開きます';
+  newBtn.title = '表示中のタブの近くに、空のメモのセルを置いて、ここで開きます。呼称セットは、いま開いているメモと同じにします';
   // 型を貼る ▾：保存してある型の一覧（docs/plan-card-templates.md の Phase 1c）。選ぶと、このメモの最後のカードの次に貼る
   const tplPasteWrap = el('span', 'memo-pane-menu-wrap');
   const tplPasteBtn = el('button', 'memo-pane-tool', '型を貼る ▾');
@@ -185,19 +210,29 @@ export function startMemoPane() {
   pickCopy.type = 'button';
   const pickNew = el('button', 'memo-pane-pickbar-btn', '新しいメモにする');
   pickNew.type = 'button';
+  pickNew.title = '選んだカードを、近くに作る空のメモへ移します。呼称セットは、このメモと同じにします';
   const pickTemplate = el('button', 'memo-pane-pickbar-btn', '型にする…');
   pickTemplate.type = 'button';
+  const pickAsk = el('button', 'memo-pane-pickbar-btn', 'Grok に頼む');
+  pickAsk.type = 'button';
+  if (!BOT_FEATURES) pickAsk.style.display = 'none'; // 公開版（rebuild-public.ps1）
   const pickAll = el('button', 'memo-pane-pickbar-btn', '全部選ぶ');
   pickAll.type = 'button';
   const pickLinked = el('button', 'memo-pane-pickbar-btn', 'つながっているカードも選ぶ');
   pickLinked.type = 'button';
   const pickStop = el('button', 'memo-pane-pickbar-btn', '選ぶのをやめる');
   pickStop.type = 'button';
-  pickBar.append(pickText, pickMove, pickCopy, pickNew, pickTemplate, pickAll, pickLinked, pickStop);
+  pickBar.append(pickText, pickMove, pickCopy, pickNew, pickTemplate, pickAsk, pickAll, pickLinked, pickStop);
   pickMove.addEventListener('click', () => beginSend('move', selectedIds()));
   pickCopy.addEventListener('click', () => beginSend('copy', selectedIds()));
   pickNew.addEventListener('click', () => queueSend('move', selectedIds(), null));
   pickTemplate.addEventListener('click', () => openTplDialog());
+  pickAsk.addEventListener('click', () => {
+    if (!view) return;
+    const replies = selectedIds();
+    if (replies.length === 0) return;
+    ask({ command: 'askWithCards', memo: view.id, replies, linked: 'one' });
+  });
   pickAll.addEventListener('click', () => {
     if (!view) return;
     for (const id of shownIds()) picked.add(id);
@@ -254,6 +289,15 @@ export function startMemoPane() {
       openLinkView(e.clientX, e.clientY, false);
     }
   });
+  // 「時刻順」（結んだカードが一枚でもあるときだけ出す。押すと、時刻順と並べた順を行き来する。aria-pressed は renderCountTools が当てる）
+  const countTime = el('button', 'memo-pane-count-view', '時刻順');
+  countTime.type = 'button';
+  countTime.title = '結んだ区間の時刻の順に並べる（動画ごと。読む画面がその動画を開いていればチャプターの仕切りも）。もう一度押すと元の並べ方に戻します';
+  countTime.dataset.focusKey = 'counttime';
+  countTime.addEventListener('click', () => {
+    cardOrder = cardOrder === 'time' ? 'order' : 'time';
+    if (view) renderCards(view, undefined, true);
+  });
   // 「並び｜マップ」（関連があるときだけ出す。押すと、並びかマップへ移る。aria-pressed は renderCountTools が当てる）
   const countSwitch = el('span', 'memo-pane-count-switch');
   countSwitch.setAttribute('role', 'group');
@@ -284,7 +328,7 @@ export function startMemoPane() {
   const composeLabel = el('div', 'memo-pane-compose-label', '＋コメント');
   const comment = el('textarea');
   comment.rows = 2;
-  comment.placeholder = 'コメントを書く（Ctrl+Enter で足す）';
+  comment.placeholder = 'コメントを書く（Ctrl+Enter で足す・Shift+Enter で次の行に足す）';
   comment.setAttribute('aria-label', 'コメントを書く');
   const composeRow = el('div', 'memo-pane-compose-row');
   const meter = el('span', 'memo-pane-meter', `0 / ${REPLY_FOLD}`);
@@ -292,7 +336,21 @@ export function startMemoPane() {
   hint.hidden = true;
   const sendBtn = el('button', 'preview-button', '足す');
   sendBtn.type = 'submit';
-  composeRow.append(meter, hint, sendBtn);
+  const nextRowLabel = el('label', 'memo-pane-compose-nextrow');
+  const nextRowCheck = el('input');
+  nextRowCheck.type = 'checkbox';
+  nextRowCheck.checked = readNextRow();
+  const nextRowText = el('span', '', '次の行に');
+  nextRowLabel.append(nextRowCheck, nextRowText);
+  nextRowCheck.addEventListener('change', () => writeNextRow(nextRowCheck.checked));
+  // 読む画面の今のマスと結ぶ（V2b・D24）：読む画面が動画を開いているときだけ出す。既定はオフ（覚えない）
+  const atLabel = el('label', 'memo-pane-compose-at');
+  const atCheck = el('input');
+  atCheck.type = 'checkbox';
+  const atText = el('span', '', '');
+  atLabel.append(atCheck, atText);
+  atLabel.hidden = true;
+  composeRow.append(atLabel, meter, hint, nextRowLabel, sendBtn);
   compose.append(composeLabel, comment, composeRow);
   // カードの並びと関連線の層の包み（L3）。線の層は並びの前に置き、関連があるときはカードを position: relative にして、DOM の順で線の上に重ねる
   //   （isolation で重なりの文脈を作ると、カードの中の「＋タグ」の候補の欄が「＋コメント」の欄より下になるため使わない）
@@ -349,6 +407,11 @@ export function startMemoPane() {
   lightClose.title = '画像を閉じる';
   lightClose.setAttribute('aria-label', '大きく見た画像を閉じる');
   light.append(lightImg, lightClose);
+  // 段 D7：カードとセルの顔の画像を書き足す面。小窓とは別の文。やめるまではファイルも台帳も変えない
+  const annotate = new BotImageEdit(readImageHints, cardImageEditLabels);
+  const annotateLayer = el('div', 'memo-pane-annotate');
+  annotateLayer.hidden = true;
+  annotateLayer.append(annotate.element);
   // 関連づけている間の案内（状態の行と件数の行の上に重ねる。区画の高さは取らない）
   const linkBar = el('div', 'memo-pane-linkbar');
   linkBar.setAttribute('role', 'status');
@@ -580,7 +643,7 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
   // 読み上げだけの欄（並べ替えの結果など。状態の行は保存のたびに文が入るので live にしない。plan-memo-card-order の O2）
   const announcer = el('div', 'sr-only');
   announcer.setAttribute('role', 'status');
-  root.append(handle, band, status, sentNotice, countline, main, pickBar, listWindow, linkBar, linkPicker, tplDialog, tplPalette, tplFill, tplImport, tplAsk, tplDragChip, empty, light, announcer);
+  root.append(handle, band, status, sentNotice, countline, main, pickBar, listWindow, linkBar, linkPicker, tplDialog, tplPalette, tplFill, tplImport, tplAsk, tplDragChip, empty, light, annotateLayer, announcer);
   document.body.append(root);
 
   // 段 9 の上半分のときだけ、下の包みの中を基準にする。包みが無いときは、今までどおり区画そのもの
@@ -872,7 +935,12 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
   let lineMode: 'all' | 'selected' | 'none' = 'all'; // 線の見せ方（覚えない。メモを替えると「すべて」）
   let slotMode = false; // 試し：カードを升目の番地に置いている（並べた順・絞っていない・3 列が入る幅）
   let fitsWide = false; // 試し：3 列が入る幅か（変わったら描き直す）
-  let cardOrder: 'order' | 'chain' = 'order'; // カードの並べ方（並べた順〈並べ替えていなければ作った順〉・つながり順。覚えない。メモを替えると並べた順）
+  let cardOrder: 'order' | 'chain' | 'time' = 'order'; // カードの並べ方（並べた順〈並べ替えていなければ作った順〉・つながり順・時刻順〈V2b〉。覚えない。メモを替えると並べた順）
+  // 六角で見る（plan-reader-video の V2b）：読む画面からの落ちてもよい連絡と、「マスで見る」「＋コメントで結ぶ」
+  let readerNow: ReaderNow | null = null; // 読む画面の今のマス（null：読む画面が動画を開いていない、またはまだ知らない）
+  let readerChapters: { video: string; chapters: { start: number; title: string }[] } | null = null; // 読む画面のチャプター（時刻順の仕切り）
+  let glowing: { memoId: string; replyId: string } | null = null; // 「マスで見る」で読む画面に光らせているカード
+  let atPin: ReaderNow | null = null; // 「＋コメント」で結ぶマス（結ぶ欄に印があり、書き始めたときの今のマス。足したら外す）
   let selectedCard: string | null = null; // 「選んだカード」の線だけを出すときのカード（押した・焦点の入ったカード）
   let autoSelected = false; // 線路が足りなくて、自動で「選んだカード」にした
   let keepAll = false; // 手で「すべて」を選んだ（線路が足りなくても、自動で「選んだカード」に替えない。メモを替えると戻す）
@@ -899,6 +967,9 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
   const pending: PendingReply[] = [];
   const shotUrls = new Map<string, string>();
   const shotBusy = new Set<string>();
+  let annotateShot: string | null = null; // 書き足しで書いた shots の id。左が断ったら、このファイルだけ消す
+  let faceAnnotate: string | null = null; // 左から届いた、セルの顔を書き足すメモの id
+  let annotateBusy = false;
   // 全体の画像が 16,000 で切れたファイルの名前。保存した返信には項目が無いので、この区画を開いているあいだだけ覚える
   const truncatedFiles = new Set<string>();
   let armEdit = false; // 次に足した引用・画像のカードで、書き直しの欄を開く
@@ -975,8 +1046,12 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     else renderCards(view);
   });
   // 呼称セットの台帳（全部のメモで共通）。書くのはこの区画だけ。どのセットを使うかは、開いているメモの linkSet
+  //   台帳の id は左へ知らせる（新しいメモに、消えたセットを付けないため。このファイルを書くのは、ここだけ）
   const linkNameSets = new LinkNameSetStore();
-  linkNameSets.onChange(() => refreshLinkNames());
+  linkNameSets.onChange(() => {
+    refreshLinkNames();
+    tellKnownLinkSets();
+  });
   linkNameSets.onSaveFailed(() => {
     status.textContent = '呼称セットを保存できませんでした';
   });
@@ -988,6 +1063,12 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
 
   function ask(action: RelayCommand) {
     send({ type: 'relay', to: 'left', payload: { kind: 'command', action } });
+  }
+
+  // 台帳にある呼称セットの id を左へ知らせる（読めなかったときは知らせない。左が空の一覧で上書きしないため）
+  function tellKnownLinkSets() {
+    if (!linkNameSets.ready || !linkNameSets.canWrite) return;
+    ask({ command: 'noteLinkNameSetIds', ids: linkNameSets.book.sets.map((s) => s.id) });
   }
 
   // 書きかけ（コメントの欄・カードの書き直し・返信）があるかを、変わったときだけ左に知らせる
@@ -1049,7 +1130,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     hint.hidden = n <= REPLY_FOLD;
     const full = (view?.replies.length ?? 0) >= MAX_REPLIES;
     sendBtn.disabled = full || comment.value.trim() === '';
-    sendBtn.title = full ? `返信は1つのメモに ${MAX_REPLIES} 件までです` : 'コメントを足す（Ctrl+Enter）';
+    sendBtn.title = full ? `返信は1つのメモに ${MAX_REPLIES} 件までです` : 'コメントを足す（Ctrl+Enter。Shift+Enter で次の行に）';
   }
 
   function showCount(replies: readonly Reply[]) {
@@ -1207,7 +1288,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     candidates = cardTagCandidates(current.replies, current.tags, registeredTagNames());
     const tops = visibleTops(orderedReplies(current), filterTag, keepShown); // 写しに、頼んだ並べ替え（待ち）を当てた並び
     if (cardOrder === 'chain' && !hasAnyLinks()) cardOrder = 'order'; // 関連が無くなったら並べた順に戻す（「関連の見せ方 ▾」も消えて戻せなくなるため）
-    const nodes: HTMLElement[] = cardOrder === 'chain' ? chainNodes(current, tops) : tops.map((reply) => commentCard(current, reply));
+    if (cardOrder === 'time' && !hasTimedCards()) cardOrder = 'order'; // 結んだカードが無くなったら並べた順に戻す（「時刻順」のボタンも消えるため）
+    const nodes: HTMLElement[] = cardOrder === 'chain' ? chainNodes(current, tops) : cardOrder === 'time' ? timeNodes(current, tops) : tops.map((reply) => commentCard(current, reply));
     if (filterTag !== null && tops.length === 0) nodes.push(el('p', 'memo-pane-filter-empty', 'このタグのカードはありません'));
     cards.classList.toggle('linking', linking !== null);
     cards.classList.toggle('picking', pickingCards);
@@ -1216,6 +1298,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     fitsWide = fitsThreeColumns();
     slotMode = cardOrder === 'order' && filterTag === null && fitsWide;
     cards.classList.toggle('slotted', slotMode);
+    paintNextRow();
     if (slotMode) {
       const slots = topSlots(orderedReplies(current));
       for (const node of nodes) {
@@ -1226,6 +1309,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       }
     }
     cards.replaceChildren(...nodes);
+    paintReaderNow(); // 読む画面の今のマスと結んだカードの光り・「マスで見る」の押した印（V2b）
     paintGhost(); // 型の窓で選んでいる型の「入る番地」（描き直しても残す）
     scroll.scrollTop = top;
     restore(kept);
@@ -1267,6 +1351,26 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     return nodes;
   }
 
+  // 時刻順の並び（plan-reader-video の V2b）：動画ごとの組（題の見出し）、組の中は結んだ区間の早い順。読む画面がその動画を開いていればチャプターの仕切りも。結んでいないカードは最後
+  function timeNodes(current: MemoPaneView, tops: readonly Reply[]): HTMLElement[] {
+    // チャプターの仕切りは、読む画面がその動画を開いている間だけ（閉じたら onReaderNow が描き直す）
+    const chapters = readerNow && readerChapters?.video === readerNow.video ? readerChapters : null;
+    const order = timeOrder(tops, { first: readerNow?.video ?? null, chapters });
+    const nodes: HTMLElement[] = [];
+    for (const group of order.groups) {
+      nodes.push(el('p', 'memo-pane-chain-head memo-pane-time-head', `🎬 ${group.title}（${group.count} 枚）`));
+      for (const section of group.sections) {
+        if (section.title !== null) nodes.push(el('p', 'memo-pane-chain-head memo-pane-time-chapter', `${secLabel(section.start ?? 0)} ${section.title}`));
+        for (const reply of section.cards) nodes.push(commentCard(current, reply));
+      }
+    }
+    if (order.loose.length > 0) {
+      nodes.push(el('p', 'memo-pane-chain-head', `結んでいないカード（${order.loose.length} 枚）`));
+      for (const reply of order.loose) nodes.push(commentCard(current, reply));
+    }
+    return nodes;
+  }
+
   // ---------- 並べ替え（plan-memo-card-order の O2a）：待ちの並び・見えている列・左に頼む・読み上げ。純粋な関数は memo-card-order.ts ----------
   //   台帳を書くのは左だけ。区画は「この id の前へ」を頼み、写しが追いつくまで（多くて PENDING_ORDER_MS）は、頼んだ並べ替えを写しに当てて見せる
 
@@ -1289,6 +1393,18 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   // 今、並べ替えられるか（つながり順・関連づけている間・マップが開いている間は、並べ替えない）
   function canReorder(): boolean {
     return cardOrder === 'order' && linking === null && !cardMap.isOpen;
+  }
+
+  // 「次の行に」：升目の並び（並べた順・絞りなし・3 列）で、並べ替えできるときだけ押せる
+  function paintNextRow() {
+    const on = canReorder() && slotMode;
+    nextRowCheck.disabled = !on;
+    const title = on
+      ? 'オンのあいだ、新しい一番上のカードを、いちばん下のカードの次の行の 1 列目に足します（オフでも Shift+Enter で足すと次の行へ。返信は今までどおり）'
+      : '今は使えません。並べた順で、絞りがなく、3 列の幅があり、並べ替えできるときだけ使えます';
+    nextRowLabel.title = title;
+    nextRowCheck.title = title;
+    nextRowLabel.classList.toggle('is-disabled', !on);
   }
 
   // 状態の行と読み上げの欄に同じ文を出す（読み上げは、同じ文が続いても読むよう、一度空にしてから入れる）
@@ -1428,7 +1544,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     focusAfter = null;
   }
 
-  // つまみの小さな欄（並べ替え）：前へ・後ろへ・いちばん前へ・いちばん後へ・作った順に戻す。つながり順の間は、理由と「並べた順にする」
+  // つまみの小さな欄（並べ替え）：前へ・後ろへ・いちばん前へ・いちばん後へ・作った順に戻す。つながり順・時刻順の間は、理由と「並べた順にする」
   //   keyboard：キーボードで開いたとき、いちばん上の項目に焦点を置く
   function openGripMenu(id: string, x: number, y: number, keyboard: boolean) {
     const current = view;
@@ -1436,10 +1552,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const reply = current.replies.find((r) => r.id === id);
     if (!reply) return;
     const label = cardLabel(reply, 16);
-    if (cardOrder === 'chain') {
+    if (cardOrder !== 'order') {
+      const name = cardOrder === 'chain' ? 'つながり順' : '時刻順';
       linkMenu.open(x, y, [
         { section: `並べ替え：「${label}」` },
-        { note: 'つながり順の間は並べ替えられません。' },
+        { note: `${name}の間は並べ替えられません。` },
         {
           row: '',
           buttons: [
@@ -1455,7 +1572,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
           ],
         },
       ]);
-      say('つながり順の間は並べ替えられません');
+      say(`${name}の間は並べ替えられません`);
     } else {
       // 前後の計算は、押した時点の並びで行う（欄を開いた時点の n は使わない。stepCard と moveCard が、その時点の orderLists を読む）
       const { visible } = orderLists(current);
@@ -1478,11 +1595,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (keyboard) linkMenu.focusFirst();
   }
 
-  // つまみの Alt+←／Alt+→：見えている列の中で一つ前・後ろへ。端は読み上げで知らせる。つながり順の間は、つまみの欄を開いて理由を出す
+  // つまみの Alt+←／Alt+→：見えている列の中で一つ前・後ろへ。端は読み上げで知らせる。つながり順・時刻順の間は、つまみの欄を開いて理由を出す
   function stepCard(id: string, delta: -1 | 1) {
     const current = view;
     if (!current) return;
-    if (cardOrder === 'chain') {
+    if (cardOrder !== 'order') {
       const grip = cards.querySelector<HTMLElement>(`[data-focus-key="card:${CSS.escape(id)}:move"]`);
       if (!grip) return;
       const rect = grip.getBoundingClientRect();
@@ -1503,6 +1620,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   // 今のメモの一番上のカードに、関連が 1 本でもあるか（絞りで隠れていても数える）
   function hasAnyLinks(): boolean {
     return !!view && view.replies.some((r) => r.parent === null && (r.links?.length ?? 0) > 0);
+  }
+
+  // 今のメモの一番上のカードに、結んだ区間（at）のあるカードが 1 枚でもあるか（絞りで隠れていても数える）
+  function hasTimedCards(): boolean {
+    return !!view && view.replies.some((r) => r.parent === null && r.at !== undefined);
   }
 
   // 線を 1 コマあとに描き直す（写しが届くたび・大きさが変わるたびに呼ばれるので、1 コマにまとめる）
@@ -1610,6 +1732,10 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     countPick.textContent = pickingCards ? '☑ 選ぶ' : '☐ 選ぶ';
     countPick.setAttribute('aria-pressed', String(pickingCards));
     const nodes: HTMLElement[] = [countPick];
+    if (hasTimedCards()) {
+      countTime.setAttribute('aria-pressed', String(cardOrder === 'time'));
+      nodes.push(countTime);
+    }
     if (!hasAnyLinks()) {
       const key = focusKeyIn(countTools);
       countTools.replaceChildren(...nodes);
@@ -1640,6 +1766,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     listPops.closeAll(); // 並びに出したカードは、マップを開いたら閉じる
     cardMap.open(current.replies.filter((r) => r.parent === null));
     renderCountTools();
+    paintNextRow();
     cardMap.el.querySelector<HTMLElement>('.memo-pane-map-close')?.focus({ preventScroll: true });
   }
 
@@ -1648,6 +1775,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!cardMap.isOpen) return;
     cardMap.close();
     renderCountTools();
+    paintNextRow();
     if (returnFocus) refocus(countTools, 'countswitch:map');
   }
 
@@ -1909,6 +2037,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
           buttons: [
             { label: view && isReordered(view) ? '並べた順' : '作った順', title: '並べ替えると「並べた順」になります', pressed: cardOrder === 'order', run: () => chooseOrder('order') },
             { label: 'つながり順', pressed: cardOrder === 'chain', run: () => chooseOrder('chain') },
+            ...(hasTimedCards() ? [{ label: '時刻順', pressed: cardOrder === 'time', run: () => chooseOrder('time') }] : []),
           ],
         },
       );
@@ -1986,7 +2115,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       linkMenu.refresh();
     };
     // 並べ方を替える（欄は開いたまま。カードを組み直して、押してある印を当て直す）
-    const chooseOrder = (order: 'order' | 'chain') => {
+    const chooseOrder = (order: 'order' | 'chain' | 'time') => {
       cardOrder = order;
       if (view) renderCards(view, undefined, true);
       entries.splice(0, entries.length, ...build());
@@ -2089,7 +2218,108 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
           status.textContent = '画像を右の撮影に送りました（大きく開きます）';
         },
       },
+      { label: '書き足す…', hint: '新しいカードに足す', run: () => void beginAnnotate({ kind: 'card', replyId }) },
     ]);
+  }
+
+  // 段 D7：カードの画像、または今開いているメモの顔の画像で、書き足しの面を開く。やめると何も書かない
+  async function loadShot(id: string): Promise<string | null> {
+    const hit = shotUrls.get(id);
+    if (hit) return hit;
+    const saved = await readData<{ data?: unknown }>(`shots/${id}.json`);
+    if (typeof saved?.data !== 'string' || !saved.data.startsWith('data:image/')) return null;
+    shotUrls.set(id, saved.data);
+    return saved.data;
+  }
+
+  function hideAnnotate() {
+    annotateLayer.hidden = true;
+  }
+
+  async function beginAnnotate(source: { kind: 'card'; replyId: string } | { kind: 'face' }) {
+    if (!view || annotateBusy) return;
+    const memoId = view.id;
+    const reply = source.kind === 'card' ? view.replies.find((item) => item.id === source.replyId) : undefined;
+    const imageId = source.kind === 'card' ? reply?.image : view.image;
+    if (!imageId) {
+      say('その画像は、もうありません');
+      return;
+    }
+    annotateBusy = true;
+    try {
+      const src = await loadShot(imageId);
+      if (view?.id !== memoId) return;
+      if (!src) {
+        say('その画像は、もうありません');
+        return;
+      }
+      closeLight();
+      imageMenu.close();
+      moreMenu.close();
+      annotate.open(src, null, {
+        onCancel: () => hideAnnotate(),
+        onDone: (result) => {
+          hideAnnotate();
+          void commitAnnotate(memoId, source, result);
+        },
+      });
+      annotateLayer.hidden = false;
+    } finally {
+      annotateBusy = false;
+    }
+  }
+
+  function takeFaceAnnotate() {
+    if (!faceAnnotate || view?.id !== faceAnnotate) return;
+    faceAnnotate = null;
+    void beginAnnotate({ kind: 'face' });
+  }
+
+  // 印がある書き足しだけ、新しい画像のファイルを書いて左へ id を渡す。断られたらそのファイルを消す
+  async function commitAnnotate(memoId: string, source: { kind: 'card'; replyId: string } | { kind: 'face' }, result: ImageEditResult) {
+    if (view?.id !== memoId) return;
+    const plan = planAnnotatedCard({
+      version: result.version,
+      marks: result.version === 'annotated' ? result.marks.length : 0,
+      questions: result.boxes.map((box) => box.question).join('\n'),
+      source: source.kind === 'card' ? { kind: 'card', reply: source.replyId } : { kind: 'face' },
+      memoId,
+      memo: { id: view.id, replies: view.replies },
+    });
+    if (!plan.ok) {
+      say(plan.note);
+      return;
+    }
+    setBusy(true);
+    try {
+      const fit = await fitPicture(result.image, true);
+      if (view?.id !== memoId) return;
+      if ('error' in fit) {
+        say(`書き足した版を整えられませんでした（${FIT_STAGE[fit.error]}）`);
+        return;
+      }
+      const id = newShotId();
+      const ok = await writeData(`shots/${id}.json`, { version: 1, data: fit.dataUrl });
+      if (view?.id !== memoId) {
+        if (ok) deleteData(`shots/${id}.json`);
+        return;
+      }
+      if (!ok) {
+        say('画像を保存できませんでした（保存：ファイルに書けない）');
+        return;
+      }
+      shotUrls.set(id, fit.dataUrl);
+      annotateShot = id;
+      ask({
+        command: 'addAnnotatedCard',
+        id: memoId,
+        image: id,
+        text: plan.text,
+        ...(source.kind === 'card' ? { fromReply: source.replyId } : {}),
+      });
+    } finally {
+      setBusy(false);
+    }
   }
 
   function appendQuote(card: HTMLElement, reply: Reply) {
@@ -3368,7 +3598,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       neu.type = 'button';
       neu.dataset.memoId = 'new';
       neu.dataset.focusKey = 'listitem:new';
-      neu.title = '空のメモを近くに作り、そこへ入れます';
+      neu.title = '空のメモを近くに作り、そこへ入れます。呼称セットは、このメモと同じにします';
       neu.addEventListener('click', () => {
         if (ignoreListClick) return;
         chooseSendTarget(null);
@@ -4316,6 +4546,41 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     inputs[0]?.focus();
   }
 
+  // AI のカード（plan-reader-video の V4b-2）：一番上のカードで、書いたキャラ（by）と種類（at.kind）があるもの
+  function isAiCard(reply: Reply): boolean {
+    return reply.parent === null && !!reply.by && !!reply.at?.kind;
+  }
+
+  // AI のカードの本文（V4b-2）：見出し、「▶ 時刻」の行（押すと読む画面のその時刻へ。開いていなければ、その動画を開く）、技法の札、字のままの行。畳まない
+  function aiCardBody(reply: Reply): HTMLElement {
+    const body = el('div', 'memo-pane-ai-body');
+    const parsed = parseAiCardText(reply.text);
+    if (parsed.head) body.append(el('strong', 'memo-pane-ai-head', parsed.head));
+    parsed.rows.forEach((row, i) => {
+      if (row.kind === 'timed') {
+        const line = el('div', 'memo-pane-ai-row');
+        const start = row.sec;
+        const play = el('button', 'memo-pane-at', `▶ ${row.label}`);
+        play.type = 'button';
+        play.title = '読む画面でこの時刻へ（開いていなければ、その動画を開きます）';
+        play.dataset.focusKey = `card:${reply.id}:ai:${i}`;
+        play.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (reply.at) ask({ command: 'openReaderAt', video: reply.at.video, start });
+        });
+        line.append(play);
+        if (row.tech) line.append(el('span', 'memo-pane-ai-tech', row.tech));
+        line.append(el('span', 'memo-pane-ai-text', row.text));
+        body.append(line);
+      } else {
+        const line = el('div', 'memo-pane-ai-row plain');
+        line.append(el('span', 'memo-pane-ai-text', row.text));
+        body.append(line);
+      }
+    });
+    return body;
+  }
+
   // mapPop：出したカード（マップの札の右クリック・並びの関連の「見る」。where で見分ける）。並べ替えのつまみの代わりに「✕ 閉じる」を出し、
   //   🔗 は使えなくする。⋯ に出す側を足す
   function commentCard(current: MemoPaneView, reply: Reply, mapPop?: PopControl, where: 'map' | 'list' = 'map') {
@@ -4324,13 +4589,58 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const origin: RelationOrigin = !mapPop ? 'card' : where === 'list' ? 'list-pop' : 'map-pop';
     const card = el('article', 'memo-pane-card');
     card.dataset.card = reply.id;
+    // AI のカード（V4b-2）：種類の色の帯（CSS の ai-card・data-ai-kind）。頭の帯に種類の名前、本文は畳まない
+    const aiKind = isAiCard(reply) ? reply.at?.kind : undefined;
+    if (aiKind) {
+      card.classList.add('ai-card');
+      card.dataset.aiKind = aiKind;
+    }
     if (linking?.from === reply.id) card.classList.add('link-from');
     if (pickingCards && !inMap && picked.has(reply.id)) card.classList.add('picked');
     const ref = refOf(current.id);
     const head = el('div', 'memo-pane-card-head');
     const headMain = el('span', 'memo-pane-card-head-main');
     headMain.append(el('span', '', `${kindMark(reply)} ${reply.by?.name ?? 'あなた'}`), el('span', '', `· ${dateOf(reply.createdAt)}`));
+    if (aiKind) headMain.append(el('span', 'memo-pane-ai-kind', `· ${AI_KIND_LABEL[aiKind]}`));
+    const cost = reply.by?.cost; // 目安の料金（AI のカードでなくても、by.cost があれば出す）
+    if (typeof cost === 'number' && Number.isFinite(cost) && cost > 0) headMain.append(el('span', 'memo-pane-ai-cost', `· 約 $${cost.toFixed(3)}`));
     if (reply.editedAt) headMain.append(el('span', 'memo-pane-edited', '· 書き直し済み'));
+    // 結んだ区間（六角で見る。plan-reader-video の V2a-3）：「▶ 3:04」で読む画面のその時刻へ（開いていなければ、左がその動画を開く）。
+    //   一つのメモに別々の動画のカードがあるときは、動画の札（題の頭）も出す（D23）
+    const at = reply.parent === null ? reply.at : undefined;
+    if (at) {
+      const first = at.spans[0];
+      const play = el('button', 'memo-pane-at', `▶ ${secLabel(first.start)}${at.spans.length > 1 ? ` ほか ${at.spans.length - 1}` : ''}`);
+      play.type = 'button';
+      play.title = '読む画面でこの時刻へ（開いていなければ、その動画を開きます）';
+      play.dataset.focusKey = `card:${reply.id}:at`;
+      play.addEventListener('click', (e) => {
+        e.stopPropagation();
+        ask({ command: 'openReaderAt', video: at.video, start: first.start });
+      });
+      // マスで見る（V2b）：読む画面でこのカードと結んだマスを光らせる。もう一度押すと消す（開いていなければ、左がその動画を開いてから光らせる）
+      const look = el('button', 'memo-pane-at-glow', 'マスで見る');
+      look.type = 'button';
+      look.title = '読む画面で、このカードと結んだマスを光らせる（もう一度押すと消えます。読む画面が開いていなければ、その動画を開きます）';
+      look.dataset.glowCard = reply.id;
+      look.dataset.focusKey = `card:${reply.id}:glow`;
+      look.setAttribute('aria-pressed', String(glowing?.memoId === current.id && glowing.replyId === reply.id));
+      look.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (glowing?.memoId === current.id && glowing.replyId === reply.id) {
+          dropGlow();
+          say('マスの光りを消しました');
+        } else {
+          glowing = { memoId: current.id, replyId: reply.id };
+          ask({ command: 'openReaderAt', video: at.video, start: first.start, glow: { memoId: current.id, replyId: reply.id } });
+          say('読む画面で、結んだマスを光らせます');
+        }
+        paintReaderNow();
+      });
+      headMain.append(play, look);
+      const videos = new Set(current.replies.flatMap((r) => (r.parent === null && r.at ? [r.at.video] : [])));
+      if (videos.size > 1) headMain.append(el('span', 'memo-pane-at-video', at.title ?? '動画'));
+    }
     // 関連 n（隠れ m）：押すと、このカードの関連の一覧（移る・外す）。m は、絞りで見えていない相手の数
     const relations = relationsOf(current, reply.id);
     if (relations.length > 0) {
@@ -4375,7 +4685,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       grip.setAttribute('aria-label', gripName);
       grip.setAttribute('aria-haspopup', 'menu');
       grip.dataset.focusKey = `card:${reply.id}:move`;
-      if (cardOrder === 'chain') grip.setAttribute('aria-disabled', 'true'); // つながり順の間は動かせない（押すと欄で理由を出す）
+      if (cardOrder !== 'order') grip.setAttribute('aria-disabled', 'true'); // つながり順・時刻順の間は動かせない（押すと欄で理由を出す）
       grip.addEventListener('click', (e) => {
         if (linking !== null || cardMap.isOpen) return; // 関連づけている間は、カードの並びの捕まえる段が先に受ける
         e.stopPropagation();
@@ -4429,19 +4739,23 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (cardEdits.has(reply.id)) {
       card.append(cardEditForm(current, reply));
     } else if (reply.text) {
-      const chars = [...reply.text];
-      const folded = chars.length > REPLY_FOLD && !openBodies.has(reply.id);
-      const bodyText = el('p', 'memo-pane-card-body', folded ? chars.slice(0, REPLY_FOLD).join('') : reply.text);
-      card.append(bodyText);
-      if (chars.length > REPLY_FOLD) {
-        const more = el('button', 'memo-pane-more', openBodies.has(reply.id) ? 'たたむ ▴' : '…続き ▾');
-        more.type = 'button';
-        more.addEventListener('click', () => {
-          if (openBodies.has(reply.id)) openBodies.delete(reply.id);
-          else openBodies.add(reply.id);
-          if (view) renderCards(view);
-        });
-        card.append(more);
+      if (aiKind) {
+        card.append(aiCardBody(reply)); // AI のカードは畳まない（280 字の「…続き」も出さない）
+      } else {
+        const chars = [...reply.text];
+        const folded = chars.length > REPLY_FOLD && !openBodies.has(reply.id);
+        const bodyText = el('p', 'memo-pane-card-body', folded ? chars.slice(0, REPLY_FOLD).join('') : reply.text);
+        card.append(bodyText);
+        if (chars.length > REPLY_FOLD) {
+          const more = el('button', 'memo-pane-more', openBodies.has(reply.id) ? 'たたむ ▴' : '…続き ▾');
+          more.type = 'button';
+          more.addEventListener('click', () => {
+            if (openBodies.has(reply.id)) openBodies.delete(reply.id);
+            else openBodies.add(reply.id);
+            if (view) renderCards(view);
+          });
+          card.append(more);
+        }
       }
     }
     appendImage(card, reply);
@@ -4452,6 +4766,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const moreEntries: MenuEntry[] = [{ section: `「${cardLabel(reply, 16)}」` }];
     if (reply.image) {
       moreEntries.push({ label: '書き出す', hint: '画像をピクチャへ', run: () => void exportCardImage(reply) });
+      moreEntries.push({ label: '書き足す…', hint: '新しいカードに足す', run: () => void beginAnnotate({ kind: 'card', replyId: reply.id }) });
     }
     if (reply.file) {
       const fileName = reply.file;
@@ -4461,8 +4776,16 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       );
     }
     const editingCard = cardEdits.has(reply.id);
+    const askCard: MenuEntry[] =
+      reply.parent === null && BOT_FEATURES
+        ? [
+            { label: 'Grok に頼む', hint: 'このカードを材料に', run: () => ask({ command: 'askWithCards', memo: ref.id, replies: [reply.id], linked: 'none' }) },
+            { label: 'つながったカードも頼む', hint: '直接つながるカードは印を外して足す', run: () => ask({ command: 'askWithCards', memo: ref.id, replies: [reply.id], linked: 'one' }) },
+          ]
+        : [];
     moreEntries.push(
       { label: 'コピー', hint: '空いたセルに貼るとメモのセル', run: () => ask({ command: 'copyComment', ref, replyId: reply.id }) },
+      ...askCard,
       { label: '別のメモへ移す…', hint: editingCard ? '書き直しの途中' : 'このカードと返信', disabled: editingCard, run: () => beginSend('move', [reply.id]) },
       { label: '別のメモへ写す…', hint: editingCard ? '書き直しの途中' : '元のカードは残る', disabled: editingCard, run: () => beginSend('copy', [reply.id]) },
       { label: '単語カードにする…', hint: '写すだけ', run: () => makeVocabCard(reply, ref) },
@@ -4699,6 +5022,9 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     empty.hidden = open;
     if (open) renderList();
     if (!next) {
+      faceAnnotate = null;
+      if (annotate.isOpen) annotate.cancel();
+      else annotateLayer.hidden = true;
       listPops.closeAll(); // 区画を閉じたら、並びに出したカードも閉じる
       cardMap.close(); // 閉じたら、マップの窓も閉じて、位置と止めを捨てる
       cardMap.forget();
@@ -4733,6 +5059,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     }
     const focus = switched ? null : holdFields();
     if (switched) {
+      if (annotate.isOpen) annotate.cancel();
       listPops.closeAll(); // メモが替わったら、並びに出したカードも閉じる
       cardMap.close(); // メモが替わったら、マップの窓は閉じて、位置と止めを捨てる
       cardMap.forget();
@@ -4745,6 +5072,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       closeLinkPicker(false);
       lineMode = 'all'; // 線の見せ方は覚えない
       cardOrder = 'order'; // 並べ方も覚えない
+      if (glowing) dropGlow(); // 前のメモのカードの「マスで見る」の光りは消す（V2b）
       clearPending(); // 前のメモに頼んだ並べ替えの待ちは捨てる
       selectedCard = null;
       autoSelected = false;
@@ -4842,9 +5170,12 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     }
     reportDraft();
     grokCardsUi.sync(true);
+    if (annotateShot && next.replies.some((reply) => reply.image === annotateShot)) annotateShot = null;
+    takeFaceAnnotate();
   }
 
-  function submitComment() {
+  // nextRow：Shift+Enter で足すとき true（「次の行に」がオフでも、この 1 枚だけ次の行へ。押せないときは、ふつうの次の番地）
+  function submitComment(nextRow = false) {
     if (!view) return;
     const text = [...comment.value].slice(0, MAX_REPLY_TEXT).join('');
     if (!text.trim() || view.replies.length >= MAX_REPLIES) {
@@ -4852,11 +5183,70 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       return;
     }
     const id = view.id;
+    // 読む画面の今のマスと結ぶ（V2b・D24）：書き始めたときのマス（印を付けたのが書いたあとなら、そのときのマス）
+    const now = atCheck.checked ? (atPin ?? readerNow) : null;
+    const at: ReplyAt | undefined = now ? { video: now.video, ...(now.title ? { title: now.title } : {}), spans: [{ key: now.key, start: now.start, end: now.end }] } : undefined;
+    // 「次の行に」は一番上のカードだけ。押せないとき（升目でない・並べ替えできない）は、ふつうの次の番地
+    const useNext = (nextRow || nextRowCheck.checked) && !nextRowCheck.disabled;
+    const plan = useNext ? nextRowAddPlan(orderedReplies(view)) : null;
     commentDraft = '';
     comment.value = '';
+    atPin = null;
     paintMeter();
-    ask({ command: 'addMemoComment', id, text });
+    paintAtOption();
+    ask({ command: 'addMemoComment', id, text, ...(at ? { at } : {}), ...(useNext ? { nextRow: true } : {}) });
+    if (plan) say(addedCardPlaceText(plan.slot, plan.nextRow));
     reportDraft();
+  }
+
+  // ---------- 六角で見る：読む画面との落ちてもよい連絡（plan-reader-video の V2b。D16） ----------
+  // 読む画面の今のマス（readerNow）：そのマスと結んだカードを光らせ、「＋コメント」の結ぶ欄を出し直す。読む画面が閉じたら「マスで見る」も外す
+  function onReaderNow(now: ReaderNow | null) {
+    const videoBefore = readerNow?.video ?? null;
+    readerNow = now;
+    if (!now) glowing = null; // 読む画面を閉じると、読む画面の光りも消える
+    paintReaderNow();
+    paintAtOption();
+    if (cardOrder === 'time' && view && (now?.video ?? null) !== videoBefore) renderCards(view); // 先に出す動画が替わった
+  }
+
+  // 今のマスと結んだカードに印（描き直さずに付け外し）。「マスで見る」の押した印もここで当て直す
+  function paintReaderNow() {
+    const ids = new Set(readerNow?.replyIds ?? []);
+    for (const node of cards.querySelectorAll<HTMLElement>('[data-card]')) node.classList.toggle('reader-now', ids.has(node.dataset.card ?? ''));
+    for (const button of cards.querySelectorAll<HTMLElement>('[data-glow-card]')) {
+      button.setAttribute('aria-pressed', String(!!glowing && glowing.memoId === view?.id && glowing.replyId === button.dataset.glowCard));
+    }
+  }
+
+  // 「マスで見る」の光りを消す（読む画面へ直に。読む画面が無ければ落ちるが、光りも無い）
+  function dropGlow() {
+    const was = glowing;
+    glowing = null;
+    if (was) send({ type: 'relay', to: 'reader', payload: { kind: 'readerGlow', memoId: was.memoId, replyId: null } });
+  }
+
+  // 「＋コメント」の「▶ m:ss と結ぶ」（D24）：読む画面が動画を開いているとき（か、結ぶマスを固定しているとき）だけ出す。
+  //   読む画面が閉じて固定も無ければ、印を外す（既定はオフ。覚えない）
+  function paintAtOption() {
+    const now = atPin ?? readerNow;
+    atLabel.hidden = !now;
+    if (!now) {
+      atCheck.checked = false;
+      atText.textContent = '';
+      return;
+    }
+    atText.textContent = `▶ ${secLabel(now.start)} と結ぶ`;
+    atLabel.title = atPin
+      ? `書き始めたときの読む画面のマス（${secLabel(atPin.start)}）と結んだカードにします`
+      : '読む画面の今のマスと結んだカードにします（書き始めたときのマスに固定します）';
+  }
+
+  // 結ぶマスを固定する・外す：印があり、欄に字があれば、そのときの今のマスに固定する。欄が空になったか印を外したら外す
+  function pinAt() {
+    if (!atCheck.checked || comment.value.trim() === '') atPin = null;
+    else if (atPin === null) atPin = readerNow;
+    paintAtOption();
   }
 
   // 高さが変わったときに知らせる先（「ボード」タブの［拡大］［縮小］の見た目）。つまみ・左からの知らせ・［拡大］のどれでも呼ぶ
@@ -4938,12 +5328,22 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if ([...comment.value].length > MAX_REPLY_TEXT) comment.value = [...comment.value].slice(0, MAX_REPLY_TEXT).join('');
     commentDraft = comment.value;
     paintMeter();
+    pinAt();
   });
+  atCheck.addEventListener('change', () => pinAt());
   comment.addEventListener('keydown', (e) => {
     e.stopPropagation();
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) {
       e.preventDefault();
       submitComment();
+    } else if (e.key === 'Enter' && e.shiftKey && !e.altKey && !e.isComposing) {
+      // Shift+Enter：次の行の 1 列目に足す（改行は Enter だけで）
+      e.preventDefault();
+      submitComment(true);
+    } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && !e.isComposing && comment.value === '') {
+      // 書く欄が空のときだけ：↑↓でカードの区画を上下に流す（書いてあるときは、今までどおり欄の中でカーソルが動く）
+      e.preventDefault();
+      scroll.scrollBy({ top: e.key === 'ArrowUp' ? -ARROW_SCROLL_STEP : ARROW_SCROLL_STEP });
     }
     if (e.key === 'Escape' && !e.isComposing) {
       e.preventDefault();
@@ -5038,6 +5438,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   });
   // `/` で型の窓を開く（文字を打っている欄・Grok Cards の中・選ぶ／関連づけの最中は開かない）
   window.addEventListener('keydown', (e) => {
+    if (annotate.isOpen) return;
     if (e.key !== '/' || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
     const target = e.target;
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
@@ -5303,6 +5704,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     'keydown',
     (e) => {
       if (e.key !== 'Escape' || e.isComposing) return;
+      if (annotate.isOpen) return; // 書き足しの面が自分で受ける（2 回目で捨てる）。区画は閉じない
       if (!light.hidden || !listWindow.hidden || !linkPicker.hidden) return; // 大きく見た画像・一覧の窓・相手の一覧の窓は、それぞれの受け口
       if (linkMenu.isOpen || relMenu.isOpen || imageMenu.isOpen || moreMenu.isOpen || tagMenu.isOpen) {
         e.preventDefault();
@@ -5343,6 +5745,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   );
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || e.isComposing) return;
+    if (annotate.isOpen) {
+      e.preventDefault();
+      if (!(e.target instanceof Node) || !annotate.element.contains(e.target)) annotate.element.focus();
+      return;
+    }
     if (tplFromBoard && !tplDialog.hidden) {
       // ボードから開いた型の小窓：Esc はこの小窓だけを閉じる（ボードの選びは外さない）
       e.preventDefault();
@@ -5439,7 +5846,17 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       recentItems = msg.payload.recent;
       listSheetName = msg.payload.sheetName;
       renderList();
+    } else if (msg.type === 'relayed' && msg.payload.kind === 'annotateMemoImage') {
+      if (typeof msg.payload.id === 'string') faceAnnotate = msg.payload.id;
+      takeFaceAnnotate();
     } else if (msg.type === 'relayed' && msg.payload.kind === 'memoPaneNotice') {
+      const drop = msg.payload.dropShot;
+      if (typeof drop === 'string' && drop === annotateShot) {
+        deleteData(`shots/${drop}.json`);
+        shotUrls.delete(drop);
+        shotBusy.delete(drop);
+        annotateShot = null;
+      }
       // 並べ替えを断られた：待ちを全部捨てる（左は知らせのあとに写しを送り直すので、写しの並びで描き直る）。読み上げにも出す
       if (msg.payload.undoSend && msg.payload.openMemo) {
         // ボードが、下の区画とは別のメモへ貼った：下の区画には「元に戻す」「送り先を開く」の帯を出さない（ボードの Undo に渡すだけ）
@@ -5458,6 +5875,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         if (to !== 'lower') boardNoticeListeners.forEach((fn) => fn(noticeText));
       }
     }
+    else if (msg.type === 'relayed' && msg.payload.kind === 'readerNow') onReaderNow(msg.payload.now);
+    else if (msg.type === 'relayed' && msg.payload.kind === 'readerChapters') {
+      readerChapters = { video: msg.payload.video, chapters: msg.payload.chapters };
+      if (cardOrder === 'time' && view) renderCards(view); // 時刻順の仕切り（チャプター）を当て直す
+    }
     else if (msg.type === 'relayed' && msg.payload.kind === 'threadPending') {
       pending.splice(0, pending.length, ...msg.payload.pending);
       if (view) renderCards(view);
@@ -5469,9 +5891,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     }
   });
 
+  paintNextRow();
   paint(null);
   send({ type: 'ready' });
   ask({ command: 'memoPaneReady' });
+  send({ type: 'relay', to: 'reader', payload: { kind: 'readerPing' } }); // 読む画面が開いていれば、今のマスとチャプターを送り直してもらう（V2b）
 }
 
 function action(label: string, title: string, onClick: () => void) {
@@ -5598,6 +6022,9 @@ function dateOf(ms: number) {
   const d = new Date(ms);
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
+
+// AI のカードの種類の名前（V4b-2。頭の帯に出す）
+const AI_KIND_LABEL: Record<ReaderAiKind, string> = { tech: '技法の色', bones: '話の骨組み', tendon: '天丼と伏線', pause: '間', apply: '応用', talk: 'やり取り' };
 
 // ❝ 引用（文がある）／🖼 画像（引用の文と両方なら ❝）／🔗 リンク（文の無い引用だけ）／💬 コメント
 function kindMark(reply: Reply): string {

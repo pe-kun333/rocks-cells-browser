@@ -83,6 +83,73 @@ export interface ImageEditHooks {
   onCancel(): void;
 }
 
+// ボタンと説明の文。渡さなければ依頼の小窓の文（既定）。カードから開くときは cardImageEditLabels
+export interface ImageEditLabels {
+  done: string;
+  doneTitle: string;
+  cancelTitle: string;
+  headNote: string;
+  drawNote: string;
+  boxNote: string;
+  cropNote: string;
+  pointTitle: string;
+  originalAdds: string;
+  annotatedAdds(box: number, point: number): string;
+  summaryOriginal: string;
+  summaryEmpty: string;
+  summaryAnnotated(detail: string): string;
+  sayOriginal: string;
+  sayAnnotated: string;
+  escAgain: string;
+  unreadable: string;
+}
+
+const WINDOW_LABELS: ImageEditLabels = {
+  done: '小窓に戻る（画像を付けて）',
+  doneTitle: '書き足した版（か元の画像）を付けて小窓に戻ります（Ctrl+Enter）。① で貼るのはこの画像です',
+  cancelTitle: 'この画面で書き足した分を捨てて、小窓に戻ります（Esc）',
+  headNote: '描いた画像はこの画面の中だけで作ります（外へは、小窓の ① で貼ったときだけ出ます）',
+  drawNote: '画像の上を押すと、選んだ道具の印が付きます。点線の枠は、Windows の文字読み取り（手元）で見つけた隠す候補です（画像は外に出ません）。隠すかはあなたが決めます。ぼかしは薄いと読めることがあるので、確かに隠すなら黒塗りに。Ctrl+Enter で小窓に戻る・Esc でやめる',
+  boxNote: '四角（箱）を引くと、ここに問いの行が増えます。番号は箱の角に焼き込まれ、小窓に戻ると依頼文の末尾に「①の箱：…」と並びます',
+  cropNote: '「● ここ」で一点を押すと、その周りの小さな切り抜きが並び、小窓に戻ると依頼文に「ここは何？」が入ります。丸を描かず、文も書かない頼み方です',
+  pointTitle: '一点を押すだけ。周りの小さな切り抜きが並び、小窓に戻ると依頼文に「ここは何？」が入る',
+  originalAdds: '依頼文には何も足しません',
+  annotatedAdds(box, point) {
+    const adds = [...(box ? [`「①の箱：…」〜（${box} 行）`] : []), ...(point ? ['「ここは何？」'] : [])];
+    return adds.length ? `小窓に戻ると、依頼文の末尾に ${adds.join('と')} が入ります` : '';
+  },
+  summaryOriginal: '元の画像を渡す：印なし・隠しなし。描いた印は持っておきます（「書き足した版」に戻すと続きから描けます）',
+  summaryEmpty: '書き足した版を渡す：まだ何も書き足していません（このまま戻ると、元の画像のまま付けます）',
+  summaryAnnotated: (detail) => `書き足した版を渡す：${detail}`,
+  sayOriginal: '元の画像を渡します（印は付けられません。描いた印は持っておきます）',
+  sayAnnotated: '書き足した版を渡します',
+  escAgain: 'もう一度 Esc で、書き足した分を捨てて小窓に戻ります（残すなら「小窓に戻る」）',
+  unreadable: '画像を読めませんでした。「やめる」で小窓に戻れます',
+};
+
+// カード・メモの画像から開いたとき。決めても依頼の小窓には戻さない
+export const cardImageEditLabels: ImageEditLabels = {
+  done: '書き足した版を足す',
+  doneTitle: '書き足した版を、同じメモの新しいカードに足します（Ctrl+Enter）。元の画像はそのまま残ります',
+  cancelTitle: '書き足した分を捨てます（Esc）。ファイルも台帳も変わりません',
+  headNote: '描いた画像はこの画面の中だけで作ります（書き足しただけでは、外へもクリップボードへも出ません）',
+  drawNote: '画像の上を押すと、選んだ道具の印が付きます。点線の枠は、Windows の文字読み取り（手元）で見つけた隠す候補です（画像は外に出ません）。隠すかはあなたが決めます。ぼかしは薄いと読めることがあるので、確かに隠すなら黒塗りに。Ctrl+Enter で書き足した版を足す・Esc でやめる',
+  boxNote: '四角（箱）を引くと、ここに問いの行が増えます。番号は箱の角に焼き込まれ、問いの文は新しいカードの文に行として残ります',
+  cropNote: '「● ここ」で一点を押すと、その周りの小さな切り抜きが並びます。指さしは画像に焼き込むだけで、カードの文には入りません',
+  pointTitle: '一点を押すだけ。周りの小さな切り抜きが並びます。カードの文には入りません',
+  originalAdds: '元の画像のままでは、新しいカードは足しません',
+  annotatedAdds(box, point) {
+    return [...(box ? [`箱の問い ${box} 行は、新しいカードの文に残ります`] : []), ...(point ? ['指さしは画像に焼き込むだけです'] : [])].join('。');
+  },
+  summaryOriginal: '元の画像を選んでいます。このまま決めても、新しいカードは足しません（印は持っておきます）',
+  summaryEmpty: 'まだ何も書き足していません。このまま決めても、新しいカードは足しません',
+  summaryAnnotated: (detail) => `書き足した版：${detail}`,
+  sayOriginal: '元の画像のままでは足しません（印は付けられません。描いた印は持っておきます）',
+  sayAnnotated: '書き足した版を足します',
+  escAgain: 'もう一度 Esc で、書き足した分を捨てます（残すなら「書き足した版を足す」）',
+  unreadable: '画像を読めませんでした。「やめる」で戻れます',
+};
+
 const TOOLS: { tool: ImageTool; label: string; title: string }[] = [
   { tool: 'circle', label: '○ 丸', title: '引いて丸で囲む（押しただけなら決まった大きさ）' },
   { tool: 'arrow', label: '→ 矢印', title: '根元から先へ引く（押しただけなら、押した所を指す矢印）' },
@@ -168,9 +235,9 @@ export class BotImageEdit {
   private readonly undoButton = el('button', 'brf-button', '一つ戻す');
   private readonly clearButton = el('button', 'brf-button', '全部消す');
   private readonly boxList = el('ol', 'bie-boxes');
-  private readonly boxNote = el('p', 'brf-note', '四角（箱）を引くと、ここに問いの行が増えます。番号は箱の角に焼き込まれ、小窓に戻ると依頼文の末尾に「①の箱：…」と並びます');
+  private readonly boxNote = el('p', 'brf-note');
   private readonly crops = el('div', 'bie-crops');
-  private readonly cropNote = el('p', 'brf-note', '「● ここ」で一点を押すと、その周りの小さな切り抜きが並び、小窓に戻ると依頼文に「ここは何？」が入ります。丸を描かず、文も書かない頼み方です');
+  private readonly cropNote = el('p', 'brf-note');
   private readonly annotatedRadio = el('input', 'bie-radio');
   private readonly originalRadio = el('input', 'bie-radio');
   private readonly summary = el('p', 'bie-sum');
@@ -179,8 +246,9 @@ export class BotImageEdit {
   private readonly hintRetry = el('button', 'brf-link', '探し直す');
   private readonly adds = el('p', 'brf-note');
   private readonly status = el('p', 'bie-status');
-  private readonly doneButton = el('button', 'brf-button brf-primary', '小窓に戻る（画像を付けて）');
+  private readonly doneButton = el('button', 'brf-button brf-primary');
   private readonly cancelButton = el('button', 'brf-button', 'やめる');
+  private readonly labels: ImageEditLabels;
   private hooks: ImageEditHooks | null = null;
   private img: HTMLImageElement | null = null;
   private original = '';
@@ -200,7 +268,12 @@ export class BotImageEdit {
   private readonly resize = new ResizeObserver(() => this.fitFrame()); // 置き場の大きさが変わったら（窓・横の欄の伸び縮み）枠を合わせ直す
 
   // findHints：隠す候補を探す（R7c。bot-image-hints.ts の readImageHints。無ければ探さない）
-  constructor(private readonly findHints?: (jpeg: string) => Promise<ImageHintsOutcome>) {
+  // labels：ボタンと説明。渡さなければ依頼の小窓の文のまま
+  constructor(private readonly findHints?: (jpeg: string) => Promise<ImageHintsOutcome>, labels?: Partial<ImageEditLabels>) {
+    this.labels = { ...WINDOW_LABELS, ...labels };
+    this.boxNote.textContent = this.labels.boxNote;
+    this.cropNote.textContent = this.labels.cropNote;
+    this.doneButton.textContent = this.labels.done;
     this.element.hidden = true;
     this.element.tabIndex = -1;
     this.element.setAttribute('role', 'dialog');
@@ -208,7 +281,7 @@ export class BotImageEdit {
 
     // 頭
     const head = el('div', 'bie-head');
-    head.append(el('h2', 'bie-title', '画像に書き足す'), el('span', 'brf-note', '描いた画像はこの画面の中だけで作ります（外へは、小窓の ① で貼ったときだけ出ます）'));
+    head.append(el('h2', 'bie-title', '画像に書き足す'), el('span', 'brf-note', this.labels.headNote));
 
     // 道具の列：書き足す・隠す・指さすだけ・一つ戻す・全部消す
     const tools = el('div', 'bie-tools');
@@ -221,7 +294,7 @@ export class BotImageEdit {
         if (!def) continue;
         const button = el('button', `bie-tool${name === 'point' ? ' bie-tool-point' : ''}`, def.label);
         button.type = 'button';
-        button.title = def.title;
+        button.title = name === 'point' ? this.labels.pointTitle : def.title;
         button.setAttribute('aria-pressed', 'false');
         button.addEventListener('click', () => this.setTool(name));
         this.toolButtons.set(name, button);
@@ -283,7 +356,7 @@ export class BotImageEdit {
       el(
         'p',
         'brf-note',
-        '画像の上を押すと、選んだ道具の印が付きます。点線の枠は、Windows の文字読み取り（手元）で見つけた隠す候補です（画像は外に出ません）。隠すかはあなたが決めます。ぼかしは薄いと読めることがあるので、確かに隠すなら黒塗りに。Ctrl+Enter で小窓に戻る・Esc でやめる',
+        this.labels.drawNote,
       ),
     );
 
@@ -309,10 +382,10 @@ export class BotImageEdit {
     }
     this.status.setAttribute('aria-live', 'polite');
     this.doneButton.type = 'button';
-    this.doneButton.title = '書き足した版（か元の画像）を付けて小窓に戻ります（Ctrl+Enter）。① で貼るのはこの画像です';
+    this.doneButton.title = this.labels.doneTitle;
     this.doneButton.addEventListener('click', () => this.finish());
     this.cancelButton.type = 'button';
-    this.cancelButton.title = 'この画面で書き足した分を捨てて、小窓に戻ります（Esc）';
+    this.cancelButton.title = this.labels.cancelTitle;
     this.cancelButton.addEventListener('click', () => this.cancel());
     const foot = el('div', 'bie-foot');
     foot.append(this.doneButton, this.cancelButton);
@@ -370,7 +443,7 @@ export class BotImageEdit {
     void loadImage(image).then((img) => {
       if (loads !== this.loads || !this.isOpen) return;
       if (!img) {
-        this.say('画像を読めませんでした。「やめる」で小窓に戻れます');
+        this.say(this.labels.unreadable);
         this.updateTools();
         return;
       }
@@ -851,18 +924,18 @@ export class BotImageEdit {
   private renderSummary() {
     const counts = countMarks(this.marks);
     if (this.version === 'original') {
-      this.summary.textContent = '元の画像を渡す：印なし・隠しなし。描いた印は持っておきます（「書き足した版」に戻すと続きから描けます）';
-      this.adds.textContent = '依頼文には何も足しません';
+      this.summary.textContent = this.labels.summaryOriginal;
+      this.adds.textContent = this.labels.originalAdds;
       return;
     }
     if (!this.marks.length) {
-      this.summary.textContent = '書き足した版を渡す：まだ何も書き足していません（このまま戻ると、元の画像のまま付けます）';
+      this.summary.textContent = this.labels.summaryEmpty;
       this.adds.textContent = '';
       return;
     }
-    this.summary.textContent = `書き足した版を渡す：${(['circle', 'arrow', 'box', 'num', 'text', 'black', 'blur', 'point'] as const).map((kind) => `${TOOL_NAME[kind]} ${counts[kind]}`).join('・')}`;
-    const adds = [...(counts.box ? [`「①の箱：…」〜（${counts.box} 行）`] : []), ...(counts.point ? ['「ここは何？」'] : [])];
-    this.adds.textContent = adds.length ? `小窓に戻ると、依頼文の末尾に ${adds.join('と')} が入ります` : '';
+    const detail = (['circle', 'arrow', 'box', 'num', 'text', 'black', 'blur', 'point'] as const).map((kind) => `${TOOL_NAME[kind]} ${counts[kind]}`).join('・');
+    this.summary.textContent = this.labels.summaryAnnotated(detail);
+    this.adds.textContent = this.labels.annotatedAdds(counts.box, counts.point);
   }
 
   // 道具のボタン（選んでいる印・押せるか）と、一つ戻す・全部消す・小窓に戻る
@@ -883,7 +956,7 @@ export class BotImageEdit {
     this.tool = tool;
     this.escArmed = false;
     this.updateTools();
-    this.say(TOOLS.find((t) => t.tool === tool)?.title ?? '');
+    this.say(this.toolButtons.get(tool)?.title ?? '');
   }
 
   private setVersion(version: ImageEditVersion) {
@@ -895,7 +968,7 @@ export class BotImageEdit {
     this.renderBase();
     this.renderInk();
     this.renderSide();
-    this.say(version === 'original' ? '元の画像を渡します（印は付けられません。描いた印は持っておきます）' : '書き足した版を渡します');
+    this.say(version === 'original' ? this.labels.sayOriginal : this.labels.sayAnnotated);
   }
 
   // 画像の上の点（描く面の画素）
@@ -1122,7 +1195,7 @@ export class BotImageEdit {
       }
       if (this.changed && !this.escArmed) {
         this.escArmed = true;
-        this.say('もう一度 Esc で、書き足した分を捨てて小窓に戻ります（残すなら「小窓に戻る」）');
+        this.say(this.labels.escAgain);
         return;
       }
       this.cancel();

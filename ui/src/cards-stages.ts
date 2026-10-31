@@ -1,4 +1,3 @@
-import { BOT_FEATURES } from './features';
 // Grok Cards の段の旗（localStorage honeycomb.cardsStages。例 ["1","2","4"]）
 //   【段 "3" は常にオン（2026-10-25・利用者の指示「旗を本体に反映」）】段 "3"（Grok Cards の枠・タブ・パネル・中継・保存。ボードもこの枠の中に入る）は、旗を読まず**常にオン**。鍵に "3" が入っていなくても・鍵が [] でも、オン。
 //     **ほかの段（1・2・4〜9）は今までどおり旗のまま**：鍵が無い・壊れている・その段が入っていなければオフ（段 "3" がオンでも、ほかの段はオンにならない）。値は書き換えない
@@ -63,7 +62,7 @@ export function cardsStagesFromStorage(raw: string | null): readonly unknown[] {
 }
 
 export function cardsStageOn(stage: string): boolean {
-  if (stage === '3') return BOT_FEATURES; // 公開版（rebuild-public.ps1）：Grok 機能が既定オフなので、段 3 の枠も BOT_FEATURES のときだけ // 常にオン（旗は読まない）。ほかの段は下で旗を読む
+  if (stage === '3') return true; // 常にオン（旗は読まない）。ほかの段は下で旗を読む
   try {
     return cardsStagesFromStorage(localStorage.getItem(CARDS_STAGES_KEY)).some((item) => item === stage);
   } catch {

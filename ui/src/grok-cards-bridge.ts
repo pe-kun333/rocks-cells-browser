@@ -1,5 +1,6 @@
 // 左が Grok Cards の台帳を書く（下の面と右は写しを見る）
 //   段の旗が空のときは、何も書かない・送らない
+import type { BotCardOrigin } from './bot-replies';
 import { send } from './bridge';
 import { CARDS_STAGES_KEY, cardsStageOn, publishArrived, publishCardTags, publishReplies, readCardsOpen } from './cards-stages';
 import { shellArrived } from './grok-cards-arrived';
@@ -24,6 +25,7 @@ export interface CardRequestSnap {
   no: string;
   group?: number;
   fileId?: string;
+  origin?: BotCardOrigin[];
 }
 
 export interface CardGroupSnap {

@@ -73,10 +73,10 @@ describe('配線（ソースの形）', () => {
     expect(pane).toContain("if (to !== 'board') status.textContent = noticeText;");
     expect(pane).toContain("if (to !== 'lower') boardNoticeListeners.forEach((fn) => fn(noticeText));");
   });
-  it('左：memo を付けるのは、メモ id が分かる断り・知らせ（タグ・関連・型の貼り付けの断り・削除の取り消し）。型の追加は省略できる項目 1 つだけ（後方互換）', () => {
+  it('左：memo を付けるのは、メモ id が分かる断り・知らせ（タグ・関連・型の貼り付けの断り・削除の取り消し・＋コメントでマスと結べなかった〈V2b〉）。型の追加は省略できる項目 1 つだけ（後方互換）', () => {
     expect(primary).toContain('...(extra?.memo ? { memo: extra.memo } : {}),');
-    expect(primary.match(/\{ memo: action\.(id|to) \}/g)!.length).toBe(8);
-    expect(types).toContain("{ kind: 'memoPaneNotice'; text: string; openMemo?: string; undoSend?: string; memo?: string }");
+    expect(primary.match(/\{ memo: action\.(id|to) \}/g)!.length).toBe(9);
+    expect(types).toContain("{ kind: 'memoPaneNotice'; text: string; openMemo?: string; undoSend?: string; memo?: string; dropShot?: string }");
   });
   it('ボードの部品は、呼び名の差し替えの道（withLinkKindNames）以外では呼称セットを触らない', () => {
     expect(tab).not.toMatch(/linkNameSets|resolvedLinkKindNames|applyLinkKindNames/);

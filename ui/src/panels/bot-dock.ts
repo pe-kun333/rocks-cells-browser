@@ -67,6 +67,7 @@ import { AnswerLinesAsker, AskLeftSender, type BotSender } from '../bot-send';
 import { cardsStageOn, readCardsOpen } from '../cards-stages';
 import { groupSent, looksLikeSecret, SECRET_NOTICE } from '../grok-cards-tags';
 import { type BotDraft, loadDrafts, removeDraft } from '../drafts';
+import { cleanMaterialRefs } from '../draft-materials';
 import type { RelayCommand } from '../types';
 import { BotNest as BotNestView, type BotNestSeat } from './bot-nest';
 import { type BotNestHookHost, type BotNestPlan, type BotNestSnapshot, BotNestSettings, type PresetPickSource } from './bot-nest-settings';
@@ -763,6 +764,8 @@ export class BotDock {
       return true;
     }
     const page = draft.req.page;
+    const refs = cleanMaterialRefs(draft.materialRefs);
+    const reopen = [draft.attach.body ? 'ページの本文は付け直していません' : '', refs.length ? '材料は名前だけ残しています（中身は読み直せず、見つかりませんとして外してあります）' : ''].filter(Boolean);
     this.cueDraftId = draft.id;
     this.formReturn = 'ask-one';
     this.nest.formOpen(true);
@@ -770,12 +773,13 @@ export class BotDock {
       targets: botRequestTargets(s.bots, this.docked().map((b) => b.id)),
       to: target.id,
       context: page ? { url: page.url, title: page.title, ...(page.selection ? { selection: page.selection } : {}) } : {},
+      ...(refs.length ? { materialRefs: refs } : {}),
       text: draft.text,
       confirmApp: !s.confirmed,
       nest: this.askAllNest(),
       ...this.openExtras(),
       heading: draft.failed ? 'コピーできなかった依頼を、送り直す' : '未送信の依頼を、送り直す',
-      note: `コピーするまで、クリップボードもアプリも動きません。宛て先・返し先・付けるものを選び直せます${draft.attach.body ? '（ページの本文は付け直していません）' : ''}`,
+      note: `コピーするまで、クリップボードもアプリも動きません。宛て先・返し先・付けるものを選び直せます${reopen.length ? `（${reopen.join('。')}）` : ''}`,
       skipCloseDraft: true,
     });
     return true;
@@ -809,38 +813,6 @@ export class BotDock {
       ...this.openExtras(),
       heading: '相棒の返事から下書き',
       note: 'コピーするまで、クリップボードもアプリも動きません。今見ているページは付けていません',
-    });
-    return true;
-  }
-
-  // 島の「この島を頼む」（段階16）。選んだメモの文を小窓に入れるだけ。今見ているページは付けない。コピーもアプリも開かない
-  openIsland(text: string): boolean {
-    const s = this.state;
-    if (this.form.isOpen || this.settings.isOpen) {
-      this.host.toast('開いている欄を閉じてから、もう一度どうぞ');
-      return false;
-    }
-    if (!s || !s.ready) {
-      this.host.toast('ボットの台帳がまだ届いていません。少し待ってから、もう一度どうぞ');
-      return false;
-    }
-    const target = this.cueTarget();
-    if (!target) {
-      this.host.toast('リンクのある Grok Bot がいないので、小窓は開けません。右クリック →「リンクを貼る…」で貼ってから、もう一度どうぞ', 6000);
-      return false;
-    }
-    this.formReturn = 'ask-one';
-    this.nest.formOpen(true);
-    this.form.open({
-      targets: botRequestTargets(s.bots, this.docked().map((b) => b.id)),
-      to: target.id,
-      context: {},
-      text,
-      confirmApp: !s.confirmed,
-      nest: this.askAllNest(),
-      ...this.openExtras(),
-      heading: '島から下書き',
-      note: 'コピーするまで、クリップボードもアプリも動きません。となりのメモと、ページの本文は入れていません',
     });
     return true;
   }

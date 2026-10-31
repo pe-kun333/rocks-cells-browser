@@ -9,7 +9,7 @@ import { type BotPresetEntry, PRESET_ENTRY_LABEL, PRESET_ID_RE } from './bot-pre
 import { isBotId } from './bots';
 import { readData, writeData } from './data';
 
-export type BotLastReplyTo = 'inbox' | 'chat' | 'memo'; // 受け取り箱（中継）／アプリのチャットだけ／六角メモにも届く（R10）
+export type BotLastReplyTo = 'inbox' | 'chat' | 'memo' | 'card'; // 受け取り箱（中継）／アプリのチャットだけ／六角メモにも届く（R10）／カードにする（段 D6。届いてから［カードにする］が出る。自動では置かない）
 
 // 小窓が送るときの選び方（at は左が付ける）
 export interface BotLastChoice {
@@ -52,7 +52,7 @@ export function normalizeLastChoice(raw: unknown): BotLastChoice | null {
     ...(typeof raw.set === 'string' && PRESET_ID_RE.test(raw.set) ? { set: raw.set } : {}),
     presets: ids(raw.presets, PRESET_ID_RE, PRESETS_MAX),
     to: to.all === true ? { all: true } : { ...(isBotId(to.botId) ? { botId: to.botId } : {}), ...(seat ? { seat } : {}) },
-    replyTo: raw.replyTo === 'chat' || raw.replyTo === 'memo' ? raw.replyTo : 'inbox',
+    replyTo: raw.replyTo === 'chat' || raw.replyTo === 'memo' || raw.replyTo === 'card' ? raw.replyTo : 'inbox',
     stamps: ids(raw.stamps, STAMP_ID_RE, STAMPS_MAX),
     attach: { url: attach.url === true, title: attach.title === true, selection: attach.selection === true },
   };

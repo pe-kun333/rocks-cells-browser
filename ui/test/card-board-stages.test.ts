@@ -17,9 +17,6 @@ import {
 import { CARDS_PLACE_KEY, CARDS_STAGES_KEY, CARDS_UPPER_RATIO_KEY, cardsStageOn, cardsStagesFromStorage, readCardsOpen, readCardsPlace, readUpperRatio } from '../src/cards-stages';
 import { PLACE_BUMP_NOTE } from '../src/memo-card-board-place';
 
-// 公開版（rebuild-public.ps1）：この試験は Grok 機能を入れたビルド（BOT_FEATURES）での段 3 を確かめる
-vi.mock('../src/features', async (importOriginal) => ({ ...(await importOriginal<typeof import('../src/features')>()), BOT_FEATURES: true }));
-
 // ---------- 旗の廃止（2026-10-25・利用者の指示「旗を本体に反映」）：ボード・上に出す・段 "3" は常にオン ----------
 describe('旗の廃止：ボード（段 "1"）・上に出す（段 "2"）・Grok Cards の段 "3" は常にオン', () => {
   const store = new Map<string, string>();

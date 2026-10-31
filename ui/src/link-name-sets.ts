@@ -2,6 +2,7 @@
 //   ・台帳は 1 つで、全部のメモタブで共通（ui-data\link-name-sets.json）。どのセットを使うかはメモごと（MemoCell.linkSet）
 //   ・線に保存するのは、これまでどおり種類の id だけ。名前は線に入れない
 //   ・書くのは下のメモの区画だけ（LinkNameSetStore を作るのはそこだけ）。左はメモの linkSet を書くだけで、このファイルは書かない
+//   ・左は起動時にこのファイルを読むだけ（新しいメモに付ける id が、まだ台帳にあるかを見る。決まりは link-set-for-new.ts）。あとの増減は下の区画が知らせる
 //   ・セットを選んでいないメモは、今までどおりそのメモの linkNames（無ければ元の名前）
 import { readDataChecked, writeData } from './data';
 import { type LinkKind, type LinkKindNames, parseLinkKindNames } from './memo-card-links';

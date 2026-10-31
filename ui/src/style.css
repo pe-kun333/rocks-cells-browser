@@ -1841,6 +1841,33 @@ body.surface-right .panel-header {
   font-size: 12px;
 }
 
+/* 六角で見るのやり取りの型の帯（plan-reader-video の V5）：型の名前・今すること・やめる */
+.ai-talk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--accent-line);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  font-size: 12px;
+}
+
+.ai-talk-bar[hidden] {
+  display: none;
+}
+
+.ai-talk-name {
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.ai-talk-hint {
+  flex: 1 1 auto;
+  color: var(--muted);
+}
+
 /* さらに考える（フェイブルが確認なしで進化する）。月の満ち欠けが、今日の進化の枠の残り */
 .ai-deep {
   display: inline-flex;
@@ -4003,6 +4030,7 @@ body.surface-reader {
   --rcell-key-2: #e0a100;
   --rcell-key-3: #f08c00;
   --rcell-current: #3b82f6;
+  --rcell-card: #14b8a6; /* カードの「マスで見る」で光らせたマス（V2b） */
 }
 
 /* マス：外側（枠の色）と内側（中身）を、どちらも六角形に切り抜く */
@@ -4065,6 +4093,252 @@ body.surface-reader {
   color: var(--heart);
   font-size: calc(var(--r) * 0.11);
   transform: translateX(-50%);
+}
+
+/* 選んだマスと番号（六角で見る。plan-reader-video の V3b） */
+.rcell.picked {
+  --rcell-edge: var(--accent-ink);
+  opacity: 1;
+}
+
+.rcell.picked .rcell-inner {
+  inset: 4px;
+}
+
+.rcell-pick {
+  position: absolute;
+  top: calc(var(--r) * 0.3);
+  left: 22%;
+  min-width: 1.4em;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--accent-ink);
+  color: var(--surface);
+  font-size: calc(var(--r) * 0.11);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* 組に保存の小さな欄（V3b-3） */
+.reader-set-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.reader-set-name {
+  width: 12em;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+/* 選んだ区間の棚（区間セルと下の帯のあいだ） */
+.reader-shelf {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.reader-shelf[hidden] {
+  display: none;
+}
+
+.reader-shelf-count {
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+/* 全体の地図・900 マスの知らせ・コメント用に写す（六角で見る。plan-reader-video の V6） */
+.reader-overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  padding: 4px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.reader-overview[hidden],
+.reader-cap[hidden],
+.reader-export[hidden] {
+  display: none;
+}
+
+.reader-map {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 120px;
+  height: 18px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.reader-map-cut {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--muted) 35%, transparent) 0 4px, transparent 4px 8px);
+  pointer-events: none;
+}
+
+.reader-map-chapter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+  pointer-events: none;
+}
+
+.reader-map-pt {
+  position: absolute;
+  width: 3px;
+  height: 4px;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.reader-map-pt.heart {
+  top: 2px;
+  background: var(--heart);
+}
+
+.reader-map-pt.note {
+  top: 7px;
+  background: var(--accent);
+}
+
+.reader-map-pt.card,
+.reader-map-pt.ai {
+  top: 12px;
+}
+
+.reader-map-pt.card,
+.reader-map-key.card {
+  background: var(--rcell-card);
+}
+
+.reader-map-pt.ai,
+.reader-map-key.ai {
+  background: var(--ai-border);
+}
+
+.reader-map-key.heart {
+  background: var(--heart);
+}
+
+.reader-map-key.note {
+  background: var(--accent);
+}
+
+.reader-map-now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--rcell-current);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.reader-map-legend {
+  display: flex;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.reader-map-key {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 3px;
+  border-radius: 2px;
+  vertical-align: 0;
+}
+
+.reader-cap {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-soft);
+  font-size: 12px;
+}
+
+.reader-cap-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.reader-export {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.reader-export-note {
+  margin: 0;
+  color: var(--muted);
+}
+
+.reader-export-text {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  resize: vertical;
+}
+
+.reader-export-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.reader-export-count {
+  margin-right: auto;
+  color: var(--muted);
+}
+
+.reader-export-count.over {
+  color: var(--warn);
+}
+
+/* このマスと結んだカードの数（六角で見る。plan-reader-video の V2a-2b） */
+.rcell-links {
+  position: absolute;
+  right: 22%;
+  bottom: calc(var(--r) * 0.14);
+  color: var(--accent-ink);
+  font-size: calc(var(--r) * 0.11);
+  font-weight: 700;
 }
 
 .rcell.head .rcell-text {
@@ -4236,6 +4510,101 @@ body.surface-reader {
   height: 100%;
   background: var(--accent);
   transition: width 0.2s;
+}
+
+/* 一行の欄（六角で見る。plan-reader-video の V1）：書く先のマス・‹ ›・欄・書くあいだの再生・広げる */
+.reader-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 0 14px 8px;
+  font-size: 12px;
+}
+
+.reader-line[hidden] {
+  display: none;
+}
+
+.reader-line-pin {
+  min-width: 4.5em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.reader-line.pinned .reader-line-pin {
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.reader-line-input {
+  flex: 1;
+  min-width: 8em;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+/* 書く先（マスのメモ｜カード）と結ぶ先のメモ（V1c） */
+.reader-line-to {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.reader-line-target {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.reader-line-to[hidden],
+.reader-line-target[hidden] {
+  display: none;
+}
+
+.reader-line-target-select {
+  max-width: 16em;
+  padding: 3px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+/* 書く・操るの見分け（D9）：欄に焦点があるあいだは縁を色にする（一文字のキーは字になる） */
+.reader-line-input:focus {
+  border-color: var(--accent-line);
+  outline: 2px solid color-mix(in srgb, var(--accent-line) 45%, transparent);
+  outline-offset: 0;
+}
+
+/* 一行の欄で書いているマス */
+.rcell.pinned {
+  --rcell-edge: var(--accent-line);
+  opacity: 1;
+}
+
+.rcell.pinned .rcell-inner {
+  inset: 4px;
+}
+
+/* 下の区画のカードの「マスで見る」で光らせたマス（六角で見る。plan-reader-video の V2b） */
+.rcell.glow {
+  --rcell-edge: var(--rcell-card);
+  opacity: 1;
+}
+
+.rcell.glow .rcell-inner {
+  inset: 5px;
 }
 
 .reader-status {
@@ -6083,6 +6452,25 @@ body.surface-reader > .download-shelf {
 .reader.short .reader-info {
   max-height: 18vh;
   padding: 4px 12px;
+}
+
+.reader.short .reader-line {
+  padding: 0 8px 4px;
+}
+
+.reader.short .reader-overview,
+.reader.short .reader-cap,
+.reader.short .reader-export {
+  padding: 2px 8px;
+}
+
+.reader.short .reader-map-legend,
+.reader.short .reader-export-note {
+  display: none;
+}
+
+.reader.short .reader-export-text {
+  height: 5em;
 }
 
 /* 字幕が無いとき：字幕のファイルを読み込むか、ライブキャプションで聞き取るか */

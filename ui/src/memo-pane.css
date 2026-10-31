@@ -699,8 +699,10 @@ body.surface-memo > .panels {
 
 /* カードの並びと関連線の層の包み（L3）。線の層は並びの前にあり、関連があるときはカードを position: relative にして、DOM の順で線の上に重ねる
    （isolation で重なりの文脈を作ると、カードの中の「＋タグ」の候補の欄が「＋コメント」の欄より下になるため使わない） */
+/* 一番下のカードの下にも空きが見えるところまでスクロールできるように、並びの下に余白を足す */
 .memo-pane-cards-wrap {
   position: relative;
+  padding-bottom: 40vh;
 }
 
 .memo-pane-link-layer {
@@ -784,6 +786,118 @@ body.surface-memo > .panels {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.4;
+}
+
+/* 結んだ区間（六角で見る。plan-reader-video の V2a-3）：▶ 時刻のボタンと、動画の札 */
+.memo-pane-at {
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: none;
+  color: var(--accent-ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.memo-pane-at:hover,
+.memo-pane-at:focus-visible {
+  border-color: var(--accent-line);
+}
+
+.memo-pane-at-video {
+  max-width: 12em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 「マスで見る」（六角で見る。plan-reader-video の V2b）：押してある間は塗る */
+.memo-pane-at-glow {
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: none;
+  color: var(--accent-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.memo-pane-at-glow:hover,
+.memo-pane-at-glow:focus-visible {
+  border-color: var(--accent-line);
+}
+
+.memo-pane-at-glow[aria-pressed='true'] {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+/* AI のカード（六角で見る。plan-reader-video の V4b・D5）：種類の色の帯、種類の名前と目安の料金、行ごとの時刻の札と技法の札。畳まない */
+.memo-pane-card.ai-card {
+  --ai-kind: var(--accent-line);
+  border-top: 4px solid var(--ai-kind);
+}
+
+.memo-pane-card.ai-card[data-ai-kind='tech'] {
+  --ai-kind: var(--ai4-border);
+}
+
+.memo-pane-card.ai-card[data-ai-kind='bones'] {
+  --ai-kind: var(--ai5-border);
+}
+
+.memo-pane-card.ai-card[data-ai-kind='tendon'] {
+  --ai-kind: var(--ai3-border);
+}
+
+.memo-pane-card.ai-card[data-ai-kind='pause'] {
+  --ai-kind: var(--ai2-border);
+}
+
+.memo-pane-card.ai-card[data-ai-kind='apply'] {
+  --ai-kind: var(--accent-ink);
+}
+
+.memo-pane-ai-kind {
+  color: var(--ai-kind);
+  font-weight: 700;
+}
+
+.memo-pane-ai-cost {
+  color: var(--muted);
+}
+
+.memo-pane-ai-body {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0;
+}
+
+.memo-pane-ai-head {
+  font-weight: 700;
+}
+
+.memo-pane-ai-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.memo-pane-ai-tech {
+  padding: 0 6px;
+  border: 1px solid var(--ai-kind);
+  border-radius: 999px;
+  color: var(--ai-kind);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* 読む画面の今のマスと結んだカード（V2b）：左の縁に帯。外の線（outline）は関連づけと選ぶのが使うので使わない */
+.memo-pane-card.reader-now {
+  border-color: var(--accent-ink);
+  box-shadow: inset 4px 0 0 var(--accent-ink);
 }
 
 /* カードの頭の帯：左の組（種類・名前・日付・書き直し済み・関連 n）と、右端の並べ替えのつまみ（plan-memo-card-order の O2） */
@@ -1011,6 +1125,31 @@ body.surface-memo > .panels {
   position: absolute;
   top: 8px;
   right: 8px;
+}
+
+/* 段 D7：画像に書き足す面（区画いっぱいに重ねる。小窓の .bie を、この区画の高さに合わせる） */
+.memo-pane-annotate {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 6px;
+  background: var(--bg);
+}
+
+.memo-pane-annotate > .bie {
+  width: 100%;
+  height: 100%;
+  /* 区画は横に広く、高さは短いことが多い。道具と画像を上に、問いと決めるボタンを下に積む */
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.memo-pane-annotate .bie-side {
+  max-height: 46%;
+  overflow: auto;
 }
 
 /* 関連のマップの窓（区画いっぱいに重なる。位置と高さは区画の根の中）。同じ z-index 5 の大きく見た画像（.memo-pane-light）がマップより上に出るよう、DOM では画像より前に置く */
@@ -1295,7 +1434,39 @@ body.surface-memo > .panels {
 }
 
 .memo-pane-compose-row .preview-button {
+  margin-left: 0;
+}
+
+/* 「足す」の横。「次の行に」がオンのあいだ、新しい一番上のカードは次の行の 1 列目 */
+.memo-pane-compose-nextrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.memo-pane-compose-nextrow.is-disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* 「＋コメント」の「▶ m:ss と結ぶ」（V2b・D24。読む画面が動画を開いているときだけ） */
+.memo-pane-compose-at {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.memo-pane-compose-at[hidden] {
+  display: none;
 }
 
 .memo-pane-empty {
@@ -1578,6 +1749,17 @@ body.surface-memo > .panels {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 時刻順の見出し（六角で見る。plan-reader-video の V2b）：動画の題と、チャプター */
+.memo-pane-time-head {
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.memo-pane-time-chapter {
+  padding-left: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .memo-pane-filter-empty {

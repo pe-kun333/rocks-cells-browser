@@ -361,6 +361,32 @@ export interface BotRequestInput {
   // 送り方（依頼の小窓 v2・R11・D20）：hook＝中継へ直接（webhook「そのまま送る」）。無い・clipboard はコピーしてアプリを開く。
   //   左が送る口（WebhookSender／ClipboardSender）を選ぶ。pending.json には hook のときだけ覚える（依頼の JSON には入れない）
   via?: BotSendWay;
+  // 出どころ（段 D6）。付けていたカードだけ。pending.json にだけ覚える（request.v1 には入れない）
+  origin?: BotCardOrigin[];
+}
+
+// 依頼の出どころのカード（段 D6。MaterialRef の card と同じ形。タブ・メモ・島は返事の戻し先にしない）
+export interface BotCardOrigin {
+  kind: 'card';
+  memo: string;
+  reply: string;
+}
+
+export const ORIGIN_MAX = 10;
+const ORIGIN_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+// 出どころを使える形に直す（カードだけ・形の合う id だけ・重なりは先のもの・10 件まで。配列でなければ空）
+export function cleanOrigins(raw: unknown): BotCardOrigin[] {
+  if (!Array.isArray(raw)) return [];
+  const out: BotCardOrigin[] = [];
+  for (const item of raw) {
+    if (!isRecord(item) || item.kind !== 'card' || typeof item.memo !== 'string' || typeof item.reply !== 'string') continue;
+    if (!ORIGIN_ID_RE.test(item.memo) || !ORIGIN_ID_RE.test(item.reply)) continue;
+    if (out.some((origin) => origin.memo === item.memo && origin.reply === item.reply)) continue;
+    out.push({ kind: 'card', memo: item.memo, reply: item.reply });
+    if (out.length >= ORIGIN_MAX) break;
+  }
+  return out;
 }
 
 // 返事を写す先（R10）。hex：六角メモ（相棒の設定で選んだノート。今の「六角メモで開く」と同じ道）
@@ -569,6 +595,9 @@ export interface BotPendingRequest {
   delivered?: { at: string; note: string }; // 写した（ISO の時刻と、カードの下の 1 行。ノートの名前だけ。返事の文・check は入れない）。2 回は写さない
   // webhook「そのまま送る」（R11・計画書 D20）。R11 より前のファイルには無い（無ければコピーしてアプリを開くで送った依頼）。check・二重の見分けには使わない
   via?: 'hook'; // 中継へ直接送った（貼りましたか？を聞かない）
+  // 出どころ（段 D6）。送った材料のうち、付けていたカードだけ（最大 10）。D6 より前のファイルには無い（無ければ［カードにする］は出ない）。
+  //   request.v1 には入れない。返事を新しい一番上のカードにするとき、元のカードを指す
+  origin?: BotCardOrigin[];
   hook?: { at: number; ok: boolean; why?: string }; // 中継の答え（ok：受けた　false：届かなかった。why は短いわけ）。無ければ答えを待っている（か、答えの前に窓を閉じた）
   copiedAt?: number; // 届かなかったので、同じ依頼（requestId・check は同じ。attempt を 1 増やす）をコピーしてアプリを開くに切り替えた時刻
 }
@@ -669,6 +698,8 @@ export function parsePending(raw: unknown): BotPendingFile {
               ...(isInt(item.copiedAt, 0) ? { copiedAt: item.copiedAt } : {}),
             }
           : {}),
+        // 出どころ（段 D6）：カードだけ。無い・形の違うものは書かない（［カードにする］は出ない）
+        ...(cleanOrigins(item.origin).length ? { origin: cleanOrigins(item.origin) } : {}),
       });
     }
   }

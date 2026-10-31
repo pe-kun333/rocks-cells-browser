@@ -19,9 +19,17 @@
 //     右の編集は命令 setPresets で丸ごと渡し、左は mergePresetEdit で、使った回数・印の数などの数字は左の持ち分のまま混ぜる
 //   ・ここは import の無い純粋な関数だけ（DOM もファイルも知らない）。使うのは小窓（panels/bot-request-form.ts）・巣の ⚙（panels/bot-nest-settings.ts）と左の BotPresetStore
 
-// 開いた入口（ページ＝右クリック・Ctrl+Shift+G／メモのセル／六角スクショ／巣／続けて聞く〔R5〕）
-export type BotPresetEntry = 'page' | 'memo' | 'shot' | 'nest' | 'follow';
-export const PRESET_ENTRY_LABEL: Readonly<Record<BotPresetEntry, string>> = { page: 'ページ', memo: 'メモのセル', shot: '六角スクショ', nest: '巣', follow: '続けて聞く' };
+// 開いた入口（ページ＝右クリック・Ctrl+Shift+G／メモのセル／六角スクショ／巣／続けて聞く〔R5〕／セル・カード〔段 D5〕）
+export type BotPresetEntry = 'page' | 'memo' | 'shot' | 'nest' | 'follow' | 'cells' | 'cards';
+export const PRESET_ENTRY_LABEL: Readonly<Record<BotPresetEntry, string>> = {
+  page: 'ページ',
+  memo: 'メモのセル',
+  shot: '六角スクショ',
+  nest: '巣',
+  follow: '続けて聞く',
+  cells: 'セル',
+  cards: 'カード',
+};
 const isEntry = (value: unknown): value is BotPresetEntry => typeof value === 'string' && Object.hasOwn(PRESET_ENTRY_LABEL, value);
 
 export type BotPresetLife = 'forever' | 'today' | 'case'; // ずっと／今日だけ／この調べものの間（R4b）
@@ -224,13 +232,20 @@ export function presetsBrief(presets: BotPresets, opts: { vault?: boolean; count
   };
 }
 
-// 開いた入口の組（無ければ、メモのセルはページの組・続けて聞くは巣の組〔R4a までと同じ〕・ほかは最初の組。組が無ければ -1）
+// 開いた入口の組（無ければ、メモのセルとセルはページの組・続けて聞くとカードは巣の組・ほかは最初の組。組が無ければ -1）
 export function presetSetIndex(sets: readonly BotPresetSet[], entry: BotPresetEntry): number {
   const i = sets.findIndex((s) => s.entry === entry);
   if (i >= 0) return i;
-  const near = entry === 'memo' ? 'page' : entry === 'follow' ? 'nest' : null;
+  const near = entry === 'memo' || entry === 'cells' ? 'page' : entry === 'follow' || entry === 'cards' ? 'nest' : null;
   const j = near ? sets.findIndex((s) => s.entry === near) : -1;
   return j >= 0 ? j : sets.length ? 0 : -1;
+}
+
+// 読む画面の小窓が使う入口。六角スクショは shot。続けて聞くは、ここを通さず巣の小窓が直接開く
+export function presetOpenEntry(entry: BotPresetEntry | undefined, shot: boolean): Exclude<BotPresetEntry, 'follow'> {
+  if (shot || entry === 'shot') return 'shot';
+  if (entry === 'memo' || entry === 'nest' || entry === 'cells' || entry === 'cards') return entry;
+  return 'page';
 }
 
 // 組の手元の定型（手元の順。無くなった id は飛ばす）
@@ -517,6 +532,8 @@ const PAGE_HAND = hand('p', ['要点を 5 行に', '反対の意見を探して'
 const NEST_HAND = hand('n', ['評判を日本語の掲示板で', '似た製品と比べて', '最近 1 年の変化', '落とし穴を挙げて', '買う前に確かめること', '専門家の見解を']);
 const SHOT_HAND = hand('s', ['これは何', '文字に起こして', '数字を表に', '反対の見方は', 'この図を文章に', '分かりにくい所は']);
 const FOLLOW_HAND = hand('f', ['{前の返事の要点} の二つ目をもっと詳しく', '{前の返事の要点} の根拠と出典を', '反対の見方は', '具体的な例を 3 つ', '次に何をすればいい？', '分かりにくい所をやさしく']);
+const CELLS_HAND = hand('ce', ['これらを比べて違いを表に', '共通点と相違点を 3 つずつ', '抜けている観点を挙げて', 'どの順に読むべき？', '一つの文章に要点をまとめて', '互いに矛盾していない？']);
+const CARDS_HAND = hand('cd', ['この中で一番弱い主張はどれ？', 'テーマごとに分けて', '反論を 1 枚ずつに', '足りない根拠を挙げて', '次に調べることを 3 つ', '型にまとめて（型の下書きに使う）']);
 const SHELF = ['{題名} について、{選んだ文} の部分だけ出典を確かめて', 'この表を日本語で整理して', 'この条文の改正前と後を', '改善案を 3 つ', '手順を文章に'].map((text, i) => preset(`o${i + 1}`, text, 'shelf'));
 
 export const DEFAULT_PRESETS: Readonly<BotPresetFile> = {
@@ -526,6 +543,25 @@ export const DEFAULT_PRESETS: Readonly<BotPresetFile> = {
     { id: 'nest', name: '調べもの', entry: 'nest', hand: NEST_HAND.map((p) => p.id) },
     { id: 'shot', name: 'スクショ', entry: 'shot', hand: SHOT_HAND.map((p) => p.id) },
     { id: 'follow', name: '続き', entry: 'follow', hand: FOLLOW_HAND.map((p) => p.id) },
+    { id: 'cells', name: 'セル', entry: 'cells', hand: CELLS_HAND.map((p) => p.id) },
+    { id: 'cards', name: 'カード', entry: 'cards', hand: CARDS_HAND.map((p) => p.id) },
   ],
-  presets: [...PAGE_HAND, ...NEST_HAND, ...SHOT_HAND, ...FOLLOW_HAND, ...SHELF],
+  presets: [...PAGE_HAND, ...NEST_HAND, ...SHOT_HAND, ...FOLLOW_HAND, ...CELLS_HAND, ...CARDS_HAND, ...SHELF],
 };
+
+// 用意した組がファイルに無いときだけ足す（段 D5。押したときだけ呼ぶ。今ある組と定型は残す。足すものが無ければ null）
+export function addDefaultPresetSet(presets: BotPresets, entry: BotPresetEntry, now = Date.now()): BotPresets | null {
+  const source = DEFAULT_PRESETS.sets.find((set) => set.entry === entry);
+  if (!source || presets.sets.some((set) => set.entry === entry || set.id === source.id)) return null;
+  const stamp = new Date(now).toISOString();
+  const added = source.hand.flatMap((id) => {
+    if (presets.presets.some((preset) => preset.id === id)) return [];
+    const preset = DEFAULT_PRESETS.presets.find((item) => item.id === id);
+    return preset ? [{ ...preset, createdAt: stamp, keptAt: stamp }] : [];
+  });
+  return {
+    sets: [...presets.sets, { ...source, hand: [...source.hand] }],
+    presets: [...presets.presets, ...added],
+    ...(presets.review ? { review: presets.review } : {}),
+  };
+}

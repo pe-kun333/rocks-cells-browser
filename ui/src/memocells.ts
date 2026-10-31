@@ -22,7 +22,10 @@ import { buildPasteDraft, type PasteIdsProblem, pasteIdsProblem, parseTemplate }
 import { isSheetId, MAIN_SHEET } from './sheets';
 import { visibleTags } from './grok-cards-tags';
 import { changeTagList, normalizeTags } from './tags';
-import { parseAuthor, parseReplies, type Reply, type ReplyAuthor, type ReplyExtra, samePage, topSlots, withEdit, withMovedTop, withoutReply, withoutTopOrder, withPackedTops, withPlacedTop, withReply } from './threads';
+import { isShotImageId, planAnnotatedCard } from './annotate-card-plan';
+import { planReplyCard } from './reply-card-plan';
+import { parseAt, type ReplyAt } from './reader-links';
+import { parseAuthor, parseReplies, type Reply, type ReplyAuthor, type ReplyExtra, newReplyId, samePage, topSlots, withEdit, withMovedTop, withoutReply, withoutTopOrder, withPackedTops, withPlacedTop, withReply } from './threads';
 
 export interface MemoCell {
   id: string;
@@ -124,7 +127,7 @@ export function toMemoIndexItem(m: MemoCell): MemoIndexItem {
 }
 
 export type MemoDraft = Pick<MemoCell, 'pos' | 'text'> &
-  Partial<Pick<MemoCell, 'tags' | 'liked' | 'island' | 'image' | 'source' | 'replies' | 'by' | 'label' | 'sheet' | 'portal' | 'bot' | 'app' | 'capture'>>;
+  Partial<Pick<MemoCell, 'tags' | 'liked' | 'island' | 'image' | 'source' | 'replies' | 'by' | 'label' | 'sheet' | 'portal' | 'bot' | 'app' | 'capture' | 'linkSet'>>;
 
 // カードを別のメモへ送った直後に、元へ戻すための控え（メモリーだけ。台帳には書かない）
 interface SendUndo {
@@ -173,6 +176,7 @@ const CARD_TAGS_BACKUP = 'memocells-before-card-tags.json'; // カードのタ�
 const CARD_LINKS_BACKUP = 'memocells-before-card-links.json'; // カードの関連を初めて書く前の写し（1回だけ。plan-memo-card-links の L1）
 const CARD_ORDER_BACKUP = 'memocells-before-card-order.json'; // カードの並びを初めて書く前の写し（1回だけ。plan-memo-card-order の O1）
 const CARD_SEND_BACKUP = 'memocells-before-card-send.json'; // カードを別のメモへ初めて送る前の写し（1回だけ）
+const READER_LINKS_BACKUP = 'memocells-before-reader-links.json'; // カードに結んだ区間（at）を初めて書く前の写し（1回だけ。plan-reader-video の V0）
 const MAX_MEMOS = 2000;
 const LOAD_RETRY_MS = 3000; // AR0：台帳を読めなかったときの読み直しまでの間
 export const MAX_MEMO_TEXT = 5000;
@@ -194,6 +198,14 @@ export class MemoStore {
   private readonly loading = new Set<string>();
   // 今見ているシート（左サイドバーが決める）
   sheetNow: () => string = () => MAIN_SHEET;
+  // これから足すふつうのメモに付ける呼称セット（左が、直前のメモと台帳から決める。未設定なら付けない）
+  //   入口・ボットのセル・アプリのセル・撮ったものには付けない。既存のメモは変えない
+  //   カードを新しいメモへ送るときは使わない（そのときは create の linkSet。送り元のセットは呼び出し側が入れる）
+  private newMemoLinkSet: (() => string | undefined) | null = null;
+
+  useLinkSetForNewMemos(provider: () => string | undefined) {
+    this.newMemoLinkSet = provider;
+  }
 
   async load() {
     // 「本当に無い」と「あるのに読めない」を分ける（写しは、読めたときだけ作る）
@@ -309,6 +321,8 @@ export class MemoStore {
     const app = !draft.portal && !bot && isAppId(draft.app) ? draft.app : undefined;
     const capture = !draft.portal && !bot && !app && isCaptureId(draft.capture) ? draft.capture : undefined;
     const plain = !bot && !app && !capture;
+    // 呼称セットは、ふつうの新しいメモだけ。指定があればそれ、無ければ左が渡した「直前」のセット
+    const linkSet = plain && !draft.portal ? (parseLinkSetId(draft.linkSet) ?? parseLinkSetId(this.newMemoLinkSet?.())) : undefined;
     const memo: MemoCell = {
       id: newMemoId(),
       sheet,
@@ -325,6 +339,7 @@ export class MemoStore {
       source: plain ? draft.source : undefined,
       ...(plain && draft.replies?.length ? { replies: parseReplies(draft.replies) } : {}),
       ...(plain && draft.by ? { by: { who: draft.by.who, name: draft.by.name }, ...(draft.label ? { label: cleanLabel(draft.label) } : {}) } : {}),
+      ...(linkSet ? { linkSet } : {}),
       createdAt: now,
       updatedAt: now,
     };
@@ -359,9 +374,124 @@ export class MemoStore {
     if (!next) return null;
     // 引用・画像を初めて書く前に、今の中身を1回だけ写す（第5.4節）
     if (next.reply.quote || next.reply.image) this.backupOnce(BACKUP);
+    if (next.reply.at) this.backupOnce(READER_LINKS_BACKUP); // 結んだ区間を初めて書く前の写し（前の版に戻すと at は落ちる）
     memo.replies = next.replies;
     this.changed();
     return next.reply;
+  }
+
+  // 段 D6：返事を新しい一番上のカードにする（［カードにする］を押したときだけ。呼ぶまで台帳は変えない）
+  //   置く内容は planReplyCard が決める（掃除した文・20,000 字まで・元が一番上のカード・返信 300・関連 10）。断ったら何も書かない。
+  //   新しいカードは parent なし（一番上）。rank は付けないので、並べたカードのうしろに作った順で並ぶ。ほかのカードの rank は動かさない。
+  //   関連は元のカードから新しいカードへ 1 本（種類は補足）。元がすでに 10 本なら、カードも線も足さない。
+  //   書いた人は { who: 'bot', name: 'Grok Bot' }。ふつうのコメント（withReply）は 2,000 字で切るので、ここは通さない。
+  //   取り消しは送りと同じ作法（sendUndo / undoSend。命令は undoSendReplies）。足す前のこのメモの返信全体を控え、印は u＋時刻＋乱数。
+  //     元のメモは無い（fromId は null）。updatedAt は変えない（addReply と同じ）。関連を初めて書く前に 1 回だけ写す。
+  //     覚えておく取り消しは 1 件だけ（次の送り・型の貼り付け・カードにすると入れ替わる）。
+  placeReplyCard(id: string, originReplyId: string, text: string): { ok: true; token: string; replyId: string } | { ok: false; note: string } {
+    if (!this.loaded || this.loadState === 'unreadable') return { ok: false, note: '台帳を読めませんでした' };
+    const memo = this.memos.get(id);
+    const usable = !!memo && !isSpecialCell(memo);
+    const plan = planReplyCard({
+      text,
+      origin: { memo: id, reply: originReplyId },
+      memo: usable && memo ? { id: memo.id, replies: memo.replies ?? [] } : null,
+    });
+    if (!plan.ok || !memo) return plan.ok ? { ok: false, note: '元のカードが見つかりません' } : plan;
+    const replies = memo.replies ?? [];
+    const before = structuredClone(replies) as Reply[];
+    const beforeUpdated = memo.updatedAt;
+    const used = new Set(replies.map((reply) => reply.id));
+    let replyId = newReplyId();
+    while (used.has(replyId)) replyId = newReplyId();
+    const latest = replies.reduce((max, reply) => Math.max(max, reply.createdAt), 0);
+    const now = Date.now();
+    const reply: Reply = {
+      id: replyId,
+      parent: null,
+      text: plan.text,
+      createdAt: Math.max(now, latest + 1),
+      by: { who: plan.by.who, name: plan.by.name },
+    };
+    const next = replies.map((item) => (item.id === plan.link.from ? { ...item, links: [...(item.links ?? []), { to: reply.id, kind: 'supplement' as const }] } : item));
+    next.push(reply);
+    this.backupOnce(CARD_LINKS_BACKUP);
+    memo.replies = next;
+    const token = `u${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    this.sendUndo = {
+      token,
+      fromId: null,
+      toId: memo.id,
+      created: false,
+      fromReplies: null,
+      toReplies: before,
+      fromUpdated: 0,
+      toUpdated: beforeUpdated,
+      fromAfter: null,
+      toAfter: replyFingerprint(memo.replies),
+    };
+    this.changed();
+    return { ok: true, token, replyId: reply.id };
+  }
+
+  // 段 D7：書き足した画像を、同じメモの新しい一番上のカードにする（面で決めたときだけ。やめるまでは台帳もファイルも変えない）
+  //   置くか断るかは planAnnotatedCard（印がある書き足し・返信 300・元が一番上なら関連 10）。断ったら何も書かない。
+  //   画像の id は shots\<id>.json を指す。元のカードの image も、元のファイルも、セルの顔の画像も変えない。
+  //   新しいカードは parent なし。rank・by・引用は付けない。文は箱の問いだけ（無ければ空。画像だけのカード）。
+  //   元が一番上のカードなら、元から新しいカードへ関連「補足」を 1 本。10 本ならカードも線も足さない。下の返信とセルの顔は線を付けない。
+  //   取り消しは placeReplyCard と同じ（sendUndo / undoSendReplies）。足す前の返信全体を控え、updatedAt は変えない。
+  //   画像を初めて書く前と、関連を初めて書く前に、それぞれ 1 回だけ写す。
+  placeAnnotatedCard(id: string, imageId: string, text: string, fromReply?: string): { ok: true; token: string; replyId: string } | { ok: false; note: string } {
+    if (!this.loaded || this.loadState === 'unreadable') return { ok: false, note: '台帳を読めませんでした' };
+    if (!isShotImageId(imageId)) return { ok: false, note: 'その画像は、もうありません' };
+    const memo = this.memos.get(id);
+    const usable = !!memo && !isSpecialCell(memo);
+    const plan = planAnnotatedCard({
+      version: 'annotated',
+      marks: 1,
+      questions: text,
+      source: fromReply ? { kind: 'card', reply: fromReply } : { kind: 'face' },
+      memoId: id,
+      memo: usable && memo ? { id: memo.id, replies: memo.replies ?? [] } : null,
+    });
+    if (!plan.ok || !memo) return plan.ok ? { ok: false, note: '元のカードが見つかりません' } : plan;
+    const replies = memo.replies ?? [];
+    const before = structuredClone(replies) as Reply[];
+    const beforeUpdated = memo.updatedAt;
+    const used = new Set(replies.map((reply) => reply.id));
+    let replyId = newReplyId();
+    while (used.has(replyId)) replyId = newReplyId();
+    const latest = replies.reduce((max, reply) => Math.max(max, reply.createdAt), 0);
+    const now = Date.now();
+    const reply: Reply = {
+      id: replyId,
+      parent: null,
+      text: plan.text,
+      createdAt: Math.max(now, latest + 1),
+      image: imageId,
+    };
+    const next = plan.link
+      ? replies.map((item) => (item.id === plan.link?.from ? { ...item, links: [...(item.links ?? []), { to: reply.id, kind: 'supplement' as const }] } : item))
+      : [...replies];
+    next.push(reply);
+    this.backupOnce(BACKUP);
+    if (plan.link) this.backupOnce(CARD_LINKS_BACKUP);
+    memo.replies = next;
+    const token = `u${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    this.sendUndo = {
+      token,
+      fromId: null,
+      toId: memo.id,
+      created: false,
+      fromReplies: null,
+      toReplies: before,
+      fromUpdated: 0,
+      toUpdated: beforeUpdated,
+      fromAfter: null,
+      toAfter: replyFingerprint(memo.replies),
+    };
+    this.changed();
+    return { ok: true, token, replyId: reply.id };
   }
 
   // 使う人の返信の文を書き直す（相棒の返信・空の文で引用も画像も無いときは false）
@@ -379,6 +509,29 @@ export class MemoStore {
   // カードのタグを足す・外す（一番上のカードだけ。メモの updatedAt は変えない。初めて書く前に 1 回だけ写す）
   //   changed：変えた／same：変わらない／refused：断った（台帳を読めなかった起動・無いメモ・特別なセル・無いカード・一番上でないカード）
   //   over：1 つに 10 個までを超えた分を捨てた
+  // 一番上のカードの結んだ区間を置き換える（null で外す。読む画面の「カードと結ぶ…」。plan-reader-video の V2a-1）
+  //   台帳を読めていない・特別なセル・カードが一番上に無いなら refused。形は呼ぶ側が withLinkedSpans で作り、ここでも parseAt を通す
+  //   文・時刻・updatedAt は変えない（関連と同じ）。結んだ区間を初めて書く前に 1 回だけ写す
+  setReplyAt(id: string, replyId: string, at: ReplyAt | null): 'changed' | 'same' | 'refused' {
+    if (!this.loaded || this.loadState === 'unreadable') return 'refused';
+    const memo = this.memos.get(id);
+    if (!memo || isSpecialCell(memo)) return 'refused';
+    const replies = memo.replies ?? [];
+    const reply = replies.find((r) => r.id === replyId);
+    if (!reply || reply.parent !== null) return 'refused';
+    const next = at === null ? undefined : parseAt(at);
+    if (at !== null && !next) return 'refused';
+    if (JSON.stringify(reply.at ?? null) === JSON.stringify(next ?? null)) return 'same';
+    this.backupOnce(READER_LINKS_BACKUP);
+    memo.replies = replies.map((r) => {
+      if (r.id !== replyId) return r;
+      const { at: _old, ...rest } = r;
+      return next ? { ...rest, at: next } : rest;
+    });
+    this.changed();
+    return 'changed';
+  }
+
   changeReplyTags(id: string, replyId: string, add: readonly unknown[], remove: readonly unknown[]): { result: 'changed' | 'same' | 'refused'; over: boolean } {
     // 読めなかった台帳に新しい項目を書いて、前の中身を上書きしないように
     if (!this.loaded || this.loadState === 'unreadable') return { result: 'refused', over: false };
@@ -550,6 +703,8 @@ export class MemoStore {
       const sheet = draft.sheet || this.sheetNow();
       if (this.at(draft.pos, sheet)) return { ok: false, why: 'place' };
       const now = Date.now();
+      // 送り元の呼称セットは、呼び出し側が create.linkSet に入れる（ここでは「直前」のセットを足さない）
+      const linkSet = parseLinkSetId(draft.linkSet);
       to = {
         id: newMemoId(),
         sheet,
@@ -559,6 +714,7 @@ export class MemoStore {
         liked: 0,
         island: null,
         ...(draft.source ? { source: draft.source } : {}),
+        ...(linkSet ? { linkSet } : {}),
         createdAt: now,
         updatedAt: now,
       };

@@ -2,6 +2,7 @@
 //   ・返信は、元のポストの持ち主（メモのセル・タブのメモ）の中に、平らな一覧（parent で親を指す）で持つ
 //   ・AI の相棒が書いた返信は by に、書いたキャラを残す
 import { parseLinks, pruneLinks, type ReplyLink } from './memo-card-links';
+import { parseAt, type ReplyAt } from './reader-links';
 import { normalizeTags } from './tags';
 
 export interface Reply {
@@ -17,6 +18,7 @@ export interface Reply {
   tags?: string[]; // カードのタグ（一番上のカードだけ。グループ＝タグ。下の区画で付ける。依頼②）
   links?: ReplyLink[]; // 関連（一番上のカードだけ。このカード → 相手の一番上のカード。10 本まで。memo-card-links.ts）
   rank?: number; // 並べた順（一番上のカードだけ。0 始まりの整数。無ければ後ろに作った順。下の区画で並べ替える。plan-memo-card-order の O1）
+  at?: ReplyAt; // 結んだ区間（一番上のカードだけ。六角で見るの動画のマスとの線。reader-links.ts。plan-reader-video の V0）
 }
 
 export interface ReplyQuote {
@@ -25,11 +27,12 @@ export interface ReplyQuote {
   title: string; // ページの題名（200字まで）
 }
 
-// 返信を足すときに一緒に付けてよいもの（引用・画像・書き出したファイル）
+// 返信を足すときに一緒に付けてよいもの（引用・画像・書き出したファイル・結んだ区間）
 export interface ReplyExtra {
   quote?: ReplyQuote;
   image?: string;
   file?: string;
+  at?: ReplyAt; // 一番上のカードにだけ付く（返信には付けない）
 }
 
 export interface ReplyAuthor {
@@ -56,7 +59,7 @@ export const REPLY_FOLD = 280; // カードで先に見せる字数（上限で�
 const MAX_QUOTE_TEXT = 2000;
 const MAX_QUOTE_URL = 2048;
 const MAX_QUOTE_TITLE = 200;
-const MAX_RANK = 1_000_000;
+export const MAX_RANK = 1_000_000; // 番地（rank）の上限。これを越える次の行には置かず、ふつうの次の番地に足す
 
 export const newReplyId = () => `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -128,6 +131,7 @@ export function withReply(
   const quote = extra?.quote ? parseQuote(extra.quote) : undefined;
   const image = parseImageId(extra?.image);
   const file = parseFileName(extra?.file);
+  const at = parent === null && extra?.at ? parseAt(extra.at) : undefined;
   if ((!clean && !quote && !image) || replies.length >= MAX_REPLIES) return null;
   if (parent !== null && !replies.some((r) => r.id === parent)) return null;
   if (replyId !== undefined && replyIdProblem(replies, replyId) !== null) return null;
@@ -142,6 +146,7 @@ export function withReply(
     ...(quote ? { quote } : {}),
     ...(image ? { image } : {}),
     ...(file ? { file } : {}),
+    ...(at ? { at } : {}),
   };
   return { replies: [...replies, reply], reply };
 }
@@ -213,6 +218,31 @@ export function lastPlaceableSlot(slots: ReadonlyMap<string, number>): number {
   return (rows + 1) * CARD_COLUMNS - 1;
 }
 
+// 一番下のカードがある行の、次の行の 1 列目（番地 = (最後の行 + 1) × 3）。カードが 0 枚なら 0。
+//   その番地が MAX_RANK か lastPlaceableSlot を越えるなら null（ふつうの次の番地に足す）
+export function nextRowSlot(replies: readonly Reply[]): number | null {
+  const slots = topSlots(replies);
+  const slot = slots.size === 0 ? 0 : (Math.floor(Math.max(...slots.values()) / CARD_COLUMNS) + 1) * CARD_COLUMNS;
+  if (slot > MAX_RANK || slot > lastPlaceableSlot(slots)) return null;
+  return slot;
+}
+
+// 足す前に、次の行へ置くか・ふつうの次の番地に落ちるかを決める。件数の上限で足せないときは null
+export function nextRowAddPlan(replies: readonly Reply[]): { slot: number; nextRow: boolean } | null {
+  if (replies.length >= MAX_REPLIES) return null;
+  const wanted = nextRowSlot(replies);
+  if (wanted !== null) return { slot: wanted, nextRow: true };
+  const slots = topSlots(replies);
+  const slot = slots.size === 0 ? 0 : Math.max(...slots.values()) + 1;
+  return { slot, nextRow: false };
+}
+
+// 足したあとの状態の行（置いた行と列。1 始まり）。nextRow が false のときは、ふつうの次の番地に落ちたこと
+export function addedCardPlaceText(slot: number, nextRow: boolean): string {
+  const where = `${Math.floor(slot / CARD_COLUMNS) + 1} 行目の ${(slot % CARD_COLUMNS) + 1} 列目`;
+  return nextRow ? `コメントを ${where}に足しました` : `次の行には置けないので、${where}に足しました`;
+}
+
 // 番地の表を rank に書いた返信（一番上のカード全部に rank。返信の位置と中身は変えない）。変わらなければ null
 function withSlots(replies: readonly Reply[], next: ReadonlyMap<string, number>): Reply[] | null {
   let changed = false;
@@ -256,6 +286,31 @@ export function withMovedTop(replies: readonly Reply[], replyId: string, before:
   }
   if ([...next].every(([id, n]) => slots.get(id) === n)) return null;
   return withSlots(replies, next);
+}
+
+// withReply のあと、一番上のカード（parent が null）だけを nextRowSlot の番地へ置く。
+//   返信は今までどおり（slot は null。番地は動かさない）。次の行に置けないときは、足したカードを動かさない（ふつうの次の番地）。
+//   ほかのカードの番地は動かさない（withPlacedTop。rank の無いカードは、今見えている番地のまま rank になる）。
+//   すでにその番地なら rank は書かない。足せなければ null（withReply と同じ。件数の上限も含む）
+export function withReplyOnNextRow(
+  replies: readonly Reply[],
+  parent: string | null,
+  text: string,
+  by?: ReplyAuthor,
+  extra?: ReplyExtra,
+  replyId?: string,
+): { replies: Reply[]; reply: Reply; slot: number | null; nextRow: boolean } | null {
+  const added = withReply(replies, parent, text, by, extra, replyId);
+  if (!added) return null;
+  if (parent !== null) return { replies: added.replies, reply: added.reply, slot: null, nextRow: false };
+  const wanted = nextRowSlot(replies);
+  const natural = topSlots(added.replies).get(added.reply.id) ?? null;
+  if (wanted === null) return { replies: added.replies, reply: added.reply, slot: natural, nextRow: false };
+  if (natural === wanted) return { replies: added.replies, reply: added.reply, slot: wanted, nextRow: true };
+  const placed = withPlacedTop(added.replies, added.reply.id, wanted);
+  if (!placed) return { replies: added.replies, reply: added.reply, slot: natural, nextRow: false };
+  const reply = placed.find((r) => r.id === added.reply.id) ?? added.reply;
+  return { replies: placed, reply, slot: wanted, nextRow: true };
 }
 
 // 一番上のカード replyId を、空いた番地 slot に置く。埋まっている・置けない番地（使っている行の次の行より後ろ）・同じ所なら null
@@ -559,6 +614,7 @@ export function parseReplies(raw: unknown): Reply[] {
     const tags = typeof r.parent === 'string' ? [] : normalizeTags(r.tags); // 一番上のカードだけ（返信のタグは読まない）
     const links = typeof r.parent === 'string' ? [] : parseLinks(r.links, r.id); // 関連も一番上のカードだけ（相手は最後に確かめる）
     const rank = typeof r.parent === 'string' ? undefined : parseRank(r.rank); // 並べた順も一番上のカードだけ
+    const at = typeof r.parent === 'string' ? undefined : parseAt(r.at); // 結んだ区間も一番上のカードだけ
     list.push({
       id: r.id,
       parent: typeof r.parent === 'string' ? r.parent : null,
@@ -572,6 +628,7 @@ export function parseReplies(raw: unknown): Reply[] {
       ...(tags.length > 0 ? { tags } : {}),
       ...(links.length > 0 ? { links } : {}),
       ...(rank !== undefined ? { rank } : {}),
+      ...(at ? { at } : {}),
     });
   }
   // 親が見つからない返信（と、その下）は捨てる。同じ id が2つあれば後のものを捨てる

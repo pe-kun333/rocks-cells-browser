@@ -124,6 +124,7 @@ import {
   type RouteSettings,
 } from './route';
 import { type BrowserTools, CHARACTER_TOOL_DEFINITIONS, formatTime, reminderDueAt, TOOL_DEFINITIONS } from './tools';
+import type { TalkMaterial } from '../reader-talk';
 
 // Claude 以外のキャラが使える、このパソコンで動かす道具の定義（名前で選ぶ）
 const CLIENT_TOOL_DEFINITIONS = [...TOOL_DEFINITIONS, ...CHARACTER_TOOL_DEFINITIONS];
@@ -172,6 +173,8 @@ export interface ChatEntry {
   cost?: number;
   model?: string;
   kept?: { tab?: boolean; hexMemo?: string; hexMemoFailed?: boolean; vocab?: boolean; vault?: boolean }; // 返事をどこに残したか（vault：データ置き場）
+  // 六角で見るのやり取りの型の返事（plan-reader-video の V5）：カードに残す材料（字幕は止めたマスだけ）・使う人の答え・カードにしたか
+  talk?: { m: TalkMaterial; answer?: string; card?: boolean };
   route?: RouteMark; // 自分の発言の下の道すじ（段階8。ハイク組に話しかけたとき）
   path?: PathMark; // 割れた・詰まった・断られたあとのボタン
 }
@@ -495,6 +498,16 @@ export class Companion {
     const entry = this.entries.find((e) => e.id === entryId);
     if (!entry) return;
     entry.kept = { ...entry.kept, ...kept };
+    this.emit();
+    void this.save();
+  }
+
+  // 六角で見るのやり取りの返事に、カードへ残す材料を付ける・カードにした印を付ける（V5）。材料の無い返事には印だけを付けない
+  markTalk(entryId: number, patch: Partial<NonNullable<ChatEntry['talk']>>) {
+    const entry = this.entries.find((e) => e.id === entryId);
+    const m = patch.m ?? entry?.talk?.m;
+    if (!entry || !m) return;
+    entry.talk = { ...entry.talk, ...patch, m };
     this.emit();
     void this.save();
   }

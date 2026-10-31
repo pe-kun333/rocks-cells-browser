@@ -2,7 +2,7 @@
 //   ・タグの一覧（押すと、そのタグのタブだけを盤面で目立たせる）
 //   ・いいね1・2・3（タブとメモの ♥ の段階。押すと、その段階だけを目立たせる。タグとは同時に付かない）
 //   ・AI でタグを付ける / 島を提案する → 案を確かめてから反映（島の案は、盤面に点線で寄せた後の形を見せる）
-//   ・島の一覧（解散できる）。「この島を頼む」は、選んだメモを依頼の小窓へ入れる（段階16。アプリは開かない）
+//   ・島の一覧（解散できる）。「この島を頼む」は、盤面と同じ材料つきの小窓を左に頼む（送らない。台帳は書かない）
 import { checkBatch, type OrganizeKind, type OrganizeSettings, type PendingBatch, type Proposal, proposeLater, proposeNow } from '../ai/organize';
 import type { Tab } from '../tabs';
 import { LIKE_COLOR, LIKE_LABEL, type LikeLevel, likeLevel } from '../likes';
@@ -38,7 +38,6 @@ export class OrganizePanel {
   private drafts: IslandDraft[] = []; // 島の案（色つき）
   private busy = false;
   private pending: PendingBatch | null = loadPending();
-  private ask: { islandId: string; name: string; memos: { id: string; title: string }[]; more: number; checked: Set<string> } | null = null;
 
   constructor(private readonly host: OrganizeHost) {
     const tagsButton = el('button', 'ai-small', 'AI でタグを付ける');
@@ -64,13 +63,6 @@ export class OrganizePanel {
     window.setInterval(() => void this.checkPending(), BATCH_CHECK_MS);
     window.setTimeout(() => void this.checkPending(), 3000);
     this.render();
-  }
-
-  // 左が「この島を頼む」のメモ一覧を渡したとき（全文はまだ無い）
-  showAsk(pick: { islandId: string; name: string; memos: { id: string; title: string }[]; more: number }) {
-    this.ask = { ...pick, checked: new Set(pick.memos.map((memo) => memo.id)) };
-    this.render();
-    this.element.scrollIntoView({ block: 'nearest' });
   }
 
   // タブや島が変わったとき（左サイドバーから写しが届いたとき）
@@ -138,8 +130,7 @@ export class OrganizePanel {
     const counts = new Map<string, number>();
     for (const tab of this.host.tabs()) if (tab.island) counts.set(tab.island, (counts.get(tab.island) ?? 0) + 1);
     const islands = this.host.islands().filter((i) => counts.has(i.id));
-    if (this.ask && !this.host.islands().some((island) => island.id === this.ask?.islandId)) this.ask = null;
-    if (islands.length === 0 && !this.ask) {
+    if (islands.length === 0) {
       this.islandList.replaceChildren();
       return;
     }
@@ -148,60 +139,15 @@ export class OrganizePanel {
       const swatch = el('span', 'island-swatch');
       swatch.style.setProperty('--data', island.color);
       const ask = el('button', 'ai-small', 'この島を頼む');
-      ask.title = 'この島の名前と、入っているメモ、今選んでいるメモを、依頼の小窓に入れます。となりのメモは集めません。アプリは開きません';
-      ask.addEventListener('click', () => this.host.askLeft({ command: 'openIslandAsk', islandId: island.id }));
+      ask.title = 'この島の名前と、入っているメモを、依頼の小窓の材料にします。となりのメモは集めません。アプリは開きません';
+      ask.addEventListener('click', () => this.host.askLeft({ command: 'askIsland', islandId: island.id }));
       const remove = el('button', 'ai-small', '解散');
       remove.title = '島をなくす（タブはそのまま残ります）';
       remove.addEventListener('click', () => this.host.askLeft({ command: 'removeIsland', id: island.id }));
       row.append(swatch, el('span', 'organize-name', island.name), el('span', 'organize-count', `${counts.get(island.id)} 個`), ask, remove);
       return row;
     });
-    this.islandList.replaceChildren(el('div', 'organize-heading', '島'), ...(this.ask ? [this.askBox(this.ask)] : []), ...rows);
-  }
-
-  private askBox(ask: NonNullable<OrganizePanel['ask']>): HTMLElement {
-    const box = el('div', 'vocab-lesson');
-    box.append(el('div', 'route-list-label', `島「${ask.name}」を頼む`));
-    box.append(
-      el(
-        'p',
-        'panel-note',
-        '入れるメモに印を付けてください。となりのメモは出していません。ページの本文は入れません。小窓へ入れたあと、コピーするまでアプリは開きません。',
-      ),
-    );
-    if (ask.memos.length === 0) box.append(el('p', 'panel-note', 'メモはありません。島の名前だけを小窓に入れます。'));
-    for (const memo of ask.memos) {
-      const row = el('label', 'vocab-proposal');
-      const check = el('input');
-      check.type = 'checkbox';
-      check.checked = ask.checked.has(memo.id);
-      check.addEventListener('change', () => {
-        if (check.checked) ask.checked.add(memo.id);
-        else ask.checked.delete(memo.id);
-      });
-      row.append(check, el('span', 'vocab-proposal-text', memo.title));
-      box.append(row);
-    }
-    if (ask.more > 0) box.append(el('p', 'panel-note', `ほか ${ask.more} 件は、一度には入れません。`));
-    const go = el('button', 'ai-small', '小窓へ入れる');
-    go.type = 'button';
-    go.addEventListener('click', () => {
-      const memoIds = [...ask.checked];
-      const islandId = ask.islandId;
-      this.ask = null;
-      this.render();
-      this.host.askLeft({ command: 'fillIslandAsk', islandId, memoIds });
-    });
-    const cancel = el('button', 'ai-small', 'やめる');
-    cancel.type = 'button';
-    cancel.addEventListener('click', () => {
-      this.ask = null;
-      this.render();
-    });
-    const actions = el('div', 'ai-row');
-    actions.append(go, cancel);
-    box.append(actions);
-    return box;
+    this.islandList.replaceChildren(el('div', 'organize-heading', '島'), ...rows);
   }
 
   // ---------- AI に案を頼む ----------

@@ -102,7 +102,8 @@ describe('memo-board-tab.ts の配線（C4）', () => {
 
 describe('memo-pane.ts の境目（C4-2・C4-5）', () => {
   it('境目の矢印キー・Home・End は、境目そのものの keydown だけで受ける。Delete は受けない（素通りで、ボードは外にあるので消えない）', () => {
-    const i = pane.indexOf("handle.addEventListener('keydown', (e) => {\r\n      const total = splittableHeight();");
+    const found = pane.match(/handle\.addEventListener\('keydown', \(e\) => \{\r?\n      const total = splittableHeight\(\);/);
+    const i = found?.index ?? -1;
     expect(i).toBeGreaterThan(-1);
     const h = pane.slice(i, pane.indexOf('});', i));
     expect(h).toContain("'ArrowUp'");

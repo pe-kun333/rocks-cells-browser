@@ -290,6 +290,12 @@
   font-weight: 650;
 }
 
+.grok-cards-col-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .grok-cards-add,
 .grok-cards-save,
 .grok-card-open {

@@ -52,6 +52,9 @@ import {
   applyBotMessage,
   botActivity,
   buildBotRequest,
+  type BotCardOrigin,
+  cleanOrigins,
+  ORIGIN_MAX,
   cleanPresetIds,
   emptyPending,
   newBotCheck,
@@ -682,6 +685,7 @@ export interface BotThreadRequest {
   final?: { type: 'reply' | 'error'; fileId: string; at: number; late: boolean; faint: boolean; read: boolean };
   extra: number;
   mark?: BotMark; // 当たり／ずれ／宛て先違い（R9。回答カードの印）
+  origin?: BotCardOrigin[]; // 出どころのカード（段 D6。回答カードの［カードにする］）
 }
 
 export interface BotThreadMessage {
@@ -976,6 +980,7 @@ export interface BotRequestBrief {
   hook?: { at: number; ok: boolean; why?: string }; // 中継の答え（無ければ答えを待っている）
   copiedAt?: number; // 届かなかったので、同じ依頼をコピーしてアプリを開くに切り替えた時刻
   hookCopy?: true; // 届かなかった依頼を、まだ同じ依頼でコピーに切り替えられる（この窓のあいだ左が依頼を覚えているときだけ）
+  origin?: BotCardOrigin[]; // 出どころのカード（段 D6。［カードにする］を出す。文は持たない）
 }
 
 // 今月の量の目安（R9・D21）：今月作った依頼の数と、頼む文の字数の合計（料金は出さない。試し便は数えない。30 日・200 件で片づけた分は入らない）
@@ -1077,6 +1082,7 @@ export function requestBrief(botId: string, r: BotPendingRequest, now: number, l
     ...(r.retryOf ? { retryOf: r.retryOf } : {}),
     ...(r.mark ? { mark: r.mark } : {}),
     ...(r.presetIds?.length ? { presetIds: [...r.presetIds] } : {}),
+    ...(r.origin?.length ? { origin: r.origin.map((origin) => ({ ...origin })) } : {}),
     ...(r.deliverTo ? { deliverTo: r.deliverTo } : {}),
     ...(r.delivered ? { delivered: { ...r.delivered } } : {}),
     ...(r.via === 'hook' ? { via: 'hook' as const, ...(r.hook ? { hook: { ...r.hook } } : {}), ...(r.copiedAt ? { copiedAt: r.copiedAt } : {}) } : {}),
@@ -1555,6 +1561,7 @@ export class BotInbox {
     const presetIds = ping ? [] : cleanPresetIds(input.presetIds);
     const deliverTo = !ping && input.deliverTo === 'hex' ? input.deliverTo : undefined; // 六角メモにも届く（R10）
     const hook = !ping && input.via === 'hook'; // 中継へ直接（R11。試し便は今までどおりコピーで）
+    const origin = ping ? [] : cleanOrigins(input.origin); // 出どころ（段 D6。カードだけ。request.v1 には入れない）
     pending.requests.push({
       requestId: req.requestId,
       check: req.check,
@@ -1576,6 +1583,7 @@ export class BotInbox {
       ...(presetIds.length ? { presetIds } : {}),
       ...(deliverTo ? { deliverTo } : {}),
       ...(hook ? { via: 'hook' as const } : {}),
+      ...(origin.length ? { origin } : {}),
     });
     if (hook) this.holdHook(botId, req);
     const marked = pending.requests.filter((r) => r.mark);
@@ -1738,6 +1746,7 @@ export class BotInbox {
         ...(r.final ? { final: { type: r.final.type, fileId: r.final.fileId, at: r.final.at, late: r.final.late, faint: r.final.faint, read: r.final.read } } : {}),
         extra: r.extra,
         ...(r.mark ? { mark: r.mark } : {}),
+        ...(r.origin?.length ? { origin: r.origin.map((origin) => ({ ...origin })) } : {}),
       }));
     // 言い換えの表示の番号（R9。#0010-2）：依頼・やり取りの行の番号を入れ替える
     const nos = this.retryNos();
@@ -1781,6 +1790,13 @@ export class BotInbox {
     const found = await this.findMessage(botId, final.fileId);
     if (!found || found.entry.grey === true || found.entry.match !== 'ok' || found.message.type !== 'reply') return null;
     return { no: requestNo(requestId), text: found.message.text ?? '' };
+  }
+
+  // 段 D6：確かめの通った返事（終わりの reply）の出どころ。index は 0〜9。無い・範囲外は null（文は返さない）
+  cardOrigin(botId: string, fileId: string, index: number): BotCardOrigin | null {
+    if (!Number.isInteger(index) || index < 0 || index >= ORIGIN_MAX) return null;
+    const request = this.pendings.get(botId)?.requests.find((r) => r.final?.type === 'reply' && r.final.fileId === fileId);
+    return request?.origin?.[index] ?? null;
   }
 
   // 記録から、受け取った返事を1通探す（メモにするとき。check は外してある）

@@ -1060,6 +1060,7 @@ export class BotPanel {
       draft.attach.selection ? '選んだ文' : '',
       draft.attach.body ? '本文' : '',
       draft.attach.image ? '画像' : '',
+      draft.attach.materials ? `材料 ${draft.attach.materials} 件` : '',
     ].filter(Boolean);
     card.append(el('div', 'bot-draft-meta', `${flags.length ? flags.join('・') : '付けるものなし'}。${draft.chatOnly ? 'アプリのチャットだけ（受け取り箱には残りません）' : 'コピーすると受け取り箱に番号が付きます'}`));
     if (draft.failed) {
@@ -1763,6 +1764,20 @@ export class BotPanel {
         this.render();
       },
     );
+    // 段 D6：出どころのカードがある返事だけ。押すまで台帳は変わらない。複数なら番号つき（1 から）
+    const origins = this.originsOf(m.requestId);
+    origins.forEach((_, i) => {
+      button(
+        origins.length === 1 ? 'カードにする' : `カードにする（${i + 1}）`,
+        `tocard-${i}`,
+        '押すまで台帳は変わりません。新しい一番上のカードを足し、元のカードから関連「補足」を 1 本引きます',
+        () => {
+          const botId = this.botId;
+          if (!botId) return;
+          this.host.askLeft({ command: 'botToCard', botId, fileId: m.fileId, origin: i });
+        },
+      );
+    });
     const again = button('もう一度 ▾', 'again', '同じ子に続けて聞く・別の子へ渡す・言い換えてもう一回・頼み方を直す（どれも小窓を開くだけ。送るのは小窓から）', (b) => this.againMenu(m, b));
     again.setAttribute('aria-haspopup', 'menu');
     again.disabled = !this.host.followUp && !this.host.askAgain;
@@ -1773,6 +1788,14 @@ export class BotPanel {
   // 一覧の写しにある、その依頼の要約（無ければ undefined。新しい 30 件まで）
   private briefOf(requestId: string | undefined): BotRequestBrief | undefined {
     return requestId ? this.state?.requests?.items.find((i) => i.requestId === requestId) : undefined;
+  }
+
+  // 段 D6：その依頼の出どころ。やり取りの写しを先に、無ければ一覧（30 件）。文は持たない
+  private originsOf(requestId: string | undefined) {
+    if (!requestId) return [];
+    const fromThread = this.thread?.requests.find((request) => request.requestId === requestId)?.origin;
+    if (fromThread?.length) return fromThread;
+    return this.briefOf(requestId)?.origin ?? [];
   }
 
   // もう一度 ▾（R9・見本 ④）：同じ子に続けて聞く（今までの「続けて聞く」）・別の子へ渡す・言い換えてもう一回・頼み方を直す
