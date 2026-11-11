@@ -1,5 +1,35 @@
 # 変更点 / CHANGELOG
 
+## Ver0.032β（2026-11-11）
+
+### 新しくできること
+
+- **コメントボード**：上の区画に出したボードで、カードの右クリック・ダブルクリックのメニュー（全文・行き先・関連・書いた順・コピー・📌 留める）、編集の行（書き直す・関連線を足す・タグを足す…・型を足す…）、二本指とホイールでの移動、ピンチと Ctrl＋ホイールでの拡大縮小、道具の列とタグの行を畳む、写真を落として題を付ける、などができるようになりました。
+- **正六角のボード**：ボードを「⬡ 六角」に切り替えると、カードが正六角形で並び、自由な位置に動かせます。四角と六角の並びは別々に残ります。関連の線は、ほかのカードの文を避けて引かれます。
+- **型（テンプレート）を足す**：カードの右クリックの「型を足す…」で、そのカードの右と下に型のカードを足せます。ボードから型を作る・型を消すこともできます。
+- **ボードの空いた所**：右クリックで「ここに書く」「型を足す…」「整理」、ダブルクリックでその場に書けます。
+- **下の区画のコメントカード**：「カードを整頓」で道具をしまって面を広くする、「つなぐ ▾」で足すカードへ直前のカードから線を引く、写真の拡大と倍率（合わせる・100%・200%）。
+- **右クリックの新しい項目**：メモのセルの「上のコメントボードで開く」、右のメモの区画の「下で開く」。
+- **シートの一覧**：フォルダの段（入口だけを並べたシート）、検索、最近使った順を保つ並び、何枚かを選んでフォルダへまとめて入れる。
+
+### 変わったこと
+
+- 新しい画面の文も英語にしました（約 230 件。英語の画面は Ver0.031β-en から）。日本語版と英語版は同じ exe で、見た目（テーマ）の小窓の「言語 / Language」で切り替えます。
+
+### New
+
+- **Comment board**: on the board shown in the upper area you can now use the card menu (right-click or double-click: full text, destinations, links, writing order, copy, 📌 pin), an edit row (rewrite, add link line, add tag…, add template…), two-finger / wheel panning, pinch and Ctrl+wheel zoom, fold the toolbar and tag row, and drop photos with captions.
+- **Hex board**: switch the board to "⬡ Hex" to show cards as regular hexagons that you can place freely. Square and hex layouts are kept separately. Link lines route around other cards' text.
+- **Templates**: "Add template…" on a card's right-click menu adds a template's cards to the right of and below that card. You can also save a template from the board and delete templates.
+- **Empty space on the board**: right-click for "Write here", "Add template…" and "Tidy"; double-click to write right there.
+- **Comment cards in the bottom pane**: "Compact cards" puts the tools away for more room, "Link ▾" draws a line from the previous card to each card you add, and photo zoom (fit, 100%, 200%).
+- **New right-click items**: "Open in the upper comment board" on memo cells, and "Open below" in the right memo pane.
+- **Sheet list**: folder levels (sheets that hold only portals), search, recency kept, and moving several sheets into a folder at once.
+
+### Changed
+
+- The new UI text is translated into English too (about 230 strings; the English UI started in Ver0.031β-en). The Japanese and English versions are the same exe — switch with "Language" in the appearance (theme) popup.
+
 ## Ver0.031β-en（2026-11-01）
 
 ### 新しくできること

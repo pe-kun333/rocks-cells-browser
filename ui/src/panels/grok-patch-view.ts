@@ -155,7 +155,7 @@ export class GrokPatchView {
     });
     cancel.addEventListener('click', () => this.close());
     foot.append(count, all, none, peek, apply, cancel);
-    foot.append(el('div', 'grok-patch-why', t('反映する前に控えを取ります。シートの名前 ▾ →「Grok の提案の記録…」から元に戻せます')));
+    foot.append(el('div', 'grok-patch-why', t('反映する前に控えを取ります。シートの名前 ▾ → ⋯ → Grok ▸ →「Grok の提案の記録…」から元に戻せます')));
     root.append(head, list, foot);
     document.body.append(root);
     this.root = root;
@@ -348,7 +348,7 @@ export class GrokPatchView {
     });
     cancel.addEventListener('click', () => this.close());
     foot.append(count, all, none, big, apply, cancel);
-    foot.append(el('div', 'grok-patch-why', t('反映する前に控えを取ります。シートの名前 ▾ →「Grok の提案の記録…」から 1 回で元に戻せます')));
+    foot.append(el('div', 'grok-patch-why', t('反映する前に控えを取ります。シートの名前 ▾ → ⋯ → Grok ▸ →「Grok の提案の記録…」から 1 回で元に戻せます')));
     root.append(head, list, foot);
     document.body.append(root);
     this.root = root;

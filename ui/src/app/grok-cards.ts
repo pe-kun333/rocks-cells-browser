@@ -55,6 +55,16 @@ export interface GrokCardsMount {
   onReply(id: string, text: string): void;
   setVisible(visible: boolean): void;
   dismiss(): void;
+  isBoardTarget(node: EventTarget | null): boolean; // その場所が、見えているボードの中か（写真の行き先。CB7）
+  boardWantsPaste(target: EventTarget | null): boolean; // 貼り付けをボードが受けるか（見えていて、ボードのキーが効く所）
+  boardSay(text: string): void; // ボードの一言に出す（写真の失敗）
+  armBoardPhotoTitle(shot: string): void; // この画像のカードが現れたら、題の欄を開く
+  boardUpperShown(): boolean; // ボードを上に出しているか（下から上へ運ぶ道。CB8）
+  showBoardUpper(): void; // ボードを上に出す（左の「上のコメントボードで開く」。［上に出す］と同じ。すでに上に出ていれば何もしない）
+  showLowerBoard(): void; // ボードを下の区画で見せる（右の「下で開く」。置き場が上なら［下に戻す］と同じ。そうでなければボードのタブにする。すでにボードのタブなら何もしない）
+  focusBoardCompose(): boolean; // ボードの書く欄を開いて焦点を入れる（下の書く欄から Alt）。入れたら true
+  inBoardCompose(target: EventTarget | null): boolean; // その場所が、ボードの書く欄の中か
+  leaveBoardCompose(): void; // 下の書く欄へ戻る前に（足す欄が空なら閉じる）
 }
 
 interface MountOpts {
@@ -94,6 +104,26 @@ export function mountGrokCards(o: MountOpts): GrokCardsMount {
       onReply() {},
       setVisible() {},
       dismiss() {},
+      isBoardTarget() {
+        return false;
+      },
+      boardWantsPaste() {
+        return false;
+      },
+      boardSay() {},
+      armBoardPhotoTitle() {},
+      boardUpperShown() {
+        return false;
+      },
+      showBoardUpper() {},
+      showLowerBoard() {},
+      focusBoardCompose() {
+        return false;
+      },
+      inBoardCompose() {
+        return false;
+      },
+      leaveBoardCompose() {},
     };
   }
   return new GrokCardsView(o);
@@ -178,6 +208,53 @@ class GrokCardsView {
   sync(memoOpen: boolean) {
     this.memoOpen = memoOpen;
     this.applyChrome();
+  }
+
+  isBoardTarget(node: EventTarget | null): boolean {
+    return this.board?.showsTarget(node) ?? false;
+  }
+
+  boardWantsPaste(target: EventTarget | null): boolean {
+    return this.board?.wantsPaste(target) ?? false;
+  }
+
+  boardSay(text: string) {
+    this.board?.warn(text);
+  }
+
+  armBoardPhotoTitle(shot: string) {
+    this.board?.armPhotoTitle(shot);
+  }
+
+  boardUpperShown(): boolean {
+    return this.isBoardUpper();
+  }
+
+  // 左の「上のコメントボードで開く」：ボードを上に出す。中身は［上に出す］と同じ（取り合いの一言はボードの一言欄へ。下の帯でボードを見ていたらメモのタブへ戻す）
+  //   すでに上に出ていれば何もしない（placeBoard を呼んでも changed:false で一言も出ないのと同じ。組み替えもしない）
+  showBoardUpper() {
+    if (this.isBoardUpper()) return;
+    this.placeBoard('upper');
+  }
+
+  // 右の「下で開く」：ボードを下の区画（下の帯のボードのタブ）で見せる
+  //   置き場が上（Grok Cards が上を持っていて、今は上に出ていないときも含む）なら、［下に戻す］と同じ placeBoard('bottom')（そのあと下の帯でボードを見せる）
+  //   そうでなければ showBoard（すでにボードのタブなら何もしない。Grok Cards を見ていたら左へ閉じたと伝える）。ボードが無ければ、どちらも何もしない
+  showLowerBoard() {
+    if (readBoardPlace() === 'upper') this.placeBoard('bottom');
+    else this.showBoard();
+  }
+
+  focusBoardCompose(): boolean {
+    return this.board?.focusCompose() ?? false;
+  }
+
+  inBoardCompose(target: EventTarget | null): boolean {
+    return this.board?.composeHas(target) ?? false;
+  }
+
+  leaveBoardCompose() {
+    this.board?.leaveCompose();
   }
 
   consumeEsc(e: KeyboardEvent): boolean {
@@ -358,7 +435,7 @@ class GrokCardsView {
   private ensureBoard() {
     if (!this.board) {
       const place: BoardPlaceHook = { request: (to) => this.placeBoard(to) };
-      const panel = new MemoBoardPanel(this.o.paneHeight, this.o.boardSource, { ask: (action) => (this.o.boardAsk ?? this.o.ask)(action), pick: this.o.boardPick, onNotice: this.o.boardNotices?.onNotice, onUndoSend: this.o.boardNotices?.onUndoSend, template: this.o.boardTemplate, place });
+      const panel = new MemoBoardPanel(this.o.paneHeight, this.o.boardSource, { ask: (action) => (this.o.boardAsk ?? this.o.ask)(action), pick: this.o.boardPick, onNotice: this.o.boardNotices?.onNotice, onUndoSend: this.o.boardNotices?.onUndoSend, template: this.o.boardTemplate, place, showList: () => this.showMemo() });
       const btn = el('button', 'grok-cards-tab board-tab', t('ボード'));
       btn.type = 'button';
       btn.dataset.key = 'board-tab';

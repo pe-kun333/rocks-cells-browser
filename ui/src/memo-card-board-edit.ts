@@ -3,15 +3,17 @@
 //   使う命令は既存のもの：addMemoComment（＋replyId。B2-3a）・removeReply・editReply・changeReplyTags・changeReplyLinks。新しい命令は無い
 //   画面（ボタン・小窓・メニュー）は app/memo-board-tab.ts。ここで決めるのは：どのボタンが押せるか、足す場所、命令の中身、文
 import { t as tr } from './i18n';
-import { BOARD_CARD, BOARD_LIMITS, type BoardView, cleanCoord, screenToBoard } from './memo-card-board';
+import { BOARD_CARD, BOARD_LIMITS, type BoardLayout, type BoardView, boxesOverlap, cleanCoord, type GridStep, type Overlaps, SQUARE_STEP } from './memo-card-board';
 import type { LoadBoardResult } from './memo-card-board-store';
+import { boxVisibleRatio, READ_PAD } from './memo-card-board-view';
 import { pasteToolNote } from './memo-card-board-paste';
+import { centerSpot, ringSpot, spotAt } from './memo-card-board-spots';
 import { ledgerFullNote, loadingNote, unreadableBlockNote } from './memo-card-board-texts';
 import { visibleTags } from './grok-cards-tags';
-import { cardLabel, changeLinkList, type LinkKind, linkKindInfo, LINK_KINDS, linkSentence, MAX_LINKS_PER_CARD, type ReplyLink } from './memo-card-links';
+import { cardLabel, changeLinkList, isLinkKind, type LinkKind, linkKindInfo, LINK_KINDS, linkSentence, MAX_LINKS_PER_CARD, type ReplyLink } from './memo-card-links';
 import { TEMPLATE_MIN_PICK } from './memo-card-template-store';
 import { TEMPLATE_LIMITS } from './memo-card-templates';
-import { cleanReplyText, MAX_REPLIES, newReplyId, replyIdProblem, type Reply } from './threads';
+import { cleanReplyText, createdTops, MAX_REPLIES, newReplyId, replyIdProblem, type Reply } from './threads';
 import type { RelayCommand } from './types';
 
 export interface Pt {
@@ -33,7 +35,7 @@ export function liveSelection(replies: readonly Reply[], selected: readonly stri
 // カードを足せないときの文。足せるなら null。足すのは位置を保存するのが目的なので、読めない・読み込み中のボードには足さない（書かない）
 export function addBlockedNote(load: LoadBoardResult | null, replies: readonly Reply[]): string | null {
   if (load === null) return loadingNote(tr('足して'));
-  if (load.state === 'unreadable') return unreadableBlockNote(tr('カードは足せません'), load.why);
+  if (load.state === 'unreadable') return unreadableBlockNote(tr('カードは足せません'), load.why, load.layout);
   if (replies.length >= MAX_REPLIES) return ledgerFullNote(tr('カードを足せません'));
   return null;
 }
@@ -47,44 +49,104 @@ export function makeReplyId(replies: readonly Reply[], make: () => string = newR
   return null;
 }
 
-const overlaps = (a: Pt, b: Pt, size: { w: number; h: number }) => a.x < b.x + size.w && b.x < a.x + size.w && a.y < b.y + size.h && b.y < a.y + size.h;
-
 export const SPOT_RINGS = 24; // 空きを探す輪の数（升目 1 つずつ外へ）
 
 // 新しいカードを置く場所：見ている面（viewport。画素）の中央のカード 1 枚分。ほかのカードに重なるときは、仮の並びと同じ升目（190×96＋隙間）の
-//   間隔で、中央に近い順に外へずらして、最初に重ならない所へ。±10,000 の外は使わない。見つからなければ null
-export function spotForNewCard(view: BoardView, viewport: { w: number; h: number }, taken: readonly Pt[], size: { w: number; h: number } = BOARD_CARD): Pt | null {
-  const c = viewport.w > 0 && viewport.h > 0 ? screenToBoard(view, viewport.w / 2, viewport.h / 2) : { x: size.w / 2, y: size.h / 2 };
-  const base = { x: cleanCoord(c.x - size.w / 2), y: cleanCoord(c.y - size.h / 2) };
-  const px = BOARD_CARD.w + BOARD_CARD.gap;
-  const py = BOARD_CARD.h + BOARD_CARD.gap;
+//   間隔で、右と下へずらして、最初に重ならない所へ（上や左へは出さない。2026-11-04、利用者の依頼）。升目の歩数が少ない順で、同じなら右を先に。
+//   右と下が ±10,000 の外で使えないときだけ、上と左も中央に近い順に探す。±10,000 の外は使わない。見つからなければ null
+//   size は箱の大きさ（真ん中）、step は升目の歩み（既定は四角の 210×116。ずらし shift があれば奇数の段を右へ：六角の噛み合わせ。HX4・HX5 の geo の口）、
+//   overlaps は重なりの決め方（既定は四角の箱の重なり。六角は六角どうし。HX5）
+export function spotForNewCard(view: BoardView, viewport: { w: number; h: number }, taken: readonly Pt[], size: { w: number; h: number } = BOARD_CARD, step: GridStep = SQUARE_STEP, overlaps: Overlaps = (a, b) => boxesOverlap(a, b, size)): Pt | null {
+  // 探し方は memo-card-board-spots.ts（centerSpot・ringSpot）。型を置く升の順（spotsRightDown）と同じ輪の順を使う（TA1。答えは今までと同じ）
+  return ringSpot(centerSpot(view, viewport, size), taken, step, overlaps, SPOT_RINGS);
+}
+
+// 新しいカードを、あるカード（anchor の左上）の右（right）か下（down）に置く場所：升目（190×96＋隙間）1 つずつその向きへ進み、
+//   ほかのカードに重ならない最初の所へ。±10,000 の外・SPOT_RINGS 歩より先は使わない。見つからなければ null。grid は升目の歩み（既定は四角）、overlaps は重なりの決め方
+//   升目にずらし（grid.shift。六角の 83）があるときの下（HX5。Shift+Enter）：k＝1〜24 の各歩で、k が奇数なら (x＋shift, y＋歩み×k) と (x−shift, y＋歩み×k)、
+//   偶数なら (x, y＋歩み×k)。奇数の歩の二つは、起点の行（round(y÷歩み)）が偶数なら右下を先、奇数なら左下を先（続けて押すと縦のジグザグの 1 列になる）。
+//   左下は「下」に数える（2026-11-04 の「上や左へは出さない」の中）。ずらしの無い四角は今のまま（同じ x の真下）
+export function spotBeside(anchor: Pt, dir: 'right' | 'down', taken: readonly Pt[], size: { w: number; h: number } = BOARD_CARD, grid: GridStep = SQUARE_STEP, overlaps: Overlaps = (a, b) => boxesOverlap(a, b, size)): Pt | null {
+  const step = dir === 'right' ? { x: grid.x, y: 0 } : { x: 0, y: grid.y };
+  const shift = dir === 'down' ? (grid.shift ?? 0) : 0;
+  const row = Math.round(anchor.y / grid.y);
+  const rightFirst = ((row % 2) + 2) % 2 === 0;
   const lim = BOARD_LIMITS.coord;
-  const free = (p: Pt) => Math.abs(p.x) <= lim && Math.abs(p.y) <= lim && !taken.some((t) => overlaps(p, t, size));
-  if (free(base)) return base;
-  for (let r = 1; r <= SPOT_RINGS; r++) {
-    const ring: { dx: number; dy: number }[] = [];
-    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) ring.push({ dx, dy });
-    ring.sort((a, b) => Math.hypot(a.dx * px, a.dy * py) - Math.hypot(b.dx * px, b.dy * py) || a.dy - b.dy || a.dx - b.dx);
-    for (const { dx, dy } of ring) {
-      const p = { x: base.x + dx * px, y: base.y + dy * py };
-      if (free(p)) return p;
+  for (let k = 1; k <= SPOT_RINGS; k++) {
+    const raw = { x: anchor.x + step.x * k, y: anchor.y + step.y * k };
+    if (Math.abs(raw.x) > lim || Math.abs(raw.y) > lim) return null;
+    const sides = shift !== 0 && k % 2 === 1 ? (rightFirst ? [shift, -shift] : [-shift, shift]) : [0];
+    for (const dx of sides) {
+      if (Math.abs(raw.x + dx) > lim) continue;
+      const p = { x: cleanCoord(raw.x + dx), y: cleanCoord(raw.y) };
+      if (!taken.some((t) => overlaps(p, t))) return p;
     }
   }
   return null;
 }
 
-// 新しいカードを、あるカード（anchor の左上）の右（right）か下（down）に置く場所：升目（190×96＋隙間）1 つずつその向きへ進み、
-//   ほかのカードに重ならない最初の所へ。±10,000 の外・SPOT_RINGS 歩より先は使わない。見つからなければ null
-export function spotBeside(anchor: Pt, dir: 'right' | 'down', taken: readonly Pt[], size: { w: number; h: number } = BOARD_CARD): Pt | null {
-  const step = dir === 'right' ? { x: BOARD_CARD.w + BOARD_CARD.gap, y: 0 } : { x: 0, y: BOARD_CARD.h + BOARD_CARD.gap };
+// ［決める］（向きの無い足し方）の置き場（HX2）：最後に書いたカード（last の左上）が面に半分より多く見えていれば、その右（x＋210、同じ y）。
+//   右が面の見えている幅を超えるか、ふさがっていれば、その下（同じ x、y＋116）。それもふさがっていれば null（呼ぶ側が spotForNewCard へ）
+//   上や左へは出さない（2026-11-04、利用者の依頼）。±10,000 の外は使わない。view・viewport は書く欄を閉じたあとの面。step は升目の歩み（既定は四角）、overlaps は重なりの決め方
+//   升目にずらし（step.shift。六角の 83）があるとき（HX5）：右は x＋166、下は右下（x＋shift, y＋144）を先、次に左下（x−shift, y＋144）。左下は「下」に数える。
+//   右下・左下も、右と同じく面の見えている幅の中に入る所だけ（見本の決まり。ずらしの無い四角の下は今のまま幅を見ない）
+export function spotNextToLast(view: BoardView, viewport: { w: number; h: number }, last: Pt | null, taken: readonly Pt[], size: { w: number; h: number } = BOARD_CARD, step: GridStep = SQUARE_STEP, overlaps: Overlaps = (a, b) => boxesOverlap(a, b, size)): Pt | null {
+  if (!last || boxVisibleRatio(view, { x: last.x, y: last.y, w: size.w, h: size.h }, viewport) <= 0.5) return null;
   const lim = BOARD_LIMITS.coord;
-  for (let k = 1; k <= SPOT_RINGS; k++) {
-    const raw = { x: anchor.x + step.x * k, y: anchor.y + step.y * k };
-    if (Math.abs(raw.x) > lim || Math.abs(raw.y) > lim) return null;
-    const p = { x: cleanCoord(raw.x), y: cleanCoord(raw.y) };
-    if (!taken.some((t) => overlaps(p, t, size))) return p;
+  const free = (p: Pt) => Math.abs(p.x) <= lim && Math.abs(p.y) <= lim && !taken.some((t) => overlaps(p, t));
+  const right = { x: last.x + step.x, y: last.y };
+  const inWidth = (right.x + size.w) * view.zoom + view.x <= viewport.w - READ_PAD + 1e-6;
+  if (inWidth && free(right)) return right;
+  const shift = step.shift ?? 0;
+  if (shift === 0) {
+    const down = { x: last.x, y: last.y + step.y };
+    return free(down) ? down : null;
   }
+  const within = (p: Pt) => p.x * view.zoom + view.x >= READ_PAD - 1e-6 && (p.x + size.w) * view.zoom + view.x <= viewport.w - READ_PAD + 1e-6;
+  for (const p of [{ x: last.x + shift, y: last.y + step.y }, { x: last.x - shift, y: last.y + step.y }]) if (within(p) && free(p)) return p;
   return null;
+}
+
+// 書く欄で足すカードの置き場（HX2）。dir（Ctrl+Enter＝右・Shift+Enter＝下）があれば、選んだ 1 枚（anchor）の横 → 真ん中から（spotForNewCard）。最後に書いたカードは使わない
+//   dir が無い（［決める］）なら、最後に書いたカード（last）の右・下（spotNextToLast）→ 真ん中から。view・viewport は書く欄を閉じたあとの面。見つからなければ null
+//   size・step・overlaps は箱の大きさと升目の歩みと重なりの決め方（既定は四角。HX4・HX5 の geo の口）
+//   besideFallback：dir があって横に置けない（24 歩で見つからない・選んだ 1 枚が無い）ときの置き方。'center'（既定・四角）は真ん中から、
+//   'last'（六角。HX5）は［決める］と同じ置き方（最後に書いたカードの右・下 → 真ん中から）
+//   at（左上。TA4a）：空きで押した所に置く（spotAt）。向き・選んだ 1 枚・最後に書いたカードは見ない。そこから探しても置けないときだけ、上の今の決まりで置く
+export function addSpot(input: { at?: Pt; dir?: 'right' | 'down'; anchor?: Pt; last: Pt | null; view: BoardView; viewport: { w: number; h: number }; taken: readonly Pt[]; size?: { w: number; h: number }; step?: GridStep; overlaps?: Overlaps; besideFallback?: 'center' | 'last' }): Pt | null {
+  const { dir, anchor, last, view, viewport, taken } = input;
+  const size = input.size ?? BOARD_CARD;
+  const step = input.step ?? SQUARE_STEP;
+  const overlaps = input.overlaps ?? ((a: Pt, b: Pt) => boxesOverlap(a, b, size));
+  const here = input.at ? spotAt(input.at, taken, step, overlaps) : null;
+  if (here) return here;
+  const center = () => spotForNewCard(view, viewport, taken, size, step, overlaps);
+  const byLast = () => spotNextToLast(view, viewport, last, taken, size, step, overlaps) ?? center();
+  if (dir) return (anchor ? spotBeside(anchor, dir, taken, size, step, overlaps) : null) ?? (input.besideFallback === 'last' ? byLast() : center());
+  return byLast();
+}
+
+// 足す置き場で避ける位置（addSpot の taken。HX5）：描いている位置（pos）と、保存を待っていてまだ描いていない位置（pending にあって pos に無いもの）。
+//   足した結果を待つ間に続けて Ctrl+Enter・Shift+Enter で足すと、先のカードはまだ台帳に無いので描いていない。それも避けないと同じ所に二枚が重なる
+export function takenSpots(pos: ReadonlyMap<string, Pt>, pending: ReadonlyMap<string, Pt>): Pt[] {
+  const out = [...pos.values()].map((p) => ({ x: p.x, y: p.y }));
+  for (const [ref, p] of pending) if (!pos.has(ref)) out.push({ x: p.x, y: p.y });
+  return out;
+}
+
+// ---------- 書く欄の高さ（HX2。上の区画だけ） ----------
+
+export const COMPOSE_LINE_PX = 18; // 上の区画の書く欄の 1 行の高さ（CSS の line-height と同じ）
+export const COMPOSE_ROWS_MAX = 3; // 伸ばすのはここまで（あとは欄の中で送る）
+const COMPOSE_TEXT_PAD = 4 + 4; // 上下の余白（CSS の padding 4px）
+const COMPOSE_TEXT_BORDER = 1 + 1; // 上下の枠（CSS の border 1px）
+
+// 上の区画の書く欄の高さ（画素。枠を含む）：字の高さ（scrollHeight。余白を含み、枠を含まない）に枠を足し、1 行から COMPOSE_ROWS_MAX 行の間に収める
+export function composeTextHeight(scrollHeight: number): number {
+  const min = COMPOSE_LINE_PX + COMPOSE_TEXT_PAD + COMPOSE_TEXT_BORDER;
+  const max = COMPOSE_LINE_PX * COMPOSE_ROWS_MAX + COMPOSE_TEXT_PAD + COMPOSE_TEXT_BORDER;
+  if (!Number.isFinite(scrollHeight)) return min;
+  return Math.min(max, Math.max(min, Math.ceil(scrollHeight + COMPOSE_TEXT_BORDER)));
 }
 
 // 足す命令（id は先に決める。B2-3a）。文は台帳と同じに整える（空なら null）
@@ -138,6 +200,20 @@ export function editCommand(memoId: string, reply: Reply, text: string): { ok: t
 
 export const cardTextIs = (replies: readonly Reply[], id: string, text: string): boolean => topOf(replies, id)?.text === cleanReplyText(text);
 
+// ---------- 断られた文を書く欄へ戻す ----------
+
+export type ComposeMode = { kind: 'add' } | { kind: 'edit'; id: string };
+
+// いま欄へ戻してよいか。欄が閉じている・足す欄が空のまま開いているなら戻す。書いている最中は待つ（書きかけを壊さない・変換を切らない）。書き直す欄は空でも待つ（どのカードの文かが替わってしまう）
+export function canReturnDraft(open: ComposeMode | null, current: string): boolean {
+  return open === null || (open.kind === 'add' && current.trim() === '');
+}
+
+// 戻す欄の種類。書き直すカードがもう無ければ足す欄へ（書き直す欄のままだと、決めたときに「カードがもうありません」で文が消える）
+export function returnMode(mode: ComposeMode, replies: readonly Reply[]): ComposeMode {
+  return mode.kind === 'edit' && !cardAppeared(replies, mode.id) ? { kind: 'add' } : mode;
+}
+
 // ---------- タグ（選んだ全部に） ----------
 
 // 選んだカードに付いているタグ（機械タグは出さない）。多くのカードに付いているものが先、同じ数なら先に見つけた順
@@ -190,6 +266,12 @@ export function kindChoices(replies: readonly Reply[], from: string, to: string)
 
 export type LinkPlan = { ok: true; command: RelayCommand } | { ok: false; note: string };
 
+// 足すと同時に引く線（CB13）。Ctrl+Enter・Shift+Enter で、選んだカードの横へ足すときだけ（［決める］では引かない）。
+//   向きは 前のカード（選んでいたカード）→ 新しいカード（確認 2 の答え。今の引き方のまま）
+export function addLinkFrom(o: { dir?: 'right' | 'down'; anchor?: string; kind: LinkKind | '' }): { from: string; kind: LinkKind } | null {
+  return o.dir && o.anchor !== undefined && o.kind !== '' ? { from: o.anchor, kind: o.kind } : null;
+}
+
 // 線を足す命令。左と同じ決まり（changeLinkList）で先に確かめ、断られる理由を文にする（グリッドの知らせと同じ文）
 export function linkAddPlan(replies: readonly Reply[], memoId: string, from: string, to: string, kind: LinkKind): LinkPlan {
   const a = topOf(replies, from);
@@ -200,6 +282,28 @@ export function linkAddPlan(replies: readonly Reply[], memoId: string, from: str
   if (done.refused > 0) return { ok: false, note: tr('その相手とは結べませんでした（相手のカードがもう無いか、もう「同じ」でつながっています）') };
   if (done.links === null) return { ok: false, note: tr('もう関連「{0}」で結ばれています', { 0: linkKindInfo(kind).name }) };
   return { ok: true, command: { command: 'changeReplyLinks', id: memoId, replyId: from, add: [{ to, kind }], remove: [] } };
+}
+
+// 下の欄から足したカードに引く線（CC3。つなぐ ▾）。photo：拡大で見ている写真のカードから引く
+export interface AddedLinkFrom {
+  from: string;
+  kind: LinkKind;
+  photo?: true;
+}
+
+export type AddedLink = { ok: true; from: string; kind: LinkKind } | { ok: false; note: string };
+
+// 左が足した直後に呼ぶ。replies は足したあとの並び、to は足したカード。頼まれていない・形が違うときは null（線は引かず、何も知らせない）
+//   from は区画の見込み（写しの時点の最新）。足す前の直前のカードと違えば引かない（写しの遅れの間に続けて足した・ボードや写真が別のカードを足した）
+export function addedLinkPlan(raw: unknown, replies: readonly Reply[], memoId: string, to: string): AddedLink | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const { from, kind, photo } = raw as { from?: unknown; kind?: unknown; photo?: unknown };
+  if (typeof from !== 'string' || !isLinkKind(kind)) return null;
+  if (photo !== true && createdTops(replies.filter((r) => r.id !== to)).at(-1)?.id !== from) {
+    return { ok: false, note: tr('直前のカードが替わったので、線は引きませんでした') };
+  }
+  const plan = linkAddPlan(replies, memoId, from, to, kind);
+  return plan.ok ? { ok: true, from, kind } : { ok: false, note: tr('カードは足しましたが線は引けませんでした（{0}）', { 0: plan.note }) };
 }
 
 export interface Relation {
@@ -255,24 +359,30 @@ export interface ToolState {
   paste: ToolButton; // 型を貼る ▾（B3-2b。選びには関係しない）
 }
 
-// 選びと台帳から、ボタンの押せるか・理由・文。load：ボードの読み込み状態（足すのはそれを見る）
-export function toolState(input: { selected: readonly string[]; replies: readonly Reply[]; load: LoadBoardResult | null }): ToolState {
+// 六角の表示（HX4・HX5）で押せないボタンの文。型は四角の並びの位置（四角の歩み）で作られているので、六角では貼る・型にするを押せない
+export const HEX_TEMPLATE_NOTE = tr('六角の表示では、ここからは型にできません（カードの右クリックの「型を足す…」か、四角に戻すと使えます）');
+export const HEX_PASTE_NOTE = tr('六角の表示では、ここからは型を貼れません（カードの右クリックの「型を足す…」か、四角に戻すと使えます）');
+
+// 選びと台帳から、ボタンの押せるか・理由・文。load：ボードの読み込み状態（足すのはそれを見る）。layout：いまの形（六角では型の 2 つを押せない。既定は四角）
+//   足す置き場の決まりは、四角と六角で同じ言い方（六角の「下」は右下か左下。HX5）
+export function toolState(input: { selected: readonly string[]; replies: readonly Reply[]; load: LoadBoardResult | null; layout?: BoardLayout }): ToolState {
   const ids = liveSelection(input.replies, input.selected);
   const n = ids.length;
+  const hex = input.layout === 'hex';
   const addNote = addBlockedNote(input.load, input.replies);
-  const pasteNote = pasteToolNote(input.load, input.replies);
+  const pasteNote = hex ? HEX_PASTE_NOTE : pasteToolNote(input.load, input.replies);
   const edit = editCheck(input.replies, input.selected);
   const one = n === 1;
   const oneNote = n === 0 ? tr('先にカードを 1 枚選んでください') : tr('1 枚だけ選んでください');
   const rels = one ? relationsOf(input.replies, ids[0]) : [];
   return {
-    add: { enabled: addNote === null, note: addNote ?? tr('いま見ている場所の真ん中に新しいカードを足します') },
+    add: { enabled: addNote === null, note: addNote ?? tr('新しいカードを足します（最後に書いたカードが見えていればその右か下、見えていなければいま見ている場所の真ん中に）') },
     edit: { enabled: edit.ok, note: edit.ok ? tr('選んだカードの文を書き直します') : edit.note },
     remove: { enabled: n > 0, note: deleteTitle(n), label: deleteLabel(n) },
     tags: n > 0,
     linkAdd: { enabled: one, note: one ? tr('選んだカードから、別のカードへ関連（線）を引きます') : oneNote },
     paste: { enabled: pasteNote === null, note: pasteNote ?? tr('型を選んで、いま見ている場所の真ん中に貼ります（貼ったカードは全部選ばれます）') },
-    template: { enabled: n >= TEMPLATE_MIN_PICK, note: templateBlockedNote(n) ?? tr('選んだカードと、そのあいだの関連を、型として登録します（置いた位置も覚えます）') },
+    template: hex ? { enabled: false, note: HEX_TEMPLATE_NOTE } : { enabled: n >= TEMPLATE_MIN_PICK, note: templateBlockedNote(n) ?? tr('選んだカードと、そのあいだの関連を、型として登録します（置いた位置も覚えます）') },
     linkRemove: { enabled: one && rels.length > 0, note: !one ? oneNote : rels.length === 0 ? tr('このカードにつながる線はありません') : tr('選んだカードにつながる線を、選んで外します') },
   };
 }

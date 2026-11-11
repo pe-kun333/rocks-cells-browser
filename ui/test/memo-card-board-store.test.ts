@@ -44,14 +44,14 @@ const fileOf = (nodes: unknown[] = [{ ref: 'r1', x: 5, y: 6 }], over: Record<str
 
 async function loaded(files: Record<string, unknown> = {}, opts: Parameters<typeof fakeIo>[1] = {}) {
   const f = fakeIo(files, opts);
-  const l = await loadBoard(f.io, ID, 1);
+  const l = await loadBoard(f.io, ID, 1, 'square');
   return { ...f, l };
 }
 
 describe('ボードのファイルを読む', () => {
   it('無ければ missing（空のボードから始める。仮の並び）', async () => {
     const { l, reads } = await loaded();
-    expect(l).toEqual({ state: 'missing', memoId: ID, board: emptyBoard(ID, 1), dropped: 0, raw: null, backupNeeded: false });
+    expect(l).toEqual({ state: 'missing', layout: 'square', memoId: ID, board: emptyBoard(ID, 1), dropped: 0, raw: null, backupNeeded: false });
     expect(reads).toEqual([FILE]);
   });
   it('読めれば ok。ボードと、捨てたノードの数・読んだままの中身が分かる', async () => {
@@ -65,26 +65,26 @@ describe('ボードのファイルを読む', () => {
     expect(l.backupNeeded).toBe(true);
   });
   it('返事が無い・壊れている（failed）は unreadable', async () => {
-    expect((await loaded({ [FILE]: 'FAIL' })).l).toEqual({ state: 'unreadable', memoId: ID, why: 'failed' });
+    expect((await loaded({ [FILE]: 'FAIL' })).l).toEqual({ state: 'unreadable', layout: 'square', memoId: ID, why: 'failed' });
   });
   it('知らない版・形が違う・メモ違い・大きすぎるは unreadable（理由つき）', async () => {
-    expect((await loaded({ [FILE]: fileOf([], { version: 2 }) })).l).toEqual({ state: 'unreadable', memoId: ID, why: 'version' });
-    expect((await loaded({ [FILE]: fileOf([], { format: 'x' }) })).l).toEqual({ state: 'unreadable', memoId: ID, why: 'format' });
-    expect((await loaded({ [FILE]: fileOf([], { nodes: 'x' }) })).l).toEqual({ state: 'unreadable', memoId: ID, why: 'shape' });
-    expect((await loaded({ [FILE]: fileOf([], { memoId: 'other' }) })).l).toEqual({ state: 'unreadable', memoId: ID, why: 'memo' });
+    expect((await loaded({ [FILE]: fileOf([], { version: 2 }) })).l).toEqual({ state: 'unreadable', layout: 'square', memoId: ID, why: 'version' });
+    expect((await loaded({ [FILE]: fileOf([], { format: 'x' }) })).l).toEqual({ state: 'unreadable', layout: 'square', memoId: ID, why: 'format' });
+    expect((await loaded({ [FILE]: fileOf([], { nodes: 'x' }) })).l).toEqual({ state: 'unreadable', layout: 'square', memoId: ID, why: 'shape' });
+    expect((await loaded({ [FILE]: fileOf([], { memoId: 'other' }) })).l).toEqual({ state: 'unreadable', layout: 'square', memoId: ID, why: 'memo' });
     const big = Array.from({ length: 10 }, (_, i) => ({ ref: `r${i}`, x: 0, y: 0, pad: 'x'.repeat(30_000) }));
-    expect((await loaded({ [FILE]: fileOf(big) })).l).toEqual({ state: 'unreadable', memoId: ID, why: 'size' });
-    expect((await loaded({ [FILE]: 'ただの文字列' })).l).toEqual({ state: 'unreadable', memoId: ID, why: 'format' });
+    expect((await loaded({ [FILE]: fileOf(big) })).l).toEqual({ state: 'unreadable', layout: 'square', memoId: ID, why: 'size' });
+    expect((await loaded({ [FILE]: 'ただの文字列' })).l).toEqual({ state: 'unreadable', layout: 'square', memoId: ID, why: 'format' });
   });
   it('名前に使えないメモ id は読みに行かずに unreadable（name）', async () => {
     const f = fakeIo();
-    expect(await loadBoard(f.io, 'a/b')).toEqual({ state: 'unreadable', memoId: 'a/b', why: 'name' });
+    expect(await loadBoard(f.io, 'a/b', 0, 'square')).toEqual({ state: 'unreadable', layout: 'square', memoId: 'a/b', why: 'name' });
     expect(f.reads).toEqual([]);
   });
   it('別のメモのボードは別のファイル（boards/<メモ id>.json）', async () => {
     const f = fakeIo({ [boardFileName('mother') as string]: fileOf([{ ref: 'z', x: 1, y: 1 }], { memoId: 'mother' }) });
-    expect((await loadBoard(f.io, ID)).state).toBe('missing');
-    expect((await loadBoard(f.io, 'mother')).state).toBe('ok');
+    expect((await loadBoard(f.io, ID, 0, 'square')).state).toBe('missing');
+    expect((await loadBoard(f.io, 'mother', 0, 'square')).state).toBe('ok');
   });
 });
 
@@ -103,7 +103,7 @@ describe('ボードを保存する：読めなければ書かない', () => {
   });
   it('名前に使えないメモ id には書かない', async () => {
     const f = fakeIo();
-    const l = await loadBoard(f.io, 'a/b');
+    const l = await loadBoard(f.io, 'a/b', 0, 'square');
     expect(await saveBoard(f.io, l, emptyBoard('a/b'))).toEqual({ ok: false, why: 'unreadable' });
     expect(f.writes).toEqual([]);
   });
@@ -134,7 +134,7 @@ describe('ボードを保存する：ファイルが無いとき（初めて）'
   });
   it('書く前にもう一度見て、ファイルができていたら書かない（changed）', async () => {
     const f = fakeIo();
-    const l = await loadBoard(f.io, ID, 1);
+    const l = await loadBoard(f.io, ID, 1, 'square');
     f.store.set(FILE, fileOf([{ ref: 'other', x: 1, y: 1 }])); // 読んだあとに別のものが作った
     const done = await saveBoard(f.io, l, moveNodes(emptyBoard(ID), [{ ref: 'a', x: 1, y: 1 }], 2));
     expect(done).toEqual({ ok: false, why: 'changed' });
@@ -255,8 +255,8 @@ describe('画面に出す文', () => {
   });
   it('保存の失敗ごとの文（どれも空でない）', () => {
     const all: SaveBoardFailure[] = ['unreadable', 'name', 'memo', 'full', 'size', 'changed', 'backup', 'write'];
-    for (const why of all) expect(boardSaveMessage(why).length).toBeGreaterThan(5);
-    expect(boardSaveMessage('unreadable')).toContain('ファイルは変えていません');
-    expect(boardSaveMessage('full')).toContain('300');
+    for (const why of all) expect(boardSaveMessage(why, 'square').length).toBeGreaterThan(5);
+    expect(boardSaveMessage('unreadable', 'square')).toContain('ファイルは変えていません');
+    expect(boardSaveMessage('full', 'square')).toContain('300');
   });
 });

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { BOARD_CARD, BOARD_LIMITS } from '../src/memo-card-board';
 import {
+  cardNear,
+  EMPTY_TAP_PX,
+  emptyTap,
   groupDragPositions,
   marqueeHits,
   marqueeRect,
@@ -11,6 +14,7 @@ import {
   selectAll,
   selectionCountText,
 } from '../src/memo-card-board-select';
+import { HEX_NEAR, hexOutside } from '../src/memo-card-board-hex';
 import { dragPosition } from '../src/memo-card-board-view';
 
 const view = (zoom: number, x = 0, y = 0) => ({ x, y, zoom });
@@ -140,5 +144,63 @@ describe('まとめて動かす（groupDragPositions）', () => {
     const out = groupDragPositions(starts, { dx: 10.4, dy: 10.6 }, view(1));
     expect(out.get('a')).toEqual({ x: 10, y: 11 });
     for (const p of out.values()) expect(Number.isInteger(p.x) && Number.isInteger(p.y)).toBe(true);
+  });
+});
+
+describe('点のすぐ近くのカード（cardNear。TA4a：空きの右クリックで、縁のすぐ外をそのカードに数える）', () => {
+  // 仮の並びの 3 枚（すき間 16）：a (0,0)・b (166,0)・c (83,144)
+  const pos = new Map([
+    ['a', { x: 0, y: 0 }],
+    ['b', { x: 166, y: 0 }],
+    ['c', { x: 83, y: 144 }],
+  ]);
+  const near = (p: { x: number; y: number }) => cardNear(pos, p, hexOutside, HEX_NEAR);
+  it('縁から 9 までは、そのカード。それより外は null', () => {
+    expect(near({ x: -8, y: 86.6 })).toBe('a'); // a の左の縁の外 8
+    expect(near({ x: -10, y: 86.6 })).toBeNull(); // 外 10
+    expect(near({ x: 2, y: 2 })).toBeNull(); // 箱の角（外 37.5）
+    expect(near({ x: 75, y: 86.6 })).toBe('a'); // 中
+  });
+  it('すき間では、近い方のカード。同じ近さなら先のカード', () => {
+    expect(near({ x: 155, y: 86.6 })).toBe('a'); // a の右の縁から 5、b の左の縁から 11
+    expect(near({ x: 161, y: 86.6 })).toBe('b');
+    expect(near({ x: 158, y: 86.6 })).toBe('a'); // すき間の真ん中（どちらからも 8）
+  });
+  it('3 枚の集まる所でも、どれかのカードになる（詰まった並びのすき間に、空きは無い）', () => {
+    expect(near({ x: 158, y: 135 })).not.toBeNull();
+  });
+  it('幅が 0（四角）なら、中だけ。カードが無ければ null', () => {
+    expect(cardNear(pos, { x: -1, y: 86.6 }, hexOutside, 0)).toBeNull();
+    expect(cardNear(pos, { x: 0, y: 86.6 }, hexOutside, 0)).toBe('a');
+    expect(cardNear(new Map(), { x: 0, y: 0 }, hexOutside, HEX_NEAR)).toBeNull();
+  });
+});
+
+describe('空きのダブルクリックの数え方（emptyTap。TA7）', () => {
+  const tap = (x: number, y: number, t: number) => ({ x, y, t });
+  it('1 回目は覚えるだけ。同じ所を 400 ミリ秒の内に押した 2 回目がダブルクリック。そのあとは空', () => {
+    const first = emptyTap(null, tap(100, 100, 1000), 400);
+    expect(first).toEqual({ double: false, next: tap(100, 100, 1000) });
+    const second = emptyTap(first.next, tap(102, 101, 1300), 400);
+    expect(second).toEqual({ double: true, next: null });
+    expect(emptyTap(second.next, tap(102, 101, 1400), 400).double).toBe(false); // 3 回目は、次の 1 回目
+  });
+  it('400 ミリ秒の内と外（ちょうどは内。カードのダブルクリックと同じ）', () => {
+    const prev = tap(0, 0, 1000);
+    expect(emptyTap(prev, tap(0, 0, 1400), 400).double).toBe(true);
+    expect(emptyTap(prev, tap(0, 0, 1401), 400)).toEqual({ double: false, next: tap(0, 0, 1401) }); // 間の空いた 2 回目は、次の 1 回目になる
+  });
+  it('8 画素の内と外。離れた 2 回目は、次の 1 回目になる', () => {
+    const prev = tap(100, 100, 1000);
+    expect(EMPTY_TAP_PX).toBe(8);
+    expect(emptyTap(prev, tap(108, 100, 1100), 400).double).toBe(true);
+    expect(emptyTap(prev, tap(106, 106, 1100), 400).double).toBe(false); // 斜めに 8.5
+    const far = emptyTap(prev, tap(300, 100, 1100), 400);
+    expect(far).toEqual({ double: false, next: tap(300, 100, 1100) });
+    expect(emptyTap(far.next, tap(301, 100, 1200), 400).double).toBe(true);
+  });
+  it('時刻が戻っていたら数えない。幅は渡せる', () => {
+    expect(emptyTap(tap(0, 0, 2000), tap(0, 0, 1900), 400).double).toBe(false);
+    expect(emptyTap(tap(0, 0, 1000), tap(20, 0, 1100), 400, 24).double).toBe(true);
   });
 });

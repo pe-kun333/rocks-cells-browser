@@ -48,7 +48,7 @@ afterEach(() => {
 
 const card = (id: string, text: string, createdAt: number, extra: Partial<Reply> = {}): Reply => ({ id, parent: null, text, createdAt, ...extra });
 const mv = (n: number): UndoOp => ({ kind: 'move', moves: [{ ref: `c${n}`, from: { x: 0, y: 0 }, to: { x: n, y: n } }] });
-const okLoad = (): LoadBoardResult => ({ state: 'ok', board: emptyBoard('m1') } as unknown as LoadBoardResult);
+const okLoad = (): LoadBoardResult => ({ state: 'ok', layout: 'square', board: emptyBoard('m1') } as unknown as LoadBoardResult);
 
 describe('UndoStack（積み）', () => {
   it('積む→取り出す→成功したら反対側へ。新しい操作を積むとやり直しは空になる', () => {
@@ -180,7 +180,7 @@ describe('文とボタン', () => {
     expect(loading.undo.note).toBe('ボードを読み込み中です。少し待ってから操作してください');
     expect(undoBlockedNote(null)).not.toBeNull();
     expect(undoBlockedNote(okLoad())).toBeNull();
-    expect(undoBlockedNote({ state: 'unreadable', why: 'failed' } as unknown as LoadBoardResult)).toContain('元に戻せません（書き込みません）');
+    expect(undoBlockedNote({ state: 'unreadable', layout: 'square', why: 'failed' } as unknown as LoadBoardResult)).toContain('元に戻せません（書き込みません）');
   });
 
   it('削除のツールチップは「Ctrl+Z で元に戻せます」（もう戻せないとは書かない）', () => {
@@ -270,7 +270,7 @@ describe('型の貼り直し（planRepaste）', () => {
     expect(planRepaste({ ...input, at: [{ x: 0, y: 0 }] })).toMatchObject({ ok: false });
     expect(planRepaste({ ...input, at: [{ x: 99999, y: 0 }, { x: 0, y: 0 }] })).toMatchObject({ ok: false });
     expect(planRepaste({ ...input, load: null })).toMatchObject({ ok: false });
-    expect(planRepaste({ ...input, load: { state: 'unreadable', why: 'failed' } as unknown as LoadBoardResult })).toMatchObject({ ok: false });
+    expect(planRepaste({ ...input, load: { state: 'unreadable', layout: 'square', why: 'failed' } as unknown as LoadBoardResult })).toMatchObject({ ok: false });
     const full = Array.from({ length: 299 }, (_, i) => card(`k${i}`, 'x', i));
     expect(planRepaste({ ...input, replies: full })).toMatchObject({ ok: false });
     expect(planRepaste({ ...input, template: { nope: 1 } })).toMatchObject({ ok: false });
@@ -389,7 +389,7 @@ describe('画面の配線（ソースの確かめ）', () => {
     expect(src).toContain("text.startsWith('元に戻せませんでした')");
     expect(src).toContain('if (settled) return;');
     expect(src).toContain('const op = this.undo.take(dir);');
-    expect(src).toContain('this.undo.finish(dir, next, version);');
+    expect(src).toContain('this.undo.finish(dir, next, version, this.shape);'); // 反対側の印はそのときの形（HX4）
     expect(src).toContain('if (this.undoBusy || this.hidden) return;'); // 戻している最中は受けない
   });
 

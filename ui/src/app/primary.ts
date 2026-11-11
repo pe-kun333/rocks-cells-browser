@@ -85,12 +85,14 @@ import { IslandStore, islandNameSuggestion, layoutIslands, newIslandId, placeClu
 import { emptyLinkNameBook, LINK_NAME_SETS_FILE, type LinkNameBook, normalizeLinkNameBook } from '../link-name-sets';
 import { linkNameBookOfIds, linkSetForNewMemo, rememberedLinkSet } from '../link-set-for-new';
 import { LINK_KIND_DEFAULT_NAMES, LINK_KINDS, type LinkKind, MAX_LINKS_PER_CARD } from '../memo-card-links';
+import { addedLinkPlan } from '../memo-card-board-edit';
 import { BOARD_LINK_NAME_MAX, boardKindName, parseBoardLinkNames, setBoardLinkNames } from '../board-links';
 import { buildExport, type ExportScope, exportFileName } from '../grok-export';
 import { type AppliedStep, applyItem, type GrokPatch, type ImportSheetUndo, isBackup, PATCH_REASON_TEXT, type PatchBackup, type PatchHistoryItem, type PatchWorld, parseHistory, parsePatch, parsePatchText, type PlanItem, planPatch, undoConflicts, undoStep, type WorldTab } from '../grok-patch';
 import { GrokPatchView } from '../panels/grok-patch-view';
 import { BoardLinkStore, boardLinkSentence, type CellRef, findDuplicate, memoRef, tabRef } from '../board-links';
 import { MemoPaneHost, readMemoPanePrefs } from '../memo-pane-host';
+import { runBoardOpen, runLowerBoardOpen } from '../board-open-plan';
 import { isShotImageId } from '../annotate-card-plan';
 import { isRestoreToken, isSpecialCell, MAX_MEMO_TEXT, type MemoCell, type MemoDraft, memoTitle, MemoStore, newMemoId, toMemoIndexItem, toRightMemo, type SendRepliesResult } from '../memocells';
 import { searchMemos } from '../memo-search';
@@ -120,8 +122,13 @@ import { SessionNotice } from '../panels/session-notice';
 import { THEME_APPLIED, windowThemeMessage } from '../theme';
 import { startThemeMenu } from '../theme-menu';
 import { buildArchive, deleteArchive, isArchiveId, listArchives, markRestored, newArchiveId, readArchive, sameContent, type SheetArchive, type SheetArchiveMeta, writeArchive } from '../sheet-archive';
-import { sheetSetsIn } from '../rightsheets';
+import { madeSheetsIn, sheetSetsIn } from '../rightsheets';
 import { BoardSheetSlots, SHEET_SLOT_COUNT } from '../sheet-shortcuts';
+import { SheetUse } from '../sheet-use';
+import { buildSheetTree, isFolderSheet, rankSheetMatch, type SheetTree } from '../sheet-tree';
+import { SheetList, type SheetLevel, type SheetListModel, type SheetListRow } from '../panels/sheet-list';
+import { findGrokCardsSheet } from '../grok-cards-store';
+import { fold } from '../search';
 import { CAPTURE_SHEET, isSheetId, MAIN_SHEET, MAX_SHEETS, RIGHT_MEMO_SHEET, SheetStore } from '../sheets';
 import { peekEmptyMenuPlan, peekMemoNote } from '../sheet-peek-logic';
 import { Sidebar, type SidebarDeps } from '../sidebar';
@@ -254,11 +261,23 @@ export function startPrimary() {
   //   タブ・メモのセルは、どれか1枚のシートに置く。位置はシートごと。シートへの入口はメモのセルの一種
   const sheets = new SheetStore();
   const sheetSlots = new BoardSheetSlots(); // 盤面の右クリックに出す、シートのボタン（6つまで。この画面だけ）
+  // 最後に見た時刻と、最後にセルを移した先（この画面の localStorage。起動し直しても最近の順を保つ。docs/ideas-sheet-folders.md の候補 3）
+  const sheetUse = new SheetUse();
+  sheets.setSeenSource((id) => sheetUse.seenAt(id));
   store.sheetNow = () => sheets.current;
 
   // ---------- 盤面とリスト ----------
   // メモのセル（ページではないセル）。新しいタブは、メモのセルのある所と、これから開くタブの場所には置かない
   const memos = new MemoStore();
+  // シートの入れ子（入口から組む。sheet-tree.ts）。メモのセルかシートの台帳が変わったら作り直す
+  let treeCache: SheetTree | null = null;
+  memos.onChange(() => (treeCache = null));
+  sheets.onChange(() => (treeCache = null));
+  function sheetTree(): SheetTree {
+    treeCache ??= buildSheetTree(sheets.list(), memos.list(), MAIN_SHEET);
+    return treeCache;
+  }
+  const rightMade = new Set<string>(); // 右のメモで作ったシート（一覧の「アプリ」の段に分ける）
   memos.sheetNow = () => sheets.current;
   void memos.load().then(() => {
     ensureSheets();
@@ -293,12 +312,18 @@ export function startPrimary() {
   const board = $('board');
   // 下のメモの区画。盤面より先に作る（ダブルクリックから呼ぶ）。拡大表示は、あとからつながる
   const paneHooks: { preview: { render(): void } | null; readerLinks?: () => void } = { preview: null };
+  // 「上のコメントボードで開く」の待ちの印（下の面が動き出す前に頼んだ。memoPaneReady で、下の区画が開いていれば送り直す）。区画を閉じたら下ろす
+  let boardUpperWanted = false;
+  // 「下で開く」の待ちの印（同じ形。上と下の頼みは、あとの頼みが勝つので、立つのはどちらか一方だけ）
+  let lowerBoardWanted = false;
   const memoPane = new MemoPaneHost({
     memos,
     sheets,
     store,
     toast: (text) => showToast(board, text, 4500),
     onOpenChange: (id) => {
+      if (id === null) boardUpperWanted = false; // 区画を閉じた：閉じたあとにボードを上へ出さない（メモの無い面が上を覆わないように）
+      if (id === null) lowerBoardWanted = false; // 区画を閉じた：閉じたあとに下のボードを頼まない（「下で開く」の印も下ろす）
       sidebar.setPaneMemo(id);
       paneHooks.preview?.render();
       paneHooks.readerLinks?.(); // 結ぶ先のメモが替わった（六角で見るの写し。V2a-1）
@@ -421,6 +446,7 @@ export function startPrimary() {
   // ---------- シートを移る ----------
   // シートが変わったら：開いていた欄とメニューを閉じ、選択を忘れ、そのシートの盤面の位置にする
   function afterSheetChange() {
+    sheetUse.markSeen(sheets.current);
     cellMenu.close();
     memoEditor.close();
     faceEditor.close();
@@ -445,6 +471,7 @@ export function startPrimary() {
       return false;
     }
     prefs.boards[sheets.current] = sidebar.view;
+    sheetUse.markSeen(sheets.current); // 離れるシートも「いま見ていた」にする
     if (!sheets.setCurrent(id)) return false;
     afterSheetChange();
     return true;
@@ -455,6 +482,9 @@ export function startPrimary() {
     if (sheets.backTo) return sheets.backTo;
     const cur = sheets.current;
     if (cur === MAIN_SHEET) return null; // 試し：メインへの入口をほかのシートに置いても、メインに ← は出さない
+    // 一覧の道しるべと同じ親（メインからの最短。同じ深さなら古い入口）。無ければ、このシートへの入口があるシート
+    const up = sheetTree().parentOf(cur);
+    if (up && up !== cur && sheets.get(up)) return up;
     const parent = memos.list().find((m) => m.portal === cur && m.sheet !== cur && sheets.get(m.sheet))?.sheet;
     return parent ?? (cur !== MAIN_SHEET ? MAIN_SHEET : null);
   }
@@ -465,6 +495,7 @@ export function startPrimary() {
       return;
     }
     prefs.boards[sheets.current] = sidebar.view;
+    sheetUse.markSeen(sheets.current);
     if (sheets.back()) {
       afterSheetChange();
       return;
@@ -1096,6 +1127,7 @@ export function startPrimary() {
       return;
     }
     const n = moveCellsToSheet(cell.tab !== undefined ? [cell.tab] : [], cell.memo ? [cell.memo] : [], target);
+    if (n > 0) sheetUse.markMoved(target);
     if (n > 0) toast(tr('シート「{0}」へ移しました（入口を押すと小窓で見られます）', { 0: sheet.name }));
   }
 
@@ -1107,6 +1139,7 @@ export function startPrimary() {
     const memoIds = selectedMemos().map((m) => m.id);
     const dropped = memoIds.filter((id) => memos.get(id)?.portal === target).length;
     const n = moveCellsToSheet(tabIds, memoIds, target);
+    if (n > 0) sheetUse.markMoved(target);
     sidebar.clearSelection();
     if (n === 0 && dropped === 0) {
       toast(tr('移せるセルがありません'));
@@ -1115,13 +1148,17 @@ export function startPrimary() {
     toast(tr('{0} 個のセルを、シート「{1}」へ移しました{2}', { 0: n, 1: sheet.name, 2: dropped > 0 ? `（そのシートへの入口 ${dropped} 個は消しました）` : '' }));
   }
 
+  // 移す先の順：最後に移した先（3 つまで）→ 最近見た順。from（押したセルのシート）は除く
+  function moveTargets(from: string) {
+    const moved = sheetUse.moved((id) => !!sheets.get(id)).flatMap((id) => sheets.get(id) ?? []);
+    const out = moved.filter((s) => s.id !== from);
+    for (const s of sheets.recent()) if (s.id !== from && !out.includes(s)) out.push(s);
+    return out;
+  }
+
   // 移す先のシートを全部出す（選んだセルはそのまま）
   function openMoveToMenu(x: number, y: number, from = sheets.current) {
-    const entries: MenuEntry[] = [{ section: tr('選んだセルを移すシート') }];
-    for (const sheet of sheets.recent().filter((s) => s.id !== from)) {
-      entries.push({ label: sheet.name, hint: `${store.inSheet(sheet.id).length + memos.inSheet(sheet.id).length}`, run: () => moveSelectionTo(sheet.id) });
-    }
-    cellMenu.open(x, y, entries);
+    openSheetList(x, y, { kind: 'move', from });
   }
 
   // 選んだセルを入口1つにまとめる：新しいシートへ同じ並びで移し、いちばん左上のセルに入口を置く
@@ -1337,6 +1374,34 @@ export function startPrimary() {
     cellMenu.prompt(tr('シートの新しい名前'), sheet.name, (name) => sheets.rename(id, name), at);
   }
 
+  // このシートの中の入口でしか行けないシート（このシートを消す・アーカイブすると、メインから入口でたどれなくなる）
+  function strandedBy(id: string): string[] {
+    return sheetTree()
+      .children(id)
+      .filter((kid) => memos.list().every((m) => m.portal !== kid || m.sheet === id || m.sheet === kid));
+  }
+
+  // 消す・アーカイブの確かめに足す：たどれなくなるシートの知らせと、「中の入口を上へ出してから」の項目
+  function strandedEntries(id: string, verb: string, then: () => void): MenuEntry[] {
+    const kids = strandedBy(id);
+    if (kids.length === 0) return [];
+    const names = kids.map((k) => `「${sheets.get(k)?.name ?? ''}」`).slice(0, 4).join('');
+    const more = kids.length > 4 ? tr(' ほか {0} 枚', { 0: kids.length - 4 }) : '';
+    const parent = sheetTree().parentOf(id);
+    const up = parent && parent !== id && sheets.get(parent) ? parent : MAIN_SHEET;
+    return [
+      { note: tr('この中の入口でしか行けないシートが {0} 枚あります（{1}{2}）。このまま{3}と、メインから入口でたどれなくなります（シートは残り、▾ の「たどれない」に出ます）。', { 0: kids.length, 1: names, 2: more, 3: verb }) },
+      {
+        label: tr('中の入口 {0} 個を「{1}」へ出してから{2}', { 0: kids.length, 1: sheets.get(up)?.name ?? '', 2: verb }),
+        run: () => {
+          const doors = memos.inSheet(id).filter((m) => !!m.portal && kids.includes(m.portal)).map((m) => m.id);
+          moveCellsToSheet([], doors, up);
+          then();
+        },
+      },
+    ];
+  }
+
   function confirmRemoveSheet(id: string) {
     const sheet = sheets.get(id);
     if (!sheet || id === MAIN_SHEET || id === CAPTURE_SHEET) return;
@@ -1346,6 +1411,7 @@ export function startPrimary() {
     cellMenu.open(x, 120, [
       { section: tr('シート「{0}」を消します', { 0: sheet.name }) },
       { label: tr('タブ {0} 個を閉じ、メモのセル {1} 個を消します（このシートへの入口も消えます）', { 0: tabs, 1: cells }), disabled: true },
+      ...strandedEntries(id, tr('消す'), () => removeSheet(id)),
       { label: tr('消す'), run: () => removeSheet(id) },
       ...(canArchive(id) ? [{ label: tr('消さずにアーカイブする'), run: () => void archiveSheet(id) } as MenuEntry] : []),
       { label: tr('やめる'), run: () => undefined },
@@ -1429,8 +1495,9 @@ export function startPrimary() {
     const x = window.innerWidth / 2 - 120;
     const build = (inRightSet: boolean): MenuEntry[] => [
       { section: tr('シート「{0}」をアーカイブします', { 0: sheet.name }) },
-      { note: tr('タブ {0} 個・メモのセル {1} 個・ほかのシートからの入口 {2} 個を保存して、盤面から片付けます。アーカイブの一覧（左上のシートの名前 ▾）から戻せます。', { 0: tabs, 1: cells, 2: entrances }) },
+      { note: tr('タブ {0} 個・メモのセル {1} 個・ほかのシートからの入口 {2} 個を保存して、盤面から片付けます。アーカイブの一覧（左上のシートの名前 ▾ → ⋯）から戻せます。', { 0: tabs, 1: cells, 2: entrances }) },
       ...(inRightSet ? [{ note: tr('このシートは右のメモのシートのセットに入っています。セットからは外れます（戻しても戻りません）。') } as MenuEntry] : []),
+      ...strandedEntries(id, tr('アーカイブする'), () => void archiveSheet(id)),
       { label: tr('アーカイブする'), run: () => void archiveSheet(id) },
       { label: tr('やめる'), run: () => undefined },
     ];
@@ -1516,7 +1583,7 @@ export function startPrimary() {
     void listArchives().then((list) => {
       const render = (tok?: number) => {
         const entries: MenuEntry[] = [{ section: tr('アーカイブ（{0}）', { 0: list.length }) }];
-        if (list.length === 0) entries.push({ label: tr('まだありません（シートの名前 ▾ →「このシートをアーカイブ…」）'), disabled: true });
+        if (list.length === 0) entries.push({ label: tr('まだありません（シートの名前 ▾ → ⋯ →「このシートをアーカイブ…」）'), disabled: true });
         for (const meta of list.slice(0, limit)) {
           const date = new Date(meta.createdAt).toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
           const onBoard = !!sheets.get(meta.sheet.id);
@@ -1675,19 +1742,7 @@ export function startPrimary() {
   //   入口は今までと同じメモのセル（portal にシートの id）。1つのシートへの入口がいくつあってもよい
   //   （シートを消す・中身を出すときは、ほかの所の入口もいっしょに消える。← は来た順の履歴で戻る）
   function openPortalToSheetMenu(at: Hex, x: number, y: number) {
-    const here = sheets.current;
-    const entries: MenuEntry[] = [{ section: tr('どのシートへの入口を置きますか') }];
-    const have = new Set(memos.inSheet(here).filter((m) => m.portal).map((m) => m.portal));
-    for (const sheet of sheets.list()) {
-      if (sheet.id === here) continue;
-      const count = store.inSheet(sheet.id).length + memos.inSheet(sheet.id).length;
-      entries.push({
-        label: have.has(sheet.id) ? tr('{0}（このシートに入口あり）', { 0: sheet.name }) : sheet.name,
-        hint: `${count}`,
-        run: () => placePortalTo(sheet.id, at, here),
-      });
-    }
-    cellMenu.open(x, y, entries);
+    openSheetList(x, y, { kind: 'portal', at, here: sheets.current });
   }
 
   function placePortalTo(target: string, at: Hex, here: string) {
@@ -1699,51 +1754,307 @@ export function startPrimary() {
     toast(portal ? tr('シート「{0}」への入口を置きました（押すと移ります）', { 0: sheet.name }) : tr('入口を置けませんでした（メモのセルが多すぎます）'));
   }
 
-  // 新しいシートを作り、今のシートに入口を置いて、そのシートへ移る
-  function newSheetHere(x: number, y: number) {
+  // 新しいシートを作り、今のシート（host があればそのシート）に入口を置いて、そのシートへ移る
+  function newSheetHere(x: number, y: number, host?: string) {
     cellMenu.prompt(
       tr('新しいシートの名前'),
       tr('シート{0}', { 0: sheets.list().length }),
       (name) => {
         const here = sheets.current;
+        const place = host && sheets.get(host) ? host : here;
         const sheet = sheets.add(name);
         if (!sheet) {
           toast(tr('シートが多すぎて作れません（100 枚まで）'));
           return;
         }
-        const near = anchorOn(here);
-        const pos = isTaken(near, here) ? nearestFree(near, (h) => isTaken(h, here)) : near;
-        const portal = memos.add({ sheet: here, pos, text: '', portal: sheet.id });
+        const near = anchorOn(place);
+        const pos = isTaken(near, place) ? nearestFree(near, (h) => isTaken(h, place)) : near;
+        const portal = memos.add({ sheet: place, pos, text: '', portal: sheet.id });
         switchSheet(sheet.id);
-        toast(portal ? tr('新しいシート「{0}」を作りました（元のシートに入口を置きました。← で戻れます）', { 0: sheet.name }) : tr('新しいシート「{0}」を作りました（← で戻れます）', { 0: sheet.name }), 5000);
+        const where = place === here ? tr('元のシート') : `「${sheets.get(place)?.name ?? ''}」`;
+        toast(portal ? tr('新しいシート「{0}」を作りました（{1}に入口を置きました。← で戻れます）', { 0: sheet.name, 1: where }) : tr('新しいシート「{0}」を作りました（← で戻れます）', { 0: sheet.name }), 5000);
       },
       { x, y },
     );
   }
 
-  // 左上のシートの名前を押した：シートの一覧・新しいシート・名前・消す・タブの見え方
-  //   一覧は sheets.list() をそのまま出す（0 枚のシートも、特別な種類も除かない）。
-  //   「撮ったもの」は、保存の読み込みで落ちていても、開くときに足す
-  function openSheetMenu(x: number, y: number, keyboard = false) {
-    sheets.ensure([CAPTURE_SHEET]);
-    const entries: MenuEntry[] = [{ section: tr('シート') }];
-    for (const sheet of sheets.list()) {
-      const count = store.inSheet(sheet.id).length + memos.inSheet(sheet.id).length;
-      entries.push({ label: `${sheet.id === sheets.current ? '✓' : '　'} ${sheet.name}`, hint: `${count}`, run: () => switchSheet(sheet.id) });
+  // ---------- シートの一覧（docs/ideas-sheet-folders.md の候補 1・2。panels/sheet-list.ts・sheet-tree.ts） ----------
+  //   ・左上の名前 ▾：頭に道しるべと探す欄、その下はシートの行だけ。操作と設定は ⋯ の下の段へ
+  //   ・段＝そのシートの盤面にある入口の行き先。入口だけを並べたシートを「フォルダ」と呼ぶ（台帳は足さない）
+  //   ・フォルダへ入れる：フォルダに入口を足す。元の段がメインかフォルダなら、そこの入口は移す。作業のシート（タブやメモがあるシート）の入口は残す
+
+  // 入口だけを並べたシート（タブが無く、メモのセルが全部入口）
+  const isFolder = (id: string) => id !== MAIN_SHEET && isFolderSheet(store.inSheet(id).length, memos.inSheet(id));
+
+  // アプリが作るシート（メインからたどれないときだけ「アプリ」の段に出す）：撮ったもの・右のメモ・右で作ったシート・Grok Cards
+  let rightMadeAsked = false;
+  function appSheetIds(): Set<string> {
+    if (!rightMadeAsked) {
+      rightMadeAsked = true;
+      void readData<unknown>('right-sheets.json').then((raw) => {
+        for (const id of madeSheetsIn(raw)) rightMade.add(id);
+      });
     }
-    entries.push('sep');
-    entries.push({ label: tr('＋ 新しいシート…'), run: () => newSheetHere(x, y) });
-    entries.push({ label: tr('このシートの名前を変える…'), run: () => renameSheet(sheets.current, { x, y }) });
-    entries.push({ label: tr('このシートを消す…'), disabled: sheets.current === MAIN_SHEET || sheets.current === CAPTURE_SHEET, run: () => confirmRemoveSheet(sheets.current) });
-    entries.push({ label: tr('このシートをアーカイブ…'), disabled: !canArchive(sheets.current), run: () => confirmArchiveSheet(sheets.current) });
-    entries.push({ label: tr('アーカイブの一覧…'), run: () => openArchiveList(x, y) });
-    entries.push('sep', { note: APP_TITLE });
-    entries.push('sep', { section: tr('六角メモ（内蔵）') });
-    entries.push({ label: tr('六角メモを開く'), hint: 'hexmemo.local', run: () => createTab(HEXMEMO_URL) });
-    if (BOT_FEATURES) entries.push('sep', { section: tr('Grok Bot（外のアシスタント）と') });
-    if (BOT_FEATURES) entries.push({ label: tr('Grok 用に書き出す…'), hint: 'ui-data\\exports', run: () => openGrokExportMenu(x, y) });
-    if (BOT_FEATURES) entries.push(...grokPatchMenuEntries(x, y));
-    entries.push('sep', { section: tr('タブの見え方（すべてのシート）') });    for (const look of TAB_LOOKS) {
+    const out = new Set<string>([CAPTURE_SHEET, RIGHT_MEMO_SHEET, ...rightMade]);
+    const cards = findGrokCardsSheet(sheets);
+    if (cards) out.add(cards.id);
+    return out;
+  }
+
+  // シートごとのセルの数と、探す欄で当てる言葉（入口のひとこと・島の名前）を 1 回で集める
+  function sheetFacts() {
+    const count = new Map<string, number>();
+    const extras = new Map<string, string[]>();
+    const add = (id: string, text: string) => extras.set(id, [...(extras.get(id) ?? []), text]);
+    for (const t of store.all()) {
+      count.set(t.sheet, (count.get(t.sheet) ?? 0) + 1);
+      const island = t.island ? islands.get(t.island)?.name : undefined;
+      if (island) add(t.sheet, island);
+    }
+    for (const m of memos.list()) {
+      count.set(m.sheet, (count.get(m.sheet) ?? 0) + 1);
+      if (m.portal && m.text) add(m.portal, m.text);
+      const island = m.island ? islands.get(m.island)?.name : undefined;
+      if (island) add(m.sheet, island);
+    }
+    return { count, extras };
+  }
+
+  type SheetListMode = { kind: 'main' } | { kind: 'jump' } | { kind: 'move'; from: string } | { kind: 'portal'; at: Hex; here: string };
+
+  function openSheetList(x: number, y: number, mode: SheetListMode, startAt?: SheetLevel) {
+    sheets.ensure([CAPTURE_SHEET]);
+    rememberSheetSlots();
+    const tree = sheetTree();
+    const facts = sheetFacts();
+    const apps = appSheetIds();
+    const cur = sheets.current;
+    const base = mode.kind === 'move' ? mode.from : mode.kind === 'portal' ? mode.here : cur;
+    const doorsHere = mode.kind === 'portal' ? new Set(memos.inSheet(mode.here).flatMap((m) => (m.portal ? [m.portal] : []))) : null;
+    const lost = tree.unreachable.filter((id) => !apps.has(id));
+    const appIds = tree.unreachable.filter((id) => apps.has(id));
+    const row = (id: string, extra: Partial<SheetListRow> = {}): SheetListRow[] => {
+      const s = sheets.get(id);
+      if (!s) return [];
+      const n = facts.count.get(id) ?? 0;
+      return [
+        {
+          id,
+          name: s.name,
+          color: s.color,
+          hint: doorsHere?.has(id) ? tr('入口あり・{0}', { 0: n }) : `${n}`,
+          current: id === cur,
+          disabled: (mode.kind === 'move' && id === mode.from) || (mode.kind === 'portal' && id === mode.here),
+          kids: tree.children(id).length,
+          ...extra,
+        },
+      ];
+    };
+    const levelOf = (id: string): SheetLevel => {
+      if (id === MAIN_SHEET) return { kind: 'hub', id: MAIN_SHEET };
+      if (tree.depth(id) !== undefined) return { kind: 'hub', id: tree.parentOf(id, sheets.backTo) ?? MAIN_SHEET };
+      return { kind: 'group', key: apps.has(id) ? 'app' : 'unreachable' };
+    };
+    const model: SheetListModel = {
+      title: mode.kind === 'move' ? tr('選んだセルを移すシート') : mode.kind === 'portal' ? tr('どのシートへの入口を置きますか') : mode.kind === 'jump' ? tr('シートへ移る') : tr('シート'),
+      start: startAt ?? levelOf(base),
+      rows: (level) => {
+        if (level.kind === 'group') {
+          const ids = level.key === 'all' ? sheets.list().map((s) => s.id) : level.key === 'app' ? appIds : lost;
+          return ids.flatMap((id) => row(id));
+        }
+        const self = row(level.id, { self: true, hint: level.id === MAIN_SHEET ? tr('いちばん上') : tr('この段のシート') });
+        return [...self, ...tree.children(level.id).flatMap((id) => row(id))];
+      },
+      crumbs: (level) => (level.kind === 'hub' ? tree.path(level.id).flatMap((id) => (sheets.get(id) ? [{ id, name: sheets.get(id)?.name ?? '' }] : [])) : []),
+      groupName: (key) => (key === 'all' ? tr('すべてのシート（作った順）') : key === 'app' ? tr('アプリが作ったシート（撮ったもの・右のメモ・Grok Cards など）') : tr('メインから入口でたどれないシート')),
+      footer: () => [
+        { key: 'all', label: tr('すべて'), count: sheets.list().length },
+        { key: 'unreachable', label: tr('たどれない'), count: lost.length },
+        { key: 'app', label: tr('アプリ'), count: appIds.length },
+      ],
+      search: (query) => {
+        const q = fold(query).text;
+        const hits = sheets.list().flatMap((s) => {
+          const rank = rankSheetMatch(q, fold(s.name).text, (facts.extras.get(s.id) ?? []).map((t) => fold(t).text));
+          return rank === null ? [] : [{ s, rank }];
+        });
+        hits.sort((a, b) => a.rank - b.rank);
+        return hits.flatMap(({ s }) => {
+          const where = tree
+            .path(s.id)
+            .slice(0, -1)
+            .flatMap((id) => sheets.get(id)?.name ?? []);
+          const hint = where.length > 0 ? where.join(' › ') : apps.has(s.id) && s.id !== MAIN_SHEET ? tr('アプリ') : tree.depth(s.id) === undefined ? tr('たどれない') : undefined;
+          return row(s.id, hint ? { hint } : {});
+        });
+      },
+      pick: (id) => {
+        if (mode.kind === 'move') moveSelectionTo(id);
+        else if (mode.kind === 'portal') placePortalTo(id, mode.at, mode.here);
+        else if (id !== sheets.current) switchSheet(id);
+      },
+    };
+    if (mode.kind === 'main' || mode.kind === 'jump') {
+      model.rowMenu = (id, at, level) => openSheetRowMenu(id, at, level, mode);
+      model.select = { label: tr('フォルダへ入れる…'), run: (ids, at, level) => openFolderChooser(ids, level, at) };
+    }
+    if (mode.kind === 'main') {
+      model.add = (at, level) => openNewSheetChoices(at, level);
+      model.more = (at) => openSheetOps(at);
+    }
+    const list = new SheetList(model, () => cellMenu.close());
+    cellMenu.showForm(list.node, { x, y });
+    list.opened(true);
+  }
+
+  // 左上のシートの名前を押した（keyboard は前の形の名残。欄にはいつも焦点を置く）
+  function openSheetMenu(x: number, y: number, _keyboard = false) {
+    openSheetList(x, y, { kind: 'main' });
+  }
+
+  // 一覧の行の右クリック
+  function openSheetRowMenu(id: string, at: { x: number; y: number }, level: SheetLevel, mode: SheetListMode) {
+    const sheet = sheets.get(id);
+    if (!sheet) return;
+    cellMenu.open(at.x, at.y, [
+      { section: tr('シート「{0}」', { 0: sheet.name }) },
+      { label: id === sheets.current ? tr('いまのシートです') : tr('このシートへ移る'), disabled: id === sheets.current, run: () => switchSheet(id) },
+      { label: tr('フォルダへ入れる…'), disabled: id === MAIN_SHEET, run: () => openFolderChooser([id], level, at) },
+      { label: tr('名前を変える…'), run: () => renameSheet(id, at) },
+      { label: tr('アーカイブ…'), disabled: !canArchive(id), run: () => confirmArchiveSheet(id) },
+      { label: tr('消す…'), disabled: id === MAIN_SHEET || id === CAPTURE_SHEET, run: () => confirmRemoveSheet(id) },
+      'sep',
+      { label: tr('← シートの一覧へ'), run: () => openSheetList(at.x, at.y, mode, level) },
+    ]);
+  }
+
+  // フォルダを選ぶ（入口だけを並べたシート。入れるシート自身とその中のシートは出さない）
+  function openFolderChooser(ids: string[], level: SheetLevel, at: { x: number; y: number }) {
+    const targets = ids.filter((id) => id !== MAIN_SHEET && !!sheets.get(id));
+    if (targets.length === 0) {
+      toast(tr('入れられるシートがありません（メインはフォルダに入れられません）'));
+      return;
+    }
+    const tree = sheetTree();
+    const blocked = new Set<string>(targets);
+    for (const id of targets) for (const d of tree.descendants(id)) blocked.add(d);
+    const folders = sheets.list().filter((s) => isFolder(s.id) && !blocked.has(s.id));
+    const what = targets.length === 1 ? `「${sheets.get(targets[0])?.name ?? ''}」` : tr('{0} 枚', { 0: targets.length });
+    const entries: MenuEntry[] = [
+      { section: tr('{0}を入れるフォルダ', { 0: what }) },
+      { note: tr('フォルダは、入口だけを並べたシートです。作業のシート（タブやメモがあるシート）に置いた入口は残します。メインとフォルダの中にあった入口は、入れた先へ移します。') },
+      { label: tr('＋ 新しいフォルダ…'), run: () => newFolderFor(targets, level, at) },
+    ];
+    for (const f of folders) entries.push({ label: f.name, hint: tr('中 {0}', { 0: tree.children(f.id).length }), run: () => putInFolder(targets, f.id, level.kind === 'hub' ? level.id : null) });
+    if (folders.length === 0) entries.push({ label: tr('フォルダはまだありません（「＋ 新しいフォルダ…」で作れます）'), disabled: true });
+    entries.push('sep', { label: tr('やめる'), run: () => undefined });
+    cellMenu.open(at.x, at.y, entries);
+  }
+
+  // 新しいフォルダを作り、今の段のシート（段が「すべて」などならメイン）に入口を置いてから入れる
+  function newFolderFor(ids: string[], level: SheetLevel, at: { x: number; y: number }) {
+    const host = level.kind === 'hub' && sheets.get(level.id) ? level.id : MAIN_SHEET;
+    cellMenu.prompt(
+      tr('新しいフォルダ（入口を並べるシート）の名前'),
+      tr('フォルダ'),
+      (name) => {
+        const folder = sheets.add(name);
+        if (!folder) {
+          toast(tr('シートが多すぎて作れません（100 枚まで）'));
+          return;
+        }
+        const near = anchorOn(host);
+        const pos = isTaken(near, host) ? nearestFree(near, (h) => isTaken(h, host)) : near;
+        if (!memos.add({ sheet: host, pos, text: '', portal: folder.id })) toast(tr('フォルダの入口を置けませんでした（メモのセルが多すぎます）'));
+        putInFolder(ids, folder.id, level.kind === 'hub' ? level.id : null);
+      },
+      at,
+    );
+  }
+
+  // フォルダへ入れる：フォルダに入口を足す。元の段（from）がメインかフォルダなら、そこの入口をフォルダへ移す。作業のシートの入口は残す
+  function putInFolder(ids: string[], folderId: string, from: string | null) {
+    const folder = sheets.get(folderId);
+    if (!folder) return;
+    const takeFrom = from && from !== folderId && (from === MAIN_SHEET || isFolder(from)) ? from : null;
+    let done = 0;
+    let refused = 0;
+    let full = false;
+    for (const id of ids) {
+      if (id === MAIN_SHEET || id === folderId || !sheets.get(id) || sheetTree().descendants(id).has(folderId)) {
+        refused++;
+        continue;
+      }
+      const inFolder = memos.inSheet(folderId).some((m) => m.portal === id);
+      const doors = takeFrom ? memos.inSheet(takeFrom).filter((m) => m.portal === id) : [];
+      if (!inFolder && doors.length > 0) {
+        // 元の入口を動かす（ひとこと・画像はそのまま）。2 つ目からは消す
+        moveCellsToSheet([], [doors[0].id], folderId);
+        for (const m of doors.slice(1)) memos.remove(m.id);
+      } else {
+        if (!inFolder) {
+          const near = anchorOn(folderId);
+          const pos = isTaken(near, folderId) ? nearestFree(near, (h) => isTaken(h, folderId)) : near;
+          if (!memos.add({ sheet: folderId, pos, text: '', portal: id })) {
+            full = true;
+            break;
+          }
+        }
+        for (const m of doors) memos.remove(m.id);
+      }
+      done++;
+    }
+    const fromName = from ? sheets.get(from)?.name : undefined;
+    const notes = [
+      takeFrom && fromName ? tr('「{0}」からは外しました', { 0: fromName }) : from && fromName && from !== folderId ? tr('「{0}」の入口は残しています', { 0: fromName }) : '',
+      refused > 0 ? tr('入れられないもの {0} 枚（メイン・フォルダ自身・その中のシート）', { 0: refused }) : '',
+      full ? tr('メモのセルが多すぎて、途中で止めました') : '',
+    ].filter(Boolean);
+    toast(tr('{0} 枚をフォルダ「{1}」に入れました{2}', { 0: done, 1: folder.name, 2: notes.length > 0 ? `（${notes.join('。')}）` : '' }), 5000);
+  }
+
+  // ＋：新しいシートの入口を置く所を選ぶ（今のシート・開いている段のフォルダ・上のシート）
+  function openNewSheetChoices(at: { x: number; y: number }, level: SheetLevel) {
+    const here = sheets.current;
+    const hosts: { id: string; label: string }[] = [{ id: here, label: tr('ここ（今のシート「{0}」）', { 0: sheets.currentSheet.name }) }];
+    if (level.kind === 'hub' && level.id !== here && sheets.get(level.id)) hosts.push({ id: level.id, label: tr('開いている段の「{0}」', { 0: sheets.get(level.id)?.name ?? '' }) });
+    const up = sheetTree().parentOf(here, sheets.backTo);
+    if (up && !hosts.some((h) => h.id === up) && sheets.get(up)) hosts.push({ id: up, label: tr('上のシート「{0}」', { 0: sheets.get(up)?.name ?? '' }) });
+    if (hosts.length === 1) {
+      newSheetHere(at.x, at.y);
+      return;
+    }
+    cellMenu.open(at.x, at.y, [{ section: tr('新しいシートの入口を置く所') }, ...hosts.map((h) => ({ label: h.label, run: () => newSheetHere(at.x, at.y, h.id) }))]);
+  }
+
+  // ⋯：今のシートの操作・アーカイブの一覧・表示・Grok
+  function openSheetOps(at: { x: number; y: number }) {
+    const cur = sheets.currentSheet;
+    const { x, y } = at;
+    cellMenu.open(x, y, [
+      { section: tr('このシート「{0}」', { 0: cur.name }) },
+      { label: tr('このシートの名前を変える…'), run: () => renameSheet(cur.id, at) },
+      { label: tr('このシートを消す…'), disabled: cur.id === MAIN_SHEET || cur.id === CAPTURE_SHEET, run: () => confirmRemoveSheet(cur.id) },
+      { label: tr('このシートをアーカイブ…'), disabled: !canArchive(cur.id), run: () => confirmArchiveSheet(cur.id) },
+      'sep',
+      { label: tr('アーカイブの一覧…'), run: () => openArchiveList(x, y) },
+      { label: tr('表示 ▸'), hint: tr('タブの見え方・リンクの開き方'), run: () => openViewOptions(x, y) },
+      ...(BOT_FEATURES ? [{ label: 'Grok ▸', hint: inboxPatches.length > 0 ? tr('届いた {0} 件', { 0: inboxPatches.length }) : tr('書き出し・提案'), run: () => openGrokMenu(x, y) } as MenuEntry] : []), // 公開版：Grok Bot とつなぐ書き出し・提案は BOT_FEATURES のときだけ
+      'sep',
+      { section: tr('六角メモ（内蔵）') },
+      { label: tr('六角メモを開く'), hint: 'hexmemo.local', run: () => createTab(HEXMEMO_URL) },
+      'sep',
+      { note: APP_TITLE },
+      'sep',
+      { label: tr('← シートの一覧へ'), run: () => openSheetMenu(x, y) },
+    ]);
+  }
+
+  // 表示：タブの見え方（すべてのシート）・ページのリンクから開く新しいタブ
+  function openViewOptions(x: number, y: number) {
+    const entries: MenuEntry[] = [{ section: tr('タブの見え方（すべてのシート）') }];
+    for (const look of TAB_LOOKS) {
       entries.push({ label: `${prefs.tabLook === look.id ? '●' : '○'} ${look.label}`, run: () => setTabLook(look.id) });
     }
     entries.push({ label: tr('タブごとの見え方は、タブを右クリック →「見た目」'), disabled: true });
@@ -1751,8 +2062,19 @@ export function startPrimary() {
     entries.push({ label: tr('{0} 表に出す（今までどおり）', { 0: prefs.linkOpen === 'front' ? '●' : '○' }), run: () => setLinkOpen('front') });
     entries.push({ label: tr('{0} いつも裏で開く（セルに足すだけ）', { 0: prefs.linkOpen === 'back' ? '●' : '○' }), run: () => setLinkOpen('back') });
     entries.push({ label: tr('リンクを右クリック →「セルに追加（ページはこのまま）」でも裏で開けます'), disabled: true });
+    entries.push('sep', { label: tr('← シートの一覧へ'), run: () => openSheetMenu(x, y) });
     cellMenu.open(x, y, entries);
-    if (keyboard) cellMenu.focusFirst();
+  }
+
+  // Grok：書き出す・提案と取り込み・届いた提案・記録
+  function openGrokMenu(x: number, y: number) {
+    cellMenu.open(x, y, [
+      { section: tr('Grok Bot（外のアシスタント）と') },
+      { label: tr('Grok 用に書き出す…'), hint: 'ui-data\\exports', run: () => openGrokExportMenu(x, y) },
+      ...grokPatchMenuEntries(x, y),
+      'sep',
+      { label: tr('← シートの一覧へ'), run: () => openSheetMenu(x, y) },
+    ]);
   }
 
   function setTabLook(look: TabLook) {
@@ -2655,7 +2977,9 @@ export function startPrimary() {
   }
 
   function rememberSheetSlots() {
-    if (sessionReady) sheetSlots.prune((id) => !!sheets.get(id));
+    if (!sessionReady) return;
+    sheetSlots.prune((id) => !!sheets.get(id));
+    sheetUse.prune((id) => !!sheets.get(id));
   }
 
   function sheetJumpEntries(x: number, y: number): MenuEntry[] {
@@ -2745,20 +3069,7 @@ export function startPrimary() {
 
   // 6つのボタンに入っていないシート（右の「その他…」は全部出すが、こちらはボタンに無いものだけ）
   function openOtherSheetsMenu(x: number, y: number) {
-    rememberSheetSlots();
-    const pinned = new Set(sheetSlots.list.filter((id): id is string => !!id));
-    const entries: MenuEntry[] = [{ section: tr('その他のシート') }];
-    const rest = sheets.list().filter((sheet) => !pinned.has(sheet.id));
-    if (rest.length === 0) {
-      entries.push({ label: tr('ボタンに入っていないシートはありません'), disabled: true });
-    } else {
-      for (const sheet of rest) {
-        const count = store.inSheet(sheet.id).length + memos.inSheet(sheet.id).length;
-        const here = sheet.id === sheets.current;
-        entries.push({ label: sheet.name, hint: here ? tr('いまのシート') : `${count}`, disabled: here, run: () => jumpToSheet(sheet.id) });
-      }
-    }
-    cellMenu.open(x, y, entries);
+    openSheetList(x, y, { kind: 'jump' });
   }
 
   // ---------- アプリのセル（Windows のアプリを盤面に登録。docs/plan-app-cells.md） ----------
@@ -3032,6 +3343,7 @@ export function startPrimary() {
         const id = info.memo;
         if (memoPane.isOpen(id)) entries.push({ label: tr('下の区画を閉じる'), run: () => memoPane.close() });
         else entries.push({ label: tr('下に開いて書く（中央を上下に分ける）'), hint: tr('ダブルクリック'), run: () => memoPane.open(id) });
+        entries.push({ label: tr('上のコメントボードで開く'), hint: tr('ボードを上に出して見ます'), run: () => openBoardMemoUpper(id) });
         entries.push({ label: tr('書き直す'), run: () => editMemo(id) });
         entries.push(cardWinEntry({ kind: 'memo', id }));
         // メモの文を「選んだ文」として、依頼の小窓をページの上に開く（S3.11。ボットのセル・入口は上で別のメニューになる）
@@ -3055,10 +3367,12 @@ export function startPrimary() {
       entries.push({ label: tr('セットとして保存…'), run: saveSelectionAsSet });
       entries.push({ label: tr('六角メモへ送る'), run: () => void sendSelectionToHexMemo() });
       // シート：選んだセルを入口1つにまとめる・ほかのシートへ移す
-      entries.push({ label: tr('入口1つにまとめる（新しいシートへ）…'), run: () => packSelection(info.x, info.y) });
-      // ほかのシートへ移す（最近見たシートから5つ。多ければ「ほかのシートへ移す…」で全部）
-      const others = sheets.recent().filter((s) => s.id !== home);
-      for (const sheet of others.slice(0, 5)) entries.push({ label: tr('シート「{0}」へ移す', { 0: sheet.name }), run: () => moveSelectionTo(sheet.id) });
+      const onlyDoors = selection.length === 0 && memoSelection.length > 0 && memoSelection.every((m) => !!memos.get(m)?.portal);
+      entries.push({ label: onlyDoors ? tr('フォルダにまとめる（選んだ入口を新しいシートへ）…') : tr('入口1つにまとめる（新しいシートへ）…'), run: () => packSelection(info.x, info.y) });
+      // ほかのシートへ移す（最後に移した先 → 最近見たシートの順で5つ。多ければ「ほかのシートへ移す…」で全部）
+      const others = moveTargets(home);
+      const movedTo = new Set(sheetUse.moved((id) => !!sheets.get(id)));
+      for (const sheet of others.slice(0, 5)) entries.push({ label: tr('シート「{0}」へ移す', { 0: sheet.name }), hint: movedTo.has(sheet.id) ? tr('前に移した先') : undefined, run: () => moveSelectionTo(sheet.id) });
       if (others.length > 5) entries.push({ label: tr('ほかのシートへ移す…'), hint: `${others.length}`, run: () => openMoveToMenu(info.x, info.y, home) });
       const cell = info.id !== null ? store.get(info.id) : memos.get(info.memo);
       const island = cell?.island ? islands.get(cell.island) : undefined;
@@ -3640,7 +3954,7 @@ export function startPrimary() {
     await writeData(PATCH_HISTORY, { v: 1, items: history.slice(0, 100) });
     sidebar.render();
     toast(
-      tr('Grok の提案を {0} 件当てました{1}。{2}', { 0: steps.length, 1: skipped > 0 ? `（${skipped} 件は当てられませんでした）` : '', 2: wrote ? '戻すときは、シートの名前 ▾ →「Grok の提案の記録…」' : '戻し方を書けなかったので、この分は元に戻せません' }),
+      tr('Grok の提案を {0} 件当てました{1}。{2}', { 0: steps.length, 1: skipped > 0 ? tr('（{0} 件は当てられませんでした）', { 0: skipped }) : '', 2: wrote ? tr('戻すときは、シートの名前 ▾ → ⋯ → Grok ▸ →「Grok の提案の記録…」') : tr('戻し方を書けなかったので、この分は元に戻せません') }),
       8000,
     );
     return true;
@@ -3750,7 +4064,7 @@ export function startPrimary() {
       const title = ix.doc.sheet.name.trim() ? [...ix.doc.sheet.name.trim()].slice(0, 40).join('') : tr('取り込み');
       inboxPatches = [{ fileId, title, at: new Date().toISOString(), kind: 'interchange' as const }, ...inboxPatches.filter((p) => p.fileId !== fileId)].slice(0, 20);
       await saveInboxPatches();
-      toast(tr('Grok の取り込みファイルが届きました：「{0}」（シートの名前 ▾ →「届いた取り込み」から見られます）', { 0: title }), 8000);
+      toast(tr('Grok の取り込みファイルが届きました：「{0}」（シートの名前 ▾ → ⋯ → Grok ▸ →「届いた取り込み」から見られます）', { 0: title }), 8000);
       return null;
     }
     const parsed = parsePatch(reply);
@@ -3760,7 +4074,7 @@ export function startPrimary() {
     await inboxPatchesLoaded;
     inboxPatches = [{ fileId, title: parsed.patch.title, at: new Date().toISOString() }, ...inboxPatches.filter((p) => p.fileId !== fileId)].slice(0, 20);
     await saveInboxPatches();
-    toast(tr('Grok の提案が届きました：「{0}」（シートの名前 ▾ →「届いた提案」から見られます）', { 0: parsed.patch.title }), 8000);
+    toast(tr('Grok の提案が届きました：「{0}」（シートの名前 ▾ → ⋯ → Grok ▸ →「届いた提案」から見られます）', { 0: parsed.patch.title }), 8000);
     return null;
   });
 
@@ -6464,6 +6778,58 @@ export function startPrimary() {
       },
     });
   }
+  // 「上のコメントボードで開く」（左のメモのセルの右クリック・右のメモの区画の openBoardMemo）：ボードを上に出して、このメモを見る
+  //   分かれと呼ぶ順は runBoardOpen（下が別のメモを開いていれば下はそのまま・同じメモか閉じていればボードは下に付いていく・閉じていれば下にも開く）
+  //   選べないメモ（無い・特別なセル）は何もせず、左の一言で知らせる
+  function openBoardMemoUpper(id: string) {
+    const memo = memos.get(id);
+    runBoardOpen({
+      lower: memoPane.openId,
+      id,
+      usable: !!memo && !isSpecialCell(memo),
+      setBoardMemo: (next) => memoPane.setBoardMemo(next),
+      open: (next) => memoPane.open(next),
+      askUpper: askBoardUpper,
+      refuse: () => toast(tr('そのメモは、ボードで開けません（もう無いか、特別なセルです）')),
+    });
+  }
+  // ボードを上に出す頼み。下の面がまだ動いていない（一度も出していない）と届かないので、印を残して memoPaneReady で送り直す（Grok Cards の open と同じ）
+  //   印（boardUpperWanted）は区画の世話役の近くに置く（区画を閉じたときに下ろすため）
+  function askBoardUpper() {
+    lowerBoardWanted = false; // 上と下の頼みは、あとの頼みが勝つ（memoPaneReady で両方を送らない）
+    boardUpperWanted = !memoReady;
+    sendBoardUpper();
+  }
+  function sendBoardUpper() {
+    send({ type: 'relay', to: 'memo', payload: { kind: 'showBoardUpper' } });
+  }
+  // 「下で開く」（右のメモの区画の openLowerBoard）：中央の下の区画のボードで、このメモを見る
+  //   分かれと呼ぶ順は runLowerBoardOpen（同じメモなら下はそのまま・閉じているか、別のメモで書きかけが無ければ下もそのメモに替える・
+  //   別のメモで書きかけがあれば下は替えず、ボードだけがそのメモを見て、ボードの一言欄に知らせる）
+  //   選べないメモ（無い・特別なセル）は何もせず、左の一言で知らせる（「上のコメントボードで開く」と同じ）
+  function openOnLowerBoard(id: string) {
+    const memo = memos.get(id);
+    runLowerBoardOpen({
+      lower: memoPane.openId,
+      id,
+      usable: !!memo && !isSpecialCell(memo),
+      draft: memoPaneDraft,
+      setBoardMemo: (next) => memoPane.setBoardMemo(next),
+      open: (next) => memoPane.open(next),
+      askLower: askLowerBoard,
+      tellKept: () => tellMemo(tr('メモのタブに書きかけがあるので、そちらはそのままにして、ボードだけでこのメモを開きました'), { memo: id }),
+      refuse: () => toast(tr('そのメモは、ボードで開けません（もう無いか、特別なセルです）')),
+    });
+  }
+  // ボードを下の区画で見せる頼み。届かないときの印（lowerBoardWanted）の扱いは askBoardUpper と同じ
+  function askLowerBoard() {
+    boardUpperWanted = false; // 上と下の頼みは、あとの頼みが勝つ（memoPaneReady で両方を送らない）
+    lowerBoardWanted = !memoReady;
+    sendLowerBoard();
+  }
+  function sendLowerBoard() {
+    send({ type: 'relay', to: 'memo', payload: { kind: 'showLowerBoard' } });
+  }
   // 今のタブの近くに、新しいメモを置く場所（新しいメモ・カードから作るメモ。置けなければ null）
   function spotForNewMemo(): { sheet: string; pos: Hex; source?: { url: string; title: string } } {
     const tab = store.active;
@@ -7065,6 +7431,7 @@ export function startPrimary() {
         // 右の「メモ」の区画の ＋・セットに保存：新しいシートを作る（id は右が決めたもの）
         if (!isSheetId(action.id) || sheets.get(action.id)) break;
         sheets.ensure([action.id], action.name);
+        rightMade.add(action.id);
         if (!sheets.get(action.id)) toast(tr('シートが多すぎて作れません（100 枚まで）。使わないシートを消してから、もう一度足してください'));
         break;
       case 'dropEmptySheet': {
@@ -7116,6 +7483,13 @@ export function startPrimary() {
         memoPaneDraft = false; // 下の面が読み込み直された＝書きかけは無い
         relayReplyPending();
         grokCards.onMemoReady();
+        // 「上のコメントボードで開く」の頼みが、下の面の動き出す前で届かなかった：下の区画が開いているときだけ送り直す（Grok Cards のあと。取り合いはあとから出したボードが上）
+        //   閉じたあとに送ると、メモの無い面が上を覆って出て、× でも閉じられない。送っても送らなくても、印は下ろす
+        if (boardUpperWanted && memoPane.isOpen()) sendBoardUpper();
+        boardUpperWanted = false;
+        // 「下で開く」の頼みも同じ（下の区画が開いているときだけ送り直し、どちらでも印は下ろす）。上と下の印は互いに下ろすので、立つのはどちらか一方だけ
+        if (lowerBoardWanted && memoPane.isOpen()) sendLowerBoard();
+        lowerBoardWanted = false;
         break;
       case 'openGrokCards':
         grokCards.open();
@@ -7180,6 +7554,13 @@ export function startPrimary() {
           }
           if (action.at !== undefined && !linked) {
             tellMemo(at ? tr('読む画面の動画が替わったので、マスと結ばずに足しました') : tr('マスと結べなかったので、結ばずに足しました'), { memo: action.id });
+          }
+          // つなぐ ▾（CC3）：足したカードへ、直前のカードから線を引く。引けなくてもカードは残して、理由を知らせる
+          const linkPlan = addedLinkPlan(action.linkFrom, memos.get(action.id)?.replies ?? [], action.id, added.id);
+          if (linkPlan) {
+            const unreadable = linkPlan.ok && memos.changeReplyLinks(action.id, linkPlan.from, [{ to: added.id, kind: linkPlan.kind }], []).result === 'refused';
+            const note = linkPlan.ok ? (unreadable ? tr('台帳を読めていないので線は引けませんでした') : '') : linkPlan.note;
+            if (note) tellMemo(note, { memo: action.id });
           }
         }
         break;
@@ -7293,10 +7674,10 @@ export function startPrimary() {
         }
         const asked = typeof action.replyId === 'string' ? action.replyId : undefined;
         const replyId = asked && (memo.replies ?? []).some((r) => r.id === asked) ? asked : undefined;
-        // 右の検索から、別のメモを開こうとしていて、下に書きかけがあるときは、開かない
-        if (fromSearch && memoPaneDraft && memoPane.openId !== null && memoPane.openId !== memo.id) {
+        // 右の検索・ボードから、別のメモを開こうとしていて、下に書きかけがあるときは、開かない
+        if ((fromSearch || action.from === 'board') && memoPaneDraft && memoPane.openId !== null && memoPane.openId !== memo.id) {
           tellMemo(tr('書きかけがあります。送るか消してから開いてください'));
-          tellSearch(tr('下の区画に書きかけがあります。送るか消してから開いてください'));
+          if (fromSearch) tellSearch(tr('下の区画に書きかけがあります。送るか消してから開いてください'));
           break;
         }
         memoPane.open(memo.id, replyId);
@@ -7308,6 +7689,18 @@ export function startPrimary() {
         // ボードが見るメモ（M1：左が写しを送るだけ。画面からはまだ送らない）。id は信用せず形を確かめる
         if (action.id !== null && typeof action.id !== 'string') break;
         if (!memoPane.setBoardMemo(action.id)) tellMemo(tr('そのメモは、もうありません（ボードのメモ：見つからない）'));
+        break;
+      }
+      case 'openBoardMemo': {
+        // 右のメモの区画の「上のコメントボードで開く」：左のメモのセルの右クリックと同じ処理。id は信用せず形を確かめる（断りは左の一言。右の区画の頼みの断りと同じ）
+        if (typeof action.id !== 'string') break;
+        openBoardMemoUpper(action.id);
+        break;
+      }
+      case 'openLowerBoard': {
+        // 右のメモの区画の「下で開く」。id は信用せず形を確かめる（断りは左の一言。「上のコメントボードで開く」と同じ）
+        if (typeof action.id !== 'string') break;
+        openOnLowerBoard(action.id);
         break;
       }
       case 'newMemoForPane': {

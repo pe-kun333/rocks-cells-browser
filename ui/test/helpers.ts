@@ -25,3 +25,6 @@ export function world(over: Partial<InterchangeWorld> = {}): InterchangeWorld {
 }
 
 export const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+
+// 字面の試験の道具：行の注釈（// から行の終わり）を除いた字。否定・数える確かめはこれで比べる（注釈に古い名前や同じ字を書いても、作りが正しければ落ちないように）
+export const code = (s: string): string => s.replace(/\/\/[^\n]*/g, '');

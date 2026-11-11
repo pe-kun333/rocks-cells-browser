@@ -13,6 +13,7 @@ import type { Hex } from './hex';
 import type { LikeLevel } from './likes';
 import type { CaptureBlur, CaptureFromKind, CaptureMark, CaptureStroke, HideRect } from './captures';
 import type { HideMode } from './capture-hide';
+import type { AddedLinkFrom } from './memo-card-board-edit';
 import type { ReplyLink } from './memo-card-links';
 import type { CardTemplate } from './memo-card-templates';
 import type { MemoIndexItem, RightMemo } from './memocells';
@@ -464,7 +465,7 @@ export type RelayCommand =
   // at（V2b）：下の区画の「＋コメント」の「読む画面の今のマスと結ぶ」。左は parseAt で確かめ、読む画面の動画と違えば結ばずに足す（文は落とさない）
   // nextRow（試し）：省略できる。true のとき、一番上のカードを、いちばん下のカードの次の行の 1 列目に置く。
   //   その番地が MAX_RANK か lastPlaceableSlot を越えるときは、ふつうの次の番地。返信（addReply）には使わない
-  | { command: 'addMemoComment'; id: string; text: string; quote?: ReplyQuote; image?: string; file?: string; replyId?: string; at?: ReplyAt; nextRow?: boolean }
+  | { command: 'addMemoComment'; id: string; text: string; quote?: ReplyQuote; image?: string; file?: string; replyId?: string; at?: ReplyAt; nextRow?: boolean; linkFrom?: AddedLinkFrom }
   // 書き足した画像を、同じメモの新しい一番上のカードにする（段 D7）。image は shots の id。text は箱の問い（空でもよい）。
   //   fromReply：元のカード。一番上なら関連「補足」を 1 本。無ければセルの顔から（線は付けない）。画像の data URL は渡さない
   | { command: 'addAnnotatedCard'; id: string; image: string; text: string; fromReply?: string }
@@ -487,10 +488,12 @@ export type RelayCommand =
   | { command: 'setMemoLiked'; id: string; liked: number } // 下の区画の ♥（メモのいいね。タブの setLiked とは別）
   | { command: 'openQuote'; url: string; fragmentUrl: string } // 引用元を開く（同じページのタブがあればそこへ。M3）
   // 下の区画でこのメモを開く（M5 の一覧）。replyId：下の区画でそのカードへ移る　from：右の検索から（書きかけがあれば、左が別のメモを開かずに知らせる。S1b）
-  | { command: 'openMemoPane'; id: string; replyId?: string; from?: 'search' }
+  | { command: 'openMemoPane'; id: string; replyId?: string; from?: 'search' | 'board' } // from：下に書きかけがあれば別のメモへ替えない（検索とボードから）
   | { command: 'searchMemos'; seq: number; query: string; sort: SearchSort; limit: number } // 右の「検索」の区画：メモとコメントを探して（左が台帳を読むだけで探し、searchResults で返す）
   | { command: 'newMemoForPane' } // 新しいメモを作って、下で開く（M5）。呼称セットは、直前に開いていたメモのもの（左が付ける）
   | { command: 'setBoardMemo'; id: string | null } // ボードが見るメモを、下の区画とは別に選ぶ（null で外す＝下と同じ）。左が memoBoardView で写しを送る。選べない（無い・特別なセル）ときは断る（plan-board-memo-switch の M1。画面からはまだ送らない）
+  | { command: 'openBoardMemo'; id: string } // 右のメモの区画の「上のコメントボードで開く」：ボードを上に出して、このメモを見る（左のメモのセルの右クリックと同じ処理。選べないメモは断って左の一言で知らせる）
+  | { command: 'openLowerBoard'; id: string } // 右のメモの区画の「下で開く」：中央の下の区画のボードで、このメモを見る（下が別のメモで書きかけがあれば、下はそのままでボードだけそのメモ。選べないメモは断って左の一言で知らせる）
   // 下の区画のカードを、別のメモへ移す・写す（to が null なら新しいメモを作って入れる。左が一度に確かめて、台帳へは 1 回だけ書く）
   | { command: 'sendReplies'; from: string; replyIds: string[]; to: string | null; mode: 'move' | 'copy'; template?: CardTemplate; ids?: string[] } // template があるときは型を貼る（from は空・replyIds は空・to は貼り先のメモ・mode は copy）。ids（B3-2a。型を貼るときだけ）：貼る新しいカードの id を呼び出し側が決める（型のカードと同じ順・同じ数・30 枚まで・[A-Za-z0-9_-]{1,64}・指定の中でも台帳にも重ならない）。使えなければ全体を断る。省略すると左が決める（今までどおり）
   | { command: 'undoSendReplies'; token: string } // 直前の送りを元に戻す（知らせの「元に戻す」）
@@ -676,6 +679,10 @@ export type RelayPayload =
   | { kind: 'memoPane'; view: MemoPaneView | null } // 下のメモの区画へ、開いているメモの写し（閉じていれば null）
   // ボードが見るメモの写し（下の区画の memoPane とは別。setBoardMemo で選んだメモ。選んでいる間だけ送り、外した・消えたときは null を一度だけ送る。M1：送るだけ・受け口は M2）
   | { kind: 'memoBoardView'; view: MemoPaneView | null }
+  // ボードを上に出す（左の「上のコメントボードで開く」。下の面は［上に出す］と同じに組み替える。すでに上に出ていれば何もしない。下の面がまだ動いていなければ、左が memoPaneReady で、下の区画が開いているときだけ送り直す）
+  | { kind: 'showBoardUpper' }
+  // ボードを下の区画で見せる（右の「下で開く」。置き場が上なら［下に戻す］と同じに組み替え、そうでなければ下の帯のボードのタブにする。すでにボードのタブなら何もしない。下の面がまだ動いていなければ、左が memoPaneReady で、下の区画が開いているときだけ送り直す）
+  | { kind: 'showLowerBoard' }
   | { kind: 'memoPaneNotice'; text: string; openMemo?: string; undoSend?: string; memo?: string; dropShot?: string } // 下の区画に出してほしい短いお知らせ（openMemo・undoSend は、送ったあとの「送り先を開く」「元に戻す」。dropShot は、断った書き足しの画像 id。区画が自分で書いたファイルだけ消す）
   // 段 D7：メモのセルの顔の画像を書き足す。左はメモの id だけを渡す（画像の中身は渡さない）。下の区画が shots を読んで面を開く
   | { kind: 'annotateMemoImage'; id: string }

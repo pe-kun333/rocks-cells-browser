@@ -876,6 +876,10 @@ export class MemoPad {
     const special = isSpecialCell(memo); // 入口・ボットのセル：一覧に無く、コピーもしない
     if (!special) {
       entries.push(from === 'cell' ? { label: tr('コメントへ移る'), hint: tr('ダブルクリック'), run: () => this.toPost(memo.id) } : { label: tr('セルへ移る'), hint: tr('ダブルクリック'), run: () => this.toCell(memo.id) });
+      // 中央の下の区画のボードで、このメモを見る（左へ頼む。下の区画の替え方は左の runLowerBoardOpen）
+      entries.push({ label: tr('下で開く'), hint: tr('下の区画のボードで見ます'), run: () => this.deps.askLeft({ command: 'openLowerBoard', id: memo.id }) });
+      // ボードを上に出して、このメモを見る（左のメモのセルの右クリックと同じ処理。左へ頼む）
+      entries.push({ label: tr('上のコメントボードで開く'), hint: tr('ボードを上に出して見ます'), run: () => this.deps.askLeft({ command: 'openBoardMemo', id: memo.id }) });
     }
     if (!special) entries.push({ label: tr('コピー'), hint: tr('左の盤面に貼れる'), run: () => this.deps.askLeft({ command: 'copyComment', ref, replyId: null }) });
     if (memo.bot) entries.push({ label: tr('Grok Bot アプリで開くのは、左の盤面のセルから'), disabled: true });

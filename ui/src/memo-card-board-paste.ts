@@ -3,8 +3,9 @@
 //   区画が先に決めた ids（B3-2a）を付けて送る。台帳の写しに貼ったカードが現れてから、座標（基準＋型の dx,dy）を書く（B2-3b の足すと同じ道）
 //   ここで決めるのは：貼れるか（断る文）・貼るカードの id・各カードの座標・送る命令。画面（メニュー・空欄の小窓・保存）は app/memo-board-tab.ts
 import { t as tr } from './i18n';
-import { BOARD_CARD, BOARD_LIMITS, type BoardView, cleanCoord, type NodeMove, screenToBoard, splitNodes } from './memo-card-board';
+import { BOARD_CARD, BOARD_LIMITS, type BoardView, boxesOverlap, type CardSize, cleanCoord, type GridStep, type NodeMove, type Overlaps, screenToBoard, splitNodes, SQUARE_STEP } from './memo-card-board';
 import type { Pt } from './memo-card-board-select';
+import { centerSpot, type Depth, type SpotAnchor, templateSpots } from './memo-card-board-spots';
 import type { LoadBoardResult } from './memo-card-board-store';
 import { ledgerFullNote, loadingNote, nodesFullNote, unreadableBlockNote } from './memo-card-board-texts';
 import { pasteBlocked } from './memo-card-template-store';
@@ -15,36 +16,53 @@ import type { RelayCommand } from './types';
 export const SPOT_GROUP_RINGS = 24; // 空きを探す輪の数（升目 1 つずつ外へ。B2-3b の足すと同じ）
 
 // 型のカードの、基準からの位置（いちばん左・いちばん上を 0 にした差）。
-//   dx・dy が全部 0 で 2 枚以上ある型（位置を持たない型）は、仮の並びと同じ升目（3 列・190×96＋隙間 20）に並べる
-export function pasteOffsets(template: Pick<CardTemplate, 'cards'>): Pt[] {
+//   dx・dy が全部 0 で 2 枚以上ある型（位置を持たない型）は、仮の並びと同じ升目（3 列・190×96＋隙間 20）に並べる。step は升目の歩み（既定は四角。
+//   ずらし shift があれば奇数の段を右へ：六角の噛み合わせ。HX5。六角では今は通らない道：型は六角では押せない。型の dx・dy は四角の歩みで作られているため）
+export function pasteOffsets(template: Pick<CardTemplate, 'cards'>, step: GridStep = SQUARE_STEP): Pt[] {
   const cards = template.cards;
-  const px = BOARD_CARD.w + BOARD_CARD.gap;
-  const py = BOARD_CARD.h + BOARD_CARD.gap;
+  const px = step.x;
+  const py = step.y;
+  const shift = step.shift ?? 0;
   const num = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) ? Math.round(n) : 0);
   const flat = cards.length > 1 && cards.every((c) => num(c.dx) === 0 && num(c.dy) === 0);
-  const raw = cards.map((c, i) => (flat ? { x: (i % CARD_COLUMNS) * px, y: Math.floor(i / CARD_COLUMNS) * py } : { x: num(c.dx), y: num(c.dy) }));
+  const raw = cards.map((c, i) => {
+    const row = Math.floor(i / CARD_COLUMNS);
+    return flat ? { x: (i % CARD_COLUMNS) * px + (row % 2 === 1 ? shift : 0), y: row * py } : { x: num(c.dx), y: num(c.dy) };
+  });
   if (raw.length === 0) return [];
   const minX = Math.min(...raw.map((p) => p.x));
   const minY = Math.min(...raw.map((p) => p.y));
   return raw.map((p) => ({ x: p.x - minX, y: p.y - minY }));
 }
 
-// 貼る一団の大きさ（カード 1 枚分を足した外枠）
-export function groupSize(offsets: readonly Pt[]): { w: number; h: number } {
-  if (offsets.length === 0) return { w: BOARD_CARD.w, h: BOARD_CARD.h };
-  return { w: Math.max(...offsets.map((p) => p.x)) + BOARD_CARD.w, h: Math.max(...offsets.map((p) => p.y)) + BOARD_CARD.h };
+// 型のカードの、生の位置の差（いちばん左・いちばん上を 0 にした dx・dy）。pasteOffsets と違い、位置を持たない型を升目に広げない（全部 0 のまま）。
+//   基準つきで置くとき（templateSpots。TA1）に、型の中の重なりを見るのに使う。位置を持つ型では pasteOffsets と同じ値
+export function rawOffsets(template: Pick<CardTemplate, 'cards'>): Pt[] {
+  const num = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) ? Math.round(n) : 0);
+  const raw = template.cards.map((c) => ({ x: num(c.dx), y: num(c.dy) }));
+  if (raw.length === 0) return [];
+  const minX = Math.min(...raw.map((p) => p.x));
+  const minY = Math.min(...raw.map((p) => p.y));
+  return raw.map((p) => ({ x: p.x - minX, y: p.y - minY }));
 }
 
-const overlaps = (a: Pt, b: Pt) => a.x < b.x + BOARD_CARD.w && b.x < a.x + BOARD_CARD.w && a.y < b.y + BOARD_CARD.h && b.y < a.y + BOARD_CARD.h;
+// 貼る一団の大きさ（カード 1 枚分を足した外枠）。card はカード 1 枚の箱（既定は四角）
+export function groupSize(offsets: readonly Pt[], card: CardSize = BOARD_CARD): { w: number; h: number } {
+  if (offsets.length === 0) return { w: card.w, h: card.h };
+  return { w: Math.max(...offsets.map((p) => p.x)) + card.w, h: Math.max(...offsets.map((p) => p.y)) + card.h };
+}
 
 // 貼る一団の置き場所（基準＝一団の左上）：見ている面（viewport。画素）の中央に一団の中心が来る所。ほかのカード（taken）に 1 枚でも重なる・
-//   ±10,000 の外に出るときは、仮の並びと同じ升目（190×96＋隙間）の間隔で、中央に近い順に一団ごと外へずらして、最初の空きへ（spotForNewCard と同じ規則）。見つからなければ null
-export function spotForGroup(view: BoardView, viewport: { w: number; h: number }, taken: readonly Pt[], offsets: readonly Pt[]): Pt | null {
-  const size = groupSize(offsets);
+//   ±10,000 の外に出るときは、仮の並びと同じ升目（190×96＋隙間）の間隔で、中央に近い順に一団ごと外へずらして、最初の空きへ（上下左右。カード 1 枚の spotForNewCard は右と下を先に探す）。見つからなければ null
+//   card・step はカード 1 枚の箱と升目の歩み（既定は四角。HX4・HX5 の geo の口。ずらし shift があれば奇数の段を右へ）、overlaps は重なりの決め方（既定は四角の箱。六角は六角どうし。
+//   六角の歩み・重なりで貼るのは、今は通らない道：型は六角では押せない）
+export function spotForGroup(view: BoardView, viewport: { w: number; h: number }, taken: readonly Pt[], offsets: readonly Pt[], card: CardSize = BOARD_CARD, step: GridStep = SQUARE_STEP, overlaps: Overlaps = (a, b) => boxesOverlap(a, b, card)): Pt | null {
+  const size = groupSize(offsets, card);
   const c = viewport.w > 0 && viewport.h > 0 ? screenToBoard(view, viewport.w / 2, viewport.h / 2) : { x: size.w / 2, y: size.h / 2 };
   const base = { x: cleanCoord(c.x - size.w / 2), y: cleanCoord(c.y - size.h / 2) };
-  const px = BOARD_CARD.w + BOARD_CARD.gap;
-  const py = BOARD_CARD.h + BOARD_CARD.gap;
+  const px = step.x;
+  const py = step.y;
+  const shift = step.shift ?? 0;
   const lim = BOARD_LIMITS.coord;
   const free = (o: Pt) =>
     offsets.every((d) => {
@@ -57,7 +75,7 @@ export function spotForGroup(view: BoardView, viewport: { w: number; h: number }
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) ring.push({ dx, dy });
     ring.sort((a, b) => Math.hypot(a.dx * px, a.dy * py) - Math.hypot(b.dx * px, b.dy * py) || a.dy - b.dy || a.dx - b.dx);
     for (const { dx, dy } of ring) {
-      const o = { x: base.x + dx * px, y: base.y + dy * py };
+      const o = { x: base.x + dx * px + (dy % 2 !== 0 ? shift : 0), y: base.y + dy * py };
       if (free(o)) return o;
     }
   }
@@ -67,7 +85,7 @@ export function spotForGroup(view: BoardView, viewport: { w: number; h: number }
 // 「型を貼る ▾」が押せないときの文。押せるなら null。貼るのは位置を保存するのが目的なので、読めない・読み込み中のボードには貼らない（書かない）
 export function pasteToolNote(load: LoadBoardResult | null, replies: readonly Reply[]): string | null {
   if (load === null) return loadingNote(tr('貼って'));
-  if (load.state === 'unreadable') return unreadableBlockNote(tr('型は貼れません'), load.why);
+  if (load.state === 'unreadable') return unreadableBlockNote(tr('型は貼れません'), load.why, load.layout);
   if (replies.length >= MAX_REPLIES) return ledgerFullNote(tr('型を貼れません'));
   return null;
 }
@@ -93,6 +111,11 @@ export const pastedAppeared = (replies: readonly Reply[], ids: readonly string[]
   return ids.length > 0 && ids.every((id) => tops.has(id));
 };
 
+export const ANCHOR_FULL_NOTE = tr('置ける空きが見つかりませんでした'); // 基準つきで置けないとき（見ている場所を動かしても変わらないので、括弧の文は付けない）
+export const VIEW_FULL_NOTE = tr('置ける空きが見つかりませんでした（見ている場所を動かしてからお試しください）'); // 面の真ん中から置けないとき（基準なし・題の帯から）
+
+// 貼る道に渡す基準（TA1・TA5）。card・point は置き場の計算（SpotAnchor）と同じ。center は「真ん中」とだけ渡し、位置はここで、渡された面と見ている位置から決める
+export type PasteAnchor = { kind: 'card'; at: Pt } | { kind: 'point'; at: Pt; corner?: Pt } | { kind: 'center' };
 export const pasteDoneText = (name: string, n: number): string => tr('型「{0}」を貼りました（{1} 枚）', { 0: name, 1: n });
 
 export type BoardPastePlan = { ok: true; ids: string[]; moves: NodeMove[]; command: RelayCommand; template: CardTemplate; origin: Pt } | { ok: false; note: string };
@@ -105,7 +128,12 @@ export interface BoardPasteInput {
   view: BoardView;
   viewport: { w: number; h: number };
   taken: readonly Pt[]; // いまボードに出ているカードの位置（重ならないように避ける）
+  card?: CardSize; // カード 1 枚の箱・升目の歩み・重なりの決め方（形ごと。既定は四角。HX5 の geo の口。六角は今は通らない道：型は六角では押せない）
+  step?: GridStep;
+  overlaps?: Overlaps;
   make?: () => string; // 試験用：id の作り方
+  anchor?: PasteAnchor; // 置く基準（TA1：カードの右クリックの「型を足す…」。TA5：空きで押した所・題の帯からの真ん中）。あれば templateSpots で置く。view・viewport を使うのは center だけ
+  depth?: Depth; // 型の中の重なりの深さの決め方（形ごと。基準があるときだけ使う。既定は四角の箱）
 }
 
 // 型をボードに貼る計画。断るときは理由の文を返し、何も送らず何も書かない。
@@ -149,10 +177,18 @@ export function planBoardPaste(input: BoardPasteInput): BoardPastePlan {
   const checked = checkPaste(input);
   if (!checked.ok) return checked;
   const { template, ids } = checked;
-  const offsets = pasteOffsets(template);
-  const origin = spotForGroup(input.view, input.viewport, input.taken, offsets);
-  if (!origin) return { ok: false, note: tr('置ける空きが見つかりませんでした（見ている場所を動かしてからお試しください）') };
-  const moves = ids.map((ref, i) => ({ ref, x: origin.x + offsets[i].x, y: origin.y + offsets[i].y }));
   const command: RelayCommand = { command: 'sendReplies', from: '', replyIds: [], to: input.memoId, mode: 'copy', template, ids };
+  if (input.anchor) {
+    // 基準つき：型の中に重なりが無ければ形のまま、あれば右と下の升へ順に（計画 §4.1）。origin は 1 枚目の位置
+    const from = input.anchor;
+    const anchor: SpotAnchor = from.kind === 'center' ? { kind: 'center', at: centerSpot(input.view, input.viewport, input.card) } : from;
+    const spots = templateSpots({ raw: rawOffsets(template), anchor, taken: input.taken, step: input.step, overlaps: input.overlaps, depth: input.depth });
+    if (!spots || spots.length !== ids.length) return { ok: false, note: from.kind === 'center' ? VIEW_FULL_NOTE : ANCHOR_FULL_NOTE };
+    return { ok: true, ids, moves: ids.map((ref, i) => ({ ref, x: spots[i].x, y: spots[i].y })), command, template, origin: spots[0] };
+  }
+  const offsets = pasteOffsets(template, input.step);
+  const origin = spotForGroup(input.view, input.viewport, input.taken, offsets, input.card, input.step, input.overlaps);
+  if (!origin) return { ok: false, note: VIEW_FULL_NOTE };
+  const moves = ids.map((ref, i) => ({ ref, x: origin.x + offsets[i].x, y: origin.y + offsets[i].y }));
   return { ok: true, ids, moves, command, template, origin };
 }

@@ -15,8 +15,8 @@ import { MAX_REPLIES, type Reply } from '../src/threads';
 
 const card = (id: string, text: string, extra: Partial<Reply> = {}): Reply => ({ id, parent: null, text, createdAt: 1, ...extra });
 const boardOf = (refs: string[]): Board => ({ ...emptyBoard('m1'), nodes: refs.map((ref, i) => ({ ref, x: i * 10, y: i * 5 })), view: { x: 7, y: 8, zoom: 1.5 } });
-const okLoad = (board: Board): LoadBoardResult => ({ state: 'ok', memoId: 'm1', board, dropped: 0, raw: {}, backupNeeded: false });
-const bad: LoadBoardResult = { state: 'unreadable', memoId: 'm1', why: 'failed' };
+const okLoad = (board: Board): LoadBoardResult => ({ state: 'ok', layout: 'square', memoId: 'm1', board, dropped: 0, raw: {}, backupNeeded: false });
+const bad: LoadBoardResult = { state: 'unreadable', layout: 'square', memoId: 'm1', why: 'failed' };
 
 const readFileSync = (path: string, _enc: 'utf8') => readFile(new URL(path.startsWith('src/') ? '../' + path : path, import.meta.url), 'utf8');describe('孤児の数と文（B4-1 の 1）', () => {
   it('孤児が 1 つ以上のときだけ「（消したカードの位置が n 件残っています）」。0 件なら空', () => {
@@ -106,7 +106,7 @@ describe('planTidy（整理の結果）', () => {
   });
 
   it('まだ無いボード（missing）でも孤児は無いので none。台帳が空なら全部が孤児として落ちる', () => {
-    const missing: LoadBoardResult = { state: 'missing', memoId: 'm1', board: emptyBoard('m1'), dropped: 0, raw: null, backupNeeded: false };
+    const missing: LoadBoardResult = { state: 'missing', layout: 'square', memoId: 'm1', board: emptyBoard('m1'), dropped: 0, raw: null, backupNeeded: false };
     expect(planTidy(missing, replies, 1)).toEqual({ ok: false, why: 'none' });
     const all = planTidy(okLoad(boardOf(['x', 'y'])), [], 5);
     expect(all.ok && all.board.nodes).toEqual([]);
@@ -124,7 +124,7 @@ describe('planTidy（整理の結果）', () => {
 describe('文のそろえ（B4-1 の 6）：型は「動作 ＋ 理由」。読めないときは「（書き込みません）」＋読めない理由', () => {
   it('部品：読み込み中・読めない・台帳がいっぱい・位置がいっぱい', () => {
     expect(loadingNote('動かして')).toBe('ボードを読み込み中です。少し待ってから動かしてください');
-    expect(unreadableBlockNote('カードは動かせません', 'failed')).toBe('カードは動かせません（書き込みません）。このボードは読めないので、位置は保存されません（仮の並びで見せています。ファイルは変えていません）');
+    expect(unreadableBlockNote('カードは動かせません', 'failed', 'square')).toBe('カードは動かせません（書き込みません）。このボードは読めないので、位置は保存されません（仮の並びで見せています。ファイルは変えていません）');
     expect(ledgerFullNote('カードを足せません')).toBe(`カードを足せません（1 つのメモに入るのは ${MAX_REPLIES} 件までです）`);
     expect(nodesFullNote(0, 5)).toBe(`型を貼れませんでした（ボードに残せる位置は ${BOARD_LIMITS.nodes} 件までです。あと 0 件、型は 5 枚です）`);
     expect(nodesFullNote(-3, 5)).toContain('あと 0 件');
@@ -141,9 +141,9 @@ describe('文のそろえ（B4-1 の 6）：型は「動作 ＋ 理由」。読�
   });
 
   it('読み込み中・空の文：見た目に出す文は変えない（空は「カードがまだありません」）', () => {
-    expect(boardNote(null, 0).text).toBe('ボードを読み込み中です…');
+    expect(boardNote(null).text).toBe('ボードを読み込み中です…');
     expect(boardEmptyText).toBe('このメモにはカードがまだありません');
-    expect(boardNote({ state: 'unreadable', memoId: 'm1', why: 'failed' }, 0).tone).toBe('warn');
+    expect(boardNote({ state: 'unreadable', layout: 'square', memoId: 'm1', why: 'failed' }).tone).toBe('warn');
   });
 
   it('動作は同じ：読めないボードは動かせず、動かせるなら null', () => {

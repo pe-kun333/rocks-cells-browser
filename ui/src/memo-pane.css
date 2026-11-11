@@ -253,6 +253,37 @@ body.surface-memo > .panels {
   box-shadow: 0 8px 24px var(--shadow-pop);
 }
 
+.memo-pane-menu-item[hidden] {
+  display: none;
+}
+
+/* ☰ のメニュー：右端に出す（畳むと帯の右へ寄るので）。高さは開くときに JS が決める */
+.memo-pane-burger-menu {
+  right: 0;
+  left: auto;
+  overflow: auto;
+}
+
+/* ボタンの行を畳む（CB11）。tools ごと 1 行目へ移り、☰ 以外を隠す */
+.memo-pane-band.is-tools-folded .memo-pane-tools {
+  flex: none;
+  flex-wrap: nowrap;
+}
+
+.memo-pane-band.is-tools-folded .memo-pane-tools > :not(.memo-pane-burger) {
+  display: none;
+}
+
+.memo-pane-band.is-tools-folded .memo-pane-page {
+  flex: 0 1 auto;
+}
+
+@media (max-width: 700px) {
+  .memo-pane-band.is-tools-folded .memo-pane-sheet {
+    display: none;
+  }
+}
+
 .memo-pane-menu-item {
   display: block;
   width: 100%;
@@ -593,6 +624,16 @@ body.surface-memo > .panels {
   font-size: 12px;
 }
 
+.memo-pane-scroll.is-file-over {
+  outline: 2px dashed var(--accent-line);
+  outline-offset: -2px;
+}
+
+/* クリックで選んだときの枠は出さない（Enter で下の書く欄へ移るための選び） */
+.memo-pane-scroll:focus:not(.is-file-over) {
+  outline: none;
+}
+
 .memo-pane-scroll {
   flex: 1;
   min-height: 0;
@@ -649,6 +690,24 @@ body.surface-memo > .panels {
   gap: 6px;
 }
 
+/* カードを整頓（CC1）：状態の文を件数の行の中へ。状態の文は、件数の文と道具の残りの幅だけを使う（件数の文を削らない）。道具は右端のまま */
+.memo-pane-countline.is-compact .memo-pane-count-text {
+  flex: 0 1 auto;
+}
+
+.memo-pane-countline.is-compact .memo-pane-status {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-pane-countline.is-compact .memo-pane-count-tools {
+  margin-left: auto;
+}
+
 .memo-pane-count-view {
   height: 16px;
   margin: -1px 0; /* 件数の行の高さを変えない（文の行 15px に収める） */
@@ -702,7 +761,8 @@ body.surface-memo > .panels {
 /* 一番下のカードの下にも空きが見えるところまでスクロールできるように、並びの下に余白を足す */
 .memo-pane-cards-wrap {
   position: relative;
-  padding-bottom: 40vh;
+  /* 利用者の希望：今の余白に、コメントカード 2 枚分（約 200px）を足して、もう少し下までスクロールできるようにする */
+  padding-bottom: calc(40vh + 200px);
 }
 
 .memo-pane-link-layer {
@@ -739,6 +799,15 @@ body.surface-memo > .panels {
   border: 2px dashed var(--border);
   border-radius: 8px;
   pointer-events: none;
+}
+
+/* カードを整頓（CC1）：升目の行の最小と空き枠の最小を一緒に低くする（つまみ始めに行が跳ねないように） */
+.memo-pane-cards-wrap .memo-pane-cards.slotted.is-compact {
+  grid-auto-rows: minmax(56px, auto);
+}
+
+.memo-pane-cards.is-compact .memo-pane-slot-ghost {
+  min-height: 56px;
 }
 
 .memo-pane-slot-ghost.hot {
@@ -1106,19 +1175,90 @@ body.surface-memo > .panels {
 /* theme: fixed begin：画像を大きく見る幕（どのテーマでも暗い） */
 .memo-pane-light {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  left: 0;
   z-index: 8; /* 浮いたカードの層（7）より上 */
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  height: var(--memo-compose-top, 100%); /* 下端は書く欄の上（CC5。JS が測って根に入れる） */
   background: rgba(0, 0, 0, 0.72);
+}
+
+/* 状態の文の写し（CC5）。幕はどのテーマでも暗いので、字は明るい固定色 */
+.memo-pane-light-status {
+  flex: none;
+  overflow: hidden;
+  padding: 2px 12px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #eee;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 /* theme: fixed end */
 
+.memo-pane-light-status:empty {
+  display: none;
+}
+
+.memo-pane-light-stage {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* margin: auto：収まれば真ん中、はみ出せば左上から流せる（読む画面の .capture-frame と同じ） */
+.memo-pane-light-frame {
+  flex: none;
+  margin: auto;
+  line-height: 0;
+}
+
+.memo-pane-light-frame[data-zoom='fit'] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
 .memo-pane-light img {
+  display: block;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+/* 100%・200%（CC6）：img の幅は attachZoom が入れる。上限を外して、幕の中で流す */
+.memo-pane-light-frame[data-zoom='1'] img,
+.memo-pane-light-frame[data-zoom='2'] img {
+  max-width: none;
+  max-height: none;
+}
+
+/* 倍率の段（幕の左上。× は右上のまま） */
+.memo-pane-light-zoom {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 4px;
+}
+
+.memo-pane-light-zoom button {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.memo-pane-light-zoom button[aria-pressed='true'] {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
 }
 
 .memo-pane-light-close {
@@ -1375,30 +1515,27 @@ body.surface-memo > .panels {
   margin-top: 6px;
 }
 
+/* ＋コメント：見出し無しの 1 行（CB9）。欄・字数・次の行に・足す を同じ行に。幅が足りなければ折れる */
 .memo-pane-compose {
   position: sticky;
   bottom: 0;
   z-index: 1;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 4px 8px;
   margin-top: auto;
   padding: 8px 14px;
   border-top: 1px solid var(--border);
   background: var(--surface);
 }
 
-.memo-pane-compose-label {
-  color: var(--accent-ink);
-  font-size: 12px;
-  font-weight: 700;
-}
-
 .memo-pane-compose textarea {
   display: block;
-  width: 100%;
+  flex: 1 1 200px;
+  min-width: 0;
   box-sizing: border-box;
-  min-height: 44px;
+  field-sizing: content;
   max-height: 120px;
   padding: 6px 8px;
   border: 1px solid var(--border);
@@ -1411,8 +1548,14 @@ body.surface-memo > .panels {
 
 .memo-pane-compose-row {
   display: flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 8px;
+  min-height: 28px;
+}
+
+.memo-pane-meter[hidden] {
+  display: none;
 }
 
 .memo-pane-meter {
@@ -1452,6 +1595,50 @@ body.surface-memo > .panels {
 .memo-pane-compose-nextrow.is-disabled {
   opacity: 0.55;
   cursor: default;
+}
+
+/* 「次の行に」の隣の「つなぐ」（CC4）。「なし」以外の間は印の枠。その右に線の元のカードの頭（幅を決めておく） */
+.memo-pane-compose-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.memo-pane-compose-link select {
+  padding: 1px 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.memo-pane-compose-link select.is-on {
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 1px var(--accent-line);
+}
+
+.memo-pane-compose-link-from {
+  flex: none;
+  width: 12em;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-pane-compose-link-from[hidden] {
+  display: none;
+}
+
+/* 「←」が出ている間も、欄の行の折れ方を変えない（書く欄の基準幅を、字の幅の分だけ狭くする） */
+.memo-pane-compose:has(.memo-pane-compose-link-from:not([hidden])) textarea {
+  flex-basis: 120px;
 }
 
 /* 「＋コメント」の「▶ m:ss と結ぶ」（V2b・D24。読む画面が動画を開いているときだけ） */
@@ -1734,6 +1921,48 @@ body.surface-memo > .panels {
 .memo-pane-card-more[aria-expanded='true'] {
   background: var(--hover);
   color: var(--text);
+}
+
+/* カードを整頓（CC2）：道具は頭の帯の右に一組だけ。幅はいつも空けておき、左クリックしたカード・焦点・関連づけの元・「消す？」の間だけ見せる（寸法は変わらない。乗せただけでは出さない。確かめ 5 の答え） */
+.memo-pane-cards.is-compact > .memo-pane-card > .memo-pane-card-head {
+  position: relative;
+  flex-wrap: nowrap;
+}
+
+.memo-pane-cards.is-compact > .memo-pane-card .memo-pane-card-head-main {
+  padding-right: 86px; /* 道具 5 個の実寸 83px＋3px（開発画面で測った。帯の字やボタンが道具の下に入らない） */
+}
+
+.memo-pane-cards.is-compact > .memo-pane-card .memo-pane-card-head-main > .thread-action,
+.memo-pane-card-tools .thread-action {
+  height: 18px;
+  min-width: 0;
+  padding: 0 2px;
+}
+
+.memo-pane-card-tools .thread-action.reply-remove {
+  margin-left: 0;
+}
+
+.memo-pane-card-tools {
+  position: absolute;
+  top: 0;
+  right: 22px;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  height: 18px;
+  background: var(--surface);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.memo-pane-cards:not(.linking, .picking, .reordering) > .memo-pane-card.tools-open .memo-pane-card-tools,
+.memo-pane-cards:not(.linking, .picking, .reordering) > .memo-pane-card:focus-within .memo-pane-card-tools,
+.memo-pane-cards > .memo-pane-card.link-from .memo-pane-card-tools,
+.memo-pane-cards > .memo-pane-card.armed .memo-pane-card-tools {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* つながり順の見出し（行をまたぐ。position と背景で、線の層が字の上に出ないようにする。行の間は row-gap のまま） */

@@ -1,11 +1,16 @@
 // ボード全体で効くキー（B4-2）の決め事と案内の文（DOM を使わない。ui/test/memo-card-board-keys.test.ts）
 //   効くキー：Ctrl+A＝全選択／Ctrl+Z＝元に戻す／Ctrl+Shift+Z・Ctrl+Y＝やり直す／Delete＝選んだカードを消す／Esc＝選びを外す（Esc は grok-cards の escAction が決める）／スペース押しながらドラッグ＝移動
 //   C++（browser.cpp の WatchShortcuts）が先に取るのは Ctrl＋英字・Tab などだけ。Delete・Esc は取らない。Ctrl+Shift+Y は左（C++）が使う
-//   Delete は、文字を書く欄（input・textarea・select・contenteditable）にフォーカスがないときだけ。つまんでいる最中・範囲選択の最中・小窓や確認が開いているあいだ・線を引く途中は効かない
+//   Delete は、文字を書く欄（input・textarea・select・contenteditable）にフォーカスがないときだけ。つまんでいる最中・範囲選択の最中・小窓や確認が開いているあいだ・線を引く途中は効かない。ボードのメニューが開いているあいだは、ここへ来る前にボードのキーを全部止める（memo-board-tab.ts）
 //   C4：ボードを「上に出している」あいだは、下のメモの帯も同時に見える。そこで Ctrl+A・Ctrl+Z 系・Delete・スペース（移動）は、フォーカスがボードの面の中、またはどこにも無い（かつ、最後に押した所が下の帯でない）ときだけ効かせる。境目（tabindex=0 の分割線）・下の帯・その小窓にフォーカスがあるときは効かせない。下に出しているとき（今まで）は、場所を問わず今までどおり
-import { t } from './i18n';
+import { t as tr } from './i18n';
 
-export const BOARD_KEY_HINT = t('ホイール：拡大縮小／空きをドラッグ：移動／Shift＋ドラッグ：範囲選択／Ctrl+A：全選択／Delete：削除／Ctrl+Z：元に戻す／Esc：選びを外す');
+// キーボード（メニューキー・Shift+F10）で開いたメニューか（マウスの位置が無い。memo-pad.ts と同じ見分け。CB14）
+export function isKeyboardMenu(e: { clientX: number; clientY: number; button: number; pointerType?: string }): boolean {
+  return e.pointerType === '' || (e.clientX === 0 && e.clientY === 0) || e.button === -1;
+}
+
+export const BOARD_KEY_HINT = tr('2本指・ホイール：移動／ピンチ・Ctrl＋ホイール：拡大縮小／空きをドラッグ：移動／Shift＋ドラッグ：範囲選択／Ctrl+A：全選択／Delete：削除／Ctrl+Z：元に戻す／Esc：選びを外す');
 
 // ボタンに付ける aria-keyshortcuts
 export const KEYSHORTCUTS = { remove: 'Delete', undo: 'Control+Z', redo: 'Control+Shift+Z Control+Y' } as const;
@@ -24,6 +29,21 @@ export interface BoardKeyInput {
 }
 
 // Delete が「選んだカードを消す」になるか。ほかのキーはここでは決めない（null）
+
+// 書く欄が空のとき ←↑→↓ でボードを動かすか（DOM 無し。下の区画の空欄 ↑↓ スクロールと同じ「空だけ」の決め）
+export function emptyComposeArrowPan(i: {
+  key: string;
+  text: string; // 欄の value。空白だけのときもカーソル用に false（=== '' のときだけ）
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+  isComposing: boolean;
+}): boolean {
+  if (i.text !== '') return false;
+  if (i.ctrlKey || i.metaKey || i.shiftKey || i.altKey || i.isComposing) return false;
+  return i.key === 'ArrowLeft' || i.key === 'ArrowRight' || i.key === 'ArrowUp' || i.key === 'ArrowDown';
+}
 export function boardKeyAction(i: BoardKeyInput): 'delete' | null {
   if (i.key !== 'Delete') return null;
   if (i.ctrlKey || i.metaKey || i.shiftKey || i.altKey) return null; // 修飾キーつきは別の意味（Shift+Delete は切り取りなど）

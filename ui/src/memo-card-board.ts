@@ -9,10 +9,34 @@ import { CARD_COLUMNS, MAX_REPLIES, orderedTops, type Reply, topSlots } from './
 import { TEMPLATE_GRID } from './memo-card-templates';
 
 export const BOARD_FORMAT = 'honeycomb-board';
+export const BOARD_HEX_FORMAT = 'honeycomb-board-hex'; // 六角の並びのファイル（HX5。中身の形は四角と同じで、format だけが違う）
 export const BOARD_VERSION = 1;
+
+export type BoardFormat = typeof BOARD_FORMAT | typeof BOARD_HEX_FORMAT;
 
 // カードの大きさ・隙間（QB4＝固定。型の TEMPLATE_GRID と同じ値を共有する：型の dx,dy の目安と合わせるため）
 export const BOARD_CARD = { w: TEMPLATE_GRID.cardW, h: TEMPLATE_GRID.cardH, gap: TEMPLATE_GRID.gap } as const;
+
+// ボードの形（HX4。四角＝今のカード、六角＝正六角のカード。四角と六角の並びは別々に持つ）
+export type BoardLayout = 'square' | 'hex';
+
+// カードの箱の大きさ（位置の左上から。形ごとに渡す。既定は四角の BOARD_CARD）と、升目の歩み（隙間を入れた間隔）
+export interface CardSize {
+  w: number;
+  h: number;
+}
+
+export interface GridStep {
+  x: number;
+  y: number;
+  shift?: number; // 奇数の行を右へずらす量（六角の 83。四角は無し）。足す所を探す升目・下の段の置き場・型の並びで使う（HX5）
+}
+
+export const SQUARE_STEP: Readonly<GridStep> = { x: BOARD_CARD.w + BOARD_CARD.gap, y: BOARD_CARD.h + BOARD_CARD.gap };
+
+// 二枚（位置の左上 a・b）が重なるかの決め方。形ごとに渡す（四角は箱の重なり boxesOverlap、六角は六角どうし hexesOverlap。HX5）。
+//   置き場と仮の並びは、どれも同じ決め方を使う（六角の箱 150×174 を箱の重なりで比べると、斜めの隣が重なりに数えられるため）
+export type Overlaps = (a: { x: number; y: number }, b: { x: number; y: number }) => boolean;
 
 export const BOARD_LIMITS = {
   nodes: MAX_REPLIES, // 座標の数（300。QB9＝グリッドと共有）
@@ -26,17 +50,40 @@ export const BOARD_LIMITS = {
 
 const NAME_RE = /^[A-Za-z0-9_-]{1,64}$/; // data.ts・C++（storage.cpp の UiDataFile）の名前の 1 段に使える文字
 
-// ---------- 保存先の名前（B1-2 が使う。名前の規則は data.ts・storage.cpp と同じ） ----------
+// ---------- 保存先の名前とファイルの決まり（B1-2 が使う。名前の規則は data.ts・storage.cpp と同じ。形ごとに選ぶ：HX5） ----------
+//   四角は ui-data/boards/<メモ id>.json（format 'honeycomb-board'）、六角は ui-data/boards-hex/<メモ id>.json（format 'honeycomb-board-hex'）。
+//   中身の形は同じ。写しはそれぞれの置き場に <メモ id>-before-v1.json。名前に使える文字（NAME_RE）は同じ。boards/<メモ id>/… は QB3 の見込みに残す
 
 export const BOARDS_FOLDER = 'boards';
+export const BOARDS_HEX_FOLDER = 'boards-hex';
 
-export function boardFileName(memoId: string): string | null {
-  return NAME_RE.test(memoId) ? `${BOARDS_FOLDER}/${memoId}.json` : null;
+export interface BoardFileRules {
+  readonly layout: BoardLayout;
+  readonly format: BoardFormat;
+  name(memoId: string): string | null; // ボードのファイル（名前に使えないメモ id は null）
+  backupName(memoId: string): string | null; // 最初の書き込みの前に 1 回だけ作る控え（すでにファイルがあるときだけ）
+}
+
+const fileRules = (layout: BoardLayout, format: BoardFormat, folder: string): BoardFileRules => ({
+  layout,
+  format,
+  name: (memoId) => (NAME_RE.test(memoId) ? `${folder}/${memoId}.json` : null),
+  backupName: (memoId) => (NAME_RE.test(memoId) ? `${folder}/${memoId}-before-v1.json` : null),
+});
+
+const SQUARE_FILE = fileRules('square', BOARD_FORMAT, BOARDS_FOLDER);
+const HEX_FILE = fileRules('hex', BOARD_HEX_FORMAT, BOARDS_HEX_FOLDER);
+
+// 形ごとのファイルの決まり（名前・写しの名前・format）を選ぶ口。読み書き（memo-card-board-store.ts）はどれもここを通す
+export const boardFileRules = (layout: BoardLayout): BoardFileRules => (layout === 'hex' ? HEX_FILE : SQUARE_FILE);
+
+export function boardFileName(memoId: string, layout: BoardLayout = 'square'): string | null {
+  return boardFileRules(layout).name(memoId);
 }
 
 // 最初の書き込みの前に 1 回だけ作る控え（すでにファイルがあるときだけ）
-export function boardBackupName(memoId: string): string | null {
-  return NAME_RE.test(memoId) ? `${BOARDS_FOLDER}/${memoId}-before-v1.json` : null;
+export function boardBackupName(memoId: string, layout: BoardLayout = 'square'): string | null {
+  return boardFileRules(layout).backupName(memoId);
 }
 
 // ---------- 形 ----------
@@ -94,8 +141,9 @@ function byteLength(text: string): number {
 // 読んだ JSON を検査する。読めない（版が新しい・形が合わない・メモが違う・大きすぎる）ときは理由を返す
 //   読める一部（悪いノードだけ）は捨てて ok にする。同じ ref は先のものを残す。x・y は整数に丸めて ±10,000 に収める
 //   知らない項目は読み捨てる（同じ版の中では。足したいときは版を上げる）
-export function parseBoard(raw: unknown, opts: { memoId: string }): ParseBoardResult {
-  if (!isRecord(raw) || raw.format !== BOARD_FORMAT) return { ok: false, why: 'format' };
+//   layout：どちらの形のファイルとして読むか（既定は四角）。format がその形のものでなければ読まない（四角のファイルを六角として、また逆に読まない。HX5）
+export function parseBoard(raw: unknown, opts: { memoId: string; layout?: BoardLayout }): ParseBoardResult {
+  if (!isRecord(raw) || raw.format !== boardFileRules(opts.layout ?? 'square').format) return { ok: false, why: 'format' };
   const version = raw.version;
   if (typeof version !== 'number' || !Number.isInteger(version) || version < 1 || version > BOARD_VERSION) return { ok: false, why: 'version' };
   if (typeof raw.memoId !== 'string' || raw.memoId !== opts.memoId || !NAME_RE.test(raw.memoId)) return { ok: false, why: 'memo' };
@@ -133,7 +181,7 @@ function parseNode(item: unknown): BoardNode | null {
 }
 
 export interface BoardFile {
-  format: typeof BOARD_FORMAT;
+  format: BoardFormat;
   version: typeof BOARD_VERSION;
   memoId: string;
   updatedAt: number;
@@ -141,10 +189,10 @@ export interface BoardFile {
   nodes: BoardNode[];
 }
 
-// 保存する形。項目を 1 つずつ選んで作る（ボードの値にほかの項目〈文・タグなど〉が紛れ込んでも、ファイルには入らない）
-export function toBoardFile(board: Board): BoardFile {
+// 保存する形。項目を 1 つずつ選んで作る（ボードの値にほかの項目〈文・タグなど〉が紛れ込んでも、ファイルには入らない）。format は形ごと（既定は四角）
+export function toBoardFile(board: Board, layout: BoardLayout = 'square'): BoardFile {
   return {
-    format: BOARD_FORMAT,
+    format: boardFileRules(layout).format,
     version: BOARD_VERSION,
     memoId: board.memoId,
     updatedAt: Math.max(0, Math.floor(board.updatedAt) || 0),
@@ -153,10 +201,10 @@ export function toBoardFile(board: Board): BoardFile {
   };
 }
 
-// 書く文字列。200 KB を超える・メモ id が名前に使えないときは null（書かない）
-export function serializeBoard(board: Board): string | null {
+// 書く文字列。200 KB を超える・メモ id が名前に使えないときは null（書かない）。layout は形（既定は四角）
+export function serializeBoard(board: Board, layout: BoardLayout = 'square'): string | null {
   if (!NAME_RE.test(board.memoId)) return null;
-  const text = JSON.stringify(toBoardFile(board), null, 1);
+  const text = JSON.stringify(toBoardFile(board, layout), null, 1);
   return byteLength(text) > BOARD_LIMITS.fileBytes ? null : text;
 }
 
@@ -193,14 +241,18 @@ export interface NodeMove {
 
 // カードを動かした（離した）ときの座標を入れる。まだ無い ref は足す（仮の位置だったカードが保存される）。
 //   形の悪い ref は無視する。x・y は整数・±10,000。300 件を超えるときは trimNodes（live があれば孤児から）
-export function moveNodes(board: Board, moves: readonly NodeMove[], now: number, live?: ReadonlySet<string>): Board {
+//   opts.raise（六角だけで使う。HX5）：書くときは、動かしたカードを nodes の最後へ移す（動かした順に。描く順は nodes の順なので、最後に動かしたカードが上）。
+//   位置がどれも変わらなければ、順も変えずに同じ board を返す
+export function moveNodes(board: Board, moves: readonly NodeMove[], now: number, live?: ReadonlySet<string>, opts: { raise?: boolean } = {}): Board {
   const index = new Map(board.nodes.map((n, i) => [n.ref, i]));
   const nodes = board.nodes.map((n) => ({ ...n }));
   let changed = false;
+  const moved: string[] = [];
   for (const m of moves) {
     if (!NAME_RE.test(m.ref) || !Number.isFinite(m.x) || !Number.isFinite(m.y)) continue;
     const x = cleanCoord(m.x);
     const y = cleanCoord(m.y);
+    if (opts.raise && !moved.includes(m.ref)) moved.push(m.ref);
     const at = index.get(m.ref);
     if (at === undefined) {
       index.set(m.ref, nodes.length);
@@ -212,7 +264,13 @@ export function moveNodes(board: Board, moves: readonly NodeMove[], now: number,
     }
   }
   if (!changed) return board;
-  return { ...board, updatedAt: now, nodes: trimNodes(nodes, live) };
+  let ordered = nodes;
+  if (opts.raise) {
+    const lifted = new Set(moved);
+    const byRef = new Map(nodes.map((n) => [n.ref, n]));
+    ordered = [...nodes.filter((n) => !lifted.has(n.ref)), ...moved.map((ref) => byRef.get(ref) as BoardNode)];
+  }
+  return { ...board, updatedAt: now, nodes: trimNodes(ordered, live) };
 }
 
 // 見ている位置を変える（clampView で収める）。変わらなければ同じ board を返す
@@ -248,10 +306,10 @@ export function pruneOrphans(board: Board, replies: readonly Reply[], now: numbe
 
 // ---------- 仮の並びと配置 ----------
 
-// 番地（行 × 3 ＋ 列）を升目の左上へ（QB6：番地を 190×96＋隙間 20 の升目に写す）
-export function slotPosition(slot: number): { x: number; y: number } {
+// 番地（行 × 3 ＋ 列）を升目の左上へ（QB6：番地を 190×96＋隙間 20 の升目に写す）。step で升目の歩みを渡せる（既定は四角）
+export function slotPosition(slot: number, step: GridStep = SQUARE_STEP): { x: number; y: number } {
   const s = Math.max(0, Math.floor(slot) || 0);
-  return { x: (s % CARD_COLUMNS) * (BOARD_CARD.w + BOARD_CARD.gap), y: Math.floor(s / CARD_COLUMNS) * (BOARD_CARD.h + BOARD_CARD.gap) };
+  return { x: (s % CARD_COLUMNS) * step.x, y: Math.floor(s / CARD_COLUMNS) * step.y };
 }
 
 export interface BoardPlacement {
@@ -261,15 +319,17 @@ export interface BoardPlacement {
   saved: boolean; // true＝動かして保存した位置。false＝仮の位置（保存されていない）
 }
 
-const overlaps = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-  a.x < b.x + BOARD_CARD.w && b.x < a.x + BOARD_CARD.w && a.y < b.y + BOARD_CARD.h && b.y < a.y + BOARD_CARD.h;
+// 二枚の箱（左上と大きさ）が重なるか（辺が接するだけなら重ならない）
+export const boxesOverlap = (a: { x: number; y: number }, b: { x: number; y: number }, size: CardSize = BOARD_CARD) =>
+  a.x < b.x + size.w && b.x < a.x + size.w && a.y < b.y + size.h && b.y < a.y + size.h;
 
 const SEARCH_LIMIT = 4000; // 空きを探す番地の数（300 枚のカードがそれぞれ最大 4 升に掛かっても足りる）
 
 // 一番上のカードの位置：保存したカードはその座標、そうでないカードは番地の升目（仮の位置）
 //   仮の位置が、保存したカード（や先に決めた仮の位置）に重なるときは、重ならない最初の空きの升目へ仮にずらす
 //   ずらした位置は保存しない（board は変えない）。順序は台帳の並び（orderedTops）
-export function layoutCards(replies: readonly Reply[], board: Board | null): BoardPlacement[] {
+//   size・step で箱の大きさと升目の歩みを、overlaps で重なりの決め方を渡せる（既定は四角の箱の重なり。HX4・HX5 の geo の口）
+export function layoutCards(replies: readonly Reply[], board: Board | null, size: CardSize = BOARD_CARD, step: GridStep = SQUARE_STEP, overlaps: Overlaps = (a, b) => boxesOverlap(a, b, size)): BoardPlacement[] {
   const saved = new Map<string, BoardNode>();
   for (const n of board?.nodes ?? []) if (!saved.has(n.ref)) saved.set(n.ref, n);
   const slots = topSlots(replies);
@@ -287,8 +347,8 @@ export function layoutCards(replies: readonly Reply[], board: Board | null): Boa
       continue;
     }
     const start = slots.get(r.id) ?? 0;
-    let pos = slotPosition(start);
-    for (let k = 1; k <= SEARCH_LIMIT && taken.some((t) => overlaps(pos, t)); k++) pos = slotPosition(start + k);
+    let pos = slotPosition(start, step);
+    for (let k = 1; k <= SEARCH_LIMIT && taken.some((t) => overlaps(pos, t)); k++) pos = slotPosition(start + k, step);
     taken.push(pos);
     out.push({ id: r.id, x: pos.x, y: pos.y, saved: false });
   }
@@ -330,8 +390,8 @@ export interface Rect {
   h: number;
 }
 
-// カードの置き場所（BoardPlacement）を囲む四角。1 枚も無ければ null
-export function placementBounds(placements: readonly { x: number; y: number }[]): Rect | null {
+// カードの置き場所（BoardPlacement）を囲む四角。1 枚も無ければ null。size は箱の大きさ（既定は四角）
+export function placementBounds(placements: readonly { x: number; y: number }[], size: CardSize = BOARD_CARD): Rect | null {
   if (placements.length === 0) return null;
   let x0 = Infinity;
   let y0 = Infinity;
@@ -340,8 +400,24 @@ export function placementBounds(placements: readonly { x: number; y: number }[])
   for (const p of placements) {
     x0 = Math.min(x0, p.x);
     y0 = Math.min(y0, p.y);
-    x1 = Math.max(x1, p.x + BOARD_CARD.w);
-    y1 = Math.max(y1, p.y + BOARD_CARD.h);
+    x1 = Math.max(x1, p.x + size.w);
+    y1 = Math.max(y1, p.y + size.h);
+  }
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+// 箱（ボードの座標）を囲む四角。形ごとの読む箱を囲むとき（HX1）。1 つも無ければ null
+export function rectBounds(rects: readonly Rect[]): Rect | null {
+  if (rects.length === 0) return null;
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const r of rects) {
+    x0 = Math.min(x0, r.x);
+    y0 = Math.min(y0, r.y);
+    x1 = Math.max(x1, r.x + r.w);
+    y1 = Math.max(y1, r.y + r.h);
   }
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }

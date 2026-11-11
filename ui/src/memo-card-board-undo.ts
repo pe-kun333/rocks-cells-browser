@@ -4,7 +4,7 @@
 //   線＝逆の changeReplyLinks／型の貼り付け＝undoSendReplies（既存）。やり直し：移動＝座標／足す＝同じ id で足し直す／消す＝新しい undoToken で消し直す／線＝もう一度／貼り付け＝貼り直し（id は新しい）
 //   ここで決めるのは：積みの動き・命令の中身・確かめ（写しにどうなれば成功か）・ボタンの文。台帳を書くのは左だけ（命令を送るだけ）。画面は app/memo-board-tab.ts
 import { t } from './i18n';
-import type { NodeMove } from './memo-card-board';
+import type { BoardLayout, NodeMove } from './memo-card-board';
 import type { LoadBoardResult } from './memo-card-board-store';
 import type { Pt } from './memo-card-board-select';
 import { loadingNote, unreadableBlockNote } from './memo-card-board-texts';
@@ -22,16 +22,22 @@ export const REDO_EMPTY_NOTE = t('やり直せる操作がありません');
 
 export type UndoOp =
   | { kind: 'move'; moves: { ref: string; from: Pt; to: Pt }[] }
-  | { kind: 'add'; id: string; text: string; at: Pt }
-  | { kind: 'remove'; ids: string[]; at: Record<string, Pt>; token: string } // token：消したときに付けた undoToken（restoreReplies で使う）。at：消す前の座標
+  | { kind: 'add'; id: string; text: string; at: Pt } // at：足した座標（その操作を始めたときの形のファイルの位置。HX5 は六角でも位置を持つ）
+  | { kind: 'remove'; ids: string[]; at: Record<string, Pt>; token: string } // token：消したときに付けた undoToken（restoreReplies で使う）。at：消す前の座標（始めたときの形の位置）
   | { kind: 'link'; from: string; to: string; before: LinkKind | null; after: LinkKind | null } // from→to の線の種類（無ければ null）の、操作の前と後
   | { kind: 'paste'; template: CardTemplate; ids: string[]; at: Pt[]; token: string | null }; // at：貼ったカードの座標（ids と同じ順）。token：左が返した undoSend の印（まだ届かなければ null）
 
 export type UndoDir = 'undo' | 'redo';
 
+// 積みの一つ：操作と、始めたときの形（HX4。印は UndoOp の外に持つので、mapOpIds で落ちない）。位置はどれもその形のファイルの位置（HX5）
+interface UndoEntry {
+  op: UndoOp;
+  layout: BoardLayout;
+}
+
 export class UndoStack {
-  private done: UndoOp[] = [];
-  private undone: UndoOp[] = [];
+  private done: UndoEntry[] = [];
+  private undone: UndoEntry[] = [];
   private ver = 0;
 
   // 積みの版（新しい操作を積む・捨てるたびに変わる）。戻している最中に新しい操作が入ったかを見る
@@ -47,9 +53,9 @@ export class UndoStack {
     return this.undone.length;
   }
 
-  // 新しい操作を積む（やり直しの積みは空になる。UNDO_LIMIT を超えたら古いものから捨てる）
-  push(op: UndoOp) {
-    this.done.push(op);
+  // 新しい操作を積む（やり直しの積みは空になる。UNDO_LIMIT を超えたら古いものから捨てる）。layout：始めたときの形（既定は四角）
+  push(op: UndoOp, layout: BoardLayout = 'square') {
+    this.done.push({ op, layout });
     if (this.done.length > UNDO_LIMIT) this.done.splice(0, this.done.length - UNDO_LIMIT);
     this.undone = [];
     this.ver += 1;
@@ -57,7 +63,7 @@ export class UndoStack {
 
   // 積み（やり直しも含む）に、この種類の操作が 1 つでも残っているか（整理の確認に一言添えるため）
   has(kinds: readonly UndoOp['kind'][]): boolean {
-    return this.done.some((o) => kinds.includes(o.kind)) || this.undone.some((o) => kinds.includes(o.kind));
+    return this.done.some((e) => kinds.includes(e.op.kind)) || this.undone.some((e) => kinds.includes(e.op.kind));
   }
 
   clear() {
@@ -67,31 +73,43 @@ export class UndoStack {
   }
 
   peekUndo(): UndoOp | null {
-    return this.done[this.done.length - 1] ?? null;
+    return this.done[this.done.length - 1]?.op ?? null;
   }
 
   peekRedo(): UndoOp | null {
-    return this.undone[this.undone.length - 1] ?? null;
+    return this.undone[this.undone.length - 1]?.op ?? null;
+  }
+
+  // 次に戻す・やり直す操作を始めたときの形（無ければ null）。取り出す前に覗いて、いまの形と違えば取り出さない（HX4）
+  peekLayout(dir: UndoDir): BoardLayout | null {
+    const list = dir === 'undo' ? this.done : this.undone;
+    return list[list.length - 1]?.layout ?? null;
   }
 
   // 戻す・やり直す操作を積みから取り出す（成功したら finish で反対側へ。失敗したらそのまま捨てる＝その 1 件だけ積みから外れる）
   take(dir: UndoDir): UndoOp | null {
-    return (dir === 'undo' ? this.done : this.undone).pop() ?? null;
+    return (dir === 'undo' ? this.done : this.undone).pop()?.op ?? null;
   }
 
-  // 取り出した操作が成功した：反対側の積みへ。取り出したあとに新しい操作が積まれていたら（版が違えば）入れない
-  finish(dir: UndoDir, op: UndoOp, version: number) {
+  // 取り出した操作が成功した：反対側の積みへ。取り出したあとに新しい操作が積まれていたら（版が違えば）入れない。layout：そのときの形（既定は四角）
+  finish(dir: UndoDir, op: UndoOp, version: number, layout: BoardLayout = 'square') {
     if (version !== this.ver) return;
     const to = dir === 'undo' ? this.undone : this.done;
-    to.push(op);
+    to.push({ op, layout });
     if (to.length > UNDO_LIMIT) to.splice(0, to.length - UNDO_LIMIT);
   }
 
-  // 型の貼り直しで id が替わった：やり直しの積みの中の、古い id を新しい id に置き換える
+  // 型の貼り直しで id が替わった：やり直しの積みの中の、古い id を新しい id に置き換える（形の印はそのまま）
   remapRedo(map: ReadonlyMap<string, string>) {
     if (map.size === 0) return;
-    this.undone = this.undone.map((op) => mapOpIds(op, map));
+    this.undone = this.undone.map((e) => ({ op: mapOpIds(e.op, map), layout: e.layout }));
   }
+}
+
+// 形の違う操作を戻す・やり直そうとしたときの文（HX4）。操作を始めたときの形に戻すと戻せる
+export function undoLayoutNote(op: UndoOp, dir: UndoDir, layout: BoardLayout): string {
+  const shape = layout === 'hex' ? t('六角') : t('四角');
+  return t('「{0}」は、{1}の表示に戻すと{2}', { 0: opLabel(op), 1: shape, 2: dir === 'undo' ? t('元に戻せます') : t('やり直せます') });
 }
 
 const mapId = (map: ReadonlyMap<string, string>, id: string) => map.get(id) ?? id;
@@ -132,7 +150,7 @@ export function opLabel(op: UndoOp): string {
 // ボードに書けないとき（読み込み中・読めない）の文。書けるなら null。戻す・やり直すは座標も書くので、どの操作でもボードに書けることを求める
 export function undoBlockedNote(load: LoadBoardResult | null): string | null {
   if (load === null) return loadingNote(t('操作して'));
-  if (load.state === 'unreadable') return unreadableBlockNote(t('元に戻せません'), load.why);
+  if (load.state === 'unreadable') return unreadableBlockNote(t('元に戻せません'), load.why, load.layout);
   return null;
 }
 
@@ -142,12 +160,19 @@ export interface UndoButtons {
 }
 
 // 道具の列の「元に戻す」「やり直す」の押せるか・ツールチップ（押せない理由か、何を戻すか）
-export function undoButtons(input: { undo: UndoOp | null; redo: UndoOp | null; busy: boolean; load: LoadBoardResult | null }): UndoButtons {
+//   layout：いまの形と、次に戻す・やり直す操作を始めたときの形（HX4）。形が違えば押せず、その形に戻すと戻せると書く。無ければ形を見ない
+export function undoButtons(input: { undo: UndoOp | null; redo: UndoOp | null; busy: boolean; load: LoadBoardResult | null; layout?: { now: BoardLayout; undo: BoardLayout | null; redo: BoardLayout | null } }): UndoButtons {
   if (input.busy) return { undo: { enabled: false, note: t('元に戻している途中です') }, redo: { enabled: false, note: t('元に戻している途中です') } };
   const blocked = undoBlockedNote(input.load);
+  const other = (dir: UndoDir, op: UndoOp): string | null => {
+    const at = input.layout?.[dir] ?? null;
+    return input.layout && at !== null && at !== input.layout.now ? undoLayoutNote(op, dir, at) : null;
+  };
+  const undoOther = input.undo === null ? null : other('undo', input.undo);
+  const redoOther = input.redo === null ? null : other('redo', input.redo);
   return {
-    undo: input.undo === null ? { enabled: false, note: UNDO_EMPTY_NOTE } : blocked ? { enabled: false, note: blocked } : { enabled: true, note: t('「{0}」を元に戻します（Ctrl+Z）', { 0: opLabel(input.undo) }) },
-    redo: input.redo === null ? { enabled: false, note: REDO_EMPTY_NOTE } : blocked ? { enabled: false, note: blocked } : { enabled: true, note: t('「{0}」をやり直します（Ctrl+Shift+Z／Ctrl+Y）', { 0: opLabel(input.redo) }) },
+    undo: input.undo === null ? { enabled: false, note: UNDO_EMPTY_NOTE } : blocked ? { enabled: false, note: blocked } : undoOther ? { enabled: false, note: undoOther } : { enabled: true, note: t('「{0}」を元に戻します（Ctrl+Z）', { 0: opLabel(input.undo) }) },
+    redo: input.redo === null ? { enabled: false, note: REDO_EMPTY_NOTE } : blocked ? { enabled: false, note: blocked } : redoOther ? { enabled: false, note: redoOther } : { enabled: true, note: t('「{0}」をやり直します（Ctrl+Shift+Z／Ctrl+Y）', { 0: opLabel(input.redo) }) },
   };
 }
 
@@ -194,5 +219,20 @@ export function moveTargets(op: Extract<UndoOp, { kind: 'move' }>, dir: UndoDir,
   return op.moves.filter((m) => tops.has(m.ref)).map((m) => ({ ref: m.ref, x: (dir === 'undo' ? m.from : m.to).x, y: (dir === 'undo' ? m.from : m.to).y }));
 }
 
-// 消したカードを戻したあとの座標（消す前の座標）
+// 消したカードを戻したあとの座標（消す前の座標）。位置を覚えていないカード（六角の仮のカード）は入らない（戻すと仮の並びに出る）
 export const restoreMoves = (op: Extract<UndoOp, { kind: 'remove' }>): NodeMove[] => op.ids.filter((id) => op.at[id] !== undefined).map((id) => ({ ref: id, x: op.at[id].x, y: op.at[id].y }));
+
+// 消すときに覚える、戻す先の位置（HX5。消す・やり直しの消し直し）。faces は描いているカード（位置と、ファイルに位置があるか saved）
+//   四角：描いている位置（今のまま）。六角：ファイルに位置のあるカード（saved）だけ。位置の無い仮のカードは覚えない（戻すと仮の並びに出て、
+//   置いたカードと重なれば後ろの空いた番へ回る）。六角の仮の番は作った順の中の位置なので、固める前に消すと後ろの仮のカードが詰まる。
+//   仮の位置を覚えて戻すと、そのあと詰まって固まった別のカードの真上に戻ってしまうため。描いていないカードは before（前に覚えた位置）を使う
+export function removeAt(ids: readonly string[], faces: readonly { id: string; x: number; y: number; saved: boolean }[], layout: BoardLayout, before: Readonly<Record<string, Pt>> = {}): Record<string, Pt> {
+  const byId = new Map(faces.map((f) => [f.id, f]));
+  const out: Record<string, Pt> = {};
+  for (const id of ids) {
+    const f = byId.get(id);
+    const p = f ? (layout === 'hex' && !f.saved ? undefined : f) : before[id];
+    if (p) out[id] = { x: p.x, y: p.y };
+  }
+  return out;
+}

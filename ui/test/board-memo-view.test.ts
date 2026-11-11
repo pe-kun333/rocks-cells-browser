@@ -241,7 +241,7 @@ describe('下の面（memo-pane.ts）の配線', () => {
     expect(pane).not.toContain('get: () => (view ? { memoId: view.id');
   });
   it('ボードから開く小窓（型にする・空欄・保存・数の表示）は、下の区画の view.replies を直接読まない（tplSource を通す）', () => {
-    for (const name of ['openTplDialog', 'saveTplDialog', 'refreshTplPreview', 'submitTplFill']) {
+    for (const name of ['openTplDialog', 'saveTplDialog', 'saveTplFromBoard', 'refreshTplPreview', 'submitTplFill']) {
       const body = fn(name);
       expect(body, name).toContain('tplSource(');
       expect(body, name).not.toContain('view.replies');

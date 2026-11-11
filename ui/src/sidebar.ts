@@ -714,7 +714,7 @@ export class Sidebar {
     name.className = 'sheet-name';
     name.textContent = sheet.name;
     this.sheetButton.replaceChildren(swatch, name, document.createTextNode(' ▾'));
-    this.sheetButton.title = tr('シート「{0}」（押すと、シートの一覧とタブの見え方）', { 0: sheet.name });
+    this.sheetButton.title = tr('シート「{0}」（押すと、シートの一覧。タブの見え方などは ⋯ から）', { 0: sheet.name });
     this.sheetButton.setAttribute('aria-label', this.sheetButton.title);
   }
 

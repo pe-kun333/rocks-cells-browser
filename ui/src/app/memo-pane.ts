@@ -19,7 +19,7 @@ import { linkedClosure, linkTravel, rangeIds, type SendMode, sendWarning } from 
 import { ASK_LIMITS, ASK_NOTE, buildTemplateRequest, type MaterialPick, pickMaterials, pickNames } from '../memo-card-template-ask';
 import { fillFailText, fillPlanText, findFailText, findFillTemplate, isFillText, parseFillText, planFill } from '../memo-card-template-fill';
 import { buildExport, exportFileName as templateExportName, exportFitsImportLimit, importFailText, type ImportParse, importSummaryText, mergeImported, parseImportText, skipReasonText } from '../memo-card-template-io';
-import { deleteStoredTemplate, describeTemplateReport, importStoredTemplates, loadTemplates, pasteBlocked, renameStoredTemplate, restoreSampleTemplates, saveNewTemplate, TEMPLATE_EMPTY_HINT, TEMPLATE_UNTITLED, templateNameTaken, type TemplateIo, templateMenuGroups, templateMenuLabel, templateModeNote, templatePickState, templateSaveMessage } from '../memo-card-template-store';
+import { deleteStoredTemplate, describeTemplateReport, importStoredTemplates, loadTemplates, pasteBlocked, renameStoredTemplate, restoreSampleTemplates, saveNewTemplate, TEMPLATE_EMPTY_HINT, TEMPLATE_UNTITLED, templateAutoName, templateBuildMessage, templateNameTaken, type TemplateIo, templateMenuGroups, templateMenuLabel, templateModeNote, templatePickState, templateSaveMessage } from '../memo-card-template-store';
 import { dragNote, dropAction, ghostSlots, ghostSummary, isPaletteKey, keepSelection, moveSelection, paletteMeta, paletteOrder, searchTemplates, thumbLayout } from '../memo-card-template-palette';
 import { buildTemplateFromCards, type CardTemplate, cleanTemplateName, extractHoles, fillTemplate, MODE_LABELS, TEMPLATE_FOLDERS, TEMPLATE_LIMITS, TEMPLATE_MODES, type TemplateFolder, type TemplateMode } from '../memo-card-templates';
 import { CardDrag } from '../memo-card-drag';
@@ -62,9 +62,12 @@ import type { ReaderAiKind, ReaderNow, ReplyAt } from '../reader-links';
 import { timeOrder } from '../reader-time-order';
 import { addedCardPlaceText, CARD_COLUMNS, countUnder, createdTops, hasSlotGaps, MAX_REPLIES, MAX_REPLY_TEXT, nextRowAddPlan, orderedTops, parseQuote, pathTo, type PendingReply, quoteFragmentUrl, quoteSourceLabel, REPLY_FOLD, type Reply, type ReplyQuote, topSlots, withPlacedTop } from '../threads';
 import { el } from '../util';
+import { attachZoom, type ZoomControl, type ZoomLevel } from '../reader/capture-zoom';
+import { AltTap } from '../alt-tap';
 import { IMPORT_FILE_BYTES, IMPORT_FILE_LABEL } from '../import-limits';
 import { boardSnapshot, templateSource } from '../memo-board-source';
-import { boardMemoInfo, noticeTarget, skipLowerSentBar } from '../memo-board-pick';
+import { boardCarryMemo, boardMemoInfo, carryLabel, noticeTarget, sentFromLower, skipLowerSentBar } from '../memo-board-pick';
+import { photoBatch, photoSkipNote } from '../memo-board-photo';
 
 const SAVE_MS = 500;
 const ARROW_SCROLL_STEP = 60; // 書く欄が空のときの ↑↓ で、カードの区画を一度に流す量（px）
@@ -75,6 +78,43 @@ function readNextRow(): boolean {
     return localStorage.getItem(NEXT_ROW_KEY) === '1';
   } catch {
     return false;
+  }
+}
+
+const TOOLS_FOLDED_KEY = 'honeycomb.memoToolsFolded'; // 下のボタンの行を畳んでいるか（CB11）
+
+function readToolsFolded(): boolean {
+  try {
+    return localStorage.getItem(TOOLS_FOLDED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeToolsFolded(on: boolean) {
+  try {
+    localStorage.setItem(TOOLS_FOLDED_KEY, on ? '1' : '0');
+  } catch {
+    // 覚えられなくても、今開いている区画では畳んだまま
+  }
+}
+
+const CARDS_COMPACT_KEY = 'honeycomb.memoCardsCompact'; // カードを整頓しているか（CC1）
+const COMPACT_BODY_MIN = 40; // 整頓中のメモ本文の欄の下限（字 14px×1.7＋上下の余白 16px）
+
+function readCardsCompact(): boolean {
+  try {
+    return localStorage.getItem(CARDS_COMPACT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeCardsCompact(on: boolean) {
+  try {
+    localStorage.setItem(CARDS_COMPACT_KEY, on ? '1' : '0');
+  } catch {
+    // 覚えられなくても、今開いている区画では入れたまま
   }
 }
 
@@ -159,14 +199,14 @@ export function startMemoPane() {
   tplMenu.hidden = true;
   tplMenu.setAttribute('role', 'menu');
   tplPasteWrap.append(tplPasteBtn, tplMenu);
-  const menuWrap = el('span', 'memo-pane-menu-wrap');
+  const menuWrap = el('span', 'memo-pane-menu-wrap memo-pane-burger');
   const menuBtn = el('button', 'memo-pane-tool', '☰');
   menuBtn.type = 'button';
   menuBtn.title = tr('一覧と、上のページのリンク');
   menuBtn.setAttribute('aria-haspopup', 'menu');
   menuBtn.setAttribute('aria-expanded', 'false');
   menuBtn.setAttribute('aria-label', '一覧と、上のページのリンク');
-  const menu = el('div', 'memo-pane-menu');
+  const menu = el('div', 'memo-pane-menu memo-pane-burger-menu');
   menu.hidden = true;
   menu.setAttribute('role', 'menu');
   const listItem = el('button', 'memo-pane-menu-item', tr('一覧を出す'));
@@ -176,7 +216,33 @@ export function startMemoPane() {
   linkItem.type = 'button';
   linkItem.setAttribute('role', 'menuitem');
   linkItem.title = tr('今の上のページを、リンクのカードにします（文は空）');
-  menu.append(listItem, linkItem);
+  const foldItem = el('button', 'memo-pane-menu-item', tr('道具を畳む'));
+  foldItem.type = 'button';
+  foldItem.setAttribute('role', 'menuitem');
+  // カードを整頓（CC1）。入れている間は ✓
+  const compactItem = el('button', 'memo-pane-menu-item', tr('カードを整頓'));
+  compactItem.type = 'button';
+  compactItem.setAttribute('role', 'menuitemcheckbox');
+  compactItem.title = tr('道具とタグの行をしまって、カードの面を広くします（カードは動かしません）');
+  // 畳んでいる間だけ出す、ボタンの行と同じ 8 つの動き（CB11。隠したボタンを押す。型を貼るは型の窓）
+  const toolItem = (label: string, source: HTMLButtonElement) => {
+    const item = el('button', 'memo-pane-menu-item', label);
+    item.type = 'button';
+    item.setAttribute('role', 'menuitem');
+    item.hidden = true;
+    return { item, source };
+  };
+  const toolItems = [
+    toolItem(gotoBtn.textContent ?? '', gotoBtn),
+    toolItem(quoteBtn.textContent ?? '', quoteBtn),
+    toolItem(shotBtn.textContent ?? '', shotBtn),
+    toolItem(pageBtn.textContent ?? '', pageBtn),
+    toolItem(pickBtn.textContent ?? '', pickBtn),
+    toolItem(copyBtn.textContent ?? '', copyBtn),
+    toolItem(newBtn.textContent ?? '', newBtn),
+    toolItem(tr('型を貼る…'), tplPasteBtn),
+  ];
+  menu.append(foldItem, compactItem, listItem, linkItem, ...toolItems.map((t) => t.item));
   menuWrap.append(menuBtn, menu);
   tools.append(gotoBtn, quoteBtn, shotBtn, pageBtn, pickBtn, copyBtn, newBtn, tplPasteWrap, menuWrap, fileInput);
   band.append(bandRow, tools);
@@ -316,6 +382,7 @@ export function startMemoPane() {
   const countline = el('div', 'memo-pane-countline');
   countline.append(countText, countTools);
   const scroll = el('div', 'memo-pane-scroll');
+  scroll.tabIndex = -1; // クリックで区画を選べるように（Tab では止まらない）。選んでいるときの Enter で下の書く欄へ
   const by = el('div', 'memo-pane-by');
   const body = el('textarea', 'memo-pane-body');
   body.rows = 3;
@@ -325,11 +392,10 @@ export function startMemoPane() {
   filterBox.hidden = true;
   const cards = el('div', 'memo-pane-cards');
   const compose = el('form', 'memo-pane-compose');
-  const composeLabel = el('div', 'memo-pane-compose-label', tr('＋コメント'));
   const comment = el('textarea');
-  comment.rows = 2;
-  comment.placeholder = tr('コメントを書く（Ctrl+Enter で足す・Shift+Enter で次の行に足す）');
-  comment.setAttribute('aria-label', 'コメントを書く');
+  comment.rows = 1; // 1 行から、字に合わせて 120px まで伸びる（CB9。焦点では形を変えない）
+  comment.placeholder = 'コメントを書く';
+  comment.setAttribute('aria-label', tr('コメントを書く'));
   const composeRow = el('div', 'memo-pane-compose-row');
   const meter = el('span', 'memo-pane-meter', `0 / ${REPLY_FOLD}`);
   const hint = el('span', 'memo-pane-longhint', tr('長め：カードでは 280字まで見せて、続きは開きます'));
@@ -343,6 +409,26 @@ export function startMemoPane() {
   const nextRowText = el('span', '', tr('次の行に'));
   nextRowLabel.append(nextRowCheck, nextRowText);
   nextRowCheck.addEventListener('change', () => writeNextRow(nextRowCheck.checked));
+  // つなぐ ▾（CC4）：足すと同時に、直前のカードから新しいカードへ線を引く（Ctrl+Enter・Shift+Enter・足す のどれでも）。
+  //   区画を開いている間だけ覚える（Undo の無い下の区画で、翌日の最初の 1 枚に黙って線が付かないように）。項目の字は呼称セットの名前（paintLinkNext）
+  const linkLabel = el('label', 'memo-pane-compose-link');
+  const linkSelect = el('select');
+  linkSelect.setAttribute('aria-label', tr('つなぐ：足すカードへ、直前のカードから線を引く'));
+  linkSelect.title = tr('種類を選んでいるあいだ、足すカードへ直前のカードからこの種類の線を引きます（前のカード → 新しいカード）');
+  const linkNone = el('option'); // 選ばないときは空欄（利用者の希望。読み上げだけ「つながない」）
+  linkNone.value = '';
+  linkNone.setAttribute('aria-label', tr('つながない'));
+  linkSelect.append(
+    linkNone,
+    ...LINK_KINDS.map((k) => {
+      const option = el('option');
+      option.value = k.kind;
+      return option;
+    }),
+  );
+  linkLabel.append(el('span', '', tr('つなぐ')), linkSelect);
+  const linkFromText = el('span', 'memo-pane-compose-link-from');
+  linkFromText.hidden = true;
   // 読む画面の今のマスと結ぶ（V2b・D24）：読む画面が動画を開いているときだけ出す。既定はオフ（覚えない）
   const atLabel = el('label', 'memo-pane-compose-at');
   const atCheck = el('input');
@@ -350,8 +436,8 @@ export function startMemoPane() {
   const atText = el('span', '', '');
   atLabel.append(atCheck, atText);
   atLabel.hidden = true;
-  composeRow.append(atLabel, meter, hint, nextRowLabel, sendBtn);
-  compose.append(composeLabel, comment, composeRow);
+  composeRow.append(atLabel, meter, hint, nextRowLabel, linkLabel, linkFromText, sendBtn);
+  compose.append(comment, composeRow);
   // カードの並びと関連線の層の包み（L3）。線の層は並びの前に置き、関連があるときはカードを position: relative にして、DOM の順で線の上に重ねる
   //   （isolation で重なりの文脈を作ると、カードの中の「＋タグ」の候補の欄が「＋コメント」の欄より下になるため使わない）
   const cardsWrap = el('div', 'memo-pane-cards-wrap');
@@ -406,7 +492,31 @@ export function startMemoPane() {
   lightClose.type = 'button';
   lightClose.title = tr('画像を閉じる');
   lightClose.setAttribute('aria-label', '大きく見た画像を閉じる');
-  light.append(lightImg, lightClose);
+  // 入れ物（CC5）：stage が流す面、frame が画像の枠。倍率の段は frame の data-zoom で替える（CC6）
+  const lightStage = el('div', 'memo-pane-light-stage');
+  const lightFrame = el('div', 'memo-pane-light-frame');
+  lightFrame.dataset.zoom = 'fit';
+  lightFrame.append(lightImg);
+  lightStage.append(lightFrame);
+  // 状態の文の写し（幕が帯の下の文を隠すので、足した場所や断りの文をここで読む）
+  const lightStatus = el('div', 'memo-pane-light-status');
+  // 倍率の段（CC6）。押した段に aria-pressed。Ctrl＋ホイールでも替わる（attachZoom）
+  const lightZoomBox = el('div', 'memo-pane-light-zoom');
+  lightZoomBox.setAttribute('role', 'group');
+  lightZoomBox.setAttribute('aria-label', tr('画像の倍率'));
+  const lightZoomSteps: readonly { level: ZoomLevel; label: string }[] = [
+    { level: 'fit', label: tr('合わせる') },
+    { level: 1, label: '100%' },
+    { level: 2, label: '200%' },
+  ];
+  const lightZoomButtons = lightZoomSteps.map(({ level, label }) => {
+    const button = el('button', '', label);
+    button.type = 'button';
+    button.addEventListener('click', () => lightZoom?.set(level));
+    return { level, button };
+  });
+  lightZoomBox.append(...lightZoomButtons.map((b) => b.button));
+  light.append(lightStage, lightStatus, lightZoomBox, lightClose);
   // 段 D7：カードとセルの顔の画像を書き足す面。小窓とは別の文。やめるまではファイルも台帳も変えない
   const annotate = new BotImageEdit(readImageHints, cardImageEditLabels);
   const annotateLayer = el('div', 'memo-pane-annotate');
@@ -785,6 +895,9 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
   let view: MemoPaneView | null = null;
   // ボードが見るメモの写し（左の memoBoardView。選んでいる間だけ届く。plan-board-memo-switch の M2）。null＝選んでいない＝ボードは下の区画の view を見る（今までどおり）
   let boardSentAt: number | null = null; // ボードが最後に型の貼り付け（sendReplies）を送った時刻（M3）
+  let lowerSentAt: number | null = null; // 下の区画が最後にカードを送った時刻（CB8。届いた印の送り手を見分ける）
+  let toolsFolded = readToolsFolded(); // 下のボタンの行を畳んでいるか（CB11）
+  let cardsCompact = readCardsCompact(); // カードを整頓しているか（CC1）
   let boardMemoView: MemoPaneView | null = null;
   const imageMenu = new CellMenu(); // カードの画像の右クリック（menu は ☰ のメニュー）
   const linkMenu = new CellMenu(); // 関連の小さな欄（種類を選ぶ・この関連を外す）
@@ -942,11 +1055,13 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
   let atPin: ReaderNow | null = null; // 「＋コメント」で結ぶマス（結ぶ欄に印があり、書き始めたときの今のマス。足したら外す）
   let selectedCard: string | null = null; // 「選んだカード」の線だけを出すときのカード（押した・焦点の入ったカード）
   let autoSelected = false; // 線路が足りなくて、自動で「選んだカード」にした
+  let toolsCard: string | null = null; // 整頓中に道具を出しているカード（左クリックで決まる。「選んだカード」と違い、カードの外を押すと消える）
   let keepAll = false; // 手で「すべて」を選んだ（線路が足りなくても、自動で「選んだカード」に替えない。メモを替えると戻す）
   let linkFrame = 0; // 線を描き直す 1 コマの予約
   let linkShape = ''; // 前に描いた形の印（カードの位置・線・見せ方。同じなら描き直さない）
   let linkRowGap = ROW_GAP_MIN; // 今の横の隙間（関連があるとき。線路の数で 24〜48）
   let lightReply: string | null = null; // 大きく見ている画像のカードの返信 id
+  let lightZoom: ZoomControl | null = null; // 拡大の倍率（開くたびに付け直し、閉じるとき外す。CC6）
   let lastSent = '';
   let typedAt = 0;
   let saveTimer = 0;
@@ -962,6 +1077,7 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
   const openBodies = new Set<string>(); // 280字を開いたカード
   const openQuotes = new Set<string>(); // 引用の文を開いたカード
   const armed = new Set<string>(); // 消すボタンを1回押したカード
+  const tagRowOpen = new Set<string>(); // 整頓中に ⋯「タグを付ける…」で出したタグの行（CC2。次に写しが来て描き直すときに外す）
   const moreMenu = new CellMenu(); // カードの「⋯」の小さな欄（書き出す・画像を開く・フォルダで見る・コピー）
   const pending: PendingReply[] = [];
   const shotUrls = new Map<string, string>();
@@ -1090,15 +1206,24 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       edit: (ref, replyId, text) => ask({ command: 'editReply', ref, replyId, text }),
     },
     pending,
+    keepReplyForm: true, // 下の一覧は返信を続けて書ける（答え 5）
     refresh: () => {
       if (view) renderCards(view);
     },
   };
 
+  // ＋コメントの欄の高さ。CSS の field-sizing が効かない版のときだけ、本文と同じように測る（CB9）
+  function fitComment() {
+    if (commentSizesItself) return;
+    comment.style.height = 'auto';
+    comment.style.height = `${Math.min(120, comment.scrollHeight + 2)}px`;
+  }
+
   function fit() {
     body.style.height = 'auto';
     const line = 22;
-    const next = Math.max(line * 3, Math.min(line * 8, body.scrollHeight));
+    const floor = cardsCompact ? COMPACT_BODY_MIN : line * 3;
+    const next = Math.max(floor, Math.min(line * 8, body.scrollHeight));
     body.style.height = `${next}px`;
   }
 
@@ -1125,6 +1250,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   function paintMeter() {
     const n = [...comment.value].length;
     meter.textContent = `${n} / ${REPLY_FOLD}`;
+    meter.hidden = n === 0; // 字があるときだけ
+    fitComment();
     meter.classList.toggle('long', n > REPLY_FOLD);
     hint.hidden = n <= REPLY_FOLD;
     const full = (view?.replies.length ?? 0) >= MAX_REPLIES;
@@ -1214,6 +1341,22 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     window.setTimeout(() => {
       if (cardsDirty && view && !typingTag()) renderCards(view);
     }, 0);
+  }
+
+  // 整頓中のカードのタグの行を出して、「＋タグ」の欄を開く（CC2）
+  function openTagRow(id: string) {
+    tagRowOpen.add(id);
+    if (view) renderCards(view);
+    cards.querySelector<HTMLElement>(`[data-focus-key="${CSS.escape(`card:${id}:tagadd`)}"]`)?.click();
+  }
+
+  // ⋯ から出したタグの行の欄を閉じたあと。キーで閉じると焦点は「＋タグ」に来るが、行は次の写しで消えるので ⋯ へ移す（CC2）
+  function afterTagRow(id: string) {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active.dataset.focusKey === `card:${id}:tagadd`) {
+      cards.querySelector<HTMLElement>(`[data-focus-key="${CSS.escape(`card:${id}:more`)}"]`)?.focus({ preventScroll: true });
+    }
+    afterTagInput();
   }
 
   // 描き直す前に、フォーカスのある印つきの要素（× や「＋タグ」・札）の印を覚え、描き直したあとに戻す
@@ -1406,10 +1549,39 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     nextRowLabel.classList.toggle('is-disabled', !on);
   }
 
+  // つなぐの線の元（CC4）：写しの時点でいちばん新しく作った一番上のカード（左が照らし直す）。
+  //   拡大で写真のカードを見ている間は、そのカード（CC5。閉じると直前のカードに戻る）
+  function linkSource(): { reply: Reply; photo: boolean } | null {
+    if (!view) return null;
+    const seen = light.hidden ? undefined : view.replies.find((r) => r.id === lightReply && r.parent === null);
+    if (seen) return { reply: seen, photo: true };
+    const reply = createdTops(view.replies).at(-1);
+    return reply ? { reply, photo: false } : null;
+  }
+
+  // つなぐの項目の字（呼称セットの名前）・印の枠・「← 〈元のカードの頭〉」を当て直す
+  function paintLinkNext() {
+    for (const option of linkSelect.options) {
+      if (option.value) option.textContent = linkKindInfo(option.value as LinkKind).name;
+    }
+    const on = linkSelect.value !== '';
+    linkSelect.classList.toggle('is-on', on);
+    linkFromText.hidden = !on;
+    const source = on ? linkSource() : null;
+    const label = on ? (source ? `← ${cardLabel(source.reply, 10)}` : tr('（最初のカード）')) : '';
+    linkFromText.textContent = label;
+    linkFromText.title = source ? tr('線の元：{0}', { 0: cardLabel(source.reply, 40) }) : '';
+  }
+
   // 状態の行と読み上げの欄に同じ文を出す（読み上げは、同じ文が続いても読むよう、一度空にしてから入れる）
   function say(text: string) {
     saidAt = Date.now();
     status.textContent = text;
+    speak(text);
+  }
+
+  // 読み上げの欄にだけ出す（同じ文が続いても読むよう、一度空にしてから入れる）
+  function speak(text: string) {
     announcer.textContent = '';
     window.clearTimeout(sayTimer);
     sayTimer = window.setTimeout(() => (announcer.textContent = text), 50);
@@ -1799,6 +1971,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     boardListeners.forEach((fn) => fn()); // ボードが別のメモを見ているときの呼び名も、呼称セットの変更で替わる（M4）
     const before = shownLinkNamesKey();
     applyCurrentLinkNames();
+    paintLinkNext();
     if (!view || shownLinkNamesKey() === before) return;
     renderCards(view, undefined, true);
   }
@@ -2163,7 +2336,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (filterTag && top && !(top.tags ?? []).includes(filterTag)) {
       filterTag = null;
       keepShown.clear();
-      status.textContent = tr('タグの絞りを外しました（検索から移ったため）');
+      status.textContent = tr('タグの絞りを外しました（カードへ移ったため）');
     }
     if (top) openBodies.add(top.id); // 一番上のカードの 280 字の折りたたみを開く
     revealReply(refOf(current.id), current.replies, id);
@@ -2192,15 +2365,43 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   }
 
   function openLight(src: string, replyId: string) {
+    lightZoom?.dispose();
+    lightZoom = attachZoom({ img: lightImg, stage: lightStage, frame: lightFrame, onChange: paintLightZoom }); // 付けたときは「合わせる」
+    paintLightZoom('fit');
     lightImg.src = src;
     lightReply = replyId;
     light.hidden = false;
+    lightStatus.textContent = status.textContent ?? '';
+    placeLight();
+    paintLinkNext(); // 線の元が写真のカードに替わる
   }
 
   function closeLight() {
+    lightZoom?.dispose();
+    lightZoom = null;
     light.hidden = true;
     lightReply = null;
     lightImg.removeAttribute('src');
+    lightImg.style.removeProperty('width'); // 倍率で入れた幅を残さない
+    lightFrame.dataset.zoom = 'fit';
+    paintLinkNext(); // 線の元が直前のカードに戻る
+  }
+
+  // 押した段の印
+  function paintLightZoom(level: ZoomLevel) {
+    for (const { level: own, button } of lightZoomButtons) button.setAttribute('aria-pressed', String(own === level));
+  }
+
+  // 幕の下端を、書く欄の上に合わせる（CC5）。flowFrame から測る（上にボードを出した形でも合う）。
+  //   マップを開いている・書く欄が見えていないときは全面（書く欄が幕の外に出ないため）
+  function placeLight() {
+    if (light.hidden) return;
+    if (cardMap.isOpen || compose.getClientRects().length === 0) {
+      root.style.removeProperty('--memo-compose-top');
+      return;
+    }
+    const top = compose.getBoundingClientRect().top - flowFrame().getBoundingClientRect().top;
+    root.style.setProperty('--memo-compose-top', `${Math.round(top)}px`);
   }
 
   // カードの画像の右クリック（I4）：右の「撮影」に送って大きく開く。左がカードを確かめてから右へ回す
@@ -2626,8 +2827,52 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
 
   function openMenu() {
     closeTplMenu();
+    for (const t of toolItems) {
+      t.item.disabled = t.source.disabled;
+      t.item.title = t.source.title;
+    }
     menu.hidden = false;
     menuBtn.setAttribute('aria-expanded', 'true');
+    // 区画の下端で切れないように（一覧の窓と同じ式。低い区画ではスクロール）
+    const room = flowFrame().getBoundingClientRect().bottom - menuBtn.getBoundingClientRect().bottom - 8;
+    menu.style.maxHeight = `${Math.max(80, Math.round(room))}px`;
+  }
+
+  // ボタンの行を畳む（CB11）。畳むのは class と CSS（hidden は applyChrome が書き戻す）。tools ごと 1 行目へ移すので、タブを替えると ☰ も一緒に隠れる
+  function paintToolsFold() {
+    band.classList.toggle('is-tools-folded', toolsFolded);
+    if (toolsFolded) bandRow.insertBefore(tools, close);
+    else if (tools.parentElement !== band) band.append(tools);
+    menuBtn.textContent = toolsFolded ? tr('☰ 道具') : '☰';
+    const label = toolsFolded ? tr('道具・一覧・上のページのリンク') : tr('一覧と、上のページのリンク');
+    menuBtn.title = label;
+    menuBtn.setAttribute('aria-label', label);
+    foldItem.textContent = toolsFolded ? tr('道具を出す') : tr('道具を畳む');
+    for (const t of toolItems) t.item.hidden = !toolsFolded;
+  }
+
+  // カードを整頓（CC1）。切り替えるのは class と、本文の欄の行数、状態の文の置き場。カードの字は描き直しで変わる
+  function paintCardsCompact() {
+    cards.classList.toggle('is-compact', cardsCompact);
+    countline.classList.toggle('is-compact', cardsCompact);
+    compactItem.setAttribute('aria-checked', cardsCompact ? 'true' : 'false');
+    compactItem.textContent = cardsCompact ? tr('✓ カードを整頓') : tr('カードを整頓');
+    body.rows = cardsCompact ? 1 : 3;
+    if (cardsCompact) countline.insertBefore(status, countTools);
+    else sentNotice.before(status);
+    syncStatusTitle();
+    fit();
+    if (!linkBar.hidden) placeLinkBar();
+  }
+
+  // 整頓中は状態の文が切れることがあるので、title に全文を写す
+  function syncStatusTitle() {
+    status.title = cardsCompact ? (status.textContent ?? '') : '';
+  }
+
+  // ダイアログを閉じたあとの焦点の戻り先。型を貼るのボタンが隠れているときは ☰
+  function toolFocusTarget(): HTMLButtonElement {
+    return toolsFolded ? menuBtn : tplPasteBtn;
   }
 
   function closeTplMenu() {
@@ -2669,7 +2914,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         item.title = tr('「{0}」を、このメモの最後に貼ります', { 0: t.name });
         item.addEventListener('click', () => {
           closeTplMenu();
-          tplPasteBtn.focus();
+          toolFocusTarget().focus();
           pasteTemplate(t);
         });
         nodes.push(item);
@@ -2753,7 +2998,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     fillTpl = null;
     fillFromBoard = null;
     fillInputs = [];
-    if (returnFocus && inside && !boardOpened) tplPasteBtn.focus();
+    if (returnFocus && inside && !boardOpened) toolFocusTarget().focus();
   }
 
   // 空欄を埋めて貼る：入りきらなければ小窓を開けたまま理由を出す。貼れるなら 1c と同じ道（sendReplies の copy ＋ 元に戻す）で貼る
@@ -2771,7 +3016,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     }
     const board = fillFromBoard; // 閉じると消えるので、先に取っておく
     closeTplFill(false);
-    if (!board) tplPasteBtn.focus();
+    if (!board) toolFocusTarget().focus();
     const notes: string[] = [];
     if (done.empty > 0) notes.push(tr('空欄 {0} 個は {{…}} のまま貼りました', { 0: done.empty }));
     if (done.truncated > 0) notes.push(tr('{0} 字を超えた {1} 枚は、切って貼りました', { 0: MAX_REPLY_TEXT, 1: done.truncated }));
@@ -3219,7 +3464,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const inside = tplImport.contains(document.activeElement);
     tplImport.hidden = true;
     importIncoming = [];
-    if (returnFocus && inside) (tplPalette.hidden ? tplPasteBtn : tplPalImport).focus();
+    if (returnFocus && inside) (tplPalette.hidden ? toolFocusTarget() : tplPalImport).focus();
   }
 
   // ---------- Grok Bot に型の下書きを頼む（Phase 5c）：文面の組み立ては memo-card-template-ask.ts（純粋な部分） ----------
@@ -3296,7 +3541,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     const inside = tplAsk.contains(document.activeElement);
     askPurposeKeep = tplAskPurpose.value;
     tplAsk.hidden = true;
-    if (returnFocus && inside) (tplPalette.hidden ? tplPasteBtn : tplPalAsk).focus();
+    if (returnFocus && inside) (tplPalette.hidden ? toolFocusTarget() : tplPalAsk).focus();
   }
 
   // 「コピーする」：見えている文をそのままクリップボードへ（型の保存・台帳は変えない）。書けなければ小窓を開けたまま理由を出す
@@ -3421,7 +3666,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     ghostTpl = null;
     palSel = null;
     paintGhost();
-    if (returnFocus && inside) tplPasteBtn.focus();
+    if (returnFocus && inside) toolFocusTarget().focus();
   }
 
   // 窓から貼る：入りきらないときは窓を開けたまま理由を出す。貼れるなら、窓を閉じて 1c と同じ道（sendReplies の copy ＋ 元に戻す）で貼る
@@ -3434,7 +3679,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       return;
     }
     closeTplPalette(false);
-    tplPasteBtn.focus();
+    toolFocusTarget().focus();
     pasteTemplate(t);
   }
 
@@ -3593,6 +3838,19 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (sendPick) {
       const verb = sendPick.mode === 'move' ? tr('移す') : tr('写す');
       listBody.append(el('div', 'memo-pane-list-empty', tr('{0}枚を{1}先', { 0: sendPick.ids.length, 1: verb })));
+      const carry = carryTarget();
+      if (carry) {
+        for (const mode of ['copy', 'move'] as const) {
+          const up = el('button', 'memo-pane-list-item memo-pane-list-carry', carryLabel(carry.title, mode));
+          up.type = 'button';
+          up.dataset.focusKey = `listitem:carry-${mode}`;
+          up.addEventListener('click', () => {
+            if (ignoreListClick || !sendPick) return;
+            queueSend(mode, sendPick.ids, carry.id);
+          });
+          listBody.append(up);
+        }
+      }
       const neu = el('button', 'memo-pane-list-item memo-pane-list-new', tr('＋ 新しいメモにする'));
       neu.type = 'button';
       neu.dataset.memoId = 'new';
@@ -3742,6 +4000,27 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     openListWindow();
   }
 
+  // 上のボードへ運べるなら、そのメモ（CB8）
+  function carryTarget() {
+    return boardCarryMemo(boardMemoInfo(boardMemoView, view), grokCardsUi.boardUpperShown());
+  }
+
+  // ⋯ の項目：「別のメモへ移す…」の直前に、写す・移すの順（押したときに組む。⋯ の先頭には置かない）
+  function withCarry(entries: readonly MenuEntry[], reply: Reply): MenuEntry[] {
+    const carry = reply.parent === null ? carryTarget() : null;
+    if (!carry) return [...entries];
+    const editing = cardEdits.has(reply.id);
+    const at = entries.findIndex((entry) => typeof entry === 'object' && 'label' in entry && entry.label === tr('別のメモへ移す…'));
+    const out = [...entries];
+    out.splice(
+      at < 0 ? out.length : at,
+      0,
+      { label: carryLabel(carry.title, 'copy'), hint: editing ? tr('書き直しの途中') : tr('元のカードは残る'), disabled: editing, run: () => queueSend('copy', [reply.id], carry.id) },
+      { label: carryLabel(carry.title, 'move'), hint: editing ? tr('書き直しの途中') : tr('このカードと返信'), disabled: editing, run: () => queueSend('move', [reply.id], carry.id) },
+    );
+    return out;
+  }
+
   function chooseSendTarget(to: string | null) {
     if (!sendPick) return;
     queueSend(sendPick.mode, sendPick.ids, to);
@@ -3782,13 +4061,14 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     sendPick = null;
     closeListWindow(false);
     stopPicking();
+    lowerSentAt = Date.now();
     ask({ command: 'sendReplies', from, replyIds: [...ids], to, mode });
   }
 
   function sendConfirmBox(confirm: { to: string | null; cut: number; kept: number; ids: string[] }) {
     const mode = sendPick?.mode ?? 'move';
     const box = el('div', 'memo-pane-send-confirm');
-    const where = confirm.to === null ? tr('新しいメモ') : ([...sheetItems, ...recentItems].find((item) => item.id === confirm.to)?.title ?? tr('送り先'));
+    const where = confirm.to === null ? tr('新しいメモ') : ([...sheetItems, ...recentItems].find((item) => item.id === confirm.to)?.title ?? (confirm.to === boardMemoView?.id ? boardMemoInfo(boardMemoView, view)?.shownTitle : undefined) ?? tr('送り先'));
     box.append(el('p', 'memo-pane-send-confirm-where', tr('「{0}」へ', { 0: where })));
     box.append(el('p', '', sendWarning(mode, confirm.cut, confirm.kept) ?? ''));
     const verb = mode === 'move' ? tr('移す') : tr('写す');
@@ -3832,7 +4112,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
 
   function showSent(text: string, openId: string, token: string) {
     sentOffer = { openId, token };
-    sentOpen.hidden = view?.id === openId; // 今開いているメモへ貼った（型）ときは、「送り先を開く」は要らない
+    sentOpen.hidden = view?.id === openId || boardMemoView?.id === openId; // 今開いているメモへ貼った（型）ときは、「送り先を開く」は要らない。上のボードで見えているメモも同じ（下を替えると見比べの形が崩れる）
     sentText.textContent = text;
     const note = pendingCutNote;
     pendingCutNote = null;
@@ -4005,6 +4285,32 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (returnFocus && inside && !pickBar.hidden) pickTemplate.focus();
   }
 
+  // ボードの右クリックの「型にする」（TA3）：小窓を出さずに登録する。元になるカードは、ボードが見ているメモ（tplSource）。
+  //   名前は元の文の 1 行目（空なら「無題の型」）。同じ名前には番号を付ける。フォルダは「その他」。保存の間の 2 回目は受けない。
+  //   結果の一言は、ボードへだけ返す（下の区画は別のメモを開いていることがあるので、下の状態欄には出さない）
+  async function saveTplFromBoard(ids: string[], offsets: Record<string, { dx: number; dy: number }>, opts: { name: string; mode: 'snapshot' | 'skeleton' }) {
+    if (tplSaving) return;
+    const src = tplSource(true);
+    if (!src) return;
+    const tell = (text: string, ok: boolean) => tplDoneListeners.forEach((fn) => fn(text, ok));
+    const built = buildTemplateFromCards(src.replies, ids, { name: templateAutoName(opts.name), folder: 'その他', mode: opts.mode, offsets });
+    if (!built.ok) {
+      tell(templateBuildMessage(built.why), false);
+      return;
+    }
+    tplSaving = true;
+    const saved = await saveNewTemplate(templateIo, built.template, { uniqueName: true }).catch(() => ({ ok: false as const, why: 'write' as const }));
+    tplSaving = false;
+    if (!saved.ok) {
+      tell(templateSaveMessage(saved.why), false);
+      return;
+    }
+    const name = saved.templates[saved.templates.length - 1]?.name ?? built.template.name;
+    const { children, images, quotes } = built.report.skipped;
+    const left = children + images + quotes + (built.report.skipped.spans ?? 0) > 0 ? `。${describeTemplateReport(built.report).excluded}` : ''; // 含めなかった物があるときだけ付ける
+    tell(tr('型「{0}」を登録しました（{1}件）{2}', { 0: name, 1: saved.count, 2: left }), true);
+  }
+
   async function saveTplDialog() {
     if (tplSaving || tplDialog.hidden) return;
     const fromBoard = tplFromBoard; // 保存の間に小窓が閉じても、どちらから開いたかを覚えておく
@@ -4079,60 +4385,115 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     send({ type: 'revealExported', name });
   }
 
-  async function addImageFile(file: File) {
-    if (!view || busy) return;
+  // 写真の行き先（CB7）：下の区画のメモか、ボードが見ているメモか。一言の出す先と「まだ同じメモか」の確かめが違う
+  function lowerPhotoTarget(): PhotoTarget | null {
+    if (!view) return null;
     const memoId = view.id;
-    if (file.type && !file.type.startsWith('image/')) {
-      status.textContent = tr('画像のファイルを選んでください');
-      return;
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      status.textContent = tr('20MB を超える画像は入れられません');
-      return;
-    }
+    return { memoId, board: false, alive: () => view?.id === memoId, say: (text) => (status.textContent = text), count: () => view?.replies.length ?? 0 };
+  }
+
+  function boardPhotoTarget(): PhotoTarget | null {
+    const shown = boardSnapshot(boardMemoView, view);
+    if (!shown) return null;
+    const memoId = shown.memoId;
+    return {
+      memoId,
+      board: true,
+      alive: () => boardSnapshot(boardMemoView, view)?.memoId === memoId,
+      say: (text) => grokCardsUi.boardSay(text),
+      count: () => boardSnapshot(boardMemoView, view)?.replies.length ?? 0,
+    };
+  }
+
+  async function addImageFile(file: File) {
+    const to = lowerPhotoTarget();
+    if (!to || busy) return;
     setBusy(true);
     try {
-      const src = await readAsDataUrl(file);
-      if (view?.id !== memoId) return;
-      if (!src) {
-        status.textContent = tr('この画像は入れられませんでした（ファイル：読めない）');
-        return;
-      }
-      const png = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
-      const fit = await fitPicture(src, png);
-      if (view?.id !== memoId) return;
-      if ('error' in fit) {
-        status.textContent = tr('この画像は入れられませんでした（{0}）', { 0: FIT_STAGE[fit.error] });
-        return;
-      }
-      await saveShot(memoId, fit.dataUrl);
+      await putImageFile(file, to, false);
     } finally {
       setBusy(false);
     }
   }
 
-  async function saveShot(memoId: string, dataUrl: string, quote?: ReplyQuote) {
-    if (view?.id !== memoId) return;
-    if (!roomForCard()) return;
-    const id = newShotId();
-    const ok = await writeData(`shots/${id}.json`, { version: 1, data: dataUrl });
-    if (view?.id !== memoId) return;
-    if (!ok) {
-      status.textContent = tr('画像を保存できませんでした（保存：ファイルに書けない）');
+  // ボードへ落とした・貼った写真を順に入れる（10 枚まで）。題の欄を開くのは、最後の 1 枚だけ
+  async function addBoardPhotos(files: readonly File[]) {
+    const to = boardPhotoTarget();
+    if (!to) return;
+    if (busy) {
+      to.say(tr('ほかの操作の途中です。少し待ってからもう一度お試しください'));
       return;
     }
+    const { take, skipped } = photoBatch(files);
+    const base = to.count();
+    let sent = 0;
+    setBusy(true);
+    try {
+      for (const [i, file] of take.entries()) {
+        if (!to.alive()) return;
+        if (base + sent >= MAX_REPLIES) {
+          to.say(tr('返信は1つのメモに {0} 件までです', { 0: MAX_REPLIES }));
+          return;
+        }
+        if (await putImageFile(file, to, i === take.length - 1)) sent += 1;
+      }
+      if (skipped > 0) to.say(photoSkipNote(skipped));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 読む → 縮める → 保存して足す。入れられたら true
+  async function putImageFile(file: File, to: PhotoTarget, title: boolean): Promise<boolean> {
+    if (file.type && !file.type.startsWith('image/')) {
+      to.say(tr('画像のファイルを選んでください'));
+      return false;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      to.say(tr('20MB を超える画像は入れられません'));
+      return false;
+    }
+    const src = await readAsDataUrl(file);
+    if (!to.alive()) return false;
+    if (!src) {
+      to.say(tr('この画像は入れられませんでした（ファイル：読めない）'));
+      return false;
+    }
+    const png = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
+    const fit = await fitPicture(src, png);
+    if (!to.alive()) return false;
+    if ('error' in fit) {
+      to.say(tr('この画像は入れられませんでした（{0}）', { 0: FIT_STAGE[fit.error] }));
+      return false;
+    }
+    return saveShot(to.memoId, fit.dataUrl, undefined, to, title);
+  }
+
+  async function saveShot(memoId: string, dataUrl: string, quote?: ReplyQuote, to: PhotoTarget | null = lowerPhotoTarget(), title = false): Promise<boolean> {
+    if (!to || to.memoId !== memoId || !to.alive()) return false;
+    if (!to.board && !roomForCard()) return false; // ボードへの分は addBoardPhotos が数える（下の区画の数ではない）
+    const id = newShotId();
+    const ok = await writeData(`shots/${id}.json`, { version: 1, data: dataUrl });
+    if (!to.alive()) return false;
+    if (!ok) {
+      to.say(tr('画像を保存できませんでした（保存：ファイルに書けない）'));
+      return false;
+    }
     shotUrls.set(id, dataUrl);
-    armNewEdit();
+    if (!to.board) armNewEdit(); // ボードへの写真は、下の一覧の書き直す欄を開かない
+    else if (title) grokCardsUi.armBoardPhotoTitle(id);
     ask({ command: 'addMemoComment', id: memoId, text: '', image: id, ...(quote ? { quote } : {}) });
-    status.textContent = tr('画像を入れました');
+    if (!to.board) status.textContent = tr('画像を入れました'); // ボードは成功を黙る（着いたことは光りと札で分かる）
+    return true;
   }
 
   // 帯は、状態の行と件数の行にちょうど重ねる（区画の中の位置を測って入れる）
   function placeLinkBar() {
     const rootBox = flowFrame().getBoundingClientRect();
-    const statusBox = status.getBoundingClientRect();
-    linkBar.style.top = `${Math.round(statusBox.top - rootBox.top)}px`;
-    linkBar.style.minHeight = `${Math.round(countline.getBoundingClientRect().bottom - statusBox.top)}px`;
+    // 整頓中は状態の文が件数の行の中にある。状態の文が空のときは矩形が取れないので、どちらも件数の行から測る（CC1）
+    const upperBox = (status.parentElement === countline || status.textContent === '' ? countline : status).getBoundingClientRect();
+    linkBar.style.top = `${Math.round(upperBox.top - rootBox.top)}px`;
+    linkBar.style.minHeight = `${Math.round(countline.getBoundingClientRect().bottom - upperBox.top)}px`;
   }
 
   // 関連づけを始める：元のカードを決めて、帯を出す（相手のカードを押すのを待つ）
@@ -4584,6 +4945,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   //   🔗 は使えなくする。⋯ に出す側を足す
   function commentCard(current: MemoPaneView, reply: Reply, mapPop?: PopControl, where: 'map' | 'list' = 'map') {
     const inMap = mapPop !== undefined; // 出したカード（マップ・並びのどちらでも）
+    const compactCard = cardsCompact && !inMap; // 整頓中の並びのカード（CC1・CC2）。出したカードは今のまま
     const scope: ParentNode = mapPop ? mapPop.scope : cards; // 描き直したあとに焦点を当てる欄を探す所
     const origin: RelationOrigin = !mapPop ? 'card' : where === 'list' ? 'list-pop' : 'map-pop';
     const card = el('article', 'memo-pane-card');
@@ -4595,11 +4957,23 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       card.dataset.aiKind = aiKind;
     }
     if (linking?.from === reply.id) card.classList.add('link-from');
+    if (compactCard && toolsCard === reply.id) card.classList.add('tools-open');
     if (pickingCards && !inMap && picked.has(reply.id)) card.classList.add('picked');
     const ref = refOf(current.id);
     const head = el('div', 'memo-pane-card-head');
     const headMain = el('span', 'memo-pane-card-head-main');
-    headMain.append(el('span', '', `${kindMark(reply)} ${reply.by?.name ?? tr('あなた')}`), el('span', '', `· ${dateOf(reply.createdAt)}`));
+    // 整頓中（CC1）：既定の 💬 と名前「あなた」を出さない。❝・🖼・🔗 と、AI や相棒の名前は出す。何も無ければ帯は時刻から始める
+    let whenText = `· ${dateOf(reply.createdAt)}`;
+    if (compactCard) {
+      const mark = kindMark(reply);
+      const who = [mark === '💬' ? '' : mark, reply.by?.name ?? ''].filter((part) => part !== '').join(' ');
+      if (who !== '') headMain.append(el('span', '', who));
+      else whenText = dateOf(reply.createdAt);
+    } else {
+      headMain.append(el('span', '', `${kindMark(reply)} ${reply.by?.name ?? tr('あなた')}`));
+    }
+    const whenSpan = el('span', '', whenText);
+    headMain.append(whenSpan);
     if (aiKind) headMain.append(el('span', 'memo-pane-ai-kind', `· ${AI_KIND_LABEL[aiKind]}`));
     const cost = reply.by?.cost; // 目安の料金（AI のカードでなくても、by.cost があれば出す）
     if (typeof cost === 'number' && Number.isFinite(cost) && cost > 0) headMain.append(el('span', 'memo-pane-ai-cost', tr('· 約 ${0}', { 0: cost.toFixed(3) })));
@@ -4725,14 +5099,18 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       } else head.append(headMain, grip);
       card.append(head);
     }
-    // カードのタグ（グループ＝タグ。左に足し引きを頼む）
-    const tags = tagArea(
-      { tags: reply.tags ?? [], what: tr('このカード'), change: (add, remove) => ask({ command: 'changeReplyTags', id: current.id, replyId: reply.id, add, remove }) },
-      { editable: true, focusKey: `card:${reply.id}:`, toast: (text) => (status.textContent = text), candidates, pinned: pinnedFeed, onClose: afterTagInput },
-    );
-    tags.classList.add('memo-pane-card-tags');
-    tags.querySelector('.preview-tags')?.append(...quickTags(reply.tags ?? [], (add, remove) => ask({ command: 'changeReplyTags', id: current.id, replyId: reply.id, add, remove }), reply.id));
-    card.append(tags);
+    // カードのタグ（グループ＝タグ。左に足し引きを頼む）。整頓中はタグの無いカードの行を作らない（CC2）
+    const hasShownTag = (reply.tags ?? []).some((tag) => !isMachineTag(tag));
+    const tagRowShown = !compactCard || hasShownTag || tagRowOpen.has(reply.id);
+    if (tagRowShown) {
+      const tags = tagArea(
+        { tags: reply.tags ?? [], what: tr('このカード'), change: (add, remove) => ask({ command: 'changeReplyTags', id: current.id, replyId: reply.id, add, remove }) },
+        { editable: true, focusKey: `card:${reply.id}:`, toast: (text) => (status.textContent = text), candidates, pinned: pinnedFeed, onClose: compactCard && !hasShownTag ? () => afterTagRow(reply.id) : afterTagInput },
+      );
+      tags.classList.add('memo-pane-card-tags');
+      tags.querySelector('.preview-tags')?.append(...quickTags(reply.tags ?? [], (add, remove) => ask({ command: 'changeReplyTags', id: current.id, replyId: reply.id, add, remove }), reply.id));
+      card.append(tags);
+    }
     appendQuote(card, reply);
 
     if (cardEdits.has(reply.id)) {
@@ -4760,7 +5138,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     appendImage(card, reply);
     if (reply.file && truncatedFiles.has(reply.file)) card.append(el('p', 'memo-pane-clip', tr('途中までです')));
 
-    const actions = el('div', 'memo-pane-card-actions');
+    // 整頓中（CC2）：道具の行を作らず、同じボタンを頭の帯の右に置く（一組だけ。焦点の印が二重にならない）
+    const actions = el(compactCard ? 'span' : 'div', compactCard ? 'memo-pane-card-tools' : 'memo-pane-card-actions');
     // あまり使わないもの（書き出す・全体の画像を開く・フォルダで見る・コピー）は「⋯」の小さな欄へ
     const moreEntries: MenuEntry[] = [{ section: `「${cardLabel(reply, 16)}」` }];
     if (reply.image) {
@@ -4790,7 +5169,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       { label: tr('単語カードにする…'), hint: tr('写すだけ'), run: () => makeVocabCard(reply, ref) },
     );
     if (!reply.by && !cardEdits.has(reply.id)) {
-      const edit = action(tr('書き直す'), tr('このコメントの文を書き直す（引用と画像は書き直せません）'), () => {
+      const edit = action(compactCard ? '✎' : tr('書き直す'), tr('このコメントの文を書き直す（引用と画像は書き直せません）'), () => {
         if (!cardEdits.has(reply.id)) cardEdits.set(reply.id, reply.text);
         if (view) renderCards(view);
         scope.querySelector<HTMLTextAreaElement>(`[data-pane-edit="${CSS.escape(reply.id)}"] textarea`)?.focus();
@@ -4814,6 +5193,22 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     chat.disabled = full && under === 0;
     ai.disabled = full;
     if (full) ai.title = tr('返信は1つのメモに {0} 件までです', { 0: MAX_REPLIES });
+    if (compactCard) {
+      // 整頓中（CC2）：相棒 ▾ は ⋯ の先頭へ。タグの行が無いカードは ⋯ からタグの行を出す
+      const extra: MenuEntry[] = [
+        {
+          label: tr('相棒に頼む…'),
+          hint: full ? tr('返信は {0} 件まで', { 0: MAX_REPLIES }) : tr('今の会話のメンバー'),
+          disabled: full,
+          run: () => {
+            toggleCompanion(ref, reply.id);
+            if (view) renderCards(view);
+          },
+        },
+      ];
+      if (!tagRowShown) extra.push({ label: tr('タグを付ける…'), hint: tr('タグの行を出す'), run: () => openTagRow(reply.id) });
+      moreEntries.splice(1, 0, ...extra); // 先頭の見出しの次
+    }
     const remove = action(armed.has(reply.id) ? tr('消す？') : '×', armed.has(reply.id) ? removeAgain(current.replies, reply.id) : removeTitle(current.replies, reply.id), () => {
       if (!armed.has(reply.id)) {
         armed.add(reply.id);
@@ -4825,6 +5220,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     });
     remove.classList.add('reply-remove');
     if (armed.has(reply.id)) {
+      card.classList.add('armed');
       remove.classList.add('danger');
       armConfirm(remove, () => {
         armed.delete(reply.id);
@@ -4871,12 +5267,22 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       if (linking !== null || (cardMap.isOpen && !inMap)) return; // 関連づけている間は、カードの並びの捕まえる段が先に受ける（マップに出したカードの ⋯ は使える）
       const rect = more.getBoundingClientRect();
       more.focus({ preventScroll: true }); // 閉じたらここへ焦点を戻す（CellMenu は開いた時の焦点を覚える）
-      moreMenu.open(rect.left, rect.bottom + 2, mapPop ? [...moreEntries, ...popSideEntries(mapPop)] : moreEntries);
+      const shownEntries = withCarry(moreEntries, reply);
+      moreMenu.open(rect.left, rect.bottom + 2, mapPop ? [...shownEntries, ...popSideEntries(mapPop)] : shownEntries);
       if (e.detail === 0) moreMenu.focusFirst();
     });
     remove.classList.add('memo-pane-card-remove');
-    actions.append(chat, ai, link, more, remove);
-    card.append(actions, cardThread(ref, current.replies, reply.id, threadUi));
+    if (compactCard) {
+      // 返信があるカードは、時刻の右に「💬 n」を置く（押すと今までどおり開閉）。無いカードは乗せたときの道具に 💬
+      if (under > 0) whenSpan.after(chat);
+      else actions.append(chat);
+      actions.append(link, more, remove);
+      head.append(actions); // ⠿ の後ろ（Tab の順：⠿ → ✎ → 💬 → 🔗 → ⋯ → ×）
+      card.append(cardThread(ref, current.replies, reply.id, threadUi));
+    } else {
+      actions.append(chat, ai, link, more, remove);
+      card.append(actions, cardThread(ref, current.replies, reply.id, threadUi));
+    }
     return card;
   }
 
@@ -5021,6 +5427,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     empty.hidden = open;
     if (open) renderList();
     if (!next) {
+      linkSelect.value = ''; // 区画を閉じたら選ばない形（空欄）に戻す（CC4）
+      closeLight(); // 区画を閉じたら拡大も閉じる（CC5）
       faceAnnotate = null;
       if (annotate.isOpen) annotate.cancel();
       else annotateLayer.hidden = true;
@@ -5074,6 +5482,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       if (glowing) dropGlow(); // 前のメモのカードの「マスで見る」の光りは消す（V2b）
       clearPending(); // 前のメモに頼んだ並べ替えの待ちは捨てる
       selectedCard = null;
+      toolsCard = null;
       autoSelected = false;
       keepAll = false;
       void pinnedFeed.reload(); // 区画を開いた・メモが替わった（「＋タグ」を押したときにも読み直す）
@@ -5082,6 +5491,9 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       openBodies.clear();
       openQuotes.clear();
       armed.clear();
+      tagRowOpen.clear();
+      linkSelect.value = ''; // メモを替えたら選ばない形（空欄）に戻す（CC4）
+      closeLight(); // メモを替えたら拡大も閉じる（CC5）
       filterTag = null;
       keepShown.clear();
       pickingCards = false;
@@ -5155,7 +5567,10 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     }
     // 右の検索から：このカードへ移る（n が変わったときだけ）
     const focusTo = next.focusReply && next.focusReply.n !== focusN ? next.focusReply : null;
+    if (lightReply !== null && !next.replies.some((r) => r.id === lightReply)) closeLight(); // 見ていた画像のカードが消えた（CC5）
+    if (!typingTag()) tagRowOpen.clear(); // ⋯ から出したタグの行は、次の写しで消す（欄を閉じた瞬間には縮まない。A1）
     renderCards(next, jump ? null : focus, switched);
+    paintLinkNext();
     if (added) cards.querySelector(`[data-card="${CSS.escape(added)}"]`)?.scrollIntoView({ block: 'nearest' });
     if (jump) cards.querySelector<HTMLTextAreaElement>(`[data-pane-edit="${CSS.escape(jump)}"] textarea`)?.focus();
     else if (switched && !focusTo) {
@@ -5188,12 +5603,15 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     // 「次の行に」は一番上のカードだけ。押せないとき（升目でない・並べ替えできない）は、ふつうの次の番地
     const useNext = (nextRow || nextRowCheck.checked) && !nextRowCheck.disabled;
     const plan = useNext ? nextRowAddPlan(orderedReplies(view)) : null;
+    // つなぐ（CC4）：元が無い（最初のカード）ときは付けない
+    const linkSourceNow = linkSelect.value !== '' ? linkSource() : null;
+    const linkFrom = linkSourceNow ? { from: linkSourceNow.reply.id, kind: linkSelect.value as LinkKind, ...(linkSourceNow.photo ? { photo: true as const } : {}) } : null;
     commentDraft = '';
     comment.value = '';
     atPin = null;
     paintMeter();
     paintAtOption();
-    ask({ command: 'addMemoComment', id, text, ...(at ? { at } : {}), ...(useNext ? { nextRow: true } : {}) });
+    ask({ command: 'addMemoComment', id, text, ...(at ? { at } : {}), ...(useNext ? { nextRow: true } : {}), ...(linkFrom ? { linkFrom } : {}) });
     if (plan) say(addedCardPlaceText(plan.slot, plan.nextRow));
     reportDraft();
   }
@@ -5330,6 +5748,31 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     pinAt();
   });
   atCheck.addEventListener('change', () => pinAt());
+  // つなぐの select：Ctrl+Enter・Shift+Enter で足す、Esc で書く欄へ（↑↓ は select のまま。ボードの「つなぐ」と同じ見分け）。マウスで選んだら書く欄へ戻す
+  let linkPointer = false;
+  linkSelect.addEventListener('pointerdown', () => {
+    linkPointer = true;
+  });
+  linkSelect.addEventListener('keydown', (e) => {
+    linkPointer = false;
+    e.stopPropagation();
+    if (e.isComposing) return;
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      submitComment();
+    } else if (e.key === 'Enter' && e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      submitComment(true);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      comment.focus();
+    }
+  });
+  linkSelect.addEventListener('change', () => {
+    paintLinkNext();
+    if (linkPointer) comment.focus();
+    linkPointer = false;
+  });
   comment.addEventListener('keydown', (e) => {
     e.stopPropagation();
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) {
@@ -5348,6 +5791,14 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       e.preventDefault();
       comment.blur();
     }
+  });
+  // カードの区画をクリックで選んでいるとき：Enter で下のコメントを書く欄へ（欄をクリックしたのと同じ）
+  scroll.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.target !== scroll || e.isComposing || e.repeat) return;
+    if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    if (!view || comment.disabled || pickingCards || linking !== null) return;
+    e.preventDefault();
+    comment.focus();
   });
   compose.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -5371,6 +5822,38 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     closeMenu();
     openListWindow();
   });
+  foldItem.addEventListener('click', () => {
+    closeMenu();
+    closeTplMenu();
+    toolsFolded = !toolsFolded;
+    writeToolsFolded(toolsFolded);
+    paintToolsFold();
+    menuBtn.focus();
+  });
+  compactItem.addEventListener('click', () => {
+    closeMenu();
+    closeTplMenu();
+    cardsCompact = !cardsCompact;
+    toolsCard = null;
+    writeCardsCompact(cardsCompact);
+    paintCardsCompact();
+    if (view) renderCards(view); // 「＋タグ」を書いている間とつまんでいる間は、今の描き直しの守りのとおり後で描く
+    speak(cardsCompact ? tr('カードを整頓しました') : tr('カードの整頓をやめました')); // 状態の文は出さない（読み上げだけ）
+    menuBtn.focus();
+  });
+  for (const t of toolItems) {
+    t.item.addEventListener('click', () => {
+      closeMenu();
+      if (t.source === tplPasteBtn) void openTplPalette();
+      else t.source.click(); // ファイルの窓とクリップボードが要るので、この click の中で同期に呼ぶ
+    });
+  }
+  paintToolsFold();
+  new MutationObserver(() => {
+    syncStatusTitle();
+    lightStatus.textContent = status.textContent ?? ''; // 拡大の幕の中の写し（CC5）
+  }).observe(status, { childList: true, characterData: true, subtree: true });
+  paintCardsCompact();
   title.addEventListener('click', () => {
     if (listWindow.hidden) openListWindow();
     else closeListWindow(true);
@@ -5498,6 +5981,10 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     scheduleLinks();
     listPops.place();
   }).observe(cardsWrap);
+  // 拡大の幕の下端：欄が伸びる・区画の高さが変わる（上下の境目も）と、測り直す（CC5）
+  const lightPlacer = new ResizeObserver(() => placeLight());
+  lightPlacer.observe(compose);
+  lightPlacer.observe(scroll);
   scroll.addEventListener('scroll', () => listPops.place(), { passive: true }); // 並びを送ったら、出したカードも元について行く
   window.addEventListener('resize', () => {
     if (!listWindow.hidden) placeListWindow();
@@ -5550,6 +6037,24 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   );
   cards.addEventListener('click', chooseSelectedCard);
   cards.addEventListener('focusin', chooseSelectedCard);
+  // 整頓中の道具を出すカード（確かめ 5 の答え：乗せたときでなく、左クリックのあと）。ほかのカードを押すと移り、カードの外を押すと消える。寸法は変わらない
+  const setToolsCard = (id: string | null) => {
+    if (toolsCard === id) return;
+    toolsCard = id;
+    for (const node of cards.querySelectorAll<HTMLElement>(':scope > .tools-open')) node.classList.remove('tools-open');
+    if (id !== null) cards.querySelector<HTMLElement>(`:scope > [data-card="${CSS.escape(id)}"]`)?.classList.add('tools-open');
+  };
+  cards.addEventListener('click', (e) => {
+    if (!cardsCompact || linking !== null || pickingCards || !(e.target instanceof Element)) return;
+    if (e.target.closest('button, a, input, textarea, select, label')) return;
+    const id = e.target.closest<HTMLElement>('[data-card]')?.dataset.card;
+    if (id) setToolsCard(id);
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (toolsCard === null || !(e.target instanceof Element)) return;
+    if (e.target.closest('.memo-pane-cards > [data-card], .cell-menu')) return; // ⋯ の欄を押している間は消さない
+    setToolsCard(null);
+  });
   fileInput.addEventListener('change', () => {
     const file = fileInput.files?.[0];
     fileInput.value = '';
@@ -5561,18 +6066,51 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (lightReply) openImageMenu(e.clientX, e.clientY, lightReply);
   });
   light.addEventListener('click', (e) => {
-    if (e.target === light) closeLight();
+    if (e.target === light || e.target === lightStage || e.target === lightFrame) closeLight();
   });
+  // ページの中の絵（下の一覧のサムネイル・📌 など）から始まったドラッグは、ファイルの drop として受けない（同じカードが増えるため）
+  let pageImageDrag = false;
+  let fileOverEl: HTMLElement | null = null;
+  const paintFileOver = (next: HTMLElement | null) => {
+    if (next === fileOverEl) return;
+    fileOverEl?.classList.remove('is-file-over');
+    next?.classList.add('is-file-over');
+    fileOverEl = next;
+  };
+  window.addEventListener('dragstart', (e) => {
+    pageImageDrag = e.target instanceof HTMLImageElement;
+  });
+  window.addEventListener('dragend', () => {
+    pageImageDrag = false;
+    paintFileOver(null);
+  });
+  const goesToBoard = (target: EventTarget | null) => grokCardsUi.isBoardTarget(target) && boardSnapshot(boardMemoView, view) !== null;
   root.addEventListener('dragover', (e) => {
-    if (!view || !e.dataTransfer) return;
+    if (pageImageDrag || !e.dataTransfer) return;
+    const toBoard = goesToBoard(e.target);
+    if (!toBoard && !view) return;
     if ([...e.dataTransfer.types].includes('Files')) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
+      // 受ける側に枠の印（境目の近くでも、どちらに入るかが分かる）
+      paintFileOver(toBoard && e.target instanceof Element ? e.target.closest<HTMLElement>('.memo-board') : scroll.hidden ? null : scroll);
     }
   });
+  root.addEventListener('dragleave', (e) => {
+    if (!(e.relatedTarget instanceof Node) || !root.contains(e.relatedTarget)) paintFileOver(null);
+  });
   root.addEventListener('drop', (e) => {
-    if (!view) return;
+    paintFileOver(null);
     const files = [...(e.dataTransfer?.files ?? [])];
+    if (goesToBoard(e.target)) {
+      const images = files.filter((item) => item.type.startsWith('image/'));
+      if (images.length > 0) {
+        e.preventDefault();
+        void addBoardPhotos(images);
+        return;
+      }
+    }
+    if (!view) return;
     const file = files.find((item) => item.type.startsWith('image/'));
     if (!file) {
       // Grok の提案・取り込みファイル（.json）：文を左に渡して、一覧を出してもらう（当てるのは左。1 MB まで：import-limits.ts）
@@ -5593,14 +6131,16 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     void addImageFile(file);
   });
   window.addEventListener('paste', (e) => {
-    if (!view) return;
+    const toBoard = grokCardsUi.boardWantsPaste(e.target) && boardSnapshot(boardMemoView, view) !== null;
+    if (!view && !toBoard) return;
     const data = e.clipboardData;
     const file = data ? pastedImage(data) : null;
     if (!file) return;
     const inField = e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement;
     if (inField && data?.getData('text/plain')) return;
     e.preventDefault();
-    void addImageFile(file);
+    if (toBoard) void addBoardPhotos([file]);
+    else void addImageFile(file);
   });
   const grokCardsUi = mountGrokCards({
     bandRow,
@@ -5649,6 +6189,12 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
         openTplFill(t, undefined, { anchor, done });
       },
       onDone: (fn) => void tplDoneListeners.push(fn),
+      save: (ids, offsets, opts) => void saveTplFromBoard(ids, offsets, opts),
+      // 型を消す（TA8。ボードの型の段から）：今ある消す道（deleteStoredTemplate）を使う。結果の一言はボードへだけ返す
+      remove: (id, name) =>
+        deleteStoredTemplate(templateIo, id)
+          .catch(() => ({ ok: false as const, why: 'write' as const }))
+          .then((done) => tplDoneListeners.forEach((fn) => fn(done.ok ? tr('「{0}」を消しました', { 0: name }) : templateSaveMessage(done.why), done.ok))),
     },
     paneHeight: {
       get: () => height,
@@ -5664,6 +6210,33 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     grokCardsUi.dismiss();
     ask({ command: 'memoPaneClose' });
   });
+  // 下の書く欄と、上のボードの書く欄を Alt で行き来する（2026-11-04、利用者の依頼）。ボードを上に出しているときの、この二つの欄の中だけ（全体のキーにしない）。
+  //   Alt を単独で押して離したときに動く（押した瞬間は Alt+Tab などの始まりと区別できない）。この欄の中では、窓のメニューへ焦点が移る既定の動きを止める
+  const altTap = new AltTap();
+  const altSwitchable = (target: EventTarget | null) => grokCardsUi.boardUpperShown() && comment.getClientRects().length > 0 && !cardMap.isOpen && (target === comment || grokCardsUi.inBoardCompose(target));
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      if (altTap.down(e) && altSwitchable(e.target)) e.preventDefault();
+    },
+    true,
+  );
+  window.addEventListener(
+    'keyup',
+    (e) => {
+      if (!altTap.up(e) || !altSwitchable(e.target)) return;
+      e.preventDefault();
+      if (e.target === comment) {
+        grokCardsUi.focusBoardCompose();
+        return;
+      }
+      grokCardsUi.leaveBoardCompose();
+      comment.focus();
+    },
+    true,
+  );
+  window.addEventListener('pointerdown', () => altTap.reset(), true);
+  window.addEventListener('blur', () => altTap.reset());
   window.addEventListener(
     'keydown',
     (e) => {
@@ -5807,7 +6380,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!tplMenu.hidden) {
       e.preventDefault();
       closeTplMenu();
-      tplPasteBtn.focus();
+      toolFocusTarget().focus();
       return;
     }
     if (!menu.hidden) {
@@ -5835,6 +6408,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   onMessage((msg) => {
     if (msg.type === 'relayed' && msg.payload.kind === 'memoPane') paint(msg.payload.view);
     else if (msg.type === 'relayed' && msg.payload.kind === 'memoBoardView') paintBoardMemo(msg.payload.view);
+    else if (msg.type === 'relayed' && msg.payload.kind === 'showBoardUpper') grokCardsUi.showBoardUpper(); // 左の「上のコメントボードで開く」
+    else if (msg.type === 'relayed' && msg.payload.kind === 'showLowerBoard') grokCardsUi.showLowerBoard(); // 右の「下で開く」
     else if (msg.type === 'relayed' && msg.payload.kind === 'grokCards') grokCardsUi.onOpen(msg.payload.open);
     else if (msg.type === 'relayed' && msg.payload.kind === 'grokCardsData') grokCardsUi.onData(msg.payload);
     else if (msg.type === 'relayed' && msg.payload.kind === 'grokCardsNotice') grokCardsUi.onNotice(msg.payload);
@@ -5859,10 +6434,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       // 並べ替えを断られた：待ちを全部捨てる（左は知らせのあとに写しを送り直すので、写しの並びで描き直る）。読み上げにも出す
       if (msg.payload.undoSend && msg.payload.openMemo) {
         // ボードが、下の区画とは別のメモへ貼った：下の区画には「元に戻す」「送り先を開く」の帯を出さない（ボードの Undo に渡すだけ）
-        const boardOwn = skipLowerSentBar({ openMemo: msg.payload.openMemo, lowerId: view?.id ?? null, chosenId: boardMemoView?.id ?? null, boardSentAt, now: Date.now() });
+        const fromLower = sentFromLower({ lowerSentAt, boardSentAt, now: Date.now() }); // 下から送った分は、下の帯に出し、ボードの Undo には渡さない（CB8）
+        const boardOwn = !fromLower && skipLowerSentBar({ openMemo: msg.payload.openMemo, lowerId: view?.id ?? null, chosenId: boardMemoView?.id ?? null, boardSentAt, now: Date.now() });
         if (!boardOwn) showSent(msg.payload.text, msg.payload.openMemo, msg.payload.undoSend);
         const sent = { token: msg.payload.undoSend, memo: msg.payload.openMemo };
-        boardUndoSendListeners.forEach((fn) => fn(sent.token, sent.memo)); // ボードの「元に戻す」にも渡す（貼り付けの Undo）
+        if (!fromLower) boardUndoSendListeners.forEach((fn) => fn(sent.token, sent.memo)); // ボードの「元に戻す」にも渡す（貼り付けの Undo）
       } else if (msg.payload.text.startsWith('並べ替えられませんでした')) {
         clearPending();
         say(msg.payload.text);
@@ -5891,6 +6467,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   });
 
   paintNextRow();
+  paintLinkNext();
   paint(null);
   send({ type: 'ready' });
   ask({ command: 'memoPaneReady' });
@@ -6032,6 +6609,17 @@ function kindMark(reply: Reply): string {
   if (reply.quote) return '🔗';
   return '💬';
 }
+
+// 写真を入れる先（CB7）
+interface PhotoTarget {
+  memoId: string;
+  board: boolean; // ボードが見ているメモへ（下の一覧の書き直す欄を開かない・一言はボードへ）
+  alive(): boolean; // まだ同じメモを見ているか
+  say(text: string): void;
+  count(): number;
+}
+
+const commentSizesItself = typeof CSS !== 'undefined' && CSS.supports('field-sizing', 'content');
 
 function newShotId() {
   return `shot${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;

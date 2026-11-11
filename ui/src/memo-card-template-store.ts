@@ -19,7 +19,7 @@ import {
   type TemplateReport,
   toTemplateFile,
 } from './memo-card-templates';
-import { type ImportSummary, mergeImported } from './memo-card-template-io';
+import { type ImportSummary, mergeImported, uniqueName } from './memo-card-template-io';
 import { missingSamples } from './memo-card-template-samples';
 import { MAX_REPLIES } from './threads';
 
@@ -108,7 +108,9 @@ export const restoreSampleTemplates = (io: TemplateIo) =>
   });
 
 // 型を 1 件、ファイルに足す。断ったときは何も書かない（ファイルの写しも取らない）
-export async function saveNewTemplate(io: TemplateIo, template: CardTemplate, opts: { newId?: () => string } = {}): Promise<SaveTemplateResult> {
+//   opts.uniqueName（TA3。ボードの右クリックの「型にする」）：同じ名前の型がもうあれば、名前に番号を付けて足す（「名前 (2)」）。読んだ一覧に当てるので、続けて登録しても重ならない。
+//   付いた名前は、返る一覧の最後の型の名前。既定（無し）は今までどおり、同じ名前でもそのまま足す
+export async function saveNewTemplate(io: TemplateIo, template: CardTemplate, opts: { newId?: () => string; uniqueName?: boolean } = {}): Promise<SaveTemplateResult> {
   const loaded = await loadTemplates(io);
   if (loaded.state === 'unreadable') return { ok: false, why: 'unreadable' };
   if (loaded.skipped > 0) return { ok: false, why: 'partial' };
@@ -117,10 +119,11 @@ export async function saveNewTemplate(io: TemplateIo, template: CardTemplate, op
   // 同じ id がすでにあれば、新しい id にして足す（5 回まで）
   const make = opts.newId ?? newTemplateId;
   let next: CardTemplate[] | null = null;
-  let item = template;
+  const named = opts.uniqueName ? { ...template, name: uniqueName(template.name, new Set(loaded.templates.map((t) => t.name))) } : template;
+  let item = named;
   for (let guard = 0; guard < 5 && !next; guard++) {
     next = addTemplate(loaded.templates, item);
-    if (!next) item = { ...template, id: make() };
+    if (!next) item = { ...named, id: make() };
   }
   if (!next) return { ok: false, why: 'duplicate' };
 
@@ -142,6 +145,28 @@ export function templateNameTaken(list: readonly CardTemplate[], rawName: unknow
 
 // ボードの「型にする…」で名前を空のまま決めたときの名前
 export const TEMPLATE_UNTITLED = tr('無題の型');
+
+// 自動で付ける型の名前（TA3）：元の文（カードの文）の、最初の空でない行だけを使う（40 字まで）。空なら「無題の型」
+export function templateAutoName(raw: unknown): string {
+  const line = typeof raw === 'string' ? (raw.split('\n').find((l) => l.trim()) ?? '') : '';
+  return cleanTemplateName(line) || TEMPLATE_UNTITLED;
+}
+
+// 型を作れなかったときの文（buildTemplateFromCards が断った理由。登録の小窓の文と同じ）
+export function templateBuildMessage(why: 'empty' | 'missing' | 'too-many' | 'name' | 'text'): string {
+  switch (why) {
+    case 'empty':
+      return tr('選んだカードがありません');
+    case 'missing':
+      return tr('選んだカードが見つかりません。選び直してください');
+    case 'too-many':
+      return tr('型にできるのは {0} 枚までです', { 0: TEMPLATE_LIMITS.cards });
+    case 'name':
+      return tr('名前を入れてください');
+    case 'text':
+      return tr('カードの文が長すぎます（{0}文字まで）', { 0: TEMPLATE_LIMITS.text });
+  }
+}
 
 // 選ぶ帯の「型にする…」を押せるか（n：選んでいる枚数）と、ボタンの説明
 export function templatePickState(n: number): { enabled: boolean; hint: string } {

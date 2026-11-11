@@ -3,11 +3,36 @@ import { readFileSync as readFile } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import { deleteTitle } from '../src/memo-card-board-edit';
-import { BOARD_KEY_HINT, boardKeyAction, type BoardKeyInput, KEYSHORTCUTS } from '../src/memo-card-board-keys';
+import { BOARD_KEY_HINT, boardKeyAction, emptyComposeArrowPan, type BoardKeyInput, KEYSHORTCUTS } from '../src/memo-card-board-keys';
 
 const read = (path: string) => readFile(new URL(path, import.meta.url), 'utf8');
 const base: BoardKeyInput = { key: 'Delete', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, isComposing: false, repeat: false, typing: false, busy: false, modal: false };
 const press = (over: Partial<BoardKeyInput> = {}) => boardKeyAction({ ...base, ...over });
+
+describe('書く欄が空のときの矢印（emptyComposeArrowPan）', () => {
+  const base = { key: 'ArrowRight', text: '', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, isComposing: false };
+  const ok = (over: Partial<typeof base> = {}) => emptyComposeArrowPan({ ...base, ...over });
+
+  it('空欄で修飾なし・変換なしの ←↑→↓ だけ true', () => {
+    for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) expect(ok({ key })).toBe(true);
+  });
+
+  it('字や空白が入っているときは false（カーソル移動に任せる）', () => {
+    expect(ok({ text: 'あ' })).toBe(false);
+    expect(ok({ text: ' ' })).toBe(false);
+    expect(ok({ text: '\n' })).toBe(false);
+  });
+
+  it('修飾キー・変換中・矢印以外は false', () => {
+    expect(ok({ ctrlKey: true })).toBe(false);
+    expect(ok({ metaKey: true })).toBe(false);
+    expect(ok({ shiftKey: true })).toBe(false);
+    expect(ok({ altKey: true })).toBe(false);
+    expect(ok({ isComposing: true })).toBe(false);
+    expect(ok({ key: 'Enter' })).toBe(false);
+    expect(ok({ key: 'a' })).toBe(false);
+  });
+});
 
 describe('Delete キー（boardKeyAction）', () => {
   it('何も押さずに Delete だけ、書く欄にフォーカスが無いとき、他に開いているものが無いときだけ「消す」', () => {
@@ -41,7 +66,7 @@ describe('Delete キー（boardKeyAction）', () => {
 
 describe('案内の文', () => {
   it('ボードの一言に、効くキーが全部入っている', () => {
-    for (const part of ['ホイール：拡大縮小', '空きをドラッグ：移動', 'Shift＋ドラッグ：範囲選択', 'Ctrl+A：全選択', 'Delete：削除', 'Ctrl+Z：元に戻す', 'Esc：選びを外す']) expect(BOARD_KEY_HINT).toContain(part);
+    for (const part of ['2本指・ホイール：移動', 'ピンチ・Ctrl＋ホイール：拡大縮小', '空きをドラッグ：移動', 'Shift＋ドラッグ：範囲選択', 'Ctrl+A：全選択', 'Delete：削除', 'Ctrl+Z：元に戻す', 'Esc：選びを外す']) expect(BOARD_KEY_HINT).toContain(part);
   });
 
   it('削除のツールチップに Delete と Ctrl+Z。選びが空なら先に選ぶよう案内', () => {
@@ -58,6 +83,18 @@ describe('案内の文', () => {
 
 describe('画面の配線（静的）', () => {
   const tab = read('../src/app/memo-board-tab.ts');
+  it('書く欄が空の ←↑→↓ は compose の keydown で BOARD_ARROW_PAN と同じ量を動かす', () => {
+    expect(tab).toContain('emptyComposeArrowPan');
+    const at = tab.indexOf('emptyComposeArrowPan({');
+    expect(at).toBeGreaterThan(0);
+    const block = tab.slice(at, at + 720);
+    expect(block).toContain('this.composeText.value');
+    expect(block).toContain('BOARD_ARROW_PAN[e.key]');
+    expect(block).toContain('panBy(this.view, dx, dy)');
+    expect(block).toContain('this.applyView()');
+    expect(block).toContain('this.touchView()');
+    expect(block).toContain('e.preventDefault()');
+  });
   it('Delete は「削除」ボタンと同じ道（removeSelected）。押せないとき・選びが空のときは何もしない。ヒントは部品から', () => {
     expect(tab).toContain("from '../memo-card-board-keys'");
     expect(tab).toContain('BOARD_KEY_HINT');
@@ -73,7 +110,9 @@ describe('画面の配線（静的）', () => {
   it('modal には、書く小窓・整理の確認・線を引く途中・型の小窓を入れている。つまんでいる最中・範囲選択も見ている', () => {
     const at = tab.indexOf('const modal =');
     const line = tab.slice(at, tab.indexOf('\n', at));
-    for (const part of ['this.composing !== null', '!this.tidyBar.hidden', 'this.linkFrom !== null', 'this.templateKey !== null', 'this.fillOpen']) expect(line).toContain(part);
+    expect(line).toContain('this.modalOpen');
+    const open = tab.slice(tab.indexOf('private get modalOpen()'), tab.indexOf('// 選びを外す（Esc）'));
+    for (const part of ['this.composing !== null', '!this.tidyBar.hidden', 'this.linkFrom !== null', 'this.templateKey !== null', 'this.fillOpen']) expect(open).toContain(part);
     expect(tab).toContain('busy: this.drag !== null || this.marquee !== null');
   });
 

@@ -4202,3 +4202,153 @@
   min-height: 0;
   overflow: hidden;
 }
+/* シートの一覧（docs/ideas-sheet-folders.md の候補 1・2。panels/sheet-list.ts）：頭（道しるべ・探す欄）は動かさず、行だけをスクロール */
+.sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  max-height: calc(100vh - 18px);
+}
+
+.sheet-list-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  font-size: 11px;
+}
+
+.sheet-list-crumbs:empty {
+  display: none;
+}
+
+.sheet-list-crumb {
+  max-width: 120px;
+  overflow: hidden;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-list-crumb:hover {
+  background: var(--hover);
+}
+
+.sheet-list-crumb[aria-current='true'] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.sheet-list-sep,
+.sheet-list-crumb-note {
+  color: var(--muted);
+}
+
+.sheet-list-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sheet-list-find {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.sheet-list-find:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.sheet-list-tool[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--hover);
+}
+
+.sheet-list-rows {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sheet-list-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sheet-list-name {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  text-align: left;
+}
+
+.sheet-list-name:hover:not(:disabled),
+.sheet-list-row.active .sheet-list-name {
+  background: var(--hover);
+}
+
+.sheet-list-name:disabled {
+  opacity: 0.55;
+}
+
+.sheet-list-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-list-row.self .sheet-list-label,
+.sheet-list-row.current .sheet-list-label {
+  font-weight: 600;
+}
+
+.sheet-list-row.chosen .sheet-list-name {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -2px;
+}
+
+.sheet-list-mark {
+  color: var(--accent-ink);
+}
+
+.sheet-list-kids {
+  flex: none;
+}
+
+.sheet-list-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.sheet-list-foot[hidden] {
+  display: none;
+}

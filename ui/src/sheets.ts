@@ -65,8 +65,25 @@ export class SheetStore {
     return [...this.items];
   }
 
-  // 最近見た順（戻る順の新しいもの → 残りは作った順）
+  // 最後に見た時刻を渡す口（sheet-use.ts。起動し直しても最近の順を保つ）。無ければ今までどおり戻る順で並べる
+  private seenAt: ((id: string) => number | undefined) | null = null;
+
+  setSeenSource(fn: (id: string) => number | undefined) {
+    this.seenAt = fn;
+  }
+
+  // 最近見た順（今のシート → 最後に見た時刻の新しい順 → 見ていないシートは台帳の順）
+  //   見た時刻の口が無いときは、今のシート → 戻る順の新しいもの → 残りは作った順
   recent(): Sheet[] {
+    const at = this.seenAt;
+    if (at) {
+      const index = new Map(this.items.map((s, i) => [s.id, i]));
+      const rest = this.items
+        .filter((s) => s.id !== this.currentId)
+        .sort((a, b) => (at(b.id) ?? -1) - (at(a.id) ?? -1) || (index.get(a.id) ?? 0) - (index.get(b.id) ?? 0));
+      const current = this.get(this.currentId);
+      return current ? [current, ...rest] : rest;
+    }
     const seen = new Set<string>();
     const out: Sheet[] = [];
     for (const id of [this.currentId, ...[...this.history].reverse(), ...this.items.map((s) => s.id)]) {

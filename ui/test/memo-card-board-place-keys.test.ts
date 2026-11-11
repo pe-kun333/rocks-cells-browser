@@ -73,8 +73,8 @@ describe('上のボードの Esc（escActionFor）', () => {
 });
 
 describe('キーの案内は変えない（C4-4）', () => {
-  it('BOARD_KEY_HINT は B4-2 のまま', () => {
-    expect(BOARD_KEY_HINT).toBe('ホイール：拡大縮小／空きをドラッグ：移動／Shift＋ドラッグ：範囲選択／Ctrl+A：全選択／Delete：削除／Ctrl+Z：元に戻す／Esc：選びを外す');
+  it('BOARD_KEY_HINT は B4-2 のまま（CB12 の決定 2 でホイールの行だけ直した）', () => {
+    expect(BOARD_KEY_HINT).toBe('2本指・ホイール：移動／ピンチ・Ctrl＋ホイール：拡大縮小／空きをドラッグ：移動／Shift＋ドラッグ：範囲選択／Ctrl+A：全選択／Delete：削除／Ctrl+Z：元に戻す／Esc：選びを外す');
   });
 });
 
@@ -94,9 +94,35 @@ describe('memo-board-tab.ts の配線（C4）', () => {
   it('受けてよいかは、置き場が上のときだけ絞る（下は常に受ける）', () => {
     expect(tab).toContain("boardKeysActive(this.place === 'upper', keyFocusOf(inBoard, bare), this.pointerOutside)");
   });
+  it('穴 1：ボードのメニューが開いている間は、ボードのキーを全部止める（Delete で選んだカードが消えない）。受けてよいかを確かめたすぐあと', () => {
+    const w = tab.slice(tab.indexOf("window.addEventListener('keydown'"));
+    const head = w.slice(0, w.indexOf('const inField'));
+    expect(head).toContain('if (this.menu?.isOpen) return;');
+    expect(head.indexOf('keysAllowed')).toBeLessThan(head.indexOf('this.menu?.isOpen'));
+  });
+  it('穴 1・穴 2：ボードのメニューは 1 個で、Esc を止める形で作る', () => {
+    expect(tab.match(/new CellMenu\(/g)).toHaveLength(1);
+    expect(tab).toContain('this.menu ??= new CellMenu({ stopEsc: true });');
+  });
   it('矢印キー・Home・End はボードの全体のキーでは受けない（境目の矢印キーと取り合わない）', () => {
     const w = tab.slice(tab.indexOf("window.addEventListener('keydown'"), tab.indexOf("window.addEventListener('keyup'"));
     expect(w).not.toMatch(/'Arrow(?:Up|Down|Left|Right)'|'Home'|'End'|'PageUp'|'PageDown'/);
+  });
+});
+
+describe('memo-pane.ts の Esc の受け口（穴 2）', () => {
+  it('区画の Esc（consumeEsc→区画を閉じる）は window のふつうの段で聞く。CellMenu が document で止めれば届かない', () => {
+    const at = pane.indexOf('grokCardsUi.consumeEsc(e)');
+    expect(at).toBeGreaterThan(-1);
+    const start = pane.lastIndexOf("window.addEventListener('keydown', (e) => {", at);
+    expect(start).toBeGreaterThan(-1);
+    const found = pane.slice(at).match(/\r?\n {2}\}(?:,\r?\n\s*true,\r?\n\s*)?\);/);
+    expect(found?.[0].trim()).toBe('});'); // 捕まえる段（true）なら、閉じるのは別の形になる
+    expect(pane.slice(start, at)).not.toMatch(/\btrue,/);
+  });
+  it('何もメニューが無いときの Esc で区画が閉じるのは今の決めのまま（C5-4）', () => {
+    const tail = pane.slice(pane.indexOf('grokCardsUi.consumeEsc(e)'), pane.indexOf("window.addEventListener('focus'", pane.indexOf('grokCardsUi.consumeEsc(e)')));
+    expect(tail).toContain("ask({ command: 'memoPaneClose' });");
   });
 });
 

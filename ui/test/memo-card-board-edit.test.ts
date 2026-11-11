@@ -33,7 +33,7 @@ import { buildTemplateFromCards } from '../src/memo-card-templates';
 import { MAX_REPLIES, REPLY_ID_RE, type Reply } from '../src/threads';
 
 const card = (id: string, over: Partial<Reply> = {}): Reply => ({ id, parent: null, text: `カード ${id}`, createdAt: 100, ...over });
-const okLoad: LoadBoardResult = { state: 'missing', memoId: 'm1', board: emptyBoard('m1', 0), dropped: 0, raw: null, backupNeeded: false };
+const okLoad: LoadBoardResult = { state: 'missing', layout: 'square', memoId: 'm1', board: emptyBoard('m1', 0), dropped: 0, raw: null, backupNeeded: false };
 const view = (zoom = 1, x = 0, y = 0) => ({ x, y, zoom });
 const vp = { w: 600, h: 400 };
 
@@ -48,8 +48,8 @@ describe('選びの整理', () => {
 describe('カードを足す', () => {
   it('足せない：読み込み中・読めないボード・300 件。足せる：ファイルが無い・読めた', () => {
     expect(addBlockedNote(null, [])).toContain('読み込み中');
-    expect(addBlockedNote({ state: 'unreadable', memoId: 'm1', why: 'version' }, [])).toContain('新しい版');
-    expect(addBlockedNote({ state: 'unreadable', memoId: 'm1', why: 'version' }, [])).toContain('書き込みません');
+    expect(addBlockedNote({ state: 'unreadable', layout: 'square', memoId: 'm1', why: 'version' }, [])).toContain('新しい版');
+    expect(addBlockedNote({ state: 'unreadable', layout: 'square', memoId: 'm1', why: 'version' }, [])).toContain('書き込みません');
     expect(addBlockedNote(okLoad, [])).toBeNull();
     const full = Array.from({ length: MAX_REPLIES }, (_, i) => card(`c${i}`));
     expect(addBlockedNote(okLoad, full)).toContain(`${MAX_REPLIES}`);
@@ -81,22 +81,45 @@ describe('カードを足す', () => {
     const p = spotForNewCard(view(), { w: 0, h: 0 }, []);
     expect(p).toEqual({ x: 0, y: 0 });
   });
-  it('重なるときは、升目（190×96＋隙間 20）の間隔で外へ。重ならない最初の場所', () => {
+  it('重なるときは、升目（190×96＋隙間 20）の間隔で右か下へ。重ならない最初の場所', () => {
     const base = spotForNewCard(view(), vp, []) as { x: number; y: number };
     const pitchX = BOARD_CARD.w + BOARD_CARD.gap;
     const pitchY = BOARD_CARD.h + BOARD_CARD.gap;
     const here = spotForNewCard(view(), vp, [base]);
     expect(here).not.toEqual(base);
-    // 中心に近い順なので、縦の隣（96+20＝116）が横の隣（210）より先
-    expect(here).toEqual({ x: base.x, y: base.y - pitchY });
-    // 縦の隣 2 つが塞がっていれば、次に近いところ
-    const next = spotForNewCard(view(), vp, [base, { x: base.x, y: base.y - pitchY }, { x: base.x, y: base.y + pitchY }]);
-    expect(next).toEqual({ x: base.x - pitchX, y: base.y });
+    // 右が先
+    expect(here).toEqual({ x: base.x + pitchX, y: base.y });
+    // 右が塞がっていれば下
+    const next = spotForNewCard(view(), vp, [base, { x: base.x + pitchX, y: base.y }]);
+    expect(next).toEqual({ x: base.x, y: base.y + pitchY });
+    // 右も下も塞がっていれば右下
+    const third = spotForNewCard(view(), vp, [base, { x: base.x + pitchX, y: base.y }, { x: base.x, y: base.y + pitchY }]);
+    expect(third).toEqual({ x: base.x + pitchX, y: base.y + pitchY });
     // 結果は、どのカードにも重ならない
     for (const t of [base]) {
       const o = here as { x: number; y: number };
       expect(o.x < t.x + BOARD_CARD.w && t.x < o.x + BOARD_CARD.w && o.y < t.y + BOARD_CARD.h && t.y < o.y + BOARD_CARD.h).toBe(false);
     }
+  });
+  it('続けて足しても、真ん中より上や左には出ない（2026-11-04、利用者の依頼）', () => {
+    const base = spotForNewCard(view(), vp, []) as { x: number; y: number };
+    const taken = [base];
+    for (let i = 0; i < 30; i++) {
+      const p = spotForNewCard(view(), vp, taken) as { x: number; y: number };
+      expect(p.x).toBeGreaterThanOrEqual(base.x);
+      expect(p.y).toBeGreaterThanOrEqual(base.y);
+      taken.push(p);
+    }
+    expect(new Set(taken.map((p) => `${p.x},${p.y}`)).size).toBe(31); // 同じ所に重ねない
+  });
+  it('真上にカードがあっても、空いている真ん中にはそのまま置く。右と下が ±10,000 の外のときだけ上や左へ', () => {
+    const base = spotForNewCard(view(), vp, []) as { x: number; y: number };
+    expect(spotForNewCard(view(), vp, [{ x: base.x, y: base.y - 116 }])).toEqual(base);
+    const lim = BOARD_LIMITS.coord;
+    const corner = view(1, -(lim - 300), -(lim - 200)); // 面の中心がボードの (lim, lim)
+    const atCorner = spotForNewCard(corner, vp, []) as { x: number; y: number };
+    const moved = spotForNewCard(corner, vp, [atCorner]) as { x: number; y: number };
+    expect(moved).toEqual({ x: atCorner.x, y: atCorner.y - 116 });
   });
   it('少しだけ重なっていても重なりとして避ける。ぴったり隣（隙間つき）は避けない', () => {
     const base = spotForNewCard(view(), vp, []) as { x: number; y: number };
@@ -275,9 +298,16 @@ describe('ボタンの状態（toolState）', () => {
   });
   it('足すのは、ボードが読めないとき・読み込み中・300 件のとき押せない（理由つき）', () => {
     expect(toolState({ selected: [], replies: rs, load: null }).add).toMatchObject({ enabled: false, note: expect.stringContaining('読み込み中') });
-    expect(toolState({ selected: [], replies: rs, load: { state: 'unreadable', memoId: 'm1', why: 'failed' } }).add.enabled).toBe(false);
+    expect(toolState({ selected: [], replies: rs, load: { state: 'unreadable', layout: 'square', memoId: 'm1', why: 'failed' } }).add.enabled).toBe(false);
     const full = Array.from({ length: MAX_REPLIES }, (_, i) => card(`c${i}`));
     expect(toolState({ selected: [], replies: full, load: okLoad }).add.enabled).toBe(false);
+  });
+  it('足すボタンの説明は、［決める］の置き場（最後に書いたカードの右か下、見えていなければ真ん中）を書く（HX2）', () => {
+    const add = toolState({ selected: [], replies: rs, load: okLoad }).add;
+    expect(add.enabled).toBe(true);
+    expect(add.note).toContain('最後に書いたカード');
+    expect(add.note).toContain('右か下');
+    expect(add.note).toContain('真ん中');
   });
   it('消えたカードを選んだままでも、数えない', () => {
     const s = toolState({ selected: ['gone'], replies: rs, load: okLoad });

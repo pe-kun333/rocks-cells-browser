@@ -29,8 +29,8 @@ const px = BOARD_CARD.w + BOARD_CARD.gap; // 210
 const py = BOARD_CARD.h + BOARD_CARD.gap; // 116
 const card = (id: string, text: string, createdAt: number, extra: Partial<Reply> = {}): Reply => ({ id, parent: null, text, createdAt, ...extra });
 const view = { x: 0, y: 0, zoom: 1 };
-const ok = (board: Board): LoadBoardResult => ({ state: 'ok', memoId: board.memoId, board, dropped: 0, raw: {}, backupNeeded: true });
-const missing = (memoId: string): LoadBoardResult => ({ state: 'missing', memoId, board: emptyBoard(memoId, 0), dropped: 0, raw: null, backupNeeded: false });
+const ok = (board: Board): LoadBoardResult => ({ state: 'ok', layout: 'square', memoId: board.memoId, board, dropped: 0, raw: {}, backupNeeded: true });
+const missing = (memoId: string): LoadBoardResult => ({ state: 'missing', layout: 'square', memoId, board: emptyBoard(memoId, 0), dropped: 0, raw: null, backupNeeded: false });
 
 // 甲（0,0）・乙（右へ 210）・丙（下へ 116）。乙 → 甲 の関連
 function sampleTemplate(name = '三枚'): CardTemplate {
@@ -205,7 +205,7 @@ describe('ボードに貼る計画（断り・id・座標・命令）', () => {
     };
     expect(fail({ template: { version: 1, id: 'x' } })).toContain('読めません');
     expect(fail({ load: null })).toContain('読み込み中');
-    expect(fail({ load: { state: 'unreadable', memoId: 'm1', why: 'failed' } })).toContain('書き込みません');
+    expect(fail({ load: { state: 'unreadable', layout: 'square', memoId: 'm1', why: 'failed' } })).toContain('書き込みません');
     const nearly = Array.from({ length: MAX_REPLIES - 2 }, (_, i) => card(`e${i}`, `既存 ${i}`, 100 + i, { rank: i }));
     expect(fail({ replies: nearly })).toContain('あと 2 枚まで、型は 3 枚');
     const full = Array.from({ length: MAX_REPLIES }, (_, i) => card(`e${i}`, `既存 ${i}`, 100 + i, { rank: i }));
@@ -312,7 +312,7 @@ describe('道具の列・画面のつなぎ', () => {
     const off = toolState({ selected: [], replies, load: null }).paste;
     expect(off.enabled).toBe(false);
     expect(off.note).toContain('読み込み中');
-    expect(toolState({ selected: [], replies, load: { state: 'unreadable', memoId: 'm1', why: 'failed' } }).paste.enabled).toBe(false);
+    expect(toolState({ selected: [], replies, load: { state: 'unreadable', layout: 'square', memoId: 'm1', why: 'failed' } }).paste.enabled).toBe(false);
     const full = Array.from({ length: MAX_REPLIES }, (_, i) => card(`e${i}`, `既存 ${i}`, 100 + i));
     expect(toolState({ selected: [], replies: full, load: missing('m1') }).paste.enabled).toBe(false);
   });

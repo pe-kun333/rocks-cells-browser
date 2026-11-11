@@ -130,6 +130,21 @@ export function noticeTarget(o: { memo: string | undefined; lowerId: string | nu
 //   ボードが（下の区画とは別の）選んだメモへ貼った直後だけ。選んでいないとき・下の区画から送ったときは、今までどおり出す
 //   boardSentAt：ボードが sendReplies を送った時刻（無ければ null）。WINDOW_MS 以内に届いた知らせだけを、ボードの貼り付けのものとみなす
 export const BOARD_SEND_WINDOW_MS = 10_000;
+
+// 下のカードを上のボードへ運ぶ道（CB8）。ボードを上に出していて、下の区画とは別のメモを見ているときだけ
+export function boardCarryMemo(info: BoardMemoInfo | null, upperShown: boolean): { id: string; title: string } | null {
+  return info?.other && upperShown ? { id: info.shownId, title: info.shownTitle } : null;
+}
+
+export function carryLabel(title: string, mode: 'copy' | 'move'): string {
+  return t('↑ 上のボード「{0}」へ{1}', { 0: title, 1: mode === 'copy' ? t('写す') : t('移す') });
+}
+
+// 届いた「元に戻す」の印が、下の区画から送った分か。送った時刻の新しいほうを送り手とみなす（ボードが貼った直後に下から送っても、取り違えない）
+export function sentFromLower(o: { lowerSentAt: number | null; boardSentAt: number | null; now: number }): boolean {
+  if (o.lowerSentAt === null || o.now < o.lowerSentAt || o.now - o.lowerSentAt > BOARD_SEND_WINDOW_MS) return false;
+  return o.boardSentAt === null || o.lowerSentAt >= o.boardSentAt;
+}
 export function skipLowerSentBar(o: { openMemo: string; lowerId: string | null; chosenId: string | null; boardSentAt: number | null; now: number }): boolean {
   if (o.boardSentAt === null || o.now - o.boardSentAt > BOARD_SEND_WINDOW_MS || o.now < o.boardSentAt) return false;
   return o.chosenId !== null && o.chosenId !== o.lowerId && o.openMemo === o.chosenId;

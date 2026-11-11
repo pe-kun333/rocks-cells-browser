@@ -239,7 +239,7 @@ export function createInterchangeFlow(d: InterchangeDeps) {
     d.switchSheet(sheetId);
     const t = again.totals;
     d.toast(
-      tr('シート「{0}」を取り込みました（メモ {1}・カード {2}・線 {3}）。{4}', { 0: again.sheet.name, 1: created.memos.length, 2: t.cards, 3: created.links.length, 4: wrote ? '戻すときは、シートの名前 ▾ →「Grok の提案の記録…」' : '戻し方を書けなかったので、この分は記録から戻せません' }),
+      tr('シート「{0}」を取り込みました（メモ {1}・カード {2}・線 {3}）。{4}', { 0: again.sheet.name, 1: created.memos.length, 2: t.cards, 3: created.links.length, 4: wrote ? tr('戻すときは、シートの名前 ▾ → ⋯ → Grok ▸ →「Grok の提案の記録…」') : tr('戻し方を書けなかったので、この分は記録から戻せません') }),
       9000,
     );
     return true;

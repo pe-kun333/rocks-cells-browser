@@ -18,9 +18,10 @@ export interface MenuButton {
 export type MenuEntry =
   | { label: string; hint?: string; disabled?: boolean; run?: () => void }
   | { section: string }
-  | { row: string; hint?: string; buttons: MenuButton[]; menu?: () => void } // 名前と、横に並ぶボタン（セットの一覧）。menu：行の右クリック・ContextMenu キー・Shift+F10
+  | { row: string; hint?: string; buttons: MenuButton[]; menu?: () => void; wrap?: boolean; className?: string } // 名前と、横に並ぶボタン（セットの一覧）。menu：行の右クリック・ContextMenu キー・Shift+F10。wrap：ボタンが多いときに折り返す。className（省略可）：行に足す class（見た目をその行だけ替えるとき。ボードのタグの段の候補）
   | { pills: MenuButton[] } // 登録したシートのボタン（右の区画タグと同じ丸いボタン）
-  | { note: string } // 押せない、何行かの文（メモにする前に見せる、クリップボードの最初の 200 字など。文字としてだけ出す）
+  | { note: string; scroll?: boolean } // 押せない、何行かの文（メモにする前に見せる、クリップボードの最初の 200 字など。文字としてだけ出す）。scroll：焦点を受け、開いている間の PageUp・PageDown で中をスクロールする（長い全文をキーで読む）
+  | { picture: string; alt: string } // 絵（data:image/ の文字列だけを src に入れる。それ以外は描かない）
   | 'sep';
 
 export class CellMenu {
@@ -32,7 +33,8 @@ export class CellMenu {
 
   // options.host：入れる所（無ければ body。前後の順をほかの浮いた窓と分け合うとき）。
   //   options.keepOpen：外を押しても閉じない所（関連の一覧の欄を開いたまま、出したカードを押すなど）
-  constructor(options: { host?: HTMLElement; keepOpen?: (target: Node) => boolean } = {}) {
+  //   options.stopEsc：開いている間の Esc は閉じるだけにする（window の受け口へ渡さない。閉じたうえで選びを外す・区画を閉じる、と次の段へ進まないように）
+  constructor(options: { host?: HTMLElement; keepOpen?: (target: Node) => boolean; stopEsc?: boolean } = {}) {
     this.element.hidden = true;
     this.element.setAttribute('role', 'menu');
     (options.host ?? document.body).append(this.element);
@@ -40,10 +42,24 @@ export class CellMenu {
       const target = e.target as Node;
       if (this.element.hidden || this.element.contains(target)) return;
       if (options.keepOpen?.(target)) return;
-      this.close();
+      this.close(false); // 外を押したときは、焦点は押した所が決める（開いたボタンへ戻さない）
     });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !this.element.hidden) this.close();
+      if (this.element.hidden) return;
+      if (e.key === 'PageDown' || e.key === 'PageUp') {
+        const box = this.element.querySelector<HTMLElement>('[data-scroll="true"]');
+        if (!box) return; // スクロールの印が無いメニューは今までどおり
+        e.preventDefault();
+        box.scrollBy(0, (e.key === 'PageDown' ? 1 : -1) * box.clientHeight * 0.8);
+        return;
+      }
+      if (e.key !== 'Escape') return;
+      if (e.isComposing || e.keyCode === 229) return; // 日本語の変換をやめる Esc では閉じない（シートの一覧の探す欄など）
+      this.close();
+      if (options.stopEsc) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     });
     window.addEventListener('blur', () => this.close());
   }
@@ -103,10 +119,10 @@ export class CellMenu {
     this.element.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
   }
 
-  close() {
+  close(refocus = true) {
     this.element.classList.remove('cell-menu-wide');
-    // メニューの中にキーボードの位置があったら（項目を押した・Esc）、開いたボタンへ戻す
-    const back = this.element.contains(document.activeElement) ? this.opener : null;
+    // メニューの中にキーボードの位置があったら（項目を押した・Esc）、開いたボタンへ戻す。外を押して閉じたときは refocus が false
+    const back = refocus && this.element.contains(document.activeElement) ? this.opener : null;
     this.opener?.setAttribute('aria-expanded', 'false');
     this.opener = null;
     this.element.hidden = true;
@@ -270,7 +286,22 @@ export class CellMenu {
       } else if ('section' in entry) {
         nodes.push(el('div', 'cell-menu-section', entry.section));
       } else if ('note' in entry) {
-        nodes.push(el('div', 'cell-menu-note', entry.note));
+        const note = el('div', 'cell-menu-note', entry.note);
+        if (entry.scroll) {
+          note.tabIndex = 0;
+          note.dataset.scroll = 'true';
+        }
+        nodes.push(note);
+      } else if ('picture' in entry) {
+        // 絵は data:image/ だけ（外のアドレスへ取りに行かない）。それ以外は何も描かない
+        if (entry.picture.startsWith('data:image/')) {
+          const box = el('div', 'cell-menu-picture');
+          const img = el('img');
+          img.src = entry.picture;
+          img.alt = entry.alt;
+          box.append(img);
+          nodes.push(box);
+        }
       } else if ('pills' in entry) {
         const row = el('div', 'cell-menu-pills');
         for (const b of entry.pills) {
@@ -289,6 +320,8 @@ export class CellMenu {
         nodes.push(row);
       } else if ('row' in entry) {
         const row = el('div', 'cell-menu-row');
+        if (entry.wrap) row.classList.add('cell-menu-row-wrap');
+        if (entry.className) row.classList.add(entry.className);
         const menu = entry.menu;
         if (menu) {
           // 行の右クリック（キーのときは、焦点のあるボタンの keydown で受け、あとから届く contextmenu は捨てる）

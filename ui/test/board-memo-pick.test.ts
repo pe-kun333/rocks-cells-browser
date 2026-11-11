@@ -140,7 +140,7 @@ describe('配線（ソースの形）', () => {
     expect(tab).toContain("pickMode(info, { available: !!pick, upper: this.place === 'upper' })");
   });
   it('名札はボードの見出しの行に常に置く（選び口は上に出しているときだけ）', () => {
-    expect(tab).toMatch(/bar\.append\(el\('span', 'memo-board-title', 'ボード'\), this\.memoTag, this\.count, this\.orphanEl\)/);
+    expect(tab).toMatch(/bar\.append\(this\.titleBtn, this\.memoTag, this\.count, this\.orphanEl\)/); // 題は畳むボタン（CB10）
     expect(tab).toMatch(/refresh\(show: boolean\) \{\s*this\.paintMemoTag\(\);/);
     expect(tab).toMatch(/this\.root\.classList\.toggle\('is-upper', upper\);\s*this\.paintMemoTag\(\);/);
   });
@@ -169,7 +169,12 @@ describe('配線（ソースの形）', () => {
     expect(cards).toMatch(/if \(board\.ownsMenu\(e\)\) \{\s*e\.preventDefault\(\);[^\n]*\n\s*return true;\s*\}\s*if \(!board\.keysAllowed\(e\.target\)\) return false;/);
   });
   it('CSS：別のメモのときの名札と帯の色は既存のテーマ変数だけ', () => {
-    const block = css.slice(css.indexOf('M3：ボードが見ているメモの名札'));
+    const start = css.indexOf('M3：ボードが見ているメモの名札');
+    const end = css.indexOf('HX4：正六角のカード'); // M3 の塊だけを見る（後ろの HX4 の塊は memo-card-board-hex-wiring.test.ts で確かめる）
+    expect(start).toBeGreaterThan(0);
+    expect(end).toBeGreaterThan(start);
+    const block = css.slice(start, end);
+    expect(block.length).toBeGreaterThan(200);
     expect(block).toContain('.memo-board.is-other-memo .memo-board-bar');
     expect(block).toContain('.memo-board-memotag.is-other');
     expect(block.match(/var\(--[a-z-]+\)/g)!.every((v) => /--(border|muted|accent-line|accent-soft|accent-ink|shell-focus)/.test(v))).toBe(true);

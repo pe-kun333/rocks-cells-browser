@@ -2,15 +2,18 @@
 //   型：動作 ＋「できません」＋ 理由。書き込まないときは「（書き込みません）」を付け、読めない理由（boardUnreadableNote）を続ける
 //   数え方：台帳のカード＝「件」（1 つのメモに入るのは 300 件まで）。ボードの位置＝「件」（ボードに残せる位置は 300 件まで）。型・選んだカードの枚数＝「枚」
 import { t } from './i18n';
-import { BOARD_LIMITS } from './memo-card-board';
-import { boardUnreadableNote, type LoadBoardResult } from './memo-card-board-store';
+import { BOARD_LIMITS, type BoardLayout } from './memo-card-board';
+import { boardUnreadableNote, layoutHead, type LoadBoardResult } from './memo-card-board-store';
 import { MAX_REPLIES } from './threads';
+
+// 六角のファイルの話の文の頭（HX5）。作りは memo-card-board-store.ts（保存できなかった文も使うため）。ここからも出す
+export { layoutHead };
 
 // 読み込み中の文。verb＝「動かして」「足して」「貼って」「操作して」
 export const loadingNote = (verb: string) => t('ボードを読み込み中です。少し待ってから{0}ください', { 0: verb });
 
-// 読めないボードに書かない文。action＝「カードは動かせません」など
-export const unreadableBlockNote = (action: string, why: Extract<LoadBoardResult, { state: 'unreadable' }>['why']) => t('{0}（書き込みません）。{1}', { 0: action, 1: boardUnreadableNote(why) });
+// 読めないボードに書かない文。action＝「カードは動かせません」など。layout は読めなかったファイルの形（必ず渡す。六角なら頭に「六角の並びは、」）
+export const unreadableBlockNote = (action: string, why: Extract<LoadBoardResult, { state: 'unreadable' }>['why'], layout: BoardLayout) => t('{0}{1}（書き込みません）。{2}', { 0: layoutHead(layout), 1: action, 2: boardUnreadableNote(why) });
 
 // 台帳（1 メモ 300 件）がいっぱいの文。action＝「カードを足せません」「型を貼れません」
 export const ledgerFullNote = (action: string) => t('{0}（1 つのメモに入るのは {1} 件までです）', { 0: action, 1: MAX_REPLIES });

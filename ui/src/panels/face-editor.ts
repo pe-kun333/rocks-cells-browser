@@ -226,7 +226,7 @@ export class FaceEditor {
       looks.setAttribute('role', 'group');
       looks.setAttribute('aria-label', 'このタブの見え方');
       const options: { id: TabLook | null; label: string; hint: string }[] = [
-        { id: null, label: tr('全体に合わせる'), hint: tr('盤面の左上の ▾ で選んだ見え方（今は「{0}」）', { 0: TAB_LOOKS.find((l) => l.id === t.globalLook)?.label ?? 'おまかせ' }) },
+        { id: null, label: tr('全体に合わせる'), hint: tr('盤面の左上の ▾ → ⋯ → 表示 ▸ で選んだ見え方（今は「{0}」）', { 0: TAB_LOOKS.find((l) => l.id === t.globalLook)?.label ?? tr('おまかせ') }) },
         ...TAB_LOOKS,
       ];
       for (const o of options) {

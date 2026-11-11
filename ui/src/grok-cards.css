@@ -489,7 +489,13 @@
   margin-left: 2px;
 }
 
+.memo-board.is-file-over {
+  outline: 2px dashed var(--accent-line);
+  outline-offset: -2px;
+}
+
 .memo-board {
+  position: relative;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -511,7 +517,74 @@
 }
 
 .memo-board-title {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.memo-board-title:hover {
+  color: var(--accent-ink);
+}
+
+.memo-board-title:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: 2px;
+}
+
+/* 帯の行を増やさない（CB10。題が長くなったので、広い幅では折らずに札と枚数を省略する。選ぶたびに面がずれないように） */
+@media (min-width: 520px) {
+  .memo-board-bar {
+    flex-wrap: nowrap;
+  }
+
+  .memo-board-title,
+  .memo-board-bar-right {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .memo-board-bar-right {
+    flex-wrap: nowrap;
+  }
+
+  .memo-board-memotag {
+    flex: 0 1 auto;
+    min-width: 72px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .memo-board-count {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .memo-board-orphan {
+    flex: 0 2 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* 道具の列とタグの行を畳む（CB10）。hidden は描き直しが書き戻すので class で隠す */
+.memo-board-tools.is-folded,
+.memo-board-tagrow.is-folded {
+  display: none;
+}
+
+/* カードのメニューのタグの段の候補（2026-11-08）：付いた候補の押された印を太字にしない（幅が変わると後ろの候補がずれ、続けて押すと隣のタグが付くため）。印は枠と地の色だけ */
+.cell-menu-row.memo-board-tagpool .cell-menu-toggle[aria-pressed='true'] {
+  font-weight: inherit;
 }
 
 .memo-board-count {
@@ -523,6 +596,17 @@
   margin-left: 6px;
   color: var(--muted);
   font-size: 11px;
+}
+
+/* 選んだ 1 枚の事実：残りの幅に 1 行で切る（基準の幅を 0 にして、見出しの行を折り返させない） */
+.memo-board-facts {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .memo-board-bar-right {
@@ -544,10 +628,20 @@
   font: inherit;
 }
 
+/* 倍率の表示。押すと 100%（HX1）。見た目は前の字のまま */
 .memo-board-zoom {
   min-width: 34px;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--muted);
+  font: inherit;
   text-align: right;
+  cursor: pointer;
+}
+
+.memo-board-zoom:hover {
+  color: var(--accent-ink);
 }
 
 .memo-board-expand,
@@ -565,6 +659,7 @@
 .memo-board-expand:focus-visible,
 .memo-board-place:focus-visible,
 .memo-board-fit:focus-visible,
+.memo-board-zoom:focus-visible,
 .memo-board-search:focus-visible {
   outline: 2px solid var(--shell-focus);
   outline-offset: 2px;
@@ -615,7 +710,7 @@
   align-items: center;
   gap: 8px;
   padding: 3px 8px;
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   font-size: 12px;
 }
 
@@ -630,7 +725,7 @@
   flex-direction: column;
   gap: 4px;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   background: var(--accent-soft);
   color: var(--text);
   font-size: 12px;
@@ -650,12 +745,62 @@
 
 .memo-board-compose-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
 
+/* 足すと同時に引く線の種類（CB13） */
+.memo-board-linkkind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.memo-board-linkkind[hidden] {
+  display: none;
+}
+
+.memo-board-linkkind select {
+  padding: 1px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
 .memo-board-compose-hint {
   color: var(--muted);
+}
+
+/* 上の区画では書く欄を細くする（HX2）：欄と［決める］［やめる］・つなぐを 1 行に並べる。見出しと案内の文は欄の title へ
+   欄は 1 行（18px）から 3 行まで、字に合わせて JS（fitComposeText・composeTextHeight）が伸ばす。1 行のとき欄全体で約 41px
+   面が狭いときは、欄を 10em より細くせず、ボタンを次の行へ回す */
+.memo-board.is-upper .memo-board-compose {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.memo-board.is-upper .memo-board-compose-label,
+.memo-board.is-upper .memo-board-compose-hint,
+.memo-board.is-upper .memo-board-linkkind-note {
+  display: none;
+}
+
+.memo-board.is-upper .memo-board-compose-text {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 10em;
+  overflow-y: auto;
+  line-height: 18px;
+  resize: none;
+}
+
+.memo-board.is-upper .memo-board-compose-actions {
+  flex: none;
 }
 
 /* 線を引く途中：相手のカードを押すのを待つ */
@@ -666,7 +811,7 @@
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   background: var(--accent-soft);
   color: var(--text);
   font-size: 12px;
@@ -692,7 +837,7 @@
 .memo-board-note {
   flex: none;
   padding: 3px 8px;
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: 12px;
 }
@@ -740,11 +885,20 @@
   transform-origin: 0 0;
 }
 
+/* カードへ移るときだけ、短く滑らせる */
+.memo-board-stage.is-sliding {
+  transition: background-position 220ms ease;
+}
+
+.memo-board-stage.is-sliding .memo-board-world {
+  transition: transform 220ms ease;
+}
+
 /* 保存した・できなかった、の一言 */
 .memo-board-status {
   flex: none;
   padding: 3px 8px;
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: 12px;
 }
@@ -769,6 +923,53 @@
   fill: none;
   stroke-width: 2;
   stroke-linecap: round;
+}
+
+/* 画像だけのカードの顔：左に小さな絵、右に題（CB16。決定 1）。絵は押せない（押すとカードを押したことになる） */
+.memo-board-card.has-thumb {
+  padding-left: 76px;
+}
+
+.memo-board-card-thumb {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  width: 64px;
+  height: 84px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 線の当たり（CB15）。カードより前の DOM に置くので、カードの上を押せばカードが勝つ。見えない太い線 */
+.memo-board-link-hits {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.memo-board-link-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 10px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+/* 名札はふだん隠す。乗せた線と、端のカードを選んだ線だけ（決定 3） */
+.memo-board-link .memo-board-link-label {
+  display: none;
+}
+
+.memo-board-link.is-named .memo-board-link-label {
+  display: inline;
 }
 
 .memo-board-link-label {
@@ -838,22 +1039,183 @@
   opacity: 0.28;
 }
 
-.memo-board-card-title {
-  max-height: 34px;
-  overflow: hidden;
-  padding-right: 22px;
-  font-size: 12.5px;
-  font-weight: 600;
-  line-height: 1.35;
+/* 足したカード：短く光らせる（動きを減らす設定では枠だけ） */
+.memo-board-card.is-arrive {
+  animation: memo-board-arrive 1.6s ease-out;
 }
 
-.memo-board-card-body {
-  max-height: 30px;
-  margin-top: 2px;
+@keyframes memo-board-arrive {
+  from {
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 3px var(--accent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .memo-board-card.is-arrive {
+    animation: none;
+    outline: 2px solid var(--accent-line);
+  }
+}
+
+/* 足したカードが面の外にあるときの札。押すとそのカードへ移る */
+.memo-board-edgechip {
+  position: absolute;
+  z-index: 1;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 20px;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+
+.memo-board-edgechip:hover {
+  background: var(--hover);
+}
+
+/* カードの文は枠いっぱいに流し込む。切れるカードは末尾に「…」。行数は変数（字幅で直せるように）。タグの札や AI の印があるカードは 1 行空ける */
+.memo-board-card {
+  --board-card-lines: 5;
+}
+
+.memo-board-card.is-ai,
+.memo-board-card.has-tags {
+  --board-card-lines: 4;
+}
+
+.memo-board-card-flow {
+  display: -webkit-box;
   overflow: hidden;
-  color: var(--muted);
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--board-card-lines);
+}
+
+/* 右上の印の席。幅は印の数に合わせて描くときに決める */
+.memo-board-card-seat {
+  float: right;
+  height: 14px;
+}
+
+.memo-board-card-first {
+  font-weight: 600;
+}
+
+/* 📌 留めたカード：面の上の層。層は押せない、カードの窓だけ押せる */
+.memo-board-pins {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.memo-board-pin {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  max-width: calc(100% - 8px);
+  max-height: min(320px, calc(100% - 12px));
+  border: 1.5px solid var(--accent-line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 6px 20px var(--shadow-pop);
+  cursor: default;
+  pointer-events: auto;
+  user-select: text;
+}
+
+.memo-board-pin[hidden] {
+  display: none;
+}
+
+.memo-board-pin-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px 3px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  cursor: grab;
+  font-size: 11px;
+  touch-action: none;
+  user-select: none;
+}
+
+.memo-board-pin-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-board-pin-close {
+  flex: none;
+  height: auto;
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.memo-board-pin-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  scrollbar-width: thin;
+}
+
+.memo-board-pin-facts {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.memo-board-pin-text {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.memo-board-pin-picture {
+  display: block;
+  max-width: 100%;
+  margin-top: 6px;
+  border-radius: 6px;
+}
+
+/* AI のカードの印：右下に書き手の名前。タグの札とは重ねない */
+.memo-board-card-who {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  max-width: 72px;
+  overflow: hidden;
+  color: var(--accent-ink);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-board-card.is-ai .memo-board-card-tags {
+  right: 84px;
 }
 
 .memo-board-card-tags {
@@ -998,4 +1360,244 @@
 .memo-board.is-other-memo .memo-board-bar {
   box-shadow: inset 4px 0 0 var(--accent-line);
   background: var(--accent-soft);
+}
+
+/* HX4：正六角のカード（.memo-board-card.is-hex。箱 150×174・頂点が上。app/memo-board-hex.ts）。色は今のテーマの変数だけ（新しい色は作らない）
+   四角の規則（枠・角の丸め・地・影・輪・余白・光り・仮の破線・写真の余白）を、詳しさ 0,3,0 以上でここ（ファイルの後ろ）で打ち消す。
+   div と svg は押せず、多角形の顔だけが押しを受ける（六角の外の角を押すと、下のカード・線・空きに届く） */
+.memo-board-stage .memo-board-card.is-hex,
+.memo-board-stage .memo-board-card.is-hex.is-selected,
+.memo-board-stage .memo-board-card.is-hex.is-dragging,
+.memo-board-stage .memo-board-card.is-hex.is-selected.is-dragging,
+.memo-board-stage .memo-board-card.is-hex.is-link-source,
+.memo-board-stage .memo-board-card.is-hex.is-arrive,
+.memo-board-stage .memo-board-card.is-hex.is-provisional,
+.memo-board-stage .memo-board-card.is-hex.has-thumb {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  outline: none;
+  padding: 0;
+  animation: none;
+}
+
+.memo-board-stage .memo-board-card.is-hex {
+  width: 150px;
+  height: 174px;
+  isolation: isolate;
+  pointer-events: none;
+  --board-card-lines: 5;
+}
+
+/* 選んだカードは、ほかのカードより上に描く（線の層も z-index 1 で、DOM ではカードより後ろなので、線は上のまま）。
+   つまんでいる間は四角と同じく線の層より上（選んだカードの 1 で四角の 2 を打ち消さないように）。離したあとは nodes の順（最後に動かしたカードが上。HX5） */
+.memo-board-stage .memo-board-card.is-hex.is-selected {
+  z-index: 1;
+}
+
+.memo-board-stage .memo-board-card.is-hex.is-dragging {
+  z-index: 2;
+}
+
+.memo-board-hex-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.memo-board-hex-face {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1.5;
+  pointer-events: visiblePainted;
+}
+
+/* 選びの輪：顔の内側（外接の半径より 4 内側、太さ 3） */
+.memo-board-hex-ring {
+  display: none;
+  fill: none;
+  stroke: var(--accent-line);
+  stroke-width: 3;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.memo-board-stage .memo-board-card.is-hex.is-selected .memo-board-hex-ring {
+  display: inline;
+}
+
+/* 線の元：顔の縁を色付きの破線に（破線は辺ごとにそろえる。pathLength 60 で 1 辺に 2 本） */
+.memo-board-stage .memo-board-card.is-hex.is-link-source .memo-board-hex-face {
+  stroke: var(--accent-line);
+  stroke-width: 2;
+  stroke-dasharray: 3 2;
+}
+
+/* 足したカード：顔の地を短く光らせる（四角と同じ長さ） */
+.memo-board-stage .memo-board-card.is-hex.is-arrive .memo-board-hex-face {
+  animation: memo-board-hex-arrive 1.6s ease-out;
+}
+
+@keyframes memo-board-hex-arrive {
+  from {
+    fill: var(--accent-soft);
+    stroke: var(--accent-line);
+  }
+}
+
+/* 上の三角（帯のすぐ上の 1 行。日時と印）と下の三角（帯のすぐ下の 1 行。タグ 1 つと +n か、AI の書き手。題のある写真のカードは題〈タグは +n〉）。中央寄せの固定の箱で切る
+   上の行は、入らない印が次の行へ回って隠れる（印は後ろから落ち、日時は残る）。下の行は折り返さず、名前・題・タグを「…」で縮める */
+.memo-board-hex-top,
+.memo-board-hex-bottom {
+  position: absolute;
+  left: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  column-gap: 3px;
+  width: 82px;
+  height: 12px;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 12px;
+  white-space: nowrap;
+}
+
+.memo-board-hex-top {
+  top: 30px;
+  flex-wrap: wrap;
+}
+
+.memo-board-hex-bottom {
+  top: 131px;
+  flex-wrap: nowrap;
+}
+
+.memo-board-hex-mark {
+  flex: none;
+}
+
+.memo-board-hex-tag {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 56px;
+  box-sizing: border-box;
+  padding: 0 5px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 9.5px;
+  text-overflow: ellipsis;
+}
+
+.memo-board-hex-more {
+  flex: none;
+  color: var(--muted);
+}
+
+.memo-board-hex-who {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--accent-ink);
+  text-overflow: ellipsis;
+}
+
+/* 写真だけのカードの題（タグの代わりに下の三角の行へ。行の箱の幅で「…」） */
+.memo-board-hex-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+}
+
+/* 真ん中の文の帯（箱の y＋43.3〜y＋129.9）：文 5 行（12px・行の高さ 1.35）。複数行なら 1 行目を太字（四角と同じ流し込み） */
+.memo-board-hex-mid {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 44px;
+  height: 85px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.memo-board-card.is-hex .memo-board-card-flow {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* 写真だけのカード：真ん中に 72×96 の縦長の絵（上から 39〜135）。日時の行は 27〜39、タグの行は絵の下 */
+.memo-board-card.is-hex .memo-board-card-thumb {
+  left: 39px;
+  top: 39px;
+  width: 72px;
+  height: 96px;
+}
+
+.memo-board-card.is-hex.has-thumb .memo-board-hex-top {
+  left: 40px;
+  top: 27px;
+  width: 70px;
+}
+
+.memo-board-card.is-hex.has-thumb .memo-board-hex-bottom {
+  left: 44px;
+  top: 137px;
+  width: 62px;
+}
+
+/* 形の切り替え（題の帯の「⬡ 六角」と道具の列の「⬡」）。押している間は六角（aria-pressed）。押している見た目は色と太さ */
+.memo-board-shape {
+  padding: 1px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.memo-board-shape[aria-pressed='true'],
+.memo-board-tool.memo-board-shape-tool[aria-pressed='true'] {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.memo-board-shape:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: 2px;
+}
+
+/* 動きを減らす設定：光らせず、顔の縁だけで足したカードを示す（四角の規則とは別の塊） */
+@media (prefers-reduced-motion: reduce) {
+  .memo-board-stage .memo-board-card.is-hex.is-arrive .memo-board-hex-face {
+    animation: none;
+    stroke: var(--accent-line);
+    stroke-width: 2.5;
+  }
+}
+
+/* 強制色（ハイコントラスト）：顔は Canvas／CanvasText、選びの輪と線の元は Highlight */
+@media (forced-colors: active) {
+  .memo-board-stage .memo-board-card.is-hex .memo-board-hex-face {
+    fill: Canvas;
+    stroke: CanvasText;
+  }
+
+  .memo-board-stage .memo-board-card.is-hex.is-link-source .memo-board-hex-face,
+  .memo-board-stage .memo-board-card.is-hex .memo-board-hex-ring {
+    stroke: Highlight;
+  }
 }

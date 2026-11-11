@@ -197,6 +197,11 @@ export function sheetSetsIn(raw: unknown): { id: string; name: string; sheets: s
   return state.sets.map((set) => ({ id: set.id, name: set.name, sheets: [...set.sheets] }));
 }
 
+// 左の盤面から、右で作ったシートの id だけを読む（左のシートの一覧で「アプリのシート」の段に分けるため。ここでは保存しない）
+export function madeSheetsIn(raw: unknown): string[] {
+  return parseState(raw)?.made ?? [];
+}
+
 function parseState(raw: unknown): State | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const r = raw as Record<string, unknown>;

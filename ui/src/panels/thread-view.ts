@@ -24,6 +24,7 @@ export interface ThreadUi {
   refresh(): void; // カードを、今の台帳から描き直す
   shot?(id: string): string | undefined; // 画像の data URL（左は MemoStore.image、右は readData。まだなら undefined）
   openSource?(url: string, fragmentUrl: string): void; // 引用元を開く
+  keepReplyForm?: boolean; // 返信を送っても欄を閉じない（続けて書ける）。下の一覧だけが使う。ほかの面は今まで通り閉じる
 }
 
 const MAX_INDENT = 3; // これより深い段は字下げしない（「↳ 〇〇へ」と出す）
@@ -467,8 +468,10 @@ function replyForm(ref: ThreadRef, target: string | null, ui: ThreadUi): HTMLEle
     expandFor(ref, target);
     text.blur(); // 先に欄を離れる（書いている間は、カードを描き直さないので）
     form.remove();
+    if (ui.keepReplyForm) drafts.set(formKey, ''); // 続けて書けるように、空の欄を開いたままにする（drafts にあれば欄を出す）
     ui.actions.add(ref, target, value);
     ui.refresh(); // 返信が足せなかったとき（右サイドバーから頼んだとき）も、今の台帳で描き直す
+    if (ui.keepReplyForm) document.querySelector<HTMLTextAreaElement>(`[data-form="${CSS.escape(formKey)}"] textarea`)?.focus(); // 描き直したあとの欄に入る
   });
   const row = el('div', 'reply-form-row');
   row.append(send, cancel);
