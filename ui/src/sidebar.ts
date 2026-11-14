@@ -152,6 +152,7 @@ export class Sidebar {
   private frame = 0;
   private readonly brokenIcons = new Set<string>();
   private islands: Island[] = [];
+  private waypointsOf: (sheet: string) => readonly { slot: number; hex: Hex }[] = () => []; // 棚の「ポータル」（シートごと。primary.ts が渡す）
   showIslandNames = true; // 盤面に島の名前を出す（表示の設定）
   private boardLinks: readonly BoardLink[] = []; // 盤面の関連の線
   private linking: { from: CellRef; kind: LinkKind } | null = null; // 関連づける途中（次に押したセルが相手）
@@ -536,6 +537,12 @@ export class Sidebar {
     this.requestRender();
   }
 
+  // ポータルを引く口。盤面は this.sheet で引くので、シートを替えても渡し直さなくてよい
+  setWaypoints(get: (sheet: string) => readonly { slot: number; hex: Hex }[]) {
+    this.waypointsOf = get;
+    this.requestRender();
+  }
+
   // Grok の提案の見本（一覧でチェックした島・線）。空にすると消える
   setPatchPreview(preview: PatchPreview) {
     this.patchPreview = preview;
@@ -880,6 +887,16 @@ export class Sidebar {
     this.svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     const world = svgEl('g', { transform: `translate(${this.pan.x} ${this.pan.y}) scale(${this.zoom})` });
     world.append(this.gridPath());
+    const waypoints = this.waypointsOf(this.sheet);
+    // 運んでいる途中のセルは、元のマスに「無い」と数える（元のマスにポータルの顔を出す。角の印だけが残らないように）
+    const lifted = (this.drag?.kind === 'cell' || this.drag?.kind === 'memo') && this.drag.moved ? this.drag : null;
+    const covered = (h: Hex) => {
+      const tab = this.store.tabAt(h, this.sheet);
+      const memo = this.memos.at(h, this.sheet);
+      return (!!tab && !(lifted?.kind === 'cell' && lifted.id === tab.id)) || (!!memo && !(lifted?.kind === 'memo' && lifted.id === memo.id));
+    };
+    const openWaypoints = this.waypointLayer(waypoints.filter((w) => !covered(w.hex)), false);
+    if (openWaypoints) world.append(openWaypoints);
     const tabs = this.tabsHere();
     const memos = this.memosHere();
 
@@ -901,6 +918,8 @@ export class Sidebar {
     for (const tab of tabs) {
       if (drag?.id !== tab.id) world.append(this.cell(tab, hexToPixel(tab.pos, CELL)));
     }
+    const coveredWaypoints = this.waypointLayer(waypoints.filter((w) => covered(w.hex)), true);
+    if (coveredWaypoints) world.append(coveredWaypoints);
     const dragged = drag && this.store.get(drag.id);
     const draggedMemo = memoDrag && this.memos.get(memoDrag.id);
     const moving = drag ?? memoDrag;
@@ -990,6 +1009,34 @@ export class Sidebar {
       g.append(badge);
     }
     return g;
+  }
+
+  // ポータル：セルの無いマスは六角の顔と番号（当たりは空いたマスのまま）。セルが乗ったマスは右下の角に小さな六角と番号（押せない）
+  private waypointLayer(list: readonly { slot: number; hex: Hex }[], under: boolean): SVGElement | null {
+    if (list.length === 0) return null;
+    const layer = svgEl('g', { class: under ? 'waypoint-layer under' : 'waypoint-layer' });
+    for (const { slot, hex } of list) {
+      const n = String(slot + 1);
+      const c = hexToPixel(hex, CELL);
+      if (under) {
+        const p = { x: c.x + CELL * 0.58, y: c.y + CELL * 0.24 };
+        const g = svgEl('g', { class: 'waypoint under' });
+        g.append(svgEl('polygon', { class: 'waypoint-corner-hex', points: hexCorners(p.x, p.y, 6) }), svgText({ x: p.x, y: p.y + 0.3 }, n, 'waypoint-corner-text'));
+        layer.append(g);
+        continue;
+      }
+      const g = svgEl('g', { class: 'waypoint', 'data-waypoint': n });
+      g.append(
+        svgEl('polygon', { class: 'waypoint-hex', points: hexCorners(c.x, c.y, FACE) }),
+        svgEl('polygon', { class: 'waypoint-rim', points: hexCorners(c.x, c.y, FACE - 3.5) }),
+        svgText({ x: c.x, y: c.y + 0.5 }, n, 'waypoint-text'),
+      );
+      const title = svgEl('title', {});
+      title.textContent = this.preview ? tr('ポータル {0}', { 0: n }) : tr('ポータル {0}（右クリックで操作）', { 0: n }); // 小窓ではメニューを出さない
+      g.append(title);
+      layer.append(g);
+    }
+    return layer;
   }
 
   // 画面に見えている範囲だけ、背景のハニカム格子を描く
@@ -1485,6 +1532,7 @@ export class Sidebar {
     const w = this.toWorld(this.local(e));
     const hex = pixelToHex(w.x, w.y, CELL);
     if (this.store.tabAt(hex, this.sheet) || this.memos.at(hex, this.sheet)) return; // 押した所にタブ・メモのセルがある
+    if (this.waypointsOf(this.sheet).some((p) => hexKey(p.hex) === hexKey(hex))) return; // ポータルのマス：タブを作らない
     this.actions.createAt(hex);
   }
 

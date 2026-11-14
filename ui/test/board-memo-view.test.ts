@@ -13,7 +13,7 @@ vi.mock('../src/data', () => ({
   listData: async () => [],
 }));
 
-import { boardSnapshot, templateSource } from '../src/memo-board-source';
+import { boardFocusOf, boardSnapshot, templateSource } from '../src/memo-board-source';
 import { addCommand, deleteCommands, linkAddPlan, tagCommands } from '../src/memo-card-board-edit';
 import { addUndoCommand, restoreCommand } from '../src/memo-card-board-undo';
 import { MemoPaneHost } from '../src/memo-pane-host';
@@ -45,6 +45,23 @@ describe('boardSnapshot：選んだメモがあればそれ、無ければ下の
   it('写しは同じ配列のまま渡す（コピーしない＝ボードの描き直しの判定が変わらない）', () => {
     const a = view('A');
     expect(boardSnapshot(null, a)?.replies).toBe(a.replies);
+  });
+});
+
+describe('boardFocusOf：ボードが見る写しに載った、選んで見せるカードの頼み（MK4。写しの形 boardSnapshot は変えない）', () => {
+  const focused = (id: string, replyId: string, n: number) => ({ ...view(id), boardFocus: { id: replyId, n } }) as MemoPaneView;
+  it('選んだメモがあればその写しの頼み、無ければ下の区画の写しの頼み（boardSnapshot と同じ選び方）。メモの id を添える', () => {
+    expect(boardFocusOf(null, focused('A', 'A-r1', 3))).toEqual({ memoId: 'A', replyId: 'A-r1', n: 3 });
+    expect(boardFocusOf(focused('B', 'B-r2', 1), focused('A', 'A-r1', 3))).toEqual({ memoId: 'B', replyId: 'B-r2', n: 1 });
+  });
+  it('選んだメモの写しに頼みが無ければ、下の区画の頼みは使わない（ボードは下を見ていない）。どちらも無ければ null', () => {
+    expect(boardFocusOf(view('B'), focused('A', 'A-r1', 3))).toBeNull();
+    expect(boardFocusOf(null, view('A'))).toBeNull();
+    expect(boardFocusOf(null, null)).toBeNull();
+  });
+  it('頼みが載っていても、boardSnapshot の形は今のまま（memoId と replies だけ）', () => {
+    const a = focused('A', 'A-r1', 1);
+    expect(boardSnapshot(null, a)).toEqual({ memoId: 'A', replies: a.replies });
   });
 });
 
@@ -240,6 +257,10 @@ describe('下の面（memo-pane.ts）の配線', () => {
     expect(pane).toContain('get: () => boardSnapshot(boardMemoView, view)');
     expect(pane).not.toContain('get: () => (view ? { memoId: view.id');
   });
+  it('MK4：選んで見せるカードの頼みは、boardSource の別の口 focus で渡す（同じ選び方の boardFocusOf）', () => {
+    expect(pane).toContain('focus: () => boardFocusOf(boardMemoView, view)');
+    expect(pane.split('boardFocusOf(').length - 1).toBe(1);
+  });
   it('ボードから開く小窓（型にする・空欄・保存・数の表示）は、下の区画の view.replies を直接読まない（tplSource を通す）', () => {
     for (const name of ['openTplDialog', 'saveTplDialog', 'saveTplFromBoard', 'refreshTplPreview', 'submitTplFill']) {
       const body = fn(name);
@@ -257,7 +278,7 @@ describe('下の面（memo-pane.ts）の配線', () => {
   });
   it('ボードの部品は、メモの id をすべて source.get() の memoId から取る（下の区画の view・開いているメモの id を持たない）', () => {
     const tab = readFileSync(new URL('../src/app/memo-board-tab.ts', import.meta.url), 'utf8');
-    expect(tab).not.toMatch(/readMemoPanePrefs|openId|lastMemo|view\.id/);
+    expect(tab).not.toMatch(/readMemoPanePrefs|\bopenId\b|lastMemo|view\.id/); // \b：📌 の pins.openIds(this.memoId)（ボードのメモで留めたカード。MK8b）は通す
     expect(tab).toMatch(/const snap = this\.source\?\.get\(\)/);
   });
 });

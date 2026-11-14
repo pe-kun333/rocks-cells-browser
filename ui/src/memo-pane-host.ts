@@ -62,6 +62,11 @@ export class MemoPaneHost {
   private boardMemo: string | null = null;
   private boardSent = false; // memoBoardView で、null でない写しを送った（あとで null を一度だけ送って片づけるため）
   private boardRestore: string | null = readMemoPanePrefs().boardMemo; // 前に選んだメモ。起動直後は台帳をまだ読めていないことがあるので、見つかったときに戻す
+  // 右の検索の［上で開く］：ボードでこのカードを選んで見せる頼み（番号が上がるたびに、ボードが一度だけ当てる。ボードが見る写しにだけ載せる。MK4）
+  //   捨てるのは、見るメモを選び直したとき（setBoardMemo）と、ボードが下に付いていく間に下が別のメモへ替わった・閉じたとき（open・close。MK4 の見直し：あとで開き直したときに急に当たらないように）。
+  //   下の面が読み込み直されたとき（ready）は捨てずに送り直す。作り直したボードは番号を 0 から数えるので、もう一度当てる（下の区画の focusReply と同じ）
+  private boardFocus: { memoId: string; replyId: string; n: number } | null = null;
+  private boardFocusN = 0;
 
   constructor(
     private readonly o: {
@@ -97,9 +102,20 @@ export class MemoPaneHost {
     }
     this.boardRestore = null;
     this.boardMemo = id;
+    this.boardFocus = null; // 選ぶカードの頼みは、見るメモを選び直したら持ち越さない（［上で開く］は、このあとで focusBoard を呼ぶ。MK4）
     writeMemoPanePrefs({ boardMemo: id });
     this.pushBoard();
     return true;
+  }
+
+  // ボードでこのカードを選んで 100% で見せる頼み（右の検索の［上で開く］。MK4）。番号を上げて印を持ち、ボードが見る写しを送り直す
+  //   選んだメモがあればその写し（memoBoardView）、無ければ下の区画の写し（memoPane。ボードは下に付いていく）。
+  //   setBoardMemo・open の中では送らない（送る数を変えない。左が runBoardOpen のあとで呼ぶ）
+  focusBoard(memoId: string, replyId: string) {
+    this.boardFocusN += 1;
+    this.boardFocus = { memoId, replyId, n: this.boardFocusN };
+    if (this.boardMemo) this.pushBoard();
+    else if (this.current) this.pushNow();
   }
 
   isOpen(id?: string) {
@@ -116,6 +132,7 @@ export class MemoPaneHost {
     } else {
       this.pendingFocus = null;
     }
+    if (!this.boardMemo && this.boardFocus && this.boardFocus.memoId !== id) this.boardFocus = null; // ボードは下に付いていく：下が別のメモへ替わったら、ボードで選ぶ頼みは捨てる（MK4 の見直し）
     const wasHidden = this.current === null;
     this.current = id;
     const recent = [id, ...readMemoPanePrefs().recent.filter((item) => item !== id)].slice(0, RECENT_MEMOS);
@@ -144,6 +161,7 @@ export class MemoPaneHost {
     this.current = null;
     this.shown = false;
     this.pendingFocus = null;
+    if (!this.boardMemo) this.boardFocus = null; // ボードは下に付いていく：下を閉じたら、ボードで選ぶ頼みも捨てる（MK4 の見直し）
     this.o.onOpenChange(null);
     send({ type: 'setSidebar', side: 'memo', visible: false });
     this.push();
@@ -230,7 +248,9 @@ export class MemoPaneHost {
     if (!this.boardMemo) return null;
     const memo = this.o.memos.get(this.boardMemo);
     if (!memo || isSpecialCell(memo)) return null;
-    return viewOf(memo, this.o.sheets, this.o.store);
+    const view = viewOf(memo, this.o.sheets, this.o.store);
+    if (this.boardFocus && this.boardFocus.memoId === memo.id) view.boardFocus = { id: this.boardFocus.replyId, n: this.boardFocus.n }; // ボードはこの写しを見る（MK4）
+    return view;
   }
 
   // 前に選んだメモが見つかったら戻す（送るのは呼んだ側）。見つからない間は何も変えない（設定は消さない）
@@ -277,6 +297,10 @@ export class MemoPaneHost {
     // 移る頼みは消さない（下の面が n で一度だけ移る。ready() の送り直しにも載る）
     if (this.pendingFocus && this.pendingFocus.memoId === this.current) {
       view.focusReply = { id: this.pendingFocus.replyId, n: this.pendingFocus.n };
+    }
+    // ボードが下に付いていく（選んだメモが無い）ときだけ、ボードで選んで見せる頼みも載せる（消さない。ready() の送り直しにも載る。MK4）
+    if (!this.boardMemo && this.boardFocus && this.boardFocus.memoId === this.current) {
+      view.boardFocus = { id: this.boardFocus.replyId, n: this.boardFocus.n };
     }
     return view;
   }

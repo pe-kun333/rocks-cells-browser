@@ -10,6 +10,7 @@ import type { NearestOpts, Pt } from './memo-card-board-select';
 import type { LoadBoardResult } from './memo-card-board-store';
 import { boxReadable, curveGeometry, type EdgeGeometry, lastWritten, type MovePlan, OPEN_ZOOMS, type Placed, placeBox, READ_PAD, type ReadBox, type RecentOpts, type RecentView, replyCount, replyCounts, type Viewport } from './memo-card-board-view';
 import { visibleTags } from './grok-cards-tags';
+import { cardColor, cardLike, type LikeLevel, MARK_SYMBOL, type MarkColor } from './likes';
 import type { DrawLink } from './memo-card-links';
 import { createdTops, type Reply } from './threads';
 
@@ -333,11 +334,13 @@ export const hexMenuAnchor = (at: Pt): Pt => ({ x: at.x + HEX.w, y: at.y + HEX.t
 // ---------- 顔の三角の字 ----------
 
 export interface HexFaceInfo {
-  marks: string[]; // 上の三角（日時は出さない。2026-11-09 の利用者の依頼）：❝（引用）・💬n（返信）・🔗n（つながる線）・✎（書き直した）の順。入らなければ後ろから落とす（描く側の CSS）
+  marks: string[]; // 上の三角（日時は出さない。2026-11-09 の利用者の依頼）：色の記号（◎▢☆。MK7）・❝（引用）・💬n（返信）・🔗n（つながる線）・✎（書き直した）の順。入らなければ後ろから落とす（描く側の CSS）
   tag: string; // 下の三角：タグを 1 つ（AI のカード・題のある写真のカードは空）
   more: number; // 下の三角：「+n」（残りのタグの数。AI のカード・題のある写真のカードはタグ全部を数える）
   who: string; // 下の三角：AI のカードの書き手の名前（人のカードは空）
   title: string; // 下の三角：写真だけのカード（引用の無い画像）の題（CB7 で付ける題。文の最初の行）。無ければ空
+  like: 0 | LikeLevel; // カードの ♥ の段（MK5。印のタグ。無ければ 0。縁は MK6）
+  color: MarkColor | ''; // カードの色の印の名前（MK5。無ければ空。地と記号は MK7）
 }
 
 // 描いている線を、カードごとに数える（両端のカードにそれぞれ 1。上の三角の 🔗n）
@@ -354,18 +357,21 @@ export function linkCounts(links: readonly DrawLink[]): Map<string, number> {
 //   replied はそのカードの返信の数（何枚も作るときは replyCounts でまとめて数えて渡す。渡さなければ、ここで数える）
 //   下の三角は、AI のカードなら書き手の名前、題のある写真だけのカードなら題、ほかはタグを 1 つ。名前・題を出すときは、タグを全部 +n に数える（機械タグは数えない）
 export function hexFaceInfo(replies: readonly Reply[], reply: Reply, links: number, replied: number = replyCount(replies, reply.id)): HexFaceInfo {
+  const like = cardLike(reply.tags ?? []);
+  const color = cardColor(reply.tags ?? []);
   const marks: string[] = [];
+  if (color) marks.push(MARK_SYMBOL[color]); // 色の記号は先頭（MK7。入らない印は後ろから落ちるので、記号は残る）
   if (reply.quote) marks.push('❝');
   if (replied > 0) marks.push(`💬${replied}`);
   if (links > 0) marks.push(`🔗${links}`);
   if (reply.editedAt !== undefined) marks.push('✎');
   const tags = visibleTags(reply.tags ?? []);
   const who = reply.by ? reply.by.name.trim() || 'AI' : '';
-  if (who) return { marks, tag: '', more: tags.length, who, title: '' };
+  if (who) return { marks, tag: '', more: tags.length, who, title: '', like, color };
   const photo = Boolean(reply.image) && !reply.quote;
   const title = photo ? (reply.text.split('\n').find((s) => s.trim() !== '')?.trim() ?? '') : '';
-  if (title) return { marks, tag: '', more: tags.length, who: '', title };
-  return { marks, tag: tags[0] ?? '', more: Math.max(0, tags.length - 1), who: '', title: '' };
+  if (title) return { marks, tag: '', more: tags.length, who: '', title, like, color };
+  return { marks, tag: tags[0] ?? '', more: Math.max(0, tags.length - 1), who: '', title: '', like, color };
 }
 
 // 描いているカードごとの三角の字（六角のときだけ作る。顔を描くのと、描き直しの鍵に使う：✎ などは顔の文だけでは替わらないため）

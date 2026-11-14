@@ -67,13 +67,14 @@ export type TitleClick = 'show-memo' | 'pass';
 export const titleClick = (tab: PaneTab): TitleClick => (tab === 'memo' ? 'pass' : 'show-memo');
 
 // Esc：Grok Cards を見ているとき、欄の中なら何もしない／選び窓が開いていれば閉じる／そうでなければメモへ戻る。見ていなければ何もしない
-//   ボードを見ているとき：カードをつまんで（範囲選択して）いれば取り消す。そうでなければ、選んだカードがあれば選びを外す。それも無ければ、広げてあれば縮める。それも無ければメモへ戻る（欄の中なら何もしない）
-export type EscAction = 'ignore' | 'close-picker' | 'show-memo' | 'shrink-board' | 'cancel-drag' | 'clear-selection';
-export function escAction(tab: PaneTab, opts: { inField: boolean; picker: boolean; boardExpanded?: boolean; boardDragging?: boolean; boardSelected?: boolean }): EscAction {
+//   ボードを見ているとき：カードをつまんで（範囲選択して）いれば取り消す。そうでなければ、選んだカードがあれば選びを外す。それも無ければ、「［全体］の間」なら全体の前へ戻る（MK2）。
+//   それも無ければ、広げてあれば縮める。それも無ければメモへ戻る（欄の中なら何もしない）
+export type EscAction = 'ignore' | 'close-picker' | 'show-memo' | 'shrink-board' | 'cancel-drag' | 'clear-selection' | 'leave-overview';
+export function escAction(tab: PaneTab, opts: { inField: boolean; picker: boolean; boardExpanded?: boolean; boardDragging?: boolean; boardSelected?: boolean; boardOverview?: boolean }): EscAction {
   if (tab === 'memo') return 'ignore';
   if (tab === 'board' && opts.boardDragging === true) return 'cancel-drag'; // カードをつまんでいる間の Esc は、まずつまむのを取り消す（広げた高さ・タブはそのまま）
   if (opts.inField) return 'ignore';
-  if (tab === 'board') return opts.boardSelected === true ? 'clear-selection' : opts.boardExpanded === true ? 'shrink-board' : 'show-memo';
+  if (tab === 'board') return opts.boardSelected === true ? 'clear-selection' : opts.boardOverview === true ? 'leave-overview' : opts.boardExpanded === true ? 'shrink-board' : 'show-memo';
   return opts.picker ? 'close-picker' : 'show-memo';
 }
 

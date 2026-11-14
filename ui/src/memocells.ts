@@ -15,14 +15,14 @@ import { isBotId } from './bots';
 import { isCaptureId } from './captures';
 import { readData, readDataChecked, writeData } from './data';
 import { type Hex, hexKey, nearestFree } from './hex';
-import { type LikeLevel, likeLevel } from './likes';
+import { isMarkValue, type LikeLevel, likeLevel, markAt, type MarkKind, withMark } from './likes';
 import { parseLinkSetId } from './link-name-sets';
 import { changeLinkList, type LinkKindNames, parseLinkKindNames } from './memo-card-links';
 import { sendCards, type SendMode } from './memo-card-send';
 import { buildPasteDraft, type PasteIdsProblem, pasteIdsProblem, parseTemplate } from './memo-card-templates';
 import { isSheetId, MAIN_SHEET } from './sheets';
 import { visibleTags } from './grok-cards-tags';
-import { changeTagList, normalizeTags } from './tags';
+import { changeTagList, MAX_TAGS_PER_TAB, normalizeTags } from './tags';
 import { isShotImageId, planAnnotatedCard } from './annotate-card-plan';
 import { planReplyCard } from './reply-card-plan';
 import { parseAt, type ReplyAt } from './reader-links';
@@ -171,6 +171,25 @@ interface RestoreEntry {
 
 export type RestoreRepliesResult = { ok: true; count: number } | { ok: false; why: 'ledger' | 'none' | 'stale' }; // count：戻したあとの返信の数
 
+// 外した印の跡（MK5。setReplyMark。メモリだけ）：外したあとに同じカードへ同じ種類の印を付け直すと、外す前の位置へ置く
+//   （元に戻すで返信の JSON が外す前と同じになり、削除・型の貼り付けの取り消しの指紋が崩れない。タグの並びも、項目 tags の位置も戻す）
+//   tags：外した直後のタグの JSON（付け直すときに今のタグと同じときだけ使う。違えば後ろに足す）。at：外す前の印の位置。keys：外して項目 tags が消えたときの、外す前の項目の並び
+interface MarkGap {
+  tags: string;
+  at: number;
+  keys: string[] | null;
+}
+const MARK_GAPS_MAX = 50; // 跡は 50 件まで（古い順に捨てる。ボードの元に戻すの積みと同じ数）
+
+// 返信の項目の並びを keys の順に組み直す（keys に無い項目は後ろに今の順で。keys にあって今は無い項目は飛ばす）。中身は変えない
+function inKeyOrder(reply: Reply, keys: readonly string[]): Reply {
+  const src = reply as unknown as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const k of keys) if (k in src) out[k] = src[k];
+  for (const k of Object.keys(src)) if (!(k in out)) out[k] = src[k];
+  return out as unknown as Reply;
+}
+
 const FILE = 'memocells.json';
 const BACKUP = 'memocells-before-memo-split.json'; // 書き直す・引用・画像を初めて書く前の写し（1回だけ）。前の名前 memocells.before-memo-split.json は C++ の名前の検査に通らず、書けていなかった
 const CARD_TAGS_BACKUP = 'memocells-before-card-tags.json'; // カードのタグを初めて書く前の写し（1回だけ。依頼②）
@@ -178,6 +197,7 @@ const CARD_LINKS_BACKUP = 'memocells-before-card-links.json'; // カードの関
 const CARD_ORDER_BACKUP = 'memocells-before-card-order.json'; // カードの並びを初めて書く前の写し（1回だけ。plan-memo-card-order の O1）
 const CARD_SEND_BACKUP = 'memocells-before-card-send.json'; // カードを別のメモへ初めて送る前の写し（1回だけ）
 const READER_LINKS_BACKUP = 'memocells-before-reader-links.json'; // カードに結んだ区間（at）を初めて書く前の写し（1回だけ。plan-reader-video の V0）
+const CARD_MARKS_BACKUP = 'memocells-before-card-marks.json'; // カードの印（♥・色）を初めて書く前の写し（1回だけ。plan-comment-board-marks の MK5）
 const MAX_MEMOS = 2000;
 const LOAD_RETRY_MS = 3000; // AR0：台帳を読めなかったときの読み直しまでの間
 export const MAX_MEMO_TEXT = 5000;
@@ -195,6 +215,7 @@ export class MemoStore {
   private readonly backupTasks = new Map<string, Promise<void>>(); // 写しの名前 → 書き終えるまで（もうあれば書かない）
   private sendUndo: SendUndo | null = null; // 直前に送ったカードを元へ戻すための、送る前の返信（1 件だけ）
   private restoreLog: RestoreEntry[] = []; // 削除の取り消しの控え（古い順。50 件・約 400 万字まで。メモリだけ。B3-3a）
+  private readonly markGaps = new Map<string, MarkGap>(); // 外した印の跡（メモ・カード・種類 → 跡。古い順。50 件まで。メモリだけ。MK5）
   private readonly images = new Map<string, string>(); // 画像の ID → data URL（読み込んだもの）
   private readonly loading = new Set<string>();
   // 今見ているシート（左サイドバーが決める）
@@ -551,6 +572,48 @@ export class MemoStore {
     });
     this.changed();
     return { result: 'changed', over: done.over };
+  }
+
+  // カードの印（♥・色。MK5）を替える（一番上のカードだけ。value は likes.ts の値の一覧のどれか、空なら外す。メモの updatedAt は変えない。初めて書く前に 1 回だけ写す）
+  //   その種類の印を全部外し、最初にあった印の位置に value を 1 つ置く（無ければ後ろに足す）。項目 tags の位置も動かさない
+  //   （changeReplyTags の組み直しを使わない。付けて外すと返信の JSON が元に戻り、削除・型の貼り付けの取り消しの指紋が崩れない）。
+  //   tags が空になったら項目を消す（項目の無かった返信には後ろに足すので、外すと元の形に戻る）
+  //   外して付け直す向き（元に戻す・やり直し）：外したときに跡（markGaps）を残し、そのあとタグが変わっていなければ、付け直す印を外す前の位置へ置く
+  //   （項目 tags が消えていたら、外す前の項目の並びで組み直す）。これで、外して付け直しても返信の JSON が元に戻る
+  //   断り：refused＝台帳を読めなかった起動・無いメモ・特別なセル・無いカード・一番上でないカード・値の一覧に無い値／
+  //   full＝新しく足して 10 個を超える（今ある印を替えるのは数えない）
+  setReplyMark(id: string, replyId: string, kind: MarkKind, value: string): { ok: true; changed: boolean } | { ok: false; why: 'refused' | 'full' } {
+    if (!this.loaded || this.loadState === 'unreadable') return { ok: false, why: 'refused' };
+    if (!isMarkValue(kind, value)) return { ok: false, why: 'refused' };
+    const memo = this.memos.get(id);
+    if (!memo || isSpecialCell(memo)) return { ok: false, why: 'refused' };
+    const replies = memo.replies ?? [];
+    const reply = replies.find((r) => r.id === replyId);
+    if (!reply || reply.parent !== null) return { ok: false, why: 'refused' };
+    const now = reply.tags ?? [];
+    const gapKey = `${id}\n${replyId}\n${kind}`;
+    const gap = this.markGaps.get(gapKey);
+    const fits = gap !== undefined && gap.tags === JSON.stringify(now); // 外したあとにタグが変わっていない
+    const tags = withMark(now, kind, value, MAX_TAGS_PER_TAB, fits ? gap.at : undefined);
+    if (tags === 'full') return { ok: false, why: 'full' };
+    if (tags === null) return { ok: true, changed: false };
+    this.backupOnce(CARD_MARKS_BACKUP);
+    this.markGaps.delete(gapKey);
+    if (value === '') {
+      this.markGaps.set(gapKey, { tags: JSON.stringify(tags), at: markAt(now, kind), keys: tags.length === 0 ? Object.keys(reply) : null });
+      if (this.markGaps.size > MARK_GAPS_MAX) this.markGaps.delete(this.markGaps.keys().next().value as string);
+    }
+    memo.replies = replies.map((r) => {
+      if (r.id !== replyId) return r;
+      if (tags.length === 0) {
+        const { tags: _old, ...rest } = r;
+        return rest;
+      }
+      if (r.tags === undefined && fits && gap.keys) return inKeyOrder({ ...r, tags }, gap.keys); // 外して消えた項目を、外す前の位置へ
+      return { ...r, tags }; // 項目があればその位置のまま、無ければ後ろに
+    });
+    this.changed();
+    return { ok: true, changed: true };
   }
 
   // カードの関連を足す・外す（元は一番上のカードだけ。メモの updatedAt は変えない。初めて書く前に 1 回だけ写す）

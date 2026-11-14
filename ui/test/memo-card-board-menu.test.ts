@@ -11,6 +11,8 @@ import {
   confirmPageEntries,
   confirmVideoEntries,
   MENU_TAG_CANDIDATES,
+  menuPicked,
+  menuRemoveLabel,
   readMenuEntries,
   TAG_POOL_CLASS,
   TAG_WRITE_LABEL,
@@ -22,6 +24,8 @@ import {
   type CardMenuInput,
   type TagMenuInput,
 } from '../src/memo-card-board-menu';
+import { deleteTitle } from '../src/memo-card-board-edit';
+import { MARK_COLORS } from '../src/likes';
 import type { MenuButton, MenuEntry } from '../src/panels/cell-menu';
 import type { Reply } from '../src/threads';
 
@@ -122,7 +126,9 @@ function fakeActions(): { calls: string[]; actions: CardMenuActions } {
   };
   return {
     calls,
-    actions: { page: rec('page'), video: rec('video'), capture: rec('capture'), list: rec('list'), cell: rec('cell'), read: rec('read'), hop: rec('hop'), copy: rec('copy'), pin: rec('pin'), back: rec('back'), edit: rec('edit'), link: rec('link'), tags: rec('tags'), template: rec('template') },
+    actions: { page: rec('page'), video: rec('video'), capture: rec('capture'), list: rec('list'), cell: rec('cell'), read: rec('read'), hop: rec('hop'), copy: rec('copy'), pin: rec('pin'), back: rec('back'), edit: rec('edit'), link: rec('link'), tags: rec('tags'), template: rec('template'), remove: rec('remove'), mark: (r, kind, value) => {
+      calls.push(`mark:${r.id}:${kind}:${value}`); // いいねの行（MK6）・色の行（MK7）
+    } },
   };
 }
 
@@ -240,7 +246,7 @@ describe('cardMenuEntries', () => {
     const { actions, calls } = fakeActions();
     const o = reply('o', { text: '本文' });
     const es = cardMenuEntries(menuInput([o], 'o', actions));
-    expect(shape(es)).toEqual(['[あなた · 11/2 09:05 · 2 字]', '囲み', '行:行く', '行:編集', '行:']);
+    expect(shape(es)).toEqual(['[あなた · 11/2 09:05 · 2 字]', '囲み', '行:行く', '行:編集', '行:いいね', '行:色', '行:']);
     expect(es[1]).toEqual({ note: '本文', scroll: true });
     expect(labelsOf(rowButtons(es, '行く'))).toEqual(['メモのタブで見る', 'セル']);
     rowButtons(es, '行く')[1].run();
@@ -282,7 +288,7 @@ describe('cardMenuEntries', () => {
     const { actions, calls } = fakeActions();
     const im = reply('i', { text: '', image: 'shot1' });
     const bare = cardMenuEntries(menuInput([im], 'i', actions));
-    expect(shape(bare)).toEqual(['[あなた · 11/2 09:05]', '行:行く', '行:編集', '行:']);
+    expect(shape(bare)).toEqual(['[あなた · 11/2 09:05]', '行:行く', '行:編集', '行:いいね', '行:色', '行:']);
     expect(labelsOf(rowButtons(bare, '行く'))).toEqual(['撮影へ', 'メモのタブで見る', 'セル']);
     expect(labelsOf(rowButtons(bare, '編集'))).toEqual(['書き直す', '関連線を足す', 'タグを足す…', '型を足す…']); // 文の無い画像のカードも、人のカードなので書き直せる
     const shot = rowButtons(bare, '行く')[0];
@@ -343,6 +349,8 @@ describe('cardMenuEntries', () => {
       '[ほかに 1 本]',
       '行:書いた順',
       '行:編集',
+      '行:いいね',
+      '行:色',
       '行:',
     ]);
     const ground = rowButtons(es, 'これは「ア」の根拠');
@@ -380,12 +388,55 @@ describe('cardMenuEntries', () => {
   it('📌 は上に出しているときだけ出す。押すと pin を呼ぶ', () => {
     const { actions, calls } = fakeActions();
     const o = reply('o', { text: '本文' });
-    expect(labelsOf(rowButtons(cardMenuEntries(menuInput([o], 'o', actions)), ''))).toEqual(['コピー']);
+    expect(labelsOf(rowButtons(cardMenuEntries(menuInput([o], 'o', actions)), ''))).toEqual(['コピー', '削除']);
     const upper = rowButtons(cardMenuEntries(menuInput([o], 'o', actions, { upper: true })), '');
-    expect(labelsOf(upper)).toEqual(['📌 留める', 'コピー']);
+    expect(labelsOf(upper)).toEqual(['📌 留める', 'コピー', '削除']);
     expect(upper[0].close).toBe(true);
     upper[0].run();
     expect(calls).toEqual(['pin:o']);
+  });
+
+  it('［削除］（MK1）：名の無い行の終わり。確かめは無い（confirm 無し・押すと閉じる）。説明は道具の列の［削除］と同じ。押すと remove を呼ぶ', () => {
+    const { actions, calls } = fakeActions();
+    const o = reply('o', { text: '本文' });
+    const row = rowButtons(cardMenuEntries(menuInput([o], 'o', actions)), '');
+    const del = row[row.length - 1];
+    expect({ label: del.label, title: del.title, close: del.close, confirm: del.confirm }).toEqual({ label: '削除', title: deleteTitle(1), close: true, confirm: undefined });
+    expect(del.title).toContain('確認はありません');
+    del.run();
+    expect(calls).toEqual(['remove:o']);
+    // 上に出しているとき・別のメモ・移ってきたカードでも終わり
+    const up = rowButtons(cardMenuEntries(menuInput([o], 'o', actions, { upper: true, other: true, from: reply('p', { text: '元の文' }) })), '');
+    expect(labelsOf(up)).toEqual(['📌 留める', 'コピー', '削除']);
+  });
+
+  it('［削除］の字：picked が 2 以上なら「選んだ n 枚を削除」（説明も n 枚）。1・省くと「削除」', () => {
+    const { actions, calls } = fakeActions();
+    const o = reply('o', { text: '本文' });
+    const last = (over: Partial<CardMenuInput>) => {
+      const row = rowButtons(cardMenuEntries(menuInput([o], 'o', actions, over)), '');
+      return row[row.length - 1];
+    };
+    expect(last({ picked: 2 }).label).toBe('選んだ 2 枚を削除');
+    expect(last({ picked: 2 }).title).toBe(deleteTitle(2));
+    expect(last({ picked: 5 }).label).toBe('選んだ 5 枚を削除');
+    expect(last({ picked: 1 }).label).toBe('削除');
+    expect(last({}).label).toBe('削除');
+    last({ picked: 2 }).run();
+    expect(calls).toEqual(['remove:o']); // 渡すのは押したカード（選んだ全部を消すかは呼ぶ側が選びで決める）
+    expect(menuRemoveLabel(2)).toBe('選んだ 2 枚を削除');
+    expect(menuRemoveLabel(1)).toBe('削除');
+  });
+
+  it('menuPicked：押したカードが選び（一番上のカードにあるもの）の中なら選びの数、外なら 1', () => {
+    const rs = [reply('a'), reply('b'), reply('c'), reply('r', { parent: 'a' })];
+    expect(menuPicked(rs, ['a', 'b'], 'a')).toBe(2);
+    expect(menuPicked(rs, ['a', 'b', 'c'], 'c')).toBe(3);
+    expect(menuPicked(rs, ['a', 'b'], 'c')).toBe(1); // 選びの外
+    expect(menuPicked(rs, ['a'], 'a')).toBe(1);
+    expect(menuPicked(rs, [], 'a')).toBe(1);
+    expect(menuPicked(rs, ['a', 'gone', 'r'], 'a')).toBe(1); // 消えたカード・返信は数えない（道具の列と同じ数え方）
+    expect(menuPicked(rs, ['gone', 'a', 'b'], 'gone')).toBe(1); // 押したカードが消えていれば外と同じ
   });
 
   it('編集の行：書き直す・関連線を足す・タグを足す…・型を足す…の順。title と close。押すと edit・link・tags を呼ぶ', () => {
@@ -408,7 +459,7 @@ describe('cardMenuEntries', () => {
     const es = cardMenuEntries(menuInput([o], 'o', actions));
     expect(es.find((e) => e !== 'sep' && 'row' in e && e.row === '編集')).toMatchObject({ row: '編集', wrap: true });
     const up = cardMenuEntries(menuInput([o], 'o', actions, { upper: true, other: true, from: reply('p', { text: '元の文' }) }));
-    expect(shape(up)).toEqual(['項目:← 元のカードへ', '[あなた · 11/2 09:05 · 2 字]', '囲み', '行:行く', '行:編集', '行:']);
+    expect(shape(up)).toEqual(['項目:← 元のカードへ', '[あなた · 11/2 09:05 · 2 字]', '囲み', '行:行く', '行:編集', '行:いいね', '行:色', '行:']);
     expect(labelsOf(rowButtons(up, '編集'))).toEqual(['書き直す', '関連線を足す', 'タグを足す…', '型を足す…']);
   });
 
@@ -419,6 +470,119 @@ describe('cardMenuEntries', () => {
     expect(labelsOf(edit)).toEqual(['関連線を足す', 'タグを足す…', '型を足す…']);
     edit[0].run();
     expect(calls).toEqual(['link:a']);
+  });
+
+  it('いいねの行（MK6）：編集の行のすぐ下。［♡1］［♡2］［♡3］は押された見た目（pressed）の切り替えで、押すと閉じる。♥ の無いカードは押された段が無く、［外す］も無い', () => {
+    const { actions, calls } = fakeActions();
+    const o = reply('o', { text: '本文' });
+    const es = cardMenuEntries(menuInput([o], 'o', actions));
+    const at = shape(es).indexOf('行:いいね');
+    expect(shape(es)[at - 1]).toBe('行:編集');
+    expect(es[at]).toMatchObject({ row: 'いいね', wrap: true });
+    const like = rowButtons(es, 'いいね');
+    expect(like.map((b) => ({ label: b.label, pressed: b.pressed, close: b.close }))).toEqual([
+      { label: '♡1', pressed: false, close: true },
+      { label: '♡2', pressed: false, close: true },
+      { label: '♡3', pressed: false, close: true },
+    ]);
+    like[1].run();
+    expect(calls).toEqual(['mark:o:like:♥:2']);
+  });
+
+  it('いいねの行（MK6）：今の段が押された見た目。今の段も送る（同じ値かどうかは setMark が決める。見直しのあと）。ほかの段は替える。［外す］は空の値で外す（そのカード 1 枚だけ）', () => {
+    const { actions, calls } = fakeActions();
+    const o = reply('o', { text: '本文', tags: ['甲', '♥:2'] });
+    const like = rowButtons(cardMenuEntries(menuInput([o], 'o', actions, { picked: 3 })), 'いいね');
+    expect(labelsOf(like)).toEqual(['♡1', '♡2', '♡3', '外す']);
+    expect(like.map((b) => b.pressed)).toEqual([false, true, false, undefined]);
+    expect(like[3].close).toBe(true);
+    like[1].run(); // 今の段（結果を待っている間に開いたメニューでは、写しの段が古い。最後に押した値にするため、ここでは止めない）
+    expect(calls).toEqual(['mark:o:like:♥:2']);
+    like[2].run();
+    like[3].run();
+    expect(calls).toEqual(['mark:o:like:♥:2', 'mark:o:like:♥:3', 'mark:o:like:']);
+  });
+
+  it('いいねの行（MK6）：値の一覧に無いタグ（手で付けた ♥:9）は段に数えない。AI のカード・上に出しているとき・移ってきたカードにも出る', () => {
+    const { actions } = fakeActions();
+    const hand = reply('h', { text: '本文', tags: ['♥:9'] });
+    expect(rowButtons(cardMenuEntries(menuInput([hand], 'h', actions)), 'いいね').map((b) => b.pressed)).toEqual([false, false, false]);
+    const ai = reply('a', { text: 'AI の文', by: { who: 'main', name: '相棒' }, tags: ['♥:1'] });
+    const es = cardMenuEntries(menuInput([ai], 'a', actions, { upper: true, from: reply('p', { text: '元' }) }));
+    expect(shape(es).slice(-4)).toEqual(['行:編集', '行:いいね', '行:色', '行:']);
+    expect(rowButtons(es, 'いいね').map((b) => b.pressed)).toEqual([true, false, false, undefined]);
+  });
+
+  it('事実の行と乗せた説明（MK6）：♥ のカードは「いいね n」（関連のあと、ドメインの前）。値の一覧に無いタグ（♥:9）では出さない', () => {
+    const r = reply('r', { text: 'あい', tags: ['♥:3'], links: [{ to: 'q', kind: 'next' }], quote: { text: '', url: 'https://example.com/p', title: '題' } });
+    const replies = [r, reply('q')];
+    expect(cardFacts(replies, r)).toBe('あなた · 11/2 09:05 · 2 字 · 関連 1 · いいね 3 · example.com');
+    expect(cardTip(replies, r).split('\n')[1]).toBe('あなた · 11/2 09:05 · 2 字 · 関連 1 · いいね 3 · example.com');
+    const none = reply('n', { text: 'あい', tags: ['♥:9'] });
+    expect(cardFacts([none], none)).toBe('あなた · 11/2 09:05 · 2 字');
+  });
+
+  it('色の行（MK7）：いいねの行のすぐ下。色ごとのボタン（字は色の名前・押すと閉じる）。色の無いカードは押された色が無く、［外す］も無い', () => {
+    const { actions, calls } = fakeActions();
+    const o = reply('o', { text: '本文' });
+    const es = cardMenuEntries(menuInput([o], 'o', actions));
+    const at = shape(es).indexOf('行:色');
+    expect(shape(es)[at - 1]).toBe('行:いいね');
+    expect(shape(es)[at + 1]).toBe('行:'); // 📌・コピー・削除の行の前
+    expect(es[at]).toMatchObject({ row: '色', wrap: true });
+    const color = rowButtons(es, '色');
+    expect(color.map((b) => ({ label: b.label, pressed: b.pressed, close: b.close }))).toEqual(MARK_COLORS.map((name) => ({ label: name, pressed: false, close: true })));
+    expect(labelsOf(color)).toEqual(['水', '若草', '赤紫']);
+    color[0].run();
+    color[2].run();
+    expect(calls).toEqual(['mark:o:color:⬢:水', 'mark:o:color:⬢:赤紫']);
+  });
+
+  it('色の行（MK7）：今の色が押された見た目。今の色も送る（同じ値かどうかは setMark が決める）。ほかの色は替える（1 枚に 1 色）。［外す］は空の値で外す（そのカード 1 枚だけ）', () => {
+    const { actions, calls } = fakeActions();
+    const o = reply('o', { text: '本文', tags: ['甲', '⬢:若草', '♥:1'] });
+    const color = rowButtons(cardMenuEntries(menuInput([o], 'o', actions, { picked: 3 })), '色');
+    expect(labelsOf(color)).toEqual(['水', '若草', '赤紫', '外す']);
+    expect(color.map((b) => b.pressed)).toEqual([false, true, false, undefined]);
+    expect(color[3].close).toBe(true);
+    color[1].run();
+    color[0].run();
+    color[3].run();
+    expect(calls).toEqual(['mark:o:color:⬢:若草', 'mark:o:color:⬢:水', 'mark:o:color:']);
+    // いいねの行は色に左右されない
+    expect(rowButtons(cardMenuEntries(menuInput([o], 'o', actions)), 'いいね').map((b) => b.pressed)).toEqual([true, false, false, undefined]);
+  });
+
+  it('♥ と色の両方のカード（MK7 の見直し）：二つの［外す］は読み上げの名前で分かれる（元に戻すの名前と同じ字）。ほかのボタンに読み上げの名前は無い', () => {
+    const { actions } = fakeActions();
+    const o = reply('o', { text: '本文', tags: ['⬢:水', '♥:2'] });
+    const es = cardMenuEntries(menuInput([o], 'o', actions));
+    const like = rowButtons(es, 'いいね');
+    const color = rowButtons(es, '色');
+    expect(like.map((b) => b.aria)).toEqual([undefined, undefined, undefined, 'いいねを外す']);
+    expect(color.map((b) => b.aria)).toEqual([undefined, undefined, undefined, '色を外す']);
+    expect([like[3].label, color[3].label]).toEqual(['外す', '外す']);
+  });
+
+  it('色の行（MK7）：値の一覧に無いタグ（手で付けた 色:赤・⬢:青）は色に数えない。AI のカード・上に出しているとき・移ってきたカードにも出る', () => {
+    const { actions } = fakeActions();
+    const hand = reply('h', { text: '本文', tags: ['色:赤', '⬢:青'] });
+    const plain = rowButtons(cardMenuEntries(menuInput([hand], 'h', actions)), '色');
+    expect(labelsOf(plain)).toEqual(['水', '若草', '赤紫']);
+    expect(plain.map((b) => b.pressed)).toEqual([false, false, false]);
+    const ai = reply('a', { text: 'AI の文', by: { who: 'main', name: '相棒' }, tags: ['⬢:赤紫'] });
+    const es = cardMenuEntries(menuInput([ai], 'a', actions, { upper: true, from: reply('p', { text: '元' }) }));
+    expect(rowButtons(es, '色').map((b) => b.pressed)).toEqual([false, false, true, undefined]);
+  });
+
+  it('事実の行と乗せた説明（MK7）：色のカードは「色：水」（いいねのあと、ドメインの前）。値の一覧に無いタグでは出さない', () => {
+    const r = reply('r', { text: 'あい', tags: ['⬢:水', '♥:2'], quote: { text: '', url: 'https://example.com/p', title: '題' } });
+    expect(cardFacts([r], r)).toBe('あなた · 11/2 09:05 · 2 字 · いいね 2 · 色：水 · example.com');
+    expect(cardTip([r], r).split('\n')[1]).toBe('あなた · 11/2 09:05 · 2 字 · いいね 2 · 色：水 · example.com');
+    const only = reply('c', { text: 'あい', tags: ['⬢:赤紫'] });
+    expect(cardFacts([only], only)).toBe('あなた · 11/2 09:05 · 2 字 · 色：赤紫');
+    const hand = reply('n', { text: 'あい', tags: ['色:赤'] });
+    expect(cardFacts([hand], hand)).toBe('あなた · 11/2 09:05 · 2 字');
   });
 
   it('消えたカードは、段を一つだけ出す', () => {
@@ -438,6 +602,33 @@ describe('readMenuEntries', () => {
     rowButtons(es, '行く')[0].run();
     runOf(es[0])();
     expect(calls).toEqual(['hop:c', 'back']);
+  });
+
+  it('読む段に［削除］は無い（選んで 2 枚以上でも）', () => {
+    const { actions } = fakeActions();
+    const c = reply('c', { text: '中心' });
+    const es = readMenuEntries(menuInput([c], 'c', actions, { upper: true, picked: 2 }));
+    const labels = es.flatMap((e) => (e !== 'sep' && 'buttons' in e ? labelsOf(e.buttons) : e !== 'sep' && 'label' in e ? [e.label] : []));
+    expect(labels).toContain('移る'); // 字を拾えている
+    expect(labels.some((l) => l.includes('削除'))).toBe(false);
+  });
+
+  it('読む段にいいねの行は無い（♥ のカードでも。MK6）', () => {
+    const { actions } = fakeActions();
+    const c = reply('c', { text: '中心', tags: ['♥:2'] });
+    const es = readMenuEntries(menuInput([c], 'c', actions, { upper: true }));
+    expect(shape(es)).not.toContain('行:いいね');
+    const labels = es.flatMap((e) => (e !== 'sep' && 'buttons' in e ? labelsOf(e.buttons) : []));
+    expect(labels.some((l) => l.startsWith('♡') || l === '外す')).toBe(false);
+  });
+
+  it('読む段に色の行は無い（色のカードでも。MK7）', () => {
+    const { actions } = fakeActions();
+    const c = reply('c', { text: '中心', tags: ['⬢:水'] });
+    const es = readMenuEntries(menuInput([c], 'c', actions, { upper: true }));
+    expect(shape(es)).not.toContain('行:色');
+    const labels = es.flatMap((e) => (e !== 'sep' && 'buttons' in e ? labelsOf(e.buttons) : []));
+    expect(labels.some((l) => (MARK_COLORS as readonly string[]).includes(l) || l === '外す')).toBe(false);
   });
 });
 

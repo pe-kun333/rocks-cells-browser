@@ -25,6 +25,9 @@
   --warn: #ffa030;
   --ok: #50ff90;
   --heart: #ff3cc8;
+  --mark-mizu-soft: #0c2d3a; /* 色の印の淡い地（MK7。決まりは themes.test.ts） */
+  --mark-wakakusa-soft: #2f362a;
+  --mark-akamurasaki-soft: #442a48;
   --accent-ink: #5cffc8;
   --accent-line: #00ffb0;
   --shadow: rgb(0 255 160 / 35%);

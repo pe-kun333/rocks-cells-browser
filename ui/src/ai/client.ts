@@ -1,48 +1,22 @@
 // Claude API との通信。本物（公式 SDK）と、お金のかからない「練習モード」の2種類
 import Anthropic from '@anthropic-ai/sdk';
 import { addBudget, assertBudget, BudgetError } from './budget';
+import { type AiUsage, costOf, HAIKU_MODEL, type HaikuModelId, type ModelId, priceRowOf } from './prices';
+import { buildRequest, type Effort, hasAdvisorTool, latestEffortMessage, requestShape } from './request';
+import { ADVISOR_PAUSED_NOTE, ADVISOR_REST_NOTE, type AdvisorReading, type AdvisorSignal, advisorSignalOf, advisorStopEstimate, readAdvisor, readAdvisorCalls, readAdvisorUsage } from './trio-advisor';
 
-// 料金（1M トークンあたりのドル。2026年9月時点）は、目安の表示にだけ使う
-// ⚙ で選べるモデル
-export const MODELS = [
-  { id: 'claude-opus-5-5', label: 'Claude Opus 5.5（標準）', input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
-  { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5（速い・安い）', input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
-] as const;
+// モデルの一覧と料金は prices.ts、request の組み立ては request.ts（どちらも API を呼ばない。node の確かめから読める）。
+// ほかのファイルは今までどおり、ここから読む
+export { type AiUsage, costOf, FABLE_MODEL, HAIKU_MODEL, type HaikuModelId, LEGACY_FABLE_MODEL, type ModelId, MODELS, PRICED_MODELS, priceRowOf, savedVoiceModel } from './prices';
+export { EFFORT_BETA, type Effort, latestEffortMessage } from './request';
 
-// ハイク組（Claude Haiku 5.5）のモデル。⚙ では選べない（ハイク組だけが使う）
-//   料金は、1回に読み込む量で2段：10万トークン以下は 入力 $0.10・出力 $0.50、超えると 入力 $0.50・出力 $2.50
-//   （読み直しは入力の 0.1倍、書き込みは 1.25倍）。Opus・Sonnet・Fable と違い、断られたときに
-//   Anthropic 側で別のモデルが答え直すしくみ（fallbacks）が無い
-export const HAIKU_MODEL = { id: 'claude-haiku-5-5', label: 'Claude Haiku 5.5', input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 } as const;
-const HAIKU_LONG_PRICE = { input: 0.5, output: 2.5, cacheRead: 0.05, cacheWrite: 0.625 } as const;
-const HAIKU_LONG_PROMPT = 100_000; // これを超えて読み込んだ回は、高いほうの料金
-export type HaikuModelId = typeof HAIKU_MODEL.id;
-
-// いちばん賢いモデル（賢者のキャラ「フェイブル」だけが使う。料金は Opus 5.5 の約2.5倍）
-export const FABLE_MODEL = { id: 'claude-fable-5-1', label: 'Claude Fable 5.1', input: 10, output: 50, cacheRead: 0.25, cacheWrite: 12.5 } as const;
-
-export type ModelId = (typeof MODELS)[number]['id'] | typeof FABLE_MODEL.id;
-
-// 考える深さ（effort）。キャラごとに決まっていて、1つの会話の中では変えない（変えると、前の部分の読み直しの割引が切れる）
-export type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
-
-// 会話の途中で深さを変える（system メッセージの output_config.effort。フェイブルの一時的な進化に使う）
-export const EFFORT_BETA = 'mid-conversation-output-config-2026-07-01';
-
-// 履歴の中で、いちばん新しい「深さを変える」system メッセージの深さ（無ければ null）
-export function latestEffortMessage(messages: readonly Anthropic.Beta.BetaMessageParam[]): Effort | null {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m.role === 'system' && m.output_config?.effort) return m.output_config.effort;
-  }
-  return null;
-}
-
-export interface AiUsage {
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
+// 三人組の先生つき（advisor 道具）：その返事で見てもらった分。先生つきでない request では付かない
+//   回数・失敗・使用量は trio-advisor.ts の AdvisorReading（最上位の usage には先生の分が入っていないので、別に読む）
+export interface AdvisorResult extends AdvisorReading {
+  cost: number; // 相談の料金（ドル。月の上限には、もう足してある。unpriced のときは 0 で、数えられていない）
+  // 返事が最後まで届かなかった request の分（onAdvisorLost）にだけ付く
+  cut?: number; // 先生が見ている途中で止まった・切れた回数（助言は届いていない）
+  estimated?: boolean; // cost は見積もり（使用量が届く前に止まったので、送った入力の量 × 先生の入力の単価）
 }
 
 export interface AiResult {
@@ -55,6 +29,7 @@ export interface AiResult {
   searches: string[]; // Web 検索で調べた言葉（Anthropic 側で検索したもの）
   fetches: { url: string; title: string; ok: boolean }[]; // Web 取得で読んだページ（Anthropic 側で取得したもの。読めなかったものは ok: false）
   sources: { url: string; title: string }[]; // 返事の引用元（Web 検索の結果）
+  advisor?: AdvisorResult; // 先生つきの request のときだけ
 }
 
 // 1回の Web 検索の料金（ドル。1,000回で $10）
@@ -93,7 +68,17 @@ export interface ReplyOptions {
   cache?: boolean; // 前の部分を読み直しの割引のために残す（標準は残す。1回きりの頼み方では、書く分だけ高くなるので残さない）
   effort?: Effort; // 考える深さ（標準は medium）
   maxTokens?: number; // 返事の上限（考える分も含む。無ければ 32000、深さ max なら 64000）
+  // 先生つき：この返事の中で、もう先生を呼んだあとの送り直し（道具の往復・pause_turn の続き）。
+  // このときだけ、月の上限で途中で切らない（先生の料金だけかかって、答えが取り消されるのを防ぐ）。
+  // 先生を呼んでいない返事・先生つきでない request では、送り直しのたびに今までどおり上限を見る
+  afterAdvisor?: boolean;
   onText: (delta: string) => void;
+  // 先生つき：先生を呼んだ（asking）・結果が届いた（done）・失敗の結果が届いた（failed）。先生つきでない request では呼ばれない
+  onAdvisor?: (state: AdvisorSignal) => void;
+  // 先生つき：先生を呼んだ・助言が届いたあとで、返事が最後まで届かなかった（止めた・切れた）。
+  // 途中までに届いた使用量があればそれで、無ければ見積もりで料金を数え、月の上限に足してから、呼ぶ側に渡す。
+  // 呼ぶ側は、返事の料金・会話の合計・回数・印に残す（月の上限には、もう足してある）
+  onAdvisorLost?: (lost: AdvisorResult) => void;
   signal: AbortSignal;
 }
 
@@ -110,28 +95,62 @@ export function createTransport(apiKey: string | null, practice: boolean): AiTra
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 2 });
   return {
     practice: false,
-    async reply({ model, system, messages, tools, noMoreTools, cache, effort, maxTokens, onText, signal }) {
-      await assertBudget(); // 月の上限に達していたら、ここで止める（練習モードはこの関数に来ない）
+    async reply({ model, system, messages, tools, noMoreTools, cache, effort, maxTokens, afterAdvisor, onText, onAdvisor, onAdvisorLost, signal }) {
+      const withAdvisor = hasAdvisorTool(tools);
+      // 月の上限に達していたら、ここで止める（練習モードはこの関数に来ない）。
+      // 先生をもう呼んだ返事の送り直しでだけ止めない（ReplyOptions.afterAdvisor）
+      if (!(afterAdvisor && withAdvisor)) await assertBudget();
       // 断られたときに、別のモデルで答え直してもらう（fallbacks）。Haiku 5.5 にはこのしくみが無いので送らない
-      // （'default' を送っても答え直さず、モデルの一覧を送ると 400 になる）
+      // （'default' を送っても答え直さず、モデルの一覧を送ると 400 になる）。先生つきの request にも付けない（buildRequest）
       const fallback = model !== HAIKU_MODEL.id;
-      const stream = client.beta.messages.stream(
-        {
-          model,
-          max_tokens: maxTokens ?? (latestEffortMessage(messages) === 'max' ? 64000 : 32000), // max は考える量が多い（考える分も含む上限）
-          system,
-          messages,
-          ...(tools && tools.length > 0 ? { tools, tool_choice: noMoreTools ? { type: 'none' as const } : { type: 'auto' as const } } : {}),
-          output_config: { effort: effort ?? 'medium' },
-          ...(cache === false ? {} : { cache_control: { type: 'ephemeral' as const } }), // 会話が続くとき、前の部分（ページの文章など）を安く読み直す
-          // 深さを変える system メッセージがあるときだけ、そのベータの印も付ける
-          betas: [...(fallback ? ['server-side-fallback-2026-07-01'] : []), ...(latestEffortMessage(messages) ? [EFFORT_BETA] : [])],
-          ...(fallback ? { fallbacks: 'default' as const } : {}), // 安全のための判定で断られたとき、別のモデルで答え直してもらう
-        },
-        { signal },
-      );
+      const stream = client.beta.messages.stream(buildRequest({ model, system, messages, tools, noMoreTools, cache, effort, maxTokens }, fallback), { signal });
       stream.on('text', onText);
-      const final = await stream.finalMessage();
+      const advisorBlocks: unknown[] = []; // 届いた先生のブロック（呼んだ・結果）。返事が最後まで届かなかったときに数える
+      // 前の request（pause_turn・体の道具の往復）から持ち越した、結果待ちの相談の数。この request の頭で先生が読む
+      const carried = withAdvisor ? pendingAdvisorOf(messages) : 0;
+      let sentInput: { input: number; cacheRead: number; cacheWrite: number } | null = null; // この request で送った入力の量（最初の出来事で届く）
+      if (withAdvisor) {
+        stream.on('streamEvent', (event) => {
+          if (event.type === 'message_start') {
+            const u = event.message.usage;
+            sentInput = { input: u.input_tokens, cacheRead: u.cache_read_input_tokens ?? 0, cacheWrite: u.cache_creation_input_tokens ?? 0 };
+            return;
+          }
+          if (event.type !== 'content_block_start') return;
+          const state = advisorSignalOf(event.content_block);
+          if (!state) return;
+          advisorBlocks.push(event.content_block);
+          try {
+            onAdvisor?.(state); // 画面への合図。ここで転んでも、返事の受け取りは続ける
+          } catch {
+            // 合図を出せなくても、返事は壊さない
+          }
+        });
+      }
+      let final: Anthropic.Beta.BetaMessage;
+      try {
+        final = await stream.finalMessage();
+      } catch (error) {
+        // 止めた・切れた：最後の使用量は届かない。先生をもう呼んでいたら、その分を数えて呼ぶ側に渡す
+        // 持ち越した相談だけのとき（この request では先生のブロックが届いていない）は、request が始まっていた
+        // （最初の出来事が届いた）ときだけ数える。つながる前の失敗（オフライン・429・鍵の誤り・すぐ止めた）では、先生は読んでいない
+        if (advisorBlocks.length > 0 || (carried > 0 && sentInput !== null)) {
+          try {
+            let partial: unknown;
+            try {
+              partial = stream.currentMessage?.usage?.iterations; // 途中までに届いた使用量（先生の分が入っていれば、それを使う）
+            } catch {
+              partial = undefined;
+            }
+            const lost = lostAdvisorOf(readAdvisorCalls(advisorBlocks), carried, partial, sentInput, tools);
+            await addBudget(lost.cost).catch(() => undefined);
+            onAdvisorLost?.(lost);
+          } catch {
+            // 数えられなくても・渡せなくても、もとのエラーをそのまま返す
+          }
+        }
+        throw error;
+      }
       const usage = {
         input: final.usage.input_tokens,
         output: final.usage.output_tokens,
@@ -139,7 +158,10 @@ export function createTransport(apiKey: string | null, practice: boolean): AiTra
         cacheWrite: final.usage.cache_creation_input_tokens ?? 0,
       };
       const searches = searchesOf(final.content);
-      await addBudget(costOf(usage, final.model) + searches.length * WEB_SEARCH_PRICE).catch(() => undefined);
+      // 料金は、実行役の分（最上位の usage）と、先生の分（usage.iterations の advisor_message）を別々に数えて足す
+      const executorCost = costOf(usage, final.model);
+      const advisor = withAdvisor ? advisorResultOf(final, tools) : undefined;
+      await addBudget(executorCost + (advisor?.cost ?? 0) + searches.length * WEB_SEARCH_PRICE).catch(() => undefined);
       return {
         text: final.content
           .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === 'text')
@@ -153,24 +175,71 @@ export function createTransport(apiKey: string | null, practice: boolean): AiTra
         searches,
         fetches: fetchesOf(final.content),
         sources: sourcesOf(final.content),
+        ...(advisor ? { advisor } : {}),
       };
     },
   };
 }
 
-// 目安の料金（ドル）
-export function costOf(usage: AiUsage, model: string): number {
-  const price = model.startsWith(HAIKU_MODEL.id) ? haikuPrice(usage) : ([...MODELS, FABLE_MODEL].find((m) => model.startsWith(m.id)) ?? MODELS[0]);
-  return (
-    (usage.input * price.input + usage.output * price.output + usage.cacheRead * price.cacheRead + usage.cacheWrite * price.cacheWrite) /
-    1_000_000
-  );
+// 先生つきの返事から、見てもらった分を読む。相談相手のモデルは、使用量に名前があればそれ、無ければ送った道具の定義から
+function advisorResultOf(final: Anthropic.Beta.BetaMessage, tools: readonly Anthropic.Beta.BetaToolUnion[] | undefined): AdvisorResult {
+  const sent = (tools ?? []).find((tool): tool is Anthropic.Beta.BetaAdvisorTool20260301 => 'type' in tool && tool.type === 'advisor_20260301');
+  const read = readAdvisor(final.content, final.usage.iterations, sent?.model ?? null);
+  // 助言は届いたのに使用量が読めなかった：料金を数えられていない。黙って 0 にせず、記録に出す（画面には呼ぶ側が出す）
+  if (read.unpriced) console.warn('先生つき：助言は届いたが、usage.iterations に advisor_message が無く、料金を数えられなかった', final.usage);
+  return { ...read, cost: read.model ? costOf(read.usage, read.model) : 0 };
 }
 
-// ハイク組の料金：1回の頼みごとで読み込んだ量（読み直し・書き込みも含む）が10万トークンを超えたら、高いほうの料金
-// （何回分かを足した量では決めない。呼ぶ側は1回ごとに costOf を呼んで足す）
-function haikuPrice(usage: AiUsage) {
-  return usage.input + usage.cacheRead + usage.cacheWrite > HAIKU_LONG_PROMPT ? HAIKU_LONG_PRICE : HAIKU_MODEL;
+// 返事が最後まで届かなかった request の、先生の分（ReplyOptions.onAdvisorLost に渡す）。
+//   途中までに届いた使用量に先生の分があれば、その料金。無ければ、助言が届いていた・見ている途中だったときだけ、
+//   送った入力の量 × 先生の入力の単価で見積もる（先生が失敗を返していただけなら 0）。見積もれなければ unpriced
+//   carried：前の request から持ち越した、結果待ちの相談の数（この request では呼んだブロックが届かない）
+function lostAdvisorOf(
+  calls: ReturnType<typeof readAdvisorCalls>,
+  carried: number,
+  partialIterations: unknown,
+  sentInput: { input: number; cacheRead: number; cacheWrite: number } | null,
+  tools: readonly Anthropic.Beta.BetaToolUnion[] | undefined,
+): AdvisorResult {
+  const sent = (tools ?? []).find((tool): tool is Anthropic.Beta.BetaAdvisorTool20260301 => 'type' in tool && tool.type === 'advisor_20260301');
+  const read = readAdvisorUsage(partialIterations);
+  // 見ている途中だった数：持ち越した分と、この request で呼んだ分から、結果（助言・失敗）が届いた分を引く
+  const cut = Math.max(0, carried + calls.calls - calls.done - calls.errors.length);
+  const base = { ...calls, pending: cut, usage: read.usage, cut };
+  if (read.count > 0) {
+    const model = read.model ?? sent?.model ?? null;
+    return { ...base, model, unpriced: false, cost: model ? costOf(read.usage, model) : 0 };
+  }
+  const model = sent?.model ?? null;
+  if (calls.done === 0 && cut === 0) return { ...base, model, unpriced: false, cost: 0 }; // 失敗の結果だけ：先生は読んでいない
+  const estimate = advisorStopEstimate(sentInput, model ? priceRowOf(model)?.input : null, calls.done + cut);
+  if (estimate === null) return { ...base, model, unpriced: true, cost: 0 };
+  return { ...base, model, unpriced: false, cost: estimate, estimated: true };
+}
+
+// 送る履歴の最後の返事（assistant）に残っている、結果待ちの相談の数（先生を呼んだまま、返事が区切られた）
+function pendingAdvisorOf(messages: readonly Anthropic.Beta.BetaMessageParam[]): number {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role !== 'assistant') continue;
+    return typeof message.content === 'string' ? 0 : readAdvisorCalls(message.content).pending;
+  }
+  return 0;
+}
+
+// 練習モードで、最後に組んだ request の形（道具・ベータ・tool_choice など。本文は入らない）を dev のときだけ置く。
+// どの体の request に何が入るかを、API を呼ばずに見るため（docs/plan-trio-advisor.md の確かめ方）
+function recordPracticeRequest(options: ReplyOptions) {
+  if (!import.meta.env.DEV) return;
+  try {
+    const { model, system, messages, tools, noMoreTools, cache, effort, maxTokens } = options;
+    const shape = requestShape(buildRequest({ model, system, messages, tools, noMoreTools, cache, effort, maxTokens }, model !== HAIKU_MODEL.id));
+    const target = globalThis as { __lastAiRequest?: unknown; __aiRequests?: unknown[] };
+    target.__lastAiRequest = shape;
+    target.__aiRequests = [...(target.__aiRequests ?? []).slice(-49), shape];
+  } catch {
+    // 記録に失敗しても、練習の返事は続ける
+  }
 }
 
 // エラーを、使う人に伝わる言葉にする
@@ -180,8 +249,12 @@ export function describeError(error: unknown): string {
   if (error instanceof Anthropic.AuthenticationError) return 'API キーが正しくないようです。⚙ の設定で確かめてください';
   if (error instanceof Anthropic.PermissionDeniedError) return 'このキーでは、このモデルを使えないようです';
   if (error instanceof Anthropic.RateLimitError) return '混み合っているか、使える量の上限に達しています。少し待ってからもう一度どうぞ';
+  // 時間切れは、つながらないエラーの仲間なので、先に見る
+  if (error instanceof Anthropic.APIConnectionTimeoutError) return '時間がかかりすぎて、途中で切れました。少し待ってから、もう一度どうぞ';
   if (error instanceof Anthropic.APIConnectionError) return 'Claude につながりませんでした。インターネットの接続を確かめてください';
   if (error instanceof Anthropic.APIError) return `うまくいきませんでした（${error.status ?? ''} ${error.message}）`;
+  // 返事が流れ始めたあとで接続が切れた：SDK は読み出しのエラーを AnthropicError に包み、もとのエラーを cause に入れる
+  if (error instanceof Anthropic.AnthropicError && (error as { cause?: unknown }).cause instanceof Error) return '返事の途中で、接続が切れました。インターネットの接続を確かめて、もう一度どうぞ';
   return 'うまくいきませんでした';
 }
 
@@ -189,7 +262,9 @@ export function describeError(error: unknown): string {
 
 const practiceTransport: AiTransport = {
   practice: true,
-  async reply({ system, messages, tools, noMoreTools, onText, signal }) {
+  async reply(options) {
+    const { system, messages, tools, noMoreTools, onText, signal } = options;
+    recordPracticeRequest(options);
     // ハイク組の先生への相談（1回きり）：決まった助言を、少し待ってから流す（先生への指示文の決まった書き出しで見分ける）
     const advisor = /^あなたは「Rocks-cells Browser」というブラウザに住む AI の相棒たちの相談役「(.+?)」/.exec(system)?.[1];
     if (advisor) {
@@ -303,6 +378,39 @@ const practiceTransport: AiTransport = {
       };
     }
     const asked = lastText(messages);
+    // 三人組の先生つきのふり：先生の道具を持つ体が「本当・確か・出典」を含む問いに答えるとき、見てもらうふりをする
+    //   （どこにも送らない。履歴に偽のブロックは入れない。道具を使う形の返事・道具を止めた回では、ふりをしない）
+    //   「先生を使わないで」と添えてある発言では控える。問いに「枠の外」があれば、頼みを守らないふり（枠の外の扱いを試す）
+    //   問いに「混んで」があれば、先生が使えなかったふり。「途中まで」があれば、助言が上限で切れたふり。
+    //   「長く」があれば、20 秒待つ（経過時間と、見ている途中で止めたときの見え方を試す）
+    let watched: AdvisorResult | undefined;
+    if (hasAdvisorTool(tools) && !noMoreTools && toolResult === null && /本当|確か|出典/.test(asked)) {
+      const rested = lastUserHas(messages, [ADVISOR_REST_NOTE, ADVISOR_PAUSED_NOTE]);
+      if (!rested || asked.includes('枠の外')) {
+        const failed = asked.includes('混んで');
+        const zero = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+        options.onAdvisor?.('asking');
+        try {
+          await wait(asked.includes('長く') ? 20_000 : 2000, signal);
+        } catch (error) {
+          // 見ている途中で止めた：本物と同じ道（onAdvisorLost）を通す。料金は 0（どこにも送っていない）
+          options.onAdvisorLost?.({ calls: 1, done: 0, errors: [], truncated: 0, pending: 1, usage: zero, model: null, unpriced: false, cost: 0, cut: 1 });
+          throw error;
+        }
+        options.onAdvisor?.(failed ? 'failed' : 'done');
+        watched = {
+          calls: 1,
+          done: failed ? 0 : 1,
+          errors: failed ? ['overloaded'] : [],
+          truncated: !failed && asked.includes('途中まで') ? 1 : 0,
+          pending: 0,
+          usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          model: null,
+          unpriced: false,
+          cost: 0,
+        };
+      }
+    }
     // Claude 以外のキャラ（指示文から名前を読む。前の二人目の指示文も）
     const character = /AI のキャラクター「(.+?)」/.exec(system)?.[1] ?? /二人目の AI の相棒「(.+?)」/.exec(system)?.[1];
     // 深く考えている（進化した）ときは、考える時間を長めに見せる
@@ -342,6 +450,7 @@ const practiceTransport: AiTransport = {
       searches: [],
       fetches: [],
       sources: [],
+      ...(watched ? { advisor: watched } : {}),
     };
   },
 };
@@ -464,6 +573,13 @@ function practiceTool(asked: string, names: ReadonlySet<string>): { name: string
 }
 
 // 最後の発言が道具の結果なら、その中身
+// 最後の発言（user）の文のどれかが、notes のどれかと同じか（「先生を使わないで」の一文が添えてあるかを見る）
+function lastUserHas(messages: Anthropic.Beta.BetaMessageParam[], notes: readonly string[]): boolean {
+  const last = messages.at(-1);
+  if (!last || typeof last.content === 'string') return false;
+  return last.content.some((block) => block.type === 'text' && notes.includes(block.text));
+}
+
 function lastToolResult(messages: Anthropic.Beta.BetaMessageParam[]): string | null {
   const last = messages.at(-1);
   if (!last || typeof last.content === 'string') return null;

@@ -245,7 +245,7 @@ describe('上の区画だけ書く欄を細くする', () => {
     expect(shape).toContain("this.composeText.placeholder = slim ? COMPOSE_SHORT[kind] : '';");
     expect(shape).toContain("this.composeText.title = slim ? [label, place, COMPOSE_HINT].filter((s) => s !== '').join('。') : place;");
     expect(shape).toContain('this.composeOk.textContent = slim ? COMPOSE_OK[kind] : COMPOSE_OK.add;');
-    expect(tab).toContain('actions.append(this.composeOk, cancel, this.linkKindBox,');
+    expect(tab).toContain('actions.append(this.composeOk, cancel, this.linkKindBox, this.composeLike, this.composeHint);'); // 書く欄の ♡ はつなぐの後ろ（MK6）
   });
   it('tab：足す欄の見出し・置き場の決まり・案内の文は、四角と六角で同じ字（HX5：六角も位置を決めて足す。HX4 の「並びの最後に出る」の字は無い）', () => {
     const shape = body('private paintComposeShape() {', 'private fitComposeText(): boolean {');

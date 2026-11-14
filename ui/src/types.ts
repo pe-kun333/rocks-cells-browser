@@ -58,6 +58,7 @@ export interface MemoPaneView {
   updatedAt: number;
   page: { tabId: number | null; url: string; title: string }; // 今の上のページ
   focusReply?: { id: string; n: number }; // 右の検索から：このカードへ移る（n が変わったときだけ移る）
+  boardFocus?: { id: string; n: number }; // 右の検索の［上で開く］：ボードでこの一番上のカードを選んで 100% で見せる（n が当てたものより大きいときだけ。ボードが見る写しにだけ載る。MK4）
 }
 
 // 拡大表示の置き場所
@@ -456,6 +457,7 @@ export type RelayCommand =
   // 下のメモの区画（M1）。見える・隠すを C++ に言うのは左。高さだけは下の面が直接送る
   | { command: 'memoPaneReady' } // 下の面の準備ができた。左は開いているメモの写しを送る
   | { command: 'memoPaneDraft'; busy: boolean } // 下の区画に書きかけ（コメント・カードの書き直し・返信）があるか。変わったときだけ下の面が送る
+  | { command: 'boardComposeDraft'; busy: boolean } // ボードの書く欄に書きかけ（足す欄の字・書き直しの欄・断られて待っている文）があるか。変わったときだけボードが送る（MK4。左は、ボードを別のメモへ替える前に見る）
   | { command: 'memoPaneClose' } // 下の区画を閉じる
   | { command: 'focusMemoPaneCell'; id: string } // 下の区画から、左の盤面のそのメモのセルへ移る（別シートなら切り替え、見える所まで動かし、少し光らせる）
   | { command: 'setMemoText'; id: string; text: string } // 本文を変える
@@ -470,6 +472,10 @@ export type RelayCommand =
   //   fromReply：元のカード。一番上なら関連「補足」を 1 本。無ければセルの顔から（線は付けない）。画像の data URL は渡さない
   | { command: 'addAnnotatedCard'; id: string; image: string; text: string; fromReply?: string }
   | { command: 'changeReplyTags'; id: string; replyId: string; add: string[]; remove: string[] } // 下の区画のカードのタグを足す・外す（一番上のカードだけ。足し引きの差分。左が断ることもある。依頼② T1。画面は T2）
+  // カードの印（♥・色。MK5）を替える（一番上のカードだけ）。value は likes.ts の値（likeTag・colorTag の形）。空なら、その種類の印を外す。
+  //   左はその種類の印を全部外し、最初にあった印の位置に value を 1 つ置く。新しく足して 10 個を超えるときと、値の一覧に無い値は断る（知らせを出す）。
+  //   印は changeReplyTags では変わらない（左が add・remove から印の値を捨てる）
+  | { command: 'setReplyMark'; id: string; replyId: string; kind: import('./likes').MarkKind; value: string }
   // 下の区画のカードの関連を足す・外す（replyId が元の一番上のカード。差分。外すのは同じ相手・同じ種類だけ。同じ相手に別の種類を足すと置き換え。
   //   左が断ることもある：台帳を読めていない・相手が一番上のカードに無い・逆向きの「同じ」がある・10 本を超える。計画 docs/plan-memo-card-links.md の L1）
   | { command: 'changeReplyLinks'; id: string; replyId: string; add: ReplyLink[]; remove: ReplyLink[] }
@@ -489,11 +495,13 @@ export type RelayCommand =
   | { command: 'openQuote'; url: string; fragmentUrl: string } // 引用元を開く（同じページのタブがあればそこへ。M3）
   // 下の区画でこのメモを開く（M5 の一覧）。replyId：下の区画でそのカードへ移る　from：右の検索から（書きかけがあれば、左が別のメモを開かずに知らせる。S1b）
   | { command: 'openMemoPane'; id: string; replyId?: string; from?: 'search' | 'board' } // from：下に書きかけがあれば別のメモへ替えない（検索とボードから）
-  | { command: 'searchMemos'; seq: number; query: string; sort: SearchSort; limit: number } // 右の「検索」の区画：メモとコメントを探して（左が台帳を読むだけで探し、searchResults で返す）
+  | { command: 'searchMemos'; seq: number; query: string; sort: SearchSort; limit: number; hearts?: import('./likes').LikeLevel } // 右の「検索」の区画：メモとコメントを探して（左が台帳を読むだけで探し、searchResults で返す）。hearts：切り替え［カードの ♥］の段（その段以上の ♥ の一番上のカードだけ。作った時刻の新しい順。sort は使わない。MK9）
+  | { command: 'copyCardHearts'; query: string; min: import('./likes').LikeLevel } // 右の検索の［まとめてコピー］（MK9）：左が同じ条件（字・段）で台帳から組み直し、ただの文でクリップボードへ（履歴に入れない印）。一言は searchNotice
   | { command: 'newMemoForPane' } // 新しいメモを作って、下で開く（M5）。呼称セットは、直前に開いていたメモのもの（左が付ける）
   | { command: 'setBoardMemo'; id: string | null } // ボードが見るメモを、下の区画とは別に選ぶ（null で外す＝下と同じ）。左が memoBoardView で写しを送る。選べない（無い・特別なセル）ときは断る（plan-board-memo-switch の M1。画面からはまだ送らない）
   | { command: 'openBoardMemo'; id: string } // 右のメモの区画の「上のコメントボードで開く」：ボードを上に出して、このメモを見る（左のメモのセルの右クリックと同じ処理。選べないメモは断って左の一言で知らせる）
   | { command: 'openLowerBoard'; id: string } // 右のメモの区画の「下で開く」：中央の下の区画のボードで、このメモを見る（下が別のメモで書きかけがあれば、下はそのままでボードだけそのメモ。選べないメモは断って左の一言で知らせる）
+  | { command: 'openBoardCard'; id: string; replyId: string } // 右の検索の行の［上で開く］（MK4）：openBoardMemo と同じ道でボードを上に出してこのメモを見て、そのカードを選んで 100% で見せる（返信は左が一番上のカードに直す）
   // 下の区画のカードを、別のメモへ移す・写す（to が null なら新しいメモを作って入れる。左が一度に確かめて、台帳へは 1 回だけ書く）
   | { command: 'sendReplies'; from: string; replyIds: string[]; to: string | null; mode: 'move' | 'copy'; template?: CardTemplate; ids?: string[] } // template があるときは型を貼る（from は空・replyIds は空・to は貼り先のメモ・mode は copy）。ids（B3-2a。型を貼るときだけ）：貼る新しいカードの id を呼び出し側が決める（型のカードと同じ順・同じ数・30 枚まで・[A-Za-z0-9_-]{1,64}・指定の中でも台帳にも重ならない）。使えなければ全体を断る。省略すると左が決める（今までどおり）
   | { command: 'undoSendReplies'; token: string } // 直前の送りを元に戻す（知らせの「元に戻す」）

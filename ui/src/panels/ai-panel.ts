@@ -21,6 +21,7 @@ import {
   isCharacterId,
   isHaiku,
   isHaikuOnly,
+  isTrio,
   isTrioOnly,
   MAX_MEMBERS,
   modelOf,
@@ -34,7 +35,7 @@ import {
   TRIO_IDS,
 } from '../ai/characters';
 import { makeCards } from '../ai/cards';
-import { FABLE_MODEL, HAIKU_MODEL, type HaikuModelId, MODELS, type ModelId } from '../ai/client';
+import { FABLE_MODEL, HAIKU_MODEL, type HaikuModelId, MODELS, type ModelId, PRICED_MODELS, priceRowOf } from '../ai/client';
 import { type ChatEntry, Companion, type CompanionState, type Target } from '../ai/companion';
 import { canEvolve, DEFAULT_EVOLVE, EVOLVE_MODES, type EvolveMode, evolveRemaining, type EvolveSettings, EVOLVE_TIMEOUT_MS, parseEvolve } from '../ai/evolve';
 import {
@@ -55,6 +56,8 @@ import {
   parseConsult,
 } from '../ai/advisor';
 import { type ConversationSummary, deleteConversation, loadConversation, loadIndex } from '../ai/history';
+import { advisorBadge, elapsedLabel } from '../ai/trio-advisor';
+import { advisorConsentLines, advisorLiveText, advisorWaitText, elapsedNote } from './ai-advisor-texts';
 import { DEFAULT_ROUTE, type PathChoice, parseRoute, type RefusalMode, routeFoot, routeLabel, type RouteKind, type RouteMode, type StuckMode } from '../ai/route';
 import { cleanChat, type Letter, LetterStore, letterText, MAX_LETTERS } from '../ai/letters';
 import type { Phrase } from '../ai/phrases';
@@ -173,6 +176,17 @@ export class AiPanel {
   private talkSeq = 0;
   private readonly talkWaiting = new Map<number, number>(); // 「📌 カードへ」の頼みの番号 → 返事の id
   private readonly deepButton = el('button', 'ai-deep'); // さらに考える（フェイブルが確認なしで進化する）
+  // 三人組の先生つき（Anthropic の advisor 道具。docs/plan-trio-advisor.md）：切り替え・札と、確認の欄
+  private readonly advisorButton = el('button', 'ai-advisor-toggle');
+  private readonly advisorCard = el('div', 'ai-advisor-card');
+  private advisorAsking = false; // 確認の欄を開いている
+  private advisorAskedPractice = false; // 確認の欄を開いたときの送り先（練習か本物か）。変わったら欄を閉じる
+  // 先生が見ている間の経過時間（状態の行の後ろ。1 秒ごとにここだけ書き換える。読み上げには流さない）
+  private readonly advisorTime = el('span', 'ai-advisor-time');
+  private advisorTicker = 0;
+  // 読み上げに伝える所（先生が見始めた・見終わった・使えなかった。それぞれ 1 回だけ）
+  private readonly advisorLive = el('div', 'sr-only ai-advisor-live');
+  private advisorSaid: object | null = null; // もう伝えた、先生のようす（companion.advisorPhase の入れ物）
   private readonly historyButton = el('button', 'ai-small', tr('履歴'));
   readonly letters = new LetterStore(); // 月の窓（右サイドバーの上）も、同じ一覧を映す
   private readonly openLetters = new Set<string>(); // 全文を開いているレター
@@ -780,7 +794,15 @@ export class AiPanel {
     const row = el('div', 'ai-form-row');
     this.deepButton.type = 'button';
     this.deepButton.addEventListener('click', () => this.deepen());
-    row.append(attachLabel, this.deepButton, this.sendButton);
+    this.advisorButton.type = 'button';
+    this.advisorButton.addEventListener('click', () => this.toggleAdvisor());
+    this.advisorCard.hidden = true;
+    this.advisorCard.setAttribute('role', 'group');
+    this.advisorCard.setAttribute('aria-label', tr('先生つきで始める確認'));
+    this.advisorTime.setAttribute('aria-hidden', 'true');
+    this.advisorLive.setAttribute('role', 'status');
+    this.advisorLive.setAttribute('aria-live', 'polite');
+    row.append(attachLabel, this.advisorButton, this.deepButton, this.sendButton);
     for (const id of ADVISOR_IDS) {
       const b = this.askButtons[id];
       b.type = 'button';
@@ -789,7 +811,7 @@ export class AiPanel {
     this.adviceRow.setAttribute('role', 'group');
     this.adviceRow.setAttribute('aria-label', '先生に聞く（数は今日の残り）');
     this.adviceRow.append(el('span', 'ai-advice-label', tr('先生に聞く：')), ...ADVISOR_IDS.map((id) => this.askButtons[id]));
-    form.append(this.targets, this.adviceRow, this.input, row);
+    form.append(this.targets, this.adviceRow, this.advisorCard, this.input, row);
 
     this.buildPreview();
     this.talkBar.hidden = true;
@@ -1096,7 +1118,8 @@ export class AiPanel {
     }
     this.buildBubble();
     const info = el('div', 'ai-info');
-    info.append(this.nameLine, this.status);
+    // 読み上げの知らせは、状態の行と同じ所に置く（会話の欄を閉じていても、隠れない）
+    info.append(this.nameLine, this.status, this.advisorLive);
     this.teamBox.append(...HAIKU_IDS.map((id) => this.cells[id]));
     this.faces.append(...CHARACTER_IDS.filter((id) => !isHaiku(id)).map((id) => this.cells[id]), this.teamBox, info);
     this.element.append(this.chat, this.bubble, this.faces);
@@ -1333,7 +1356,7 @@ export class AiPanel {
       el(
         'p',
         'ai-setting-note',
-        tr('ハイク組の体が、自分だけでは自信が持てないときに先生に相談します（1つの頼みで組全体で1回まで。見送ったときも、その頼みではもう聞きません）。アプリが「相談の手紙」（問い・理由・使う人の頼み・最近の会話・ページのURLと本文の一部）を作って先生に渡し、助言は返事の中のカードに全文が出ます（［相談の手紙を見る］で、渡したものも見られます）。入力欄の上の「先生に聞く」を押すと、ハイク組が答える前に先生に相談します（押す＝許可。枠は使います）。枠はハイク組だけの1日の回数で、フェイブルの進化とは別。0時に戻ります。先生が書き始める前に届かなかった相談の分は戻りますが、時間切れ・止めたときは使ったことになります（途中までの料金がかかることがあります）。1回の目安：Claude 先生 約 $0.02〜0.10、フェイブル先生 約 $0.05〜0.25。フェイブル先生（Fable 5.1）に渡した相談の手紙は、Anthropic 側に30日保存されます。'),
+        tr('ハイク組の体が、自分だけでは自信が持てないときに先生に相談します（1つの頼みで組全体で1回まで。見送ったときも、その頼みではもう聞きません）。アプリが「相談の手紙」（問い・理由・使う人の頼み・最近の会話・ページのURLと本文の一部）を作って先生に渡し、助言は返事の中のカードに全文が出ます（［相談の手紙を見る］で、渡したものも見られます）。入力欄の上の「先生に聞く」を押すと、ハイク組が答える前に先生に相談します（押す＝許可。枠は使います）。枠はハイク組だけの1日の回数で、フェイブルの進化とは別。0時に戻ります。先生が書き始める前に届かなかった相談の分は戻りますが、時間切れ・止めたときは使ったことになります（途中までの料金がかかることがあります）。1回の目安：Claude 先生 約 $0.02〜0.10、フェイブル先生 約 $0.05〜0.25。フェイブル先生（Fable 5.2）に渡した相談の手紙は、Anthropic 側に30日保存されます。'),
       ),
       el(
         'p',
@@ -1437,6 +1460,163 @@ export class AiPanel {
   }
 
   // さらに考える：フェイブルに、確認なしで初めから深く考えて（進化して）答えてもらう。入力が空なら、ここまでの話を深める
+  // ---------- 三人組の先生つき ----------
+
+  // 切り替え（まだだれも話していない会話）と、札（話し始めたあと。外せない）
+  private renderAdvisor() {
+    const c = this.companion;
+    const b = this.advisorButton;
+    const state = c.advisor;
+    const names = (ids: readonly string[]) => ids.filter(isCharacterId).map((id) => c.nameOf(id)).join(tr('・'));
+    if (state && !c.fresh) {
+      const badge = advisorBadge(state, c.advisorRemaining);
+      b.hidden = false;
+      b.dataset.mode = 'locked';
+      b.removeAttribute('aria-pressed');
+      b.setAttribute('aria-disabled', 'true');
+      b.textContent = !c.advisorLive ? tr('🔒 先生つき（今は先生なし）') : badge === 'resting' ? tr('🔒 先生つき・休み中') : badge === 'partly' ? tr('🔒 先生つき（{0}は休み）', { 0: names(state.stopped) }) : tr('🔒 先生つき');
+      const stopped = state.stopped.length > 0 ? tr('{0}は、控えるよう頼んだのに見てもらったので、この会話では道具を止めています。', { 0: names(state.stopped) }) : '';
+      b.title = !c.advisorLive
+        ? tr('練習モードで始めた先生つきの会話です。本物のキーでは、先生なしで動きます')
+        : tr('この会話は先生つきです（{0}）。話し始めたあとは外せません。{1}{2}', { 0: names(state.who), 1: c.advisorRemaining === 0 ? tr('今日の枠が尽きたので、先生に見てもらうのを控えるよう頼んでいます。') : tr('今日の枠は あと {0} 回。', { 0: c.advisorRemaining }), 2: stopped });
+      this.closeAdvisorCard();
+      return;
+    }
+    const choice = c.advisorChoice();
+    b.hidden = !c.members.some(isTrio) || !c.fresh;
+    b.dataset.mode = 'toggle';
+    b.setAttribute('aria-pressed', String(state !== null));
+    b.setAttribute('aria-disabled', String(!choice.ok));
+    b.textContent = tr('🌙 先生つき');
+    b.title = !choice.ok
+      ? choice.why
+      : state
+        ? tr('先生つきで始めます（{0}）。話し始めるまでは、もう一度押すと外せます', { 0: names(state.who) })
+        : tr('三人組の体が、返事の途中で先生（{0}）に見てもらえるようにします。押すと確認の欄が出ます（今日の枠は あと {1} 回）', { 0: FABLE_MODEL.label, 1: c.advisorRemaining });
+    // 確認の欄を開いたまま、選べなくなった・もう選んだ・送り先（練習／本物）が変わった：欄を閉じる（文が今の送り先と合わなくなる）
+    if (this.advisorAsking && (b.hidden || !choice.ok || state || c.practice !== this.advisorAskedPractice)) this.closeAdvisorCard();
+  }
+
+  // 先生が見ている間：状態の行の後ろに経過時間を出し、1 秒ごとにそこだけ書き換える。始まりと終わりを、読み上げに 1 回ずつ伝える
+  private renderAdvisorWait() {
+    const c = this.companion;
+    if (c.advisorWatching && c.advisorSince !== null) {
+      this.advisorTime.textContent = this.advisorElapsed(c.advisorSince);
+      this.status.append(this.advisorTime); // 状態の行は毎回書き直すので、そのたびに後ろへ足す
+      if (!this.advisorTicker) this.advisorTicker = window.setInterval(() => this.tickAdvisor(), 1000);
+    } else {
+      this.stopAdvisorTicker();
+    }
+    const phase = c.advisorPhase;
+    if (phase !== this.advisorSaid) {
+      this.advisorSaid = phase;
+      this.advisorLive.textContent = phase ? advisorLiveText(c.nameOf(phase.speaker), phase.phase) : '';
+    }
+  }
+
+  private tickAdvisor() {
+    const c = this.companion;
+    if (!c.advisorWatching || c.advisorSince === null) {
+      this.stopAdvisorTicker();
+      return;
+    }
+    this.advisorTime.textContent = this.advisorElapsed(c.advisorSince);
+  }
+
+  // 経過時間（3 分からは「長くかかっています」も）
+  private advisorElapsed(since: number): string {
+    const ms = Date.now() - since;
+    return ` ${elapsedLabel(ms)}${elapsedNote(ms)}`;
+  }
+
+  private stopAdvisorTicker() {
+    if (this.advisorTicker) window.clearInterval(this.advisorTicker);
+    this.advisorTicker = 0;
+    this.advisorTime.textContent = '';
+  }
+
+  private toggleAdvisor() {
+    const c = this.companion;
+    if (this.advisorButton.dataset.mode === 'locked') return;
+    if (c.advisor) {
+      c.setAdvisor(null); // 話し始める前なら外せる
+      return;
+    }
+    const choice = c.advisorChoice();
+    if (!choice.ok) {
+      c.notice(choice.why);
+      return;
+    }
+    if (this.advisorAsking) this.closeAdvisorCard();
+    else this.openAdvisorCard();
+  }
+
+  private closeAdvisorCard() {
+    if (!this.advisorAsking && this.advisorCard.hidden) return;
+    this.advisorAsking = false;
+    this.advisorCard.hidden = true;
+    this.advisorCard.replaceChildren();
+  }
+
+  // 「先生つきで始めますか」の欄。許可を聞くのは、この会話ではこの1回だけなので、渡るもの・保存・料金・見えないことを全部出す
+  private openAdvisorCard() {
+    const c = this.companion;
+    const card = this.advisorCard;
+    const practice = c.practice; // この欄に出す送り先。押したときに今の送り先と違えば、始めない
+    this.advisorAsking = true;
+    this.advisorAskedPractice = practice;
+    card.hidden = false;
+    card.replaceChildren(el('div', 'ai-advisor-q', tr('🌙 先生つきで始めますか。{0}', { 0: c.practice ? tr('（練習）') : '' })));
+    const lines = el('ul', 'ai-advisor-lines');
+    for (const line of advisorConsentLines({ remaining: c.advisorRemaining, limit: c.trioAdvisorLimit, withFable: c.members.includes('fable'), practice: c.practice, advisorLabel: FABLE_MODEL.label })) {
+      lines.append(el('li', '', line));
+    }
+    const who = el('div', 'ai-advisor-who');
+    who.setAttribute('role', 'group');
+    who.setAttribute('aria-label', tr('先生を付ける体'));
+    who.append(el('span', 'ai-advisor-who-label', tr('先生を付ける体：')));
+    const boxes = TRIO_IDS.map((id) => {
+      const box = el('input');
+      box.type = 'checkbox';
+      box.checked = true;
+      const label = el('label', 'ai-advisor-pick');
+      label.append(box, document.createTextNode(c.nameOf(id) + (c.members.includes(id) ? '' : tr('（今は会話にいません。入ったら付きます）'))));
+      who.append(label);
+      return { id, box };
+    });
+    const warn = el('div', 'ai-advisor-warn');
+    warn.setAttribute('role', 'alert');
+    warn.hidden = true;
+    const row = el('div', 'ai-row');
+    const yes = el('button', 'ai-small ai-advisor-yes', tr('先生つきで始める'));
+    yes.type = 'button';
+    yes.addEventListener('click', () => {
+      const picked = boxes.filter((b) => b.box.checked).map((b) => b.id);
+      const why =
+        picked.length === 0
+          ? tr('先生を付ける体を、1 体は選んでください')
+          : c.setAdvisor(picked, practice)
+            ? ''
+            : c.advisorChoice().why || tr('送り先（練習モード）が変わりました。もう一度「🌙 先生つき」を押してください');
+      if (why) {
+        warn.textContent = why;
+        warn.hidden = false;
+        return;
+      }
+      this.closeAdvisorCard();
+      this.input.focus();
+    });
+    const no = el('button', 'ai-small', tr('やめる'));
+    no.type = 'button';
+    no.addEventListener('click', () => {
+      this.closeAdvisorCard();
+      this.advisorButton.focus();
+    });
+    row.append(yes, no);
+    card.append(lines, who, warn, row);
+    yes.focus();
+  }
+
   private deepen() {
     if (this.companion.busy || !this.prefs.members.includes('fable') || !canEvolve(this.evolveSettings(), 'button')) return;
     const text = this.input.value.trim();
@@ -1575,7 +1755,7 @@ export class AiPanel {
       el(
         'p',
         'ai-setting-note',
-        tr('ブラウザの操作は Claude だけ（ほかのキャラは、見る・読む・調べるなどの道具を少し持つ）。Claude がいないときは、要約などの頼みごとや出来事に、いちばん上のメンバーが答える。{0}（{1}）の料金は Opus 5.5 の約2.5倍。{2}（{3}）は 3〜6体で1枠、料金はいちばん安い（Opus 5.5 の約40分の1）。名前と性格・ハイク組の話し方は ⚙ で変えられます。', { 0: nameOf(this.prefs, 'fable'), 1: FABLE_MODEL.label, 2: HAIKU_UNIT_NAME, 3: HAIKU_MODEL.label }),
+        tr('ブラウザの操作は Claude だけ（ほかのキャラは、見る・読む・調べるなどの道具を少し持つ）。Claude がいないときは、要約などの頼みごとや出来事に、いちばん上のメンバーが答える。{0}（{1}）の料金は Opus 5.5 の約2倍。{2}（{3}）は 3〜6体で1枠、料金はいちばん安い（Opus 5.5 の約40分の1）。名前と性格・ハイク組の話し方は ⚙ で変えられます。', { 0: nameOf(this.prefs, 'fable'), 1: FABLE_MODEL.label, 2: HAIKU_UNIT_NAME, 3: HAIKU_MODEL.label }),
       ),
     );
     if (focused) {
@@ -2062,6 +2242,9 @@ export class AiPanel {
       const name = c.nameOf(id);
       const closes = this.prefs.open && (members.length === 1 || this.prefs.target === id);
       cell.dataset.state = id === moving ? c.state : resting;
+      // 先生が返事を見ている体：顔の縁を先生の色に
+      if (c.advisorWatching === id) cell.dataset.advisor = 'watching';
+      else delete cell.dataset.advisor;
       // 会話を開いているとき、話しかける相手の枠を濃くする
       cell.dataset.target = String(
         this.prefs.open && (members.length === 1 || this.prefs.target === id || this.prefs.target === 'all' || (this.prefs.target === 'team' && isHaiku(id))),
@@ -2088,7 +2271,10 @@ export class AiPanel {
     this.title.title = tr('会話に参加するメンバーを選ぶ（いま {0}枠・Claude も入れて{1}枠まで。{2}は1枠）', { 0: slotsOf(members), 1: MAX_MEMBERS, 2: HAIKU_UNIT_NAME });
     const speaking = c.activeSpeaker ?? failed;
     const who = speaking && c.awake === speaking ? tr('{0}（覚醒）：', { 0: c.nameOf(speaking) }) : members.length > 1 && speaking ? `${c.nameOf(speaking)}：` : '';
-    this.status.textContent = who + STATUS[c.state] + (c.practice ? tr('（練習モード）') : '');
+    // 先生が返事を見ている間は、そのことを出す（助言の中身は届かないので出せない）
+    const watching = c.advisorWatching;
+    this.status.textContent = (watching ? advisorWaitText(c.nameOf(watching)) : who + STATUS[c.state]) + (c.practice ? tr('（練習モード）') : '');
+    this.renderAdvisorWait();
     this.renderTargets();
     this.input.placeholder = tr('{0}に話しかける…（Enter で送る・Shift+Enter で改行）', { 0: this.targetLabel(this.prefs.target) });
     this.renderTalkBar(); // やり取りの型の間は、上の帯と欄の案内を替える（V5）
@@ -2096,6 +2282,8 @@ export class AiPanel {
     this.cost.textContent = c.practice ? tr('練習モード') : tr('約 ${0}', { 0: c.totalCost.toFixed(3) });
     this.keyState.textContent = c.hasKey ? tr('保存済み（暗号化してこのパソコンに保存）') : tr('まだ保存されていません');
     this.sendButton.textContent = c.busy ? tr('止める') : tr('送る');
+    // 先生が見ている間は、止めると返事ごと止まることを、押す前に分かるようにする
+    this.sendButton.title = c.advisorWatching ? tr('止めると、返事ごと止まります（先生が見ている分の料金は、かかることがあります）') : '';
     this.historyButton.setAttribute('aria-pressed', String(this.view === 'history' || this.view === 'letters'));
     if (this.view === 'letters' && !this.lettersShown && this.letters.ready) {
       // レターのタブが無くなった（最後のレターを消した）：過去の会話の一覧へ（一覧を読み直す）
@@ -2137,6 +2325,7 @@ export class AiPanel {
     const why = remaining === 0 ? tr('今日の進化の枠を使い切りました（0時に戻ります）') : !canEvolve(evolve, 'button') ? tr('残りの1回は、フェイブルの合図用に取ってあります') : '';
     this.deepButton.title = tr('{0}が一時的に進化して（考える深さ max）、入力した文（空なら、ここまでの話）を深く考えて答えます。確認なしで、今日の進化の枠を1回使います。今日の残り {1}/{2} 回（0時に戻ります）。{3}{4}', { 0: c.nameOf('fable'), 1: remaining, 2: evolve.dailyLimit, 3: reserved, 4: why ? `\n${why}` : '' });
     this.deepButton.setAttribute('aria-label', `さらに考える（${c.nameOf('fable')}が進化して答える。今日の残り ${remaining} 回）`);
+    this.renderAdvisor();
     this.renderBubble();
 
     if (this.view === 'history' || this.view === 'letters') {
@@ -2917,7 +3106,8 @@ function usageText(entry: ChatEntry): string {
   const u = entry.usage;
   const input = u.input + u.cacheRead + u.cacheWrite;
   const advice = entry.advice?.cost ? tr('・うち相談 約 ${0}', { 0: entry.advice.cost.toFixed(3) }) : '';
-  const cost = entry.cost === undefined ? '' : tr('（約 ${0}{1}）', { 0: entry.cost.toFixed(3), 1: advice });
+  const teacher = entry.advisor?.cost ? tr('・うち先生 約 ${0}{1}', { 0: entry.advisor.cost.toFixed(3), 1: entry.advisor.estimated ? tr('（見積もりを含む）') : '' }) : ''; // 三人組の先生つき
+  const cost = entry.cost === undefined ? '' : tr('（約 ${0}{1}）', { 0: entry.cost.toFixed(3), 1: advice + teacher });
   return tr('入力 {0}・出力 {1} トークン{2}', { 0: input.toLocaleString(), 1: u.output.toLocaleString(), 2: cost });
 }
 
@@ -2932,10 +3122,7 @@ function dateTimeOf(ms: number) {
 }
 
 function modelPrice(model: string): { input: number; output: number } {
-  if (model === HAIKU_MODEL.id) return { input: HAIKU_MODEL.input, output: HAIKU_MODEL.output };
-  if (model === FABLE_MODEL.id) return { input: FABLE_MODEL.input, output: FABLE_MODEL.output };
-  const found = MODELS.find((row) => row.id === model);
-  const price = found ?? MODELS[0];
+  const price = priceRowOf(model) ?? MODELS[0]; // 前のフェイブル（5.1）で話している会話も、その値段で
   return { input: price.input, output: price.output };
 }
 
@@ -3017,7 +3204,7 @@ function castOf(prefs: AiPrefs): Cast {
 
 // 短いモデル名（Opus 5.5 など）
 function modelLabel(id: ModelId | HaikuModelId): string {
-  const model = [...MODELS, FABLE_MODEL, HAIKU_MODEL].find((m) => m.id === id);
+  const model = PRICED_MODELS.find((m) => m.id === id);
   return (model?.label ?? id).replace(/^Claude /, '').replace(/（.*）$/, '');
 }
 

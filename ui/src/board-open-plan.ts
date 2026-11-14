@@ -1,5 +1,5 @@
 // メモをボードで開くとき、下の区画とボードを、どう替えるか。2 つある
-//   「上のコメントボードで開く」（左のメモのセルの右クリック・右のメモの区画の右クリック）：boardOpenPlan・runBoardOpen
+//   「上のコメントボードで開く」（左のメモのセルの右クリック・右のメモの区画の右クリック・右の検索の行の［上で開く］〈MK4〉）：boardOpenPlan・runBoardOpen
 //   「下で開く」（右のメモの区画の右クリック）：lowerBoardPlan・runLowerBoardOpen（このファイルの下のほう）
 //
 // 「上のコメントボードで開く」
@@ -19,23 +19,45 @@ export function boardOpenPlan(o: { lower: string | null; id: string; usable: boo
   return { ok: true, open: null, boardMemo: o.id };
 }
 
-// 分けて、呼ぶ。順は「ボードの選び（setBoardMemo）→ 閉じていれば下に開く（open）→ ボードを上に出す頼み（askUpper）」
-//   断る（使えないメモ・setBoardMemo が断った）ときは refuse だけを呼ぶ。やり終えたら true
+// ボードの書く欄の書きかけの守り（MK4）：書きかけがあって、ボードが今見ているメモ（board）が開くメモと違えば、ボードを替えない（替えると書く欄が閉じて、書きかけが消える）。
+//   ボードが同じメモを見ているなら替わらないので守らない。board が null（下が閉じていて、選んだメモも無い）ときも守らない。
+//   ただし下の区画（閉じると欄を空にする）と違い、ボードは null の写しを受けても書く欄を閉じない。そのとき欄に残った字は、次に開いたメモで欄が閉じて消える（守りの穴。直していない。MK4 の記録）
+export function boardDraftBlocks(o: { board: string | null; id: string; draft: boolean }): boolean {
+  return o.draft && o.board !== null && o.board !== o.id;
+}
+
+// 分けて、呼ぶ。順は「ボードの選び（setBoardMemo）→ ボードを上に出す頼み（askUpper）」。下が閉じているとき（c）だけ「下に開く（open）→ 選びを外す（setBoardMemo(null)）→ askUpper」
+//   c で選びを先に外すと、ボードは一度 null の写し（下も閉じている）を受けてメモが無い形になり、次の写しを「メモが替わった」と見て書く欄を閉じる
+//   （選んでいたメモと同じメモを開くときは守りを通るので、書きかけが黙って消える）。下を先に開けば、ボードの写しは途切れない（MK4 の見直し）。外すのは断られない
+//   断る（使えないメモ・setBoardMemo が断った）ときは refuse だけを呼ぶ（c は先に開いているが、外すのは断られないので、ここには来ない）。やり終えたら true
+//   書きかけの守り（MK4）：使えるメモで、ボードの書く欄に書きかけがあり（draft）、ボードが別のメモ（board）を見ていれば、何も替えずに keepDraft だけを呼ぶ（false）。
+//   board・draft・keepDraft は省ける（渡さなければ守らない）
 export function runBoardOpen(o: {
   lower: string | null;
   id: string;
   usable: boolean;
+  board?: string | null; // ボードが今見ているメモ（左から見て：選んだメモか、下の区画のメモ。MK4）
+  draft?: boolean; // ボードの書く欄に書きかけがある（ボードが知らせる。MK4）
   setBoardMemo(id: string | null): boolean;
   open(id: string): void;
   askUpper(): void;
   refuse(): void;
+  keepDraft?(): void; // 書きかけがあるので替えなかった（MK4）
 }): boolean {
   const plan = boardOpenPlan(o);
-  if (!plan.ok || !o.setBoardMemo(plan.boardMemo)) {
+  if (!plan.ok) {
     o.refuse();
     return false;
   }
-  if (plan.open !== null) o.open(plan.open);
+  if (boardDraftBlocks({ board: o.board ?? null, id: o.id, draft: o.draft === true })) {
+    o.keepDraft?.();
+    return false;
+  }
+  if (plan.open !== null) o.open(plan.open); // c：下を先に開く（ボードの写しを途切れさせない）
+  if (!o.setBoardMemo(plan.boardMemo)) {
+    o.refuse();
+    return false;
+  }
   o.askUpper();
   return true;
 }

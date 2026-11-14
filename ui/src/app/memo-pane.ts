@@ -34,8 +34,9 @@ import { mountGrokCards } from './grok-cards';
 import { readBoardUpperRatio, writeBoardUpperRatio } from '../card-board-stages';
 import { readUpperRatio, writeUpperRatio } from '../cards-stages';
 import { SPLIT_LABEL } from '../memo-card-board-place';
-import { clampUpperRatio, nudgeUpperRatio, UPPER_SPLIT_DEFAULT, UPPER_SPLIT_MIN, UPPER_SPLIT_STEP, upperRatioFromOffset } from '../grok-cards-place';
-import { isMachineTag } from '../grok-cards-tags';
+import { borrowUpperRatio, clampUpperRatio, nudgeUpperRatio, UPPER_SPLIT_DEFAULT, UPPER_SPLIT_MIN, UPPER_SPLIT_STEP, upperRatioFromOffset } from '../grok-cards-place';
+import { isMachineTag, markCountNote, visibleTags } from '../grok-cards-tags';
+import { cardLike, likeButtonText, likeTag, nextLike } from '../likes';
 import { clampMemoPaneHeight, MEMO_PANE_DEFAULT, readMemoPanePrefs, writeMemoPanePrefs } from '../memo-pane-host';
 import { CellMenu, type MenuButton, type MenuEntry } from '../panels/cell-menu';
 import { tagArea } from '../panels/tag-pad';
@@ -65,7 +66,7 @@ import { el } from '../util';
 import { attachZoom, type ZoomControl, type ZoomLevel } from '../reader/capture-zoom';
 import { AltTap } from '../alt-tap';
 import { IMPORT_FILE_BYTES, IMPORT_FILE_LABEL } from '../import-limits';
-import { boardSnapshot, templateSource } from '../memo-board-source';
+import { boardFocusOf, boardSnapshot, templateSource } from '../memo-board-source';
 import { boardCarryMemo, boardMemoInfo, carryLabel, noticeTarget, sentFromLower, skipLowerSentBar } from '../memo-board-pick';
 import { photoBatch, photoSkipNote } from '../memo-board-photo';
 
@@ -765,6 +766,7 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
   let upperRatio = UPPER_SPLIT_DEFAULT;
   let upperOwner: 'cards' | 'board' = 'cards'; // 上の入れ物の持ち主（割合の鍵が持ち主ごとに別。案 C・C3）
   let upperSplitObserver: ResizeObserver | null = null;
+  let upperBorrowedFrom: number | null = null; // ボードの「［全体］の間」に境目を下げる前の割合（借りていなければ null。保存しない。MK3）
   const readOwnerRatio = () => (upperOwner === 'board' ? readBoardUpperRatio() : readUpperRatio());
   const writeOwnerRatio = (ratio: number) => void (upperOwner === 'board' ? writeBoardUpperRatio(ratio) : writeUpperRatio(ratio));
 
@@ -794,7 +796,49 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
   function setUpperRatio(next: number, persist: boolean) {
     upperRatio = clampUpperRatio(splittableHeight(), next);
     layoutUpperSplit();
-    if (persist) writeOwnerRatio(upperRatio);
+    if (!persist) return;
+    upperBorrowedFrom = null; // つまみで替えて保存する（矢印・Home・End・ダブルクリック）：その割合を新しい境目にして、借りた状態を終える（MK3）
+    writeOwnerRatio(upperRatio);
+  }
+
+  // 下の区画で窓が開いているか（MK3。開いている間は［全体］で上を高くしない。窓は下の包みの位置と大きさで置くので、狭めると切れる）
+  //   一覧の窓・関連づけの帯と相手の一覧（線の選び）・型の小窓と並び・空欄の小窓・取り込み・依頼の小窓・大きく見た画像・書き足しの面・マップ・
+  //   浮いたカードの層（並びの「見る」で出したカード・「このカードの関連」の欄。層は下の包みの中。直す役の見直し）
+  //   借りている間に開いた窓は、狭い下に合わせて置かれる（戻すときに置き直す。releaseUpper → placeOpenWindows）
+  const lowerWindowOpen = () => [listWindow, linkBar, linkPicker, tplDialog, tplPalette, tplFill, tplImport, tplAsk, light, annotateLayer].some((w) => !w.hidden) || cardMap.isOpen || listPops.size > 0 || relMenu.isOpen;
+
+  // 下の区画の動かない部分の高さ（MK3。借りるときに測る）：下の包みの高さから、伸び縮みする所（主の枠・メモが無いときの案内）を引き、
+  //   主の枠の中で下に貼り付く書く欄を足す（帯・状態の行・件数の行・書く欄など、スクロールしない部分）
+  function lowerFixedHeight(): number {
+    const lower = root.querySelector(':scope > .memo-pane-lower');
+    if (!(lower instanceof HTMLElement)) return 0;
+    const shown = (node: HTMLElement) => node.getClientRects().length > 0;
+    let fixed = lower.clientHeight;
+    for (const grow of [main, empty]) if (grow.parentElement === lower && shown(grow)) fixed -= grow.offsetHeight;
+    if (shown(main) && shown(compose)) fixed += compose.offsetHeight;
+    return Math.max(0, fixed);
+  }
+
+  // ボードの「［全体］の間」だけ上を高くする（MK3。§4.3）：境目を下げる（保存しない）。下げる前の割合を覚える。下げたら true（ボードは面の大きさを読み直す）
+  //   上に出していて、持ち主がボードで、まだ借りていないときだけ（借りている間は借り直さない＝下げる前の割合を上書きしない）。下の区画で窓が開いているときは借りない。
+  //   量は borrowUpperRatio（needPx：ボードが要る高さ。下の床は max(150, 動かない部分＋8)。今の上より狭めない。全体が 240 未満なら借りない）
+  function borrowUpper(needPx: number): boolean {
+    if (upperBorrowedFrom !== null || upperOwner !== 'board' || !root.classList.contains('is-cards-upper') || lowerWindowOpen()) return false;
+    const next = borrowUpperRatio(splittableHeight(), upperRatio, needPx, lowerFixedHeight());
+    if (next === null) return false;
+    upperBorrowedFrom = upperRatio;
+    setUpperRatio(next, false);
+    return true;
+  }
+
+  // 借りた高さを返す（MK3）：下げる前に覚えた割合へ戻す（そのまま入れる。保存しない）。上に出していて、持ち主がボードで、借りているときだけ
+  //   借りている間に開いた窓（狭い下に合わせて置かれた）は、戻した高さで置き直す（窓の大きさが替わったときと同じ道）
+  function releaseUpper() {
+    if (upperBorrowedFrom === null || upperOwner !== 'board' || !root.classList.contains('is-cards-upper')) return;
+    upperRatio = upperBorrowedFrom;
+    upperBorrowedFrom = null;
+    layoutUpperSplit();
+    placeOpenWindows();
   }
 
   function wireUpperSplit(handle: HTMLElement) {
@@ -802,6 +846,7 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
     handle.addEventListener('pointerdown', (e) => {
       if (e.button !== 0 || pointerId !== null) return;
       pointerId = e.pointerId;
+      upperBorrowedFrom = null; // つまみに触った：今の割合（借りた割合でも）を新しい境目にする（離したときに保存する）。借りた状態は終える（MK3）
       try {
         handle.setPointerCapture(e.pointerId);
       } catch {
@@ -852,6 +897,7 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
     const onNow = root.classList.contains('is-cards-upper');
     if (on && onNow && owner !== upperOwner) {
       upperOwner = owner;
+      upperBorrowedFrom = null; // 借りた高さは前の持ち主（ボード）のもの。新しい持ち主の割合を読み直すので捨てる（MK3）
       root.querySelector(':scope > .grok-cards-upper-split')?.setAttribute('aria-label', SPLIT_LABEL[owner]);
       upperRatio = readOwnerRatio();
       layoutUpperSplit();
@@ -878,6 +924,7 @@ tplAsk.append(tplAskHead, tplAskLead, tplAskPurposeLabel, tplAskNamesRow, tplAsk
       return;
     }
     unwatchUpperSplit();
+    upperBorrowedFrom = null; // 上をやめる（下に戻した）：境目が無くなる。保存した割合は借りる前のまま（MK3）
     const upper = root.querySelector(':scope > .grok-cards-upper');
     if (upper) {
       // 持ち主（Grok Cards の根・ボードの面）を下の枠へ戻す。通常は呼ぶ側が先に戻してある
@@ -4765,11 +4812,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       return;
     }
     if (room === 0) {
-      status.textContent = tr('タグは1つに {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB });
+      status.textContent = tr('タグは1つに {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB }) + markCountNote(now);
       return;
     }
     change(fresh.slice(0, room), []);
-    if (fresh.length > room) status.textContent = tr('タグは1つに {0} 個までなので、{1} 個は付けませんでした', { 0: MAX_TAGS_PER_TAB, 1: fresh.length - room });
+    if (fresh.length > room) status.textContent = tr('タグは1つに {0} 個までなので、{1} 個は付けませんでした', { 0: MAX_TAGS_PER_TAB, 1: fresh.length - room }) + markCountNote(now);
   }
 
   function quickTags(now: readonly string[], change: TagChange, key: string): HTMLElement[] {
@@ -4826,13 +4873,14 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       });
     }
     entries.push('sep');
+    const shown = visibleTags(now); // 件数・押せるか・保存する中身は見えるタグで（カードの印〈♥・色。MK5〉と機械のタグを入れない）
     entries.push({
       label: tr('今のタグをセットとして保存…'),
-      hint: now.length > TAG_BUTTONS ? tr('はじめの {0} 個', { 0: TAG_BUTTONS }) : `${now.length}`,
-      disabled: now.length === 0 || book.sets.length >= 12,
+      hint: shown.length > TAG_BUTTONS ? tr('はじめの {0} 個', { 0: TAG_BUTTONS }) : `${shown.length}`,
+      disabled: shown.length === 0 || book.sets.length >= 12,
       run: () =>
         tagMenu.prompt(tr('新しいセットの名前'), tr('セット{0}', { 0: book.sets.length + 1 }), (name) => {
-          tagBook.apply({ type: 'addSet', name, tags: now.slice(0, TAG_BUTTONS) });
+          tagBook.apply({ type: 'addSet', name, tags: shown.slice(0, TAG_BUTTONS) });
           status.textContent = tr('セット「{0}」を保存して、いつものタグにしました', { 0: name });
         }, { x, y }, { maxLength: 20 }),
     });
@@ -5193,6 +5241,20 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     chat.disabled = full && under === 0;
     ai.disabled = full;
     if (full) ai.title = tr('返信は1つのメモに {0} 件までです', { 0: MAX_REPLIES });
+    // このカードのいいね（MK6。commentCard は一番上のカードだけ）：押すたびに 1→2→3→なし。字は今の段（♡・♥1〜♥3）。説明は頭の行のメモの ♡ と分ける
+    //   今ある橋で setReplyMark を送る（左が置き換え、断れば一言を出す）。ボードの元に戻すには積まない（押して回せば戻る）
+    //   名前は字（段）のまま読ませ、説明を title に（action の aria-label は外す）。描き直しても焦点を戻せるように focusKey
+    //   写しが来る前に続けて押しても 1 段ずつ進むように、送った段から回す（sent。描き直すと写しの値から。MK6 の見直し）。ボードの setMark の待ち（markWaits）とは別
+    const liked = cardLike(reply.tags ?? []);
+    let sent = liked;
+    const like = action(likeButtonText(liked), tr('このカードのいいね'), () => {
+      sent = nextLike(sent);
+      ask({ command: 'setReplyMark', id: ref.id, replyId: reply.id, kind: 'like', value: sent === 0 ? '' : likeTag(sent) });
+    });
+    like.classList.add('memo-pane-card-like');
+    like.removeAttribute('aria-label');
+    like.setAttribute('aria-pressed', String(liked > 0));
+    like.dataset.focusKey = `card:${reply.id}:like`;
     if (compactCard) {
       // 整頓中（CC2）：相棒 ▾ は ⋯ の先頭へ。タグの行が無いカードは ⋯ からタグの行を出す
       const extra: MenuEntry[] = [
@@ -5276,11 +5338,11 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       // 返信があるカードは、時刻の右に「💬 n」を置く（押すと今までどおり開閉）。無いカードは乗せたときの道具に 💬
       if (under > 0) whenSpan.after(chat);
       else actions.append(chat);
-      actions.append(link, more, remove);
-      head.append(actions); // ⠿ の後ろ（Tab の順：⠿ → ✎ → 💬 → 🔗 → ⋯ → ×）
+      actions.append(like, link, more, remove);
+      head.append(actions); // ⠿ の後ろ（Tab の順：⠿ → ✎ → 💬 → ♡ → 🔗 → ⋯ → ×）
       card.append(cardThread(ref, current.replies, reply.id, threadUi));
     } else {
-      actions.append(chat, ai, link, more, remove);
+      actions.append(chat, ai, like, link, more, remove);
       card.append(actions, cardThread(ref, current.replies, reply.id, threadUi));
     }
     return card;
@@ -5986,7 +6048,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   lightPlacer.observe(compose);
   lightPlacer.observe(scroll);
   scroll.addEventListener('scroll', () => listPops.place(), { passive: true }); // 並びを送ったら、出したカードも元について行く
-  window.addEventListener('resize', () => {
+  // 開いている窓と、並びに出したカードを置き直す（窓の大きさが替わったとき・ボードの「［全体］の間」に借りた高さを戻したとき。MK3）
+  function placeOpenWindows() {
     if (!listWindow.hidden) placeListWindow();
     if (!linkBar.hidden) placeLinkBar();
     if (!linkPicker.hidden) placeLinkPicker();
@@ -5996,7 +6059,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (!tplImport.hidden) placeTplImport();
     if (!tplAsk.hidden) placeTplAsk();
     listPops.place();
-  });
+  }
+  window.addEventListener('resize', () => placeOpenWindows());
   // 関連づけている間：相手のカードを押したら、種類の小さな欄を出す（元のカードとカードの外は、ふつうに動く）
   cards.addEventListener(
     'click',
@@ -6158,6 +6222,8 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     closeLists: () => closeListWindow(false),
     pane: root,
     setCardsUpper,
+    borrowUpper, // ボードの「［全体］の間」だけ境目を下げる・戻す（MK3。保存しない）
+    releaseUpper,
     // つまみと同じ道（sendHeight → setSidebar、writeMemoPanePrefs）で高さを変える。保存されるので、開き直しても保たれる
     // いま開いているメモのカードの写し（読むだけ。ボードに描く）
     boardSource: {
@@ -6165,6 +6231,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       onChange: (fn) => void boardListeners.push(fn),
       info: () => boardMemoInfo(boardMemoView, view), // 名札の元（M3）
       linkNames: () => resolvedLinkKindNames(boardMemoView ?? view, linkNameSets.book), // 見ているメモの関連の呼び名（M4。別のメモを見ているときだけボードが一時的に使う）
+      focus: () => boardFocusOf(boardMemoView, view), // 右の検索の［上で開く］で選んで見せるカード（見ている写しに載っている頼み。写しの形 boardSnapshot は変えない。MK4）
     },
     // ボードの見るメモの選び口（M3）。一覧は下の面がすでに持っているもの（sheetItems・recentItems）。選ぶと左へ setBoardMemo（null＝下の区画と同じに戻す）
     boardPick: {
@@ -6208,6 +6275,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
   close.addEventListener('click', () => {
     flush();
     grokCardsUi.dismiss();
+    releaseUpper(); // 区画を閉じる：ボードの「［全体］の間」に借りた上の高さも戻す（ボードが別のメモを見ていると、写しが空にならないため。MK3）
     ask({ command: 'memoPaneClose' });
   });
   // 下の書く欄と、上のボードの書く欄を Alt で行き来する（2026-11-04、利用者の依頼）。ボードを上に出しているときの、この二つの欄の中だけ（全体のキーにしない）。
@@ -6392,6 +6460,7 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
     if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) return;
     e.preventDefault();
     flush();
+    releaseUpper(); // 区画を閉じる：借りた上の高さも戻す（［閉じる］と同じ。MK3）
     ask({ command: 'memoPaneClose' });
   });
   window.addEventListener('focus', () => {
@@ -6464,6 +6533,9 @@ let palDragOver: boolean | null = null; // つまんでいる間、ポインタ�
       notifyHeight();
       grokCardsUi.setVisible(msg.state.memo.visible !== false);
     }
+    // 区画が閉じた（左から閉じたときも。メモが消えた・メニュー・キーなど）：借りた上の高さを戻す（MK3）。
+    //   高さの守り（区画の高さをつまんでいる間・高さの数が無い知らせ）の外で見る（守りの中だと戻らないことがある。直す役の見直し）
+    if (msg.type === 'sidebars' && msg.state.memo?.visible === false) releaseUpper();
   });
 
   paintNextRow();

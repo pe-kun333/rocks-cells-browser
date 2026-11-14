@@ -81,8 +81,28 @@
   gap: 2px;
 }
 
+/* ［カードの ♥］の行（MK9）：切り替えと、入れている間だけの段の絞り・［まとめてコピー］ */
+.search-panel-hearts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+
+.search-panel-heartopts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.search-panel-heartopts[hidden] {
+  display: none;
+}
+
 .search-panel-sortbtn,
-.search-panel-kindbtn {
+.search-panel-kindbtn,
+.search-panel-heartbtn,
+.search-panel-heartmin {
   height: 24px;
   padding: 0 8px;
   border: 1px solid var(--border);
@@ -91,10 +111,20 @@
 }
 
 .search-panel-sortbtn.on,
-.search-panel-kindbtn.on {
+.search-panel-kindbtn.on,
+.search-panel-heartbtn.on,
+.search-panel-heartmin.on {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--text);
+}
+
+.search-panel-heartcopy {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  color: var(--accent-ink);
+  font-size: 11px;
 }
 
 .search-panel-status {
@@ -127,7 +157,7 @@
   display: none;
 }
 
-/* 1 行：大きいボタン（下の区画で開く）と、小さいボタン（左の盤面で見る）は兄弟 */
+/* 1 行：大きいボタン（下の区画で開く）と、小さいボタンの並び（上のボードで開く・左の盤面で見る）は兄弟 */
 .search-row {
   display: flex;
   flex-direction: column;
@@ -166,6 +196,11 @@
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ［カードの ♥］の行の段（題の枠の中。MK9） */
+.search-row-like {
+  color: var(--heart);
 }
 
 .search-row-kind {
@@ -209,8 +244,16 @@
   color: inherit;
 }
 
-.search-row-board {
+/* 小さいボタンの並び（右寄せ）。コメントの行は［上で開く］［盤面で見る］、メモの行は［盤面で見る］だけ（MK4） */
+.search-row-actions {
+  display: flex;
   align-self: flex-end;
+  gap: 2px;
+  min-width: 0;
+}
+
+.search-row-upper,
+.search-row-board {
   height: 20px;
   min-width: 0;
   padding: 0 8px;

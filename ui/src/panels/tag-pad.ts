@@ -4,7 +4,7 @@
 //   ・「その他 ▾」：6つに入っていないタグ（使っている数の多い順・六角メモのタグ）。付ける・外す・ボタンへ登録
 //   ・カード（拡大表示）・右の「メモ」の区画の「選んだコメントのタグ」で使う。ボタンとセットは左右のサイドバーで別々（tagbuttons.ts）
 import { t as tr } from '../i18n';
-import { isMachineTag } from '../grok-cards-tags';
+import { isMachineTag, markCountNote } from '../grok-cards-tags';
 import { MAX_TAGS_PER_TAB, normalizeTag, registeredTagNames, tagColor } from '../tags';
 import { type PinnedSource, TAG_BUTTONS, type TagButtonSet, type TagButtonStore } from '../tagbuttons';
 import { el } from '../util';
@@ -154,7 +154,7 @@ export class TagPad {
       return;
     }
     if (tags.length >= MAX_TAGS_PER_TAB) {
-      this.host.toast(tr('タグは1つに {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB }));
+      this.host.toast(tr('タグは1つに {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB }) + markCountNote(tags));
       return;
     }
     tags.push(tag);
@@ -568,7 +568,7 @@ export function tagArea(
       const choose = (value: string) => {
         const tag = normalizeTag(value);
         if (tag && !target.tags.includes(tag) && target.tags.length >= MAX_TAGS_PER_TAB) {
-          o.toast?.(tr('タグは1つに {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB }));
+          o.toast?.(tr('タグは1つに {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB }) + markCountNote(target.tags));
           finish(null, true);
           return;
         }
@@ -631,7 +631,7 @@ function candidateBox(input: HTMLInputElement, target: TagTarget, pinned: Pinned
   // 候補の欄を押しても、書く欄の焦点は残す（書く欄の blur で閉じないように）
   panel.addEventListener('mousedown', (e) => e.preventDefault());
 
-  const capNote = tr('タグは {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB });
+  const capNote = tr('タグは {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB }) + markCountNote(target.tags); // 印（♥・色）が付いていれば、その一言も（MK5）
   let active: string | null = null; // 選んでいる項目のタグ（描き直しても、同じタグが見えていれば残す）
   let seq = 0; // 項目の id の数
   let closed = false;

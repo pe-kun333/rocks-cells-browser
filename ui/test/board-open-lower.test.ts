@@ -303,6 +303,9 @@ describe('左の処理（openOnLowerBoard・askLowerBoard・memoPaneReady・区�
     const ready = code(between(primary, "case 'memoPaneReady':", "case '"));
     expect(ready).toMatch(/grokCards\.onMemoReady\(\);\s*if \(boardUpperWanted && memoPane\.isOpen\(\)\) sendBoardUpper\(\);\s*boardUpperWanted = false;\s*if \(lowerBoardWanted && memoPane\.isOpen\(\)\) sendLowerBoard\(\);\s*lowerBoardWanted = false;\s*break;\s*$/);
     expect(ready).toMatch(/memoPaneDraft = false;/); // 下の面が読み込み直された＝書きかけは無い（e の守りの前提）
+    // MK4：ボードの書く欄の書きかけの印も、memoPaneDraft を下ろすすぐ次で下ろす（Grok Cards の前。上の終わりの並びには入れない）
+    expect(ready).toMatch(/memoPaneDraft = false;\s*boardComposeDraft = false;\s*relayReplyPending\(\);/);
+    expect(ready.indexOf('boardComposeDraft = false;')).toBeLessThan(ready.indexOf('grokCards.onMemoReady();'));
   });
   it('区画を閉じたとき（onOpenChange(null)）：下の印も下ろす。印は上の印のすぐあと・区画の世話役より前に置く', () => {
     const upper = primary.indexOf('let boardUpperWanted = false;');
@@ -329,6 +332,9 @@ describe('左の処理（openOnLowerBoard・askLowerBoard・memoPaneReady・区�
   });
   it('e の守りの前提：書きかけの印は、下の面の知らせ（memoPaneDraft）で立て下ろしする', () => {
     expect(code(between(primary, "case 'memoPaneDraft':", "case '"))).toMatch(/^case 'memoPaneDraft':\s*memoPaneDraft = action\.busy === true;\s*break;\s*$/);
+    // MK4：ボードの書く欄の書きかけは別の印（boardComposeDraft）。この守り（draft: memoPaneDraft）の意味は変えない
+    expect(code(between(primary, "case 'boardComposeDraft':", "case '"))).toMatch(/^case 'boardComposeDraft':\s*boardComposeDraft = action\.busy === true;\s*break;\s*$/);
+    expect(count(code(primary), 'memoPaneDraft = ')).toBe(3); // 宣言・memoPaneReady・この case（MK4 で増やしていない）
   });
 });
 

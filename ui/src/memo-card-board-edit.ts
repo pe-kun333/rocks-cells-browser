@@ -9,7 +9,7 @@ import { boxVisibleRatio, READ_PAD } from './memo-card-board-view';
 import { pasteToolNote } from './memo-card-board-paste';
 import { centerSpot, ringSpot, spotAt } from './memo-card-board-spots';
 import { ledgerFullNote, loadingNote, unreadableBlockNote } from './memo-card-board-texts';
-import { visibleTags } from './grok-cards-tags';
+import { markCountNote, visibleTags } from './grok-cards-tags';
 import { cardLabel, changeLinkList, isLinkKind, type LinkKind, linkKindInfo, LINK_KINDS, linkSentence, MAX_LINKS_PER_CARD, type ReplyLink } from './memo-card-links';
 import { TEMPLATE_MIN_PICK } from './memo-card-template-store';
 import { TEMPLATE_LIMITS } from './memo-card-templates';
@@ -209,6 +209,16 @@ export function canReturnDraft(open: ComposeMode | null, current: string): boole
   return open === null || (open.kind === 'add' && current.trim() === '');
 }
 
+// 書く欄に書きかけがあるか（MK4。ボードが変わったときだけ左へ知らせ、左はボードを別のメモへ替える前に見る。替えると欄が閉じて消えるため）
+//   断られて待っている文（waiting）があれば書きかけ。開いている欄は、使っている（canReturnDraft の逆：足す欄に字がある・書き直しの欄が開いている〈空でも〉）なら書きかけ。
+//   写真の題の欄（photoTitle。写真が届くと空で開く）は、字があるときだけ
+export function composeHasDraft(o: { open: ComposeMode | null; text: string; photoTitle: boolean; waiting: number }): boolean {
+  if (o.waiting > 0) return true;
+  if (o.open === null) return false;
+  if (o.photoTitle) return o.text.trim() !== '';
+  return !canReturnDraft(o.open, o.text);
+}
+
 // 戻す欄の種類。書き直すカードがもう無ければ足す欄へ（書き直す欄のままだと、決めたときに「カードがもうありません」で文が消える）
 export function returnMode(mode: ComposeMode, replies: readonly Reply[]): ComposeMode {
   return mode.kind === 'edit' && !cardAppeared(replies, mode.id) ? { kind: 'add' } : mode;
@@ -237,6 +247,15 @@ export function tagFullCount(replies: readonly Reply[], ids: readonly string[], 
     const tags = topOf(replies, id)?.tags ?? [];
     return !tags.includes(tag) && tags.length >= max;
   }).length;
+}
+
+// 上限で止まったカード（add のどれかを付けられない。tagFullCount と同じ決まり）のどれかに印（♥・色。MK5）があれば、断りの後ろに足す一言（無ければ空）
+//   ボードのタグの行は見えるタグ（unionTags）を渡すので、tag-pad の数えは印を見られない。生のタグで数えるここで足す
+export function tagFullMarkNote(replies: readonly Reply[], ids: readonly string[], add: readonly string[], max: number): string {
+  const stopped = liveSelection(replies, ids)
+    .map((id) => topOf(replies, id)?.tags ?? [])
+    .filter((tags) => add.some((tag) => !tags.includes(tag) && tags.length >= max));
+  return markCountNote(stopped.flat());
 }
 
 // ---------- 線（1 枚を選んで足す・外す） ----------

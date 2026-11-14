@@ -3,6 +3,7 @@ import './style.css';
 import './themes.css';
 import './sheets.css';
 import './haiku.css';
+import './trio-advisor.css';
 import './tagbuttons.css';
 import './search.css';
 import './vault.css';
@@ -11,6 +12,7 @@ import './bot-panel.css';
 import './memo-pane.css';
 import './grok-patch.css';
 import './grok-cards.css';
+import './waypoints.css';
 import './data-colors.css'; // データの色をテーマの明るさの帯へ（同じ選択子の上書きなので、いちばん後）
 import { startMemoPane } from './app/memo-pane';
 import { startPrimary } from './app/primary';

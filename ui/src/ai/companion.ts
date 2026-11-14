@@ -30,6 +30,7 @@ import {
   TRIO_IDS,
 } from './characters';
 import {
+  type AdvisorResult,
   type AiTransport,
   type AiUsage,
   COMPANION_WEB_FETCH,
@@ -38,12 +39,11 @@ import {
   costOf,
   createTransport,
   describeError,
-  FABLE_MODEL,
   HAIKU_MODEL,
   HAIKU_WEB_SEARCH,
   type HaikuModelId,
-  MODELS,
   type ModelId,
+  savedVoiceModel,
   WEB_SEARCH_PRICE,
 } from './client';
 import {
@@ -88,6 +88,29 @@ import {
 } from './advisor';
 import { cleanProposal, isLetterTool, type LetterJudge, PROPOSE_LETTER, PROPOSE_LETTER_TOOL, PROPOSE_LETTER_V2, PROPOSE_LETTER_V2_TOOL, selfJudge } from './letters';
 import { BudgetError } from './budget';
+import {
+  addTrioAdvisorCount,
+  ADVISOR_OFF_NOTE,
+  ADVISOR_ONCE_NOTE,
+  ADVISOR_OUTSIDE_NOTICE,
+  ADVISOR_QUOTA_NOTICE,
+  ADVISOR_REST_NOTE,
+  advisorBuilt,
+  advisorCountOf,
+  type AdvisorMark,
+  advisorMarkOf,
+  advisorMarkSteps,
+  type AdvisorState,
+  advisorTool,
+  advisorTurnPlan,
+  DEFAULT_ADVISOR_DEF,
+  DEFAULT_TRIO_ADVISOR_LIMIT,
+  hasAdvisorBlocks,
+  newAdvisorState,
+  parseAdvisorState,
+  TRIO_ADVISOR,
+  trioAdvisorRemaining,
+} from './trio-advisor';
 import { BLOCK_NOTE, pageIsBlocked } from '../blocklist';
 import { requestPageText } from './page';
 import {
@@ -166,6 +189,8 @@ export interface ChatEntry {
   consult?: { advisor: AdvisorId; question: string; why: string; estimate: string; sends?: string; answer?: ConsultAnswer };
   advice?: Advice;
   awake?: boolean; // この返事の途中で、一時的に進化した（考える深さ max）
+  // 三人組の先生つき：この返事で先生に見てもらった分（回数・失敗・料金。助言の中身は無い。docs/plan-trio-advisor.md）
+  advisor?: AdvisorMark;
   // フェイブルレターの提案（進化した返事でだけ）。残すかどうかは使う人が決める（kept なら letterId がレター一覧の id）
   letter?: { title: string; points?: string[]; body: string; state: 'proposed' | 'kept' | 'dismissed'; letterId?: string; mark?: string };
   sources?: { url: string; title: string }[]; // 返事の引用元（Web 検索）
@@ -194,7 +219,7 @@ interface Turn {
   images?: string[]; // 見せる画像（data URL）
   imagesTransient?: boolean; // その画像は撮影から送ったもの：会話記録（保存）には残さない（R3 D1）
   told?: SharedLine; // 自分の発言を、会話の記録に書いた行（「みんなへ」で、あとから聞かせる相手を直す）
-  bare?: boolean; // この1回は道具を渡さない（回答カードの Deeper Dive。段階6）
+  bare?: boolean; // この1回は道具を使わせない（一覧はそのまま送り、tool_choice none。回答カードの Deeper Dive。段階6）
   deep?: boolean; // 使う人がボタン（さらに考える）で、初めから深く考えるよう頼んだ（フェイブルだけ）
   consult?: AdvisorId; // 使う人が「先生に聞く」を押した：ハイクが答える前に、アプリがこの先生に相談する（ハイク組だけ）
   consultQuestion?: string; // そのとき先生に聞くこと（入力が空なら、決まった問い）
@@ -269,6 +294,14 @@ export class Companion {
   private turnCut: { speaker: Speaker; start: number; heard: number; sentUrl: string | null } | null = null;
   private nextId = 1;
   private readonly listeners: (() => void)[] = [];
+  // 三人組の先生つき（Anthropic の advisor 道具）。会話ごとに決め、話し始めたら変えない。null は先生なし
+  private advisorState: AdvisorState | null = null;
+  advisorWatching: Speaker | null = null; // 今、先生が返事を見ている体（画面の状態の行に出す）
+  advisorSince: number | null = null; // 先生が見始めた時刻（経過時間を出す）
+  // いちばん最近の、先生のようす（読み上げに、始まりと終わりを伝える）：見ている／見終わった／使えなかった／途中で止まった
+  advisorPhase: { speaker: Speaker; phase: 'asking' | 'done' | 'failed' | 'stopped' } | null = null;
+  trioAdvisorLimit = DEFAULT_TRIO_ADVISOR_LIMIT; // 1日に見てもらえる回数（体への頼み。確かな上限は月の上限）
+  private advisorQuotaTold = false; // 「今日の枠が尽きました」の知らせは、会話ごとに1回だけ
 
   constructor(model: ModelId, practice: boolean) {
     this.model = model;
@@ -329,8 +362,68 @@ export class Companion {
   }
 
   setPractice(practice: boolean) {
+    // 先生つきを選んだあと、まだだれも話していない間に練習モードを切り替えたら、選びを外す
+    // （練習の欄には「どこにも送りません」と出している。その許可で本物に送らないように。選び直せば、今の送り先の欄が出る）
+    if (practice !== this.practice && this.advisorState && this.fresh) {
+      this.advisorState = null;
+      this.notice('練習モードを切り替えたので、先生つきを外しました。先生つきで始めるなら、もう一度選んでください');
+    }
     this.practice = practice;
     this.rebuild();
+  }
+
+  // ---------- 三人組の先生つき（Anthropic の advisor 道具） ----------
+
+  // まだだれも話していない会話（どの体の履歴も空）。先生つきは、このときだけ選べる・外せる
+  get fresh(): boolean {
+    for (const voice of this.voices.values()) if (voice.history.length > 0) return false;
+    return true;
+  }
+
+  // この会話の先生つきの決まり（無ければ null）
+  get advisor(): Readonly<AdvisorState> | null {
+    return this.advisorState;
+  }
+
+  // 今の送り口で、先生の道具が本当に付くか（練習で始めた会話を本物のキーで開いたときは付かない）
+  get advisorLive(): boolean {
+    return advisorBuilt(this.advisorState, this.transport?.practice === true);
+  }
+
+  // 今日の枠の残り
+  get advisorRemaining(): number {
+    return trioAdvisorRemaining(this.trioAdvisorLimit);
+  }
+
+  // 先生つきを選べるか（選べないときは、その理由）
+  advisorChoice(): { ok: boolean; why: string } {
+    if (!this.transport) return { ok: false, why: 'API キーを設定するか、練習モードにしてください' };
+    if (this.busy) return { ok: false, why: '返事の途中です' };
+    if (!this.fresh) return { ok: false, why: '先生つきは、新しい会話の最初にだけ選べます' };
+    if (!this.cast.members.some(isTrio)) return { ok: false, why: '三人組のだれかが会話にいるときに選べます' };
+    if (!this.advisorState && this.advisorRemaining === 0) return { ok: false, why: '今日の先生の枠を使い切りました（0時に戻ります）' };
+    return { ok: true, why: '' };
+  }
+
+  // 先生つきにする（who：先生を持つ三人組の体）・外す（null）。まだだれも話していない会話でだけ受ける。
+  // 使う人が確認の欄で許可したあとに呼ぶ。最初の返事が失敗して履歴が空に戻ったときも、選び直せる
+  //   consentPractice：確認の欄に出した送り先（練習＝どこにも送らない／本物）。今の送り口と違えば受けない
+  //   （練習の文を読んで押した許可で、本物の先生つきを始めないように）
+  setAdvisor(who: readonly CharacterId[] | null, consentPractice?: boolean): boolean {
+    if (!this.transport || this.busy || !this.fresh) return false;
+    if (who === null) {
+      this.advisorState = null;
+      this.emit();
+      return true;
+    }
+    if (consentPractice !== this.transport.practice) return false;
+    if (this.advisorRemaining === 0) return false;
+    const next = newAdvisorState(who, TRIO_IDS, this.transport.practice);
+    if (!next) return false;
+    this.advisorState = next;
+    this.advisorQuotaTold = false;
+    this.emit();
+    return true;
   }
 
   setTools(tools: BrowserTools | null) {
@@ -434,6 +527,11 @@ export class Companion {
     this.banterTurn = 0;
     this.entries.length = 0;
     this.totalCost = 0;
+    this.advisorState = null; // 先生つきは会話ごと。新しい会話は、いつも先生なしから
+    this.advisorWatching = null;
+    this.advisorSince = null;
+    this.advisorPhase = null;
+    this.advisorQuotaTold = false;
     this.emit();
   }
 
@@ -447,6 +545,12 @@ export class Companion {
     this.teamTurn = typeof saved.teamTurn === 'number' && Number.isFinite(saved.teamTurn) ? Math.max(0, Math.floor(saved.teamTurn)) : 0;
     this.banterTurn = typeof saved.banterTurn === 'number' && Number.isFinite(saved.banterTurn) ? Math.max(0, Math.floor(saved.banterTurn)) : 0;
     const heard = saved.heard ?? {};
+    // 先生つきの決まり（保存した定義を、そのまま送り続ける）
+    this.advisorState = parseAdvisorState(saved.advisor, TRIO_IDS);
+    this.advisorWatching = null;
+    this.advisorSince = null;
+    this.advisorPhase = null;
+    this.advisorQuotaTold = false;
     this.voices = new Map();
     // 指示文を保存していない会話は、最初の指示文で始まっている
     this.voices.set('main', { system: saved.system ?? SYSTEM_PROMPT_V1, history: saved.history, sentPages: new Map(saved.sentPages), heard: heard.main ?? 0 });
@@ -462,7 +566,7 @@ export class Companion {
           : (typeof voice.deeper === 'boolean' ? voice.deeper : voice.system.includes('深く考える合図'))
             ? [THINK_DEEPER]
             : [],
-        model: knownModel(voice.model),
+        model: savedVoiceModel(id, voice.model, voice.history.length > 0),
         history: voice.history,
         sentPages: new Map(voice.sentPages),
         heard: heard[id] ?? 0,
@@ -480,6 +584,18 @@ export class Companion {
     for (const [id, voice] of this.voices) {
       if (latestEffortMessage(voice.history) === 'max') voice.history.push(effortMessage(effortOf(id)));
     }
+    // 先生つきの決まりが読めなかったのに、先生の道具の名前を持つ体の履歴に先生のブロックがある：
+    // 本物の先生つきで話していた会話。道具を黙って落とすと request が変わり、API がエラーを返しうるので、
+    // 既定の定義で組み直す（その体だけ。止めた体・休みは分からないので無し）
+    if (!this.advisorState) {
+      const had = TRIO_IDS.filter((id) => {
+        const voice = this.voices.get(id);
+        return voice !== undefined && (voice.tools ?? []).includes(TRIO_ADVISOR) && hasAdvisorBlocks(voice.history);
+      });
+      if (had.length > 0) this.advisorState = newAdvisorState(had, TRIO_IDS, false, DEFAULT_ADVISOR_DEF);
+    }
+    // 選んだだけでまだだれも話していない会話（最初の返事が失敗したもの）を、選んだときと違う送り先（練習／本物）で開いた：選びを外す
+    if (this.advisorState && this.fresh && this.advisorState.practice !== (this.transport?.practice === true)) this.advisorState = null;
     this.entries.push(...saved.entries.map((e) => ({ ...e, streaming: false })));
     this.totalCost = saved.totalCost;
     this.nextId = Math.max(0, ...this.entries.map((e) => e.id)) + 1;
@@ -547,6 +663,7 @@ export class Companion {
       heard,
       teamTurn: this.teamTurn,
       banterTurn: this.banterTurn,
+      ...(this.advisorState ? { advisor: this.advisorState } : {}),
     });
   }
 
@@ -555,7 +672,7 @@ export class Companion {
   //   extra：見せる画像と、画面に出す自分の発言（指示とは別に短く出したいとき）
   //   extra.deep：フェイブルに、確認なしで初めから深く考えて（進化して）答えてもらう（進化の枠を1回使う）
   //   extra.advisor：「先生に聞く」を押した。ハイク組の最初に答える体が、答える前にその先生に相談する（押す＝許可。枠は使う）
-  //   extra.bare：この1回は道具を渡さない（撮影の「AIに頼む」。R1）
+  //   extra.bare：この1回は道具を使わせない（撮影の「AIに頼む」。R1。道具の一覧はそのまま送り、tool_choice none。Turn.bare と同じ）
   //   extra.imagesTransient：撮影から送った画像。画面には出すが、会話記録には残さない（R3 D1）
   async ask(
     action: Exclude<AiAction, 'react'>,
@@ -963,7 +1080,7 @@ export class Companion {
       if (result.stopReason === 'max_tokens') entry.note = '長くなりすぎたので、途中で止まりました';
       // まだ話していないキャラは、ふつうの最初の一言と同じ道具の一覧で固める（この1回では渡さない。あとから変えない）
       if (speaker !== 'main' && voice.history.length === 0) {
-        voice.tools = this.pickTools(speaker);
+        voice.tools = this.pickTools(speaker, advisorBuilt(this.advisorState, transport.practice));
         voice.deeper = voice.tools.includes(THINK_DEEPER);
         voice.system = this.systemFor(speaker, voice.tools);
         voice.name = nameOf(this.cast, speaker);
@@ -1052,13 +1169,48 @@ export class Companion {
     let outcome: CompanionState = 'idle';
     let evolved = false; // この返事の途中で進化した（合図・ボタン。進化の枠を1回使った）
     let consultCost = 0; // この返事で先生に相談した料金（返事が失敗しても、もうかかっている）
+    // 料金は1回の頼みごと（API の呼び出し）ごとに数えて足す（Haiku の料金の段は1回ごとに決まる）。
+    // 返事が失敗しても、終わった request の分はもうかかっているので、try の外に置く
+    let spent = 0;
+    let searchCount = 0;
+    // 三人組の先生つき：先生の道具を付けるかは、この返事の送り口（練習か本物か）で一度だけ決める。
+    // 返事の途中で練習モードを切り替えられても、この返事では変えない（練習で始めた会話の道具を本物に送らないように）
+    const advisorOn = advisorBuilt(this.advisorState, transport.practice);
+    const advisorMax = this.advisorState?.maxUses ?? DEFAULT_ADVISOR_DEF.maxUses;
+    const advisorModel = this.advisorState?.model ?? null;
+    // この返事の中の request ごとの、先生の分（返事が失敗・取り消しになっても、料金と回数は残す）
+    const advisorParts: AdvisorResult[] = [];
+    this.advisorPhase = null; // 前の返事の、先生のようす（読み上げの文）は、新しい返事の始まりで消す
+    let advisorRested = false; // この発言に「先生を使わないで」と添えた
+    let advisorSettled = false;
+    // 返事の終わり（うまくいっても、失敗しても）に1回だけ：記録・「何をしたか」の行・今日の回数・枠の外の扱い
+    const settleAdvisor = (entry: ChatEntry | null): number => {
+      if (advisorSettled) return 0;
+      advisorSettled = true;
+      const mark = advisorMarkOf(advisorParts, { rested: advisorRested, practice: transport.practice, maxUses: advisorMax });
+      if (!mark) return 0;
+      // 今日の回数：届いた助言と、見ている途中で止まった分（先生の側ではもう読み始めていて、料金がかかりうる）
+      if (!transport.practice && advisorCountOf(mark) > 0) addTrioAdvisorCount(advisorCountOf(mark));
+      if (entry) {
+        entry.advisor = mark;
+        entry.steps = [...(entry.steps ?? []), ...advisorMarkSteps(mark)];
+      }
+      // 控えるよう頼んだのに見てもらった：この会話では、以後この体を tool_choice none で送る（D6。会話が替わっていたら触らない）
+      //   練習のふりの「枠の外」は、練習で始めた会話でだけ止める（本物で始めた会話の体を、練習のふりで止めない）
+      const state = this.advisorState;
+      if (mark.outside && state && (!transport.practice || state.practice) && this.id === conversation && !state.stopped.includes(speaker)) {
+        state.stopped = [...state.stopped, speaker];
+        this.notice(ADVISOR_OUTSIDE_NOTICE(this.nameOf(speaker)));
+      }
+      return mark.cost;
+    };
     const adviceLines: SharedLine[] = []; // この返事で記録に書いた助言（返事を取り消したら、相談した体にも聞かせる）
     try {
       const turn = await prepare();
       if (!turn || signal.aborted) return null;
       // Claude 以外のキャラが、この会話で初めて話す：今の設定で指示文を作る（その後は変えない）
       if (speaker !== 'main' && voice.history.length === 0) {
-        voice.tools = this.pickTools(speaker);
+        voice.tools = this.pickTools(speaker, advisorOn);
         voice.deeper = voice.tools.includes(THINK_DEEPER);
         voice.system = this.systemFor(speaker, voice.tools);
         voice.name = nameOf(this.cast, speaker);
@@ -1105,6 +1257,23 @@ export class Companion {
       if (speaker !== 'main' && !this.webSearch && (voice.tools ?? []).some((name) => name === 'web_search' || name === 'web_fetch')) {
         content.push({ type: 'text', text: '（⚙ で Web 検索・取得が切られています。この返事では web_search と web_fetch を使わないでください）' });
       }
+      // 三人組の先生つき：この回で先生をどう扱うか（道具の一覧は変えない）
+      //   出来事への反応・掛け合い・道具なしの1回・枠の外が出た体：tool_choice none（noTools）
+      //   枠が尽きた・休ませている：使わないよう一文で頼む（履歴に残る。過去の発言は書き換えない）
+      const advisorHas = speaker !== 'main' && (voice.tools ?? []).includes(TRIO_ADVISOR) && advisorOn; // この体の request に先生の道具が入る
+      const advisorPlan = advisorTurnPlan({
+        has: advisorHas,
+        userSent: turn.action !== 'react' && turn.bare !== true,
+        stopped: this.advisorState?.stopped.includes(speaker) === true,
+        paused: this.advisorState?.paused === true,
+        remaining: this.advisorRemaining,
+      });
+      if (advisorPlan.note) {
+        content.push({ type: 'text', text: advisorPlan.note });
+        advisorRested = true;
+      }
+      // 練習で始めた先生つきの会話を本物のキーで続けている：指示文には先生の段落があるのに道具は無いので、そう伝える
+      if (speaker !== 'main' && (voice.tools ?? []).includes(TRIO_ADVISOR) && !advisorOn && this.advisorState) content.push({ type: 'text', text: ADVISOR_OFF_NOTE });
       // ボタンで深く考える：新しい深さは次の user から効くので、使う人の発言の前に足す（確認なし）
       //   添え書きは頼む文より前に（頼む文を、いつも最後に置く）
       let deepRefused = false;
@@ -1141,6 +1310,10 @@ export class Companion {
         else this.tell('user', turn.auto ? `（出来事）${turn.display}` : `使う人（${this.nameOf(speaker)}へ）：${turn.display}`, [speaker]);
       }
 
+      if (advisorPlan.note === ADVISOR_REST_NOTE && !this.advisorQuotaTold) {
+        this.advisorQuotaTold = true;
+        this.notice(ADVISOR_QUOTA_NOTICE);
+      }
       const entry = this.add({
         role: 'assistant',
         action: turn.action,
@@ -1163,8 +1336,6 @@ export class Companion {
         entry.steps = ['今日の進化の枠が残っていないので、いつもの深さで答えました'];
       }
       const usage: AiUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-      let spent = 0; // 料金は1回の頼みごと（API の呼び出し）ごとに数えて足す（Haiku の料金の段は1回ごとに決まる）
-      let searchCount = 0;
       // 「先生に聞く」：ハイクが答える前に、アプリが先生に相談する。助言は、まだ送っていない今回の発言に、
       // データのかたまりとして足す（頼む文の前に。使う人がボタンで頼んだので、道具の結果ではなく発言の中）
       if (turn.consult && isHaiku(speaker)) {
@@ -1191,8 +1362,9 @@ export class Companion {
         }
       }
       // 道具：Claude はブラウザの操作と Web 検索。フェイブルは進化の合図。ほかのキャラは話すだけ
-      //   Deeper Dive（段階6）は、この1回だけ道具を渡さない
-      const tools = turn.bare ? [] : this.toolsFor(speaker);
+      //   Deeper Dive（段階6）は、この1回だけ道具を使わせない。道具の一覧はそのまま送り、tool_choice を none にする
+      //   （一覧を変えると、考えた跡のある履歴が無効になり、Fable 5.2 などでは 400 になる。読み直しの割引も切れる）
+      const tools = this.toolsFor(speaker, advisorOn);
       const model = modelOf(this.cast, speaker, this.model);
       const texts: string[] = []; // 道具を使う前後の、それぞれの返事
       const showText = (current: string) => {
@@ -1207,7 +1379,9 @@ export class Companion {
           system: voice.system,
           messages: voice.history,
           tools: tools.length > 0 ? tools : undefined,
-          noMoreTools: round > MAX_TOOL_ROUNDS,
+          noMoreTools: turn.bare === true || advisorPlan.noTools || round > MAX_TOOL_ROUNDS,
+          // この返事の中で、もう先生を呼んだあとの送り直し（道具の往復・pause_turn）：月の上限で途中で切らない
+          afterAdvisor: advisorParts.some((part) => part.calls > 0),
           signal,
           onText: (delta) => {
             current += delta;
@@ -1215,7 +1389,27 @@ export class Companion {
             if (this.state !== 'speaking') this.setState('speaking');
             else this.emit();
           },
+          onAdvisor: (state) => {
+            this.advisorWatching = state === 'asking' ? speaker : null;
+            this.advisorSince = state === 'asking' ? Date.now() : null;
+            this.advisorPhase = { speaker, phase: state };
+            this.emit();
+          },
+          // 先生を呼んだあとで、返事が最後まで届かなかった（止めた・切れた）：回数と印と料金を残す。
+          // 料金は、途中までに届いた使用量か、送った量からの見積もり（送り口が数えて、月の上限にもう足してある）
+          onAdvisorLost: (lost) => {
+            advisorParts.push({ ...lost, model: lost.model ?? advisorModel });
+            spent += lost.cost;
+            // 読み上げの知らせ（会話を替えたあとに遅れて届いた分は、新しい会話では流さない）
+            if (lost.cut && this.id === conversation) this.advisorPhase = { speaker, phase: 'stopped' };
+          },
         });
+        if (result.advisor) {
+          advisorParts.push(result.advisor);
+          spent += result.advisor.cost; // 先生の分（実行役の分とは別に数える。月の上限には、送り口がもう足してある）
+        }
+        this.advisorWatching = null;
+        this.advisorSince = null;
         usage.input += result.usage.input;
         usage.output += result.usage.output;
         usage.cacheRead += result.usage.cacheRead;
@@ -1270,7 +1464,8 @@ export class Companion {
           this.setState('working');
           continue;
         }
-        if (result.stopReason !== 'tool_use' || result.toolUses.length === 0 || tools.length === 0) break;
+        // 道具を使わせない1回（bare）は、もし tool_use が返っても道具を動かさない
+        if (result.stopReason !== 'tool_use' || result.toolUses.length === 0 || tools.length === 0 || turn.bare === true || advisorPlan.noTools) break;
 
         // 道具を使う（順番に。確認が要るものは、使う人の答えを待つ）
         this.setState('working');
@@ -1330,16 +1525,19 @@ export class Companion {
           entry.awake = true;
           this.awake = speaker;
         }
-        voice.history.push({ role: 'user', content: results });
+        // 先生つき：この返事でもう先生を呼んでいたら、続きでは呼ばないよう頼む（道具の結果の後ろに一文。ADVISOR_ONCE_NOTE）
+        const calledAdvisor = advisorParts.reduce((n, part) => n + part.calls, 0) >= advisorMax;
+        voice.history.push({ role: 'user', content: advisorHas && calledAdvisor ? [...results, { type: 'text', text: ADVISOR_ONCE_NOTE }] : results });
         this.setState('thinking');
       }
 
       // 進化していたら、返事が終わったところで、いつもの深さに戻す（次の発言から効く）
       if (evolved && voice.history.length > start) voice.history.push(effortMessage(effortOf(speaker)));
 
+      settleAdvisor(entry);
       // 掛け合いで「付け足すことなし」なら、画面には出さない
-      // レターの提案・先生への相談のある返事は、パスにしない（提案・助言カード・料金が見えなくなる）
-      if (PASS_MARK.test(entry.text.trim()) && !entry.letter && !entry.advice && !entry.consult) entry.passed = true;
+      // レターの提案・先生への相談・先生に見てもらった返事は、パスにしない（提案・助言カード・印・料金が見えなくなる）
+      if (PASS_MARK.test(entry.text.trim()) && !entry.letter && !entry.advice && !entry.consult && !entry.advisor) entry.passed = true;
       // ほかのキャラには、あとで「話していない間にあったこと」として伝える
       if (entry.text.trim() && !entry.passed && !entry.note) this.tell(speaker, `${this.nameOf(speaker)}：${entry.text}`);
       entry.usage = usage;
@@ -1350,14 +1548,19 @@ export class Companion {
       this.undoTurn(voice, start, newlySentUrl, heardBefore);
       this.releaseAdvice(adviceLines, speaker);
       if (evolved && !signal.aborted) addEvolveCount(-1); // うまくいかなかった：進化の枠を返す
-      // 先生への相談の料金は、返事が失敗しても、もうかかっている（会話が替わっていたら、今の会話の合計には足さない）
-      if (reply && consultCost > 0 && !transport.practice) {
-        reply.cost = consultCost;
-        if (this.id === conversation) this.totalCost += consultCost;
+      // 返事が失敗しても、終わった request の料金はもうかかっている（月の上限には、送り口がもう足してある）。
+      // 体自身の分・先生への相談・三人組の先生つきの分・Web 検索を、返事と会話の合計に残す
+      // （会話が替わっていたら、今の会話の合計には足さない。止めた request の分は使用量が届かないので入らない）
+      settleAdvisor(reply);
+      const kept = spent + searchCount * WEB_SEARCH_PRICE;
+      if (reply && kept > 0 && !transport.practice) {
+        reply.cost = kept;
+        if (this.id === conversation) this.totalCost += kept;
       }
       if (reply) {
         reply.error = true;
-        reply.note = signal.aborted ? '止めました' : describeError(error);
+        // 先生が見ている途中で切れた（止めたのではない）ときは、そう分かるように足す
+        reply.note = signal.aborted ? '止めました' : describeError(error) + (reply.advisor?.cut ? '（先生が見ている途中でした）' : '');
         reply.letter = undefined; // 取り消した返事のレターの提案は残さない
         if (isHaiku(speaker) && !signal.aborted) reply.path = { kind: 'stuck', question: reply.question ?? '', speaker, reason: 'うまくいきませんでした' };
       }
@@ -1369,6 +1572,10 @@ export class Companion {
       this.activeSpeaker = null;
       this.lastSpeaker = speaker;
       this.awake = null; // 返事が終わったら、元の姿に戻る
+      this.advisorWatching = null;
+      this.advisorSince = null;
+      // 返事が終わったら、「見終わりました。続きを書いています」は消す（途中で止まった知らせだけは、次の返事まで残す）
+      if (this.advisorPhase && this.advisorPhase.phase !== 'stopped') this.advisorPhase = null;
       this.state = this.transport ? outcome : 'noKey';
       if (this.turnCut === cut) this.turnCut = null;
       this.emit();
@@ -1395,12 +1602,16 @@ export class Companion {
   }
 
   // そのキャラが使える道具（1つの会話の中では変えない。変えると、前の部分の読み直しの割引が切れる）
-  private toolsFor(speaker: Speaker): Anthropic.Beta.BetaToolUnion[] {
+  //   advisorOn：三人組の先生つきの道具を付けるか（その返事の送り口で決めた値。runTurn）
+  private toolsFor(speaker: Speaker, advisorOn: boolean): Anthropic.Beta.BetaToolUnion[] {
     if (speaker === 'main') return [...(this.tools?.definitions ?? []), ...(this.webSearch ? [COMPANION_WEB_SEARCH] : [])];
     // Claude 以外：その会話で初めて話したときに決めた道具を、設定が変わっても渡し続ける（使えないときは、そう答える）
     return (this.voiceOf(speaker).tools ?? []).flatMap((name): Anthropic.Beta.BetaToolUnion[] => {
       if (name === THINK_DEEPER) return [THINK_DEEPER_TOOL];
       if (name === ASK_ADVISOR) return [ASK_ADVISOR_TOOL];
+      // 三人組の先生つき：会話に保存した定義から組む（既定をあとで変えても、この会話では同じものを送る）。
+      // 練習で始めた会話を本物のキーで開いたときは組まない（先生なしで動く）
+      if (name === TRIO_ADVISOR) return this.advisorState && advisorOn ? [advisorTool(this.advisorState)] : [];
       if (name === PROPOSE_LETTER) return [PROPOSE_LETTER_TOOL]; // 前の形で話し始めた会話（道具の文を変えない）
       if (name === PROPOSE_LETTER_V2) return [PROPOSE_LETTER_V2_TOOL];
       // Haiku 5.5 では新しい形の Web 検索が使えないので、もとの形
@@ -1411,7 +1622,7 @@ export class Companion {
   }
 
   // そのキャラが、この会話で使える道具を、今の設定で決める
-  private pickTools(speaker: Speaker): string[] {
+  private pickTools(speaker: Speaker, advisorOn: boolean): string[] {
     const names: string[] = [];
     // 進化の合図と、進化した返事でのレターの提案（進化しない設定なら、どちらも渡さない）
     if (speaker === 'fable' && this.evolve.mode !== 'never') names.push(THINK_DEEPER, PROPOSE_LETTER_V2);
@@ -1423,6 +1634,8 @@ export class Companion {
       if (this.webSearch && set.search) names.push('web_search');
       if (this.webSearch && set.fetch) names.push('web_fetch');
     }
+    // 三人組の先生つき：この会話で先生を持つ体（いちばん後ろに足す。渡したら、その会話の間は外さない）
+    if (isTrio(speaker) && this.advisorState?.who.includes(speaker) && advisorOn) names.push(TRIO_ADVISOR);
     return names;
   }
 
@@ -1511,7 +1724,7 @@ export class Companion {
   private sendsOf(turn: Turn, id: AdvisorId): string {
     const lines = Math.min(12, this.shared.length);
     const page = turn.page?.text ? `・ページ「${(turn.page.title ?? '').slice(0, 30)}」のURLと本文の一部（約${Math.min(6000, [...turn.page.text].length).toLocaleString()}字）` : '';
-    const keep = id === 'fable' ? '。フェイブル先生（Fable 5.1）に渡したものは、Anthropic 側に30日保存されます' : '';
+    const keep = id === 'fable' ? `。フェイブル先生（${ADVISORS.fable.label}）に渡したものは、Anthropic 側に30日保存されます` : '';
     return `渡すもの：問い・理由・使う人の頼み${lines > 0 ? `・最近の会話（${lines}行）` : ''}${page}${keep}`;
   }
 
@@ -1568,7 +1781,12 @@ export class Companion {
         addConsultStats({ cost });
         advice.text = '';
         advice.state = 'failed';
-        advice.note = result.stopReason === 'refusal' ? `${advisor.name}は、この内容には答えられませんでした` : '助言が空でした';
+        advice.note =
+          result.stopReason === 'refusal'
+            ? `${advisor.name}は、この内容には答えられませんでした`
+            : result.stopReason === 'max_tokens'
+              ? '考える途中で上限に達し、助言が出ませんでした'
+              : '助言が空でした';
         return { ok: false, text: '', note: advice.note, cost, model: result.model };
       }
       advice.text = result.text.trim();
@@ -1709,8 +1927,9 @@ export class Companion {
       long: speaker === 'fable',
       deeper: tools.includes(THINK_DEEPER),
       advisor: tools.includes(ASK_ADVISOR),
+      trioAdvisor: tools.includes(TRIO_ADVISOR),
       letters: tools.find(isLetterTool),
-      abilities: tools.filter((t) => t !== THINK_DEEPER && t !== ASK_ADVISOR && !isLetterTool(t)).map((t) => TOOL_ABILITIES[t] ?? t),
+      abilities: tools.filter((t) => t !== THINK_DEEPER && t !== ASK_ADVISOR && t !== TRIO_ADVISOR && !isLetterTool(t)).map((t) => TOOL_ABILITIES[t] ?? t),
       unit: isTrio(speaker)
         ? { name: cast.trio.unitName, mates: TRIO_IDS.filter((id) => id !== speaker).map((id) => ({ name: this.nameOf(id), blurb: blurbOf(cast, id) })) }
         : isHaiku(speaker)
@@ -1810,12 +2029,6 @@ function declinedStep(tool: string): string {
   if (tool === 'set_reminder') return 'リマインダーを置くのは見送りました';
   if (tool === 'add_vocab_card') return '単語帳にカードを入れるのは見送りました';
   return `${(TOOL_ABILITIES[tool] ?? tool).replace(/（.*?）$/, '')}のは見送りました`;
-}
-
-// 保存してあったモデルの名前を、使えるモデルなら返す（知らない名前や、前の形で無いときは、今の設定に任せる）
-function knownModel(value: unknown): ModelId | HaikuModelId | undefined {
-  const ids: readonly string[] = [...MODELS.map((m) => m.id), FABLE_MODEL.id, HAIKU_MODEL.id];
-  return typeof value === 'string' && ids.includes(value) ? (value as ModelId | HaikuModelId) : undefined;
 }
 
 function isSavedVoice(value: unknown): value is SavedVoice {

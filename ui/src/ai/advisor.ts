@@ -1,13 +1,13 @@
 // ハイク組の、先生への相談（docs/ideas-haiku-team.md の案B「アプリが取り次ぐ相談」・ステージ1の3段目）
 //   ・ハイク組の体が道具 ask_advisor で頼むか、使う人が「先生に聞く」を押すと、アプリが「相談の手紙」を作って、
-//     Claude 先生（Opus 5.5）かフェイブル先生（Fable 5.1）を1回きりで呼ぶ。助言はふつうの文章なので、画面に全部出せる
-//     （Anthropic の advisor 道具だと、Opus 5.5・Fable 5.1 の助言は暗号化されて見えない）
+//     Claude 先生（Opus 5.5）かフェイブル先生（Fable 5.2）を1回きりで呼ぶ。助言はふつうの文章なので、画面に全部出せる
+//     （Anthropic の advisor 道具だと、Opus 5.5・Fable 5.2 の助言は暗号化されて見えない）
 //   ・助言は、道具の結果として「情報」の形でハイクに返す（使う人の言葉や指示は入れない）。会話の記録にも残す
 //   ・許可は先生ごとに：毎回聞く／この会話ではいつも（最初の1回だけ聞く）／相談しない。「先生に聞く」を押すのは許可と同じ
 //   ・枠はハイク組だけの1日の回数（きらり＝Claude 先生、月＝フェイブル先生。フェイブルの進化とは別）。0時に戻る。
 //     先生が何も書き出す前に届かなかった相談（つながらない・断られた・空）の枠は返す。時間切れ・止めたときは使ったことにする
 import type Anthropic from '@anthropic-ai/sdk';
-import { costOf, FABLE_MODEL, type ModelId } from './client';
+import { costOf, FABLE_MODEL, LEGACY_FABLE_MODEL, type ModelId, priceRowOf } from './client';
 
 export const ASK_ADVISOR = 'ask_advisor';
 export const CONSULT_TIMEOUT_MS = 30_000; // 許可の答えを待つ時間（過ぎたら、相談せずに続ける）
@@ -18,7 +18,7 @@ export const ADVISOR_IDS: readonly AdvisorId[] = ['opus', 'fable'];
 
 export const ADVISORS: Record<AdvisorId, { name: string; model: ModelId; label: string; mark: string; quotaName: string; timeoutMs: number }> = {
   opus: { name: 'Claude 先生', model: 'claude-opus-5-5', label: 'Opus 5.5', mark: '✦', quotaName: 'きらり', timeoutMs: 90_000 },
-  fable: { name: 'フェイブル先生', model: FABLE_MODEL.id, label: 'Fable 5.1', mark: '🌙', quotaName: '月', timeoutMs: 240_000 },
+  fable: { name: 'フェイブル先生', model: FABLE_MODEL.id, label: FABLE_MODEL.label.replace(/^Claude /, ''), mark: '🌙', quotaName: '月', timeoutMs: 240_000 },
 };
 
 export function isAdvisorId(value: unknown): value is AdvisorId {
@@ -218,10 +218,14 @@ export function consultLetter(c: {
   return `<letter>\n${body}\n</letter>`;
 }
 
-// 実際に答えたモデルの名前（断られて別のモデルが答え直したときは「Fable 5.1 の代わりに claude-opus-4-8」）
+// 実際に答えたモデルの名前（断られて別のモデルが答え直したときは「Fable 5.2 の代わりに claude-opus-4-8」）
 export function answeredBy(id: AdvisorId, model?: string): string {
   const advisor = ADVISORS[id];
-  return !model || model === 'practice' || model.startsWith(advisor.model) ? advisor.label : `${advisor.label} の代わりに ${model}`;
+  if (!model || model === 'practice' || model.startsWith(advisor.model)) return advisor.label;
+  // 前のフェイブル（5.1）のころに残した助言カードは、そのモデルの名前で出す（答え直しではない）
+  const row = priceRowOf(model);
+  if (id === 'fable' && row && (row.id === FABLE_MODEL.id || row.id === LEGACY_FABLE_MODEL.id)) return row.label.replace(/^Claude /, '');
+  return `${advisor.label} の代わりに ${model}`;
 }
 
 // 道具の結果としてハイクに返す言葉（事実だけ。指示は入れない）

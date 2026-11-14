@@ -320,7 +320,8 @@ export type UiMessage =
       release?: boolean;
     }
   // noHistory：Windows のクリップボード履歴（Win+V）とほかの端末への同期に入れない印を一緒に置く（依頼の小窓 v2・R2・D6。
-  //   ボットの依頼と、そのための画像だけ。六角メモ・相棒は付けない〔計画の Q1〕）。clipboardWriteImage も同じ
+  //   ボットの依頼と、そのための画像と、右の検索の［まとめてコピー］（MK9。plan-comment-board-marks.md §4.9。Q1 の例外）。
+  //   ほかの六角メモ・相棒の文には付けない〔計画の Q1〕）。clipboardWriteImage も同じ
   | { type: 'clipboardWrite'; requestId: number; text: string; html: string; noHistory?: boolean }
   // 六角スクショを Grok-Bot へ（第3段 S3.12）
   //   clipboardWriteImage：画像（PNG の Base64。data: の頭は付けない）をクリップボードへ。C++ が CF_DIBV5 と PNG の両方を書く。

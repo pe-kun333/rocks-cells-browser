@@ -577,7 +577,7 @@ describe('顔の三角の字', () => {
   it('上の三角：❝・💬n・🔗n・✎ の順の印。無ければ印は空（日時は出さない。cardDate はメニューの事実の行で使う）', () => {
     const t = new Date(2026, 10, 7, 7, 58).getTime();
     const base = reply('a', { createdAt: t });
-    expect(hexFaceInfo([base], base, 0)).toEqual({ marks: [], tag: '', more: 0, who: '', title: '' });
+    expect(hexFaceInfo([base], base, 0)).toEqual({ marks: [], tag: '', more: 0, who: '', title: '', like: 0, color: '' });
     expect(cardDate(t)).toBe('11/7 07:58');
     const rich = reply('a', { createdAt: t, quote: { text: 'q', url: 'https://example.com/', title: 'T' }, editedAt: t + 1 });
     const rs = [rich, reply('r1', { parent: 'a' }), reply('r2', { parent: 'r1' })];

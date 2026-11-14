@@ -1,0 +1,130 @@
+/* 三人組の先生つき（Anthropic の advisor 道具。docs/plan-trio-advisor.md）。style.css と分けておく（ほかの作業とぶつからないように）。
+   色は style.css・themes.css の語だけを使う（先生の色は、フェイブルと同じ金色の縁） */
+
+/* 入力欄の下の行：🌙 先生つき（新しい会話の最初だけ押せる）／🔒 先生つき（話し始めたあとの札） */
+.ai-advisor-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  margin-left: auto;
+  margin-right: 6px;
+  padding: 0 9px;
+  border-color: var(--evo-gold);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ai-advisor-toggle[hidden] {
+  display: none;
+}
+
+/* 先生つきの切り替えが出ているときは、さらに考えるボタンを右へ寄せ直さない */
+.ai-advisor-toggle:not([hidden]) + .ai-deep {
+  margin-left: 0;
+}
+
+.ai-advisor-toggle:hover:not([aria-disabled='true']) {
+  background: color-mix(in srgb, var(--evo-gold) 14%, var(--surface));
+}
+
+.ai-advisor-toggle[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--evo-gold) 22%, var(--surface));
+  font-weight: 600;
+}
+
+.ai-advisor-toggle[data-mode='toggle'][aria-disabled='true'] {
+  opacity: 0.55;
+}
+
+/* 札：押せない（外せない）ので、点線の縁にして、押せるボタンと見分ける */
+.ai-advisor-toggle[data-mode='locked'] {
+  border-style: dashed;
+  cursor: default;
+}
+
+/* 「先生つきで始めますか」の欄（進化の許可の欄と同じ形） */
+.ai-advisor-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px dashed var(--evo-gold);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.ai-advisor-card[hidden] {
+  display: none;
+}
+
+.ai-advisor-q {
+  font-weight: 600;
+}
+
+.ai-advisor-lines {
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.ai-advisor-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.ai-advisor-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ai-advisor-warn {
+  color: var(--danger);
+  font-size: 11.5px;
+}
+
+.ai-advisor-warn[hidden] {
+  display: none;
+}
+
+.ai-advisor-yes {
+  border-color: var(--evo-gold);
+  background: var(--evo-gold);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+/* 先生が見ている間（P3）：状態の行の経過時間と、その体の顔の縁 */
+.ai-advisor-time {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 顔の縁を先生の色（金）に。考え中の点線の動きより、こちらを前に出す（同じ強さの決まりなので、クラスを重ねて勝たせる） */
+.ai-cell.ai-cell[data-advisor='watching'] .ai-hex {
+  stroke: var(--evo-gold);
+  stroke-width: 4;
+  stroke-dasharray: none;
+  animation: ai-advisor-watch 1.8s ease-in-out infinite;
+}
+
+@keyframes ai-advisor-watch {
+  50% {
+    stroke-opacity: 0.4;
+  }
+}
+
+/* 視覚効果を減らす設定では明滅しない（縁の色と太さだけで伝える） */
+@media (prefers-reduced-motion: reduce) {
+  .ai-cell.ai-cell[data-advisor='watching'] .ai-hex {
+    animation: none !important;
+  }
+}

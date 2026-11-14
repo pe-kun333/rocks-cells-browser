@@ -302,7 +302,9 @@ describe('押した時・指が動くたび・1 こま', () => {
     expect(place).toMatch(/if \(!moves\.has\(line\.from\) && !moves\.has\(line\.to\)\) continue;/);
     expect(place.match(/this\.pins\.place\(\);/g)).toHaveLength(1);
     expect(tab).not.toMatch(/private placeCard\(/);
-    expect(body('private applyView(', 'private loadFaces(')).toMatch(/if \(percent !== this\.zoomShown\) \{[\s\S]*?this\.zoomShown = percent;[\s\S]*?this\.zoomBtn\.textContent = `\$\{percent\}%`;[\s\S]*?this\.zoomBtn\.setAttribute\('aria-label',[\s\S]*?\}/);
+    // 字は％が替わったときだけ（zoomShown）、説明と読み上げは中身が替わったときだけ（zoomTip。「［全体］の間」の始まり・終わりでも替わる。MK2）
+    expect(body('private applyView(', 'private loadFaces(')).toContain('this.paintZoom();');
+    expect(body('private paintZoom() {', 'private loadFaces(')).toMatch(/if \(z\.percent !== this\.zoomShown\) \{\s*this\.zoomShown = z\.percent;\s*this\.zoomBtn\.textContent = z\.text;\s*\}\s*const tip = `\$\{z\.title\}\\n\$\{z\.label\}`;\s*if \(tip !== this\.zoomTip\) \{\s*this\.zoomTip = tip;\s*this\.zoomBtn\.title = z\.title;\s*this\.zoomBtn\.setAttribute\('aria-label', z\.label\);\s*\}/);
   });
 });
 
@@ -343,7 +345,9 @@ describe('つまんで動かしている間は、ほかの道で見ている位�
     expect(tab).toMatch(/BOARD_ARROW_PAN\[e\.key\] && [^\n]*!this\.drag && !this\.marquee\)/);
     expect(tab).toMatch(/inText &&\s*!this\.drag &&[^\n]*\n\s*emptyComposeArrowPan\(\{/);
     expect(body('private fit() {', 'private actualSize() {')).toMatch(/^private fit\(\) \{\s*if \(this\.drag \|\| this\.marquee\) return;/);
-    expect(body('private actualSize() {', 'private faceTop()')).toMatch(/this\.drag \|\| this\.marquee\) return;/);
+    // ％の受け口（actualSize）と 100% の中の道（showActualSize）の両方で守る（MK2 で分けた）
+    expect(body('private actualSize() {', 'private showActualSize() {')).toMatch(/this\.drag \|\| this\.marquee\) return;/);
+    expect(body('private showActualSize() {', 'private faceTop()')).toMatch(/this\.drag \|\| this\.marquee\) return;/);
     expect(tab).toMatch(/if \(!isKeyboardMenu\(e\)[^\n]*this\.drag \|\| this\.marquee\) return;/);
   });
   it('📌 が開いているときの Esc：つまんで動かしている間・範囲選択の間は、📌 を閉じずに取り消しへ通す', () => {

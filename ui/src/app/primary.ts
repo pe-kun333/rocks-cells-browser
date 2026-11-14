@@ -4,7 +4,7 @@
 import { loadLangPref, t as tr } from '../i18n';
 import { attachGrokCards } from '../grok-cards-bridge';
 import { APP_TITLE, BOT_FEATURES, HEXMEMO_URL } from '../features';
-import { CHAT_SENT, isMachineTag } from '../grok-cards-tags';
+import { CHAT_SENT, dropMarkValues, isMachineTag, markCountNote } from '../grok-cards-tags';
 import { requestPageText } from '../ai/page';
 import { type CharacterId, isCharacterId, isHaiku, nameOf, teamOf, teamSpeakers } from '../ai/characters';
 import { BudgetError, BUDGET_NEAR_NOTE } from '../ai/budget';
@@ -52,7 +52,7 @@ import { BotPresetStore } from '../bot-preset-store';
 import { type BotLastChoice, BotLastRequestStore, normalizeLastChoice } from '../bot-last-request';
 import { VisionStore } from '../visions';
 import { BLOCK_NOTE, ensureBlocklist, isBlockedUrl, pageIsBlocked, redactBlockedUrls } from '../blocklist';
-import { type LikeLevel, likeLevel } from '../likes';
+import { type LikeLevel, likeLevel, markFullNote } from '../likes';
 import {
   CLIPBOARD_ERROR_TEXT,
   ClipboardSender,
@@ -95,7 +95,7 @@ import { MemoPaneHost, readMemoPanePrefs } from '../memo-pane-host';
 import { runBoardOpen, runLowerBoardOpen } from '../board-open-plan';
 import { isShotImageId } from '../annotate-card-plan';
 import { isRestoreToken, isSpecialCell, MAX_MEMO_TEXT, type MemoCell, type MemoDraft, memoTitle, MemoStore, newMemoId, toMemoIndexItem, toRightMemo, type SendRepliesResult } from '../memocells';
-import { searchMemos } from '../memo-search';
+import { cardHeartsCopy, cardHeartsCopyNote, searchCardHearts, searchMemos } from '../memo-search';
 import { CellMenu, type MenuButton, type MenuEntry, showToast } from '../panels/cell-menu';
 import { FaceEditor, type FaceResult, shrinkImage } from '../panels/face-editor';
 import type { BotActions } from '../panels/bot-card';
@@ -125,6 +125,7 @@ import { buildArchive, deleteArchive, isArchiveId, listArchives, markRestored, n
 import { madeSheetsIn, sheetSetsIn } from '../rightsheets';
 import { BoardSheetSlots, SHEET_SLOT_COUNT } from '../sheet-shortcuts';
 import { SheetUse } from '../sheet-use';
+import { freeWaypointSlot, WAYPOINT_SLOTS, WAYPOINT_STORE_KEY, waypointChipsKey, waypointPlaceBlock, waypointSlotRows, WaypointStore } from '../waypoints';
 import { buildSheetTree, isFolderSheet, rankSheetMatch, type SheetTree } from '../sheet-tree';
 import { SheetList, type SheetLevel, type SheetListModel, type SheetListRow } from '../panels/sheet-list';
 import { findGrokCardsSheet } from '../grok-cards-store';
@@ -139,7 +140,7 @@ import { type Tab, TAB_LOOKS, type TabLook, TabStore, cleanComment } from '../ta
 import { TagButtonStore } from '../tagbuttons';
 import { changeTagList, MAX_TAGS_PER_TAB, normalizeTags, TAG_PALETTE } from '../tags';
 import { cardsLinkedTo, cardsOnPage, findVocabTab, type VocabLink, VocabStore } from '../vocab';
-import { MAX_REPLIES, nextRowSlot, type PendingReply, parseQuote, quoteMarkScript, regraft, type Reply, type ReplyAuthor, samePage, type ThreadRef, threadKey } from '../threads';
+import { MAX_REPLIES, nextRowSlot, type PendingReply, parseQuote, pathTo, quoteMarkScript, regraft, type Reply, type ReplyAuthor, samePage, type ThreadRef, threadKey } from '../threads';
 import { Thumbnails } from '../thumbs';
 import type { CompanionEvent, HexMemoRecord, IslandDraft, PreviewPlacement, RelayCommand, RelayPayload, SidebarState, TabNote } from '../types';
 import { $, debounce, el, throttle } from '../util';
@@ -185,6 +186,7 @@ export function startPrimary() {
     background?: boolean; // 裏で読み込む（表示しない。ページはこのまま）
     addedLead?: string; // 裏で足せたときのお知らせの書き出し（「表紙をつけて、」など。無ければ「新しいタブを、」）
     branchFrom?: number; // ページのリンクから足したタブ：このタブの順路の「枝」にする
+    keepPlace?: boolean; // 元の場所へ戻すタブ（起動の並べ・アーカイブを戻す・開き直す）：ポータルのマスを見ない
   }
   const pending = new Map<number, Pending>();
   const createdWaiters = new Map<number, (id: number) => void>(); // 新しいタブの番号が届いたら
@@ -197,8 +199,12 @@ export function startPrimary() {
     const requestId = nextRequestId++;
     const sheet = options.sheet && sheets.get(options.sheet) ? options.sheet : sheets.current;
     let pos = options.pos;
-    if (pos && isTaken(pos, sheet)) pos = nearestFree(pos, (h) => isTaken(h, sheet));
-    pending.set(requestId, { ...options, sheet, pos });
+    // 元の場所へ戻すタブ：元の場所が（ポータルのほかで）空いていれば、ポータルを見ずにそこへ置く。
+    //   ふさがっていれば、ふつうの置き方（ポータルのマスも避ける）に戻す
+    const home = pos;
+    const keepPlace = !!options.keepPlace && !!home && !withKeepPlace(() => isTaken(home, sheet));
+    if (!keepPlace && pos && isTaken(pos, sheet)) pos = nearestFree(pos, (h) => isTaken(h, sheet));
+    pending.set(requestId, { ...options, sheet, pos, keepPlace });
     const parentId = options.parentId === undefined ? store.activeId : options.parentId;
     send({ type: 'createTab', url, parentId, requestId, lazy: options.lazy, ...(options.background && !options.lazy ? { background: true } : {}) });
     return requestId;
@@ -265,6 +271,23 @@ export function startPrimary() {
   const sheetUse = new SheetUse();
   sheets.setSeenSource((id) => sheetUse.seenAt(id));
   store.sheetNow = () => sheets.current;
+  // 棚の「ポータル」（シートごとに 6 つ。この画面の localStorage。waypoints.ts）。そのマスは新しいセルの置き場にしない（reservedIn）
+  const waypoints = new WaypointStore();
+  waypoints.setExists((id) => !!sheets.get(id));
+  window.addEventListener('storage', (e) => {
+    if (e.key === WAYPOINT_STORE_KEY || e.key === null) waypoints.reload(); // ほかの窓が書いた
+  });
+  // 立っているあいだは、ポータルのマスをふさがっているとみなさない（元の場所へ戻すタブ）
+  let keepPlaceNow = false;
+  function withKeepPlace<T>(fn: () => T): T {
+    const before = keepPlaceNow;
+    keepPlaceNow = true;
+    try {
+      return fn();
+    } finally {
+      keepPlaceNow = before;
+    }
+  }
 
   // ---------- 盤面とリスト ----------
   // メモのセル（ページではないセル）。新しいタブは、メモのセルのある所と、これから開くタブの場所には置かない
@@ -432,15 +455,16 @@ export function startPrimary() {
     if (sheet === sheets.current) return sidebar.centerHex;
     return store.inSheet(sheet).at(-1)?.pos ?? memos.inSheet(sheet).at(-1)?.pos ?? { q: 0, r: 0 };
   }
-  // 返事待ちのタブの場所（予約）
+  // 返事待ちのタブの場所（予約）とポータルのマス（keepPlaceNow のあいだは予約だけ）
   function reservedIn(sheet: string): Hex[] {
-    return [...pending.values()].filter((p) => p.sheet === sheet && p.pos).map((p) => p.pos as Hex);
+    const held = [...pending.values()].filter((p) => p.sheet === sheet && p.pos).map((p) => p.pos as Hex);
+    return keepPlaceNow ? held : [...held, ...waypoints.hexes(sheet)];
   }
   function reservedAt(h: Hex, sheet: string) {
     const key = hexKey(h);
     return reservedIn(sheet).some((r) => hexKey(r) === key);
   }
-  // そのシートでふさがっているか（タブ・メモのセル・予約）
+  // そのシートでふさがっているか（タブ・メモのセル・予約・ポータルのマス）
   const isTaken = (h: Hex, sheet: string) => !!store.tabAt(h, sheet) || !!memos.at(h, sheet) || reservedAt(h, sheet);
 
   // ---------- シートを移る ----------
@@ -590,6 +614,13 @@ export function startPrimary() {
   let peekBoard: Sidebar | null = null;
   islands.onChange(() => peekBoard?.setIslands(islands.list()));
   boardLinks.onChange(() => peekBoard?.setBoardLinks(boardLinks.list()));
+  // 盤面のポータル（本の盤面と入口の小窓の盤面。どちらも自分のシートで引く）
+  const waypointsOf = (sheet: string) => waypoints.list(sheet);
+  sidebar.setWaypoints(waypointsOf);
+  waypoints.onChange(() => {
+    sidebar.setWaypoints(waypointsOf);
+    peekBoard?.setWaypoints(waypointsOf);
+  });
   let peekEditing = false; // 小窓の空いたセル用の書き込み欄が開いている（小窓を閉じる・中のシートが変わると、欄もしまう）
   const sheetPeek = new SheetPeek({
     host: board,
@@ -634,6 +665,7 @@ export function startPrimary() {
       peekBoard.copyLook(sidebar);
       peekBoard.setIslands(islands.list());
       peekBoard.setBoardLinks(boardLinks.list());
+      peekBoard.setWaypoints(waypointsOf);
       return peekBoard;
     },
     portalTarget: (id) => memos.get(id)?.portal ?? null,
@@ -857,7 +889,7 @@ export function startPrimary() {
   );
   const selectedTabs = () => (menuPick ? menuPick.tabs : sidebar.selection()).map((id) => store.get(id)).filter((t): t is Tab => !!t);
   const selectedMemos = () => (menuPick ? menuPick.memos : sidebar.memoSelection()).map((id) => memos.get(id)).filter((m): m is MemoCell => !!m);
-  // そのシートのふさがっているセル（タブ・メモのセル・返事待ちのタブの予約。置き場所を探すとき）
+  // そのシートのふさがっているセル（タブ・メモのセル・返事待ちのタブの予約・ポータルのマス。置き場所を探すとき）
   const allCells = (sheet = sheets.current): { pos: Hex }[] => [...store.inSheet(sheet), ...memos.inSheet(sheet), ...reservedIn(sheet).map((pos) => ({ pos }))];
 
   // 選んだセルがみな同じ島なら、その島（貼るときに、同じ名前と色の島を作る）
@@ -1353,6 +1385,7 @@ export function startPrimary() {
     }
     const here = portal.sheet;
     const at = portal.pos;
+    const droppedWaypoints = waypoints.list(target).length; // 出した元のシートのポータル（シートといっしょに外す）
     memos.remove(portal.id);
     const n = moveCellsToSheet(
       store.inSheet(target).map((t) => t.id),
@@ -1363,9 +1396,11 @@ export function startPrimary() {
     for (const m of memos.list()) if (m.portal === target) memos.remove(m.id); // ほかの所にある、このシートへの入口
     if (sheets.current === target) goBack();
     sheets.remove(target);
+    // 「撮ったもの」は sheets.remove が断る。消えたときだけポータルを外す
+    const waypointsDropped = !sheets.get(target) && waypoints.dropSheet(target, sessionWritable);
     delete prefs.boards[target];
     savePrefsSoon();
-    toast(tr('シート「{0}」の中身（{1} セル）を、ここに出しました', { 0: sheet.name, 1: n }));
+    toast(tr('シート「{0}」の中身（{1} セル）を、ここに出しました', { 0: sheet.name, 1: n }) + (waypointsDropped && droppedWaypoints > 0 ? tr('（ポータル {0} 個は外しました）', { 0: droppedWaypoints }) : ''));
   }
 
   function renameSheet(id: string, at?: { x: number; y: number }) {
@@ -1432,6 +1467,7 @@ export function startPrimary() {
     for (const t of doomed) store.closing.add(t.id);
     // 消した（アーカイブではない）：そのシートのセルの関連の線も外す。アーカイブなら残す（戻せば、またつながる）
     if (done === 'removed') boardLinks.removeCells([...doomed.map((t) => tabRef(t.uid)), ...memos.list().filter((m) => m.sheet === id || m.portal === id).map((m) => memoRef(m.id))]);
+    if (done === 'removed') waypoints.dropSheet(id, sessionWritable); // ポータルも同じ：消したら外す。アーカイブなら残す（戻せば、また使える）
     if (store.active?.sheet === id) {
       const survivor = store
         .all()
@@ -1598,6 +1634,8 @@ export function startPrimary() {
                 run: () => {
                   deleteArchive(meta.id);
                   list.splice(list.indexOf(meta), 1);
+                  // 盤面に無く、同じシートのアーカイブがほかに無ければ、そのシートのポータルも外す
+                  if (!sheets.get(meta.sheet.id) && !list.some((m) => m.sheet.id === meta.sheet.id)) waypoints.dropSheet(meta.sheet.id, sessionWritable);
                   render();
                 },
               },
@@ -1712,6 +1750,7 @@ export function startPrimary() {
             image: t.image,
             comment: t.comment,
             look: t.look,
+            keepPlace: true,
           }),
           30_000,
         ),
@@ -2189,7 +2228,15 @@ export function startPrimary() {
     if (!sheet || !board || !plan) return;
     preview.releasePeekPin(); // 固定していたタブの詳しいカードはしまう
     menuPick = null;
-    cellMenu.open(x, y, [{ section: plan.heading }, { label: plan.write.label, run: () => writeNewMemo(hex, '', sheet, board, true) }]);
+    // ポータルのマスには書かない（小窓ではポータルのメニューを出さない）
+    const waypointSlot = waypoints.slotAt(sheet, hex);
+    cellMenu.open(
+      x,
+      y,
+      waypointSlot >= 0
+        ? [{ section: plan.heading }, { label: tr('ポータル {0} のマスです（このシートを開くと操作できます）', { 0: waypointSlot + 1 }), disabled: true }]
+        : [{ section: plan.heading }, { label: plan.write.label, run: () => writeNewMemo(hex, '', sheet, board, true) }],
+    );
   }
 
   function editMemo(id: string) {
@@ -3305,6 +3352,111 @@ export function startPrimary() {
     ]);
   }
 
+  // ---------- ポータル（PT3b：置く・動かす・番号を替える・外す・まん中へ。docs/plan-portal-cells.md §4.3） ----------
+  const WAYPOINT_LOCKED_NOTE = tr('ポータルの記録が新しい版の形なので、変えられません');
+  const WAYPOINT_TAKEN_NOTE = tr('そのマスには置けません（ふさがっています）');
+  // 変えられなかったときの知らせ（台帳が読み直しで locked になったか、ほかで変わった）
+  const WAYPOINT_GONE_NOTE = tr('そのポータルは、もうありません'); // ほかの窓で外した・番号を替えたあと
+  const waypointFailNote = () => (waypoints.locked ? WAYPOINT_LOCKED_NOTE : WAYPOINT_TAKEN_NOTE);
+  const waypointGoneNote = () => (waypoints.locked ? WAYPOINT_LOCKED_NOTE : WAYPOINT_GONE_NOTE);
+
+  // 今のシートのそのマスに置けないときの知らせ（置けるなら null）。動かすときは数を見ない
+  function waypointBlockNote(hex: Hex, countFull: boolean): string | null {
+    const sheet = sheets.current;
+    const block = waypointPlaceBlock({
+      ready: sessionReady && memos.ready,
+      taken: isTaken(hex, sheet),
+      locked: waypoints.locked,
+      full: countFull && waypoints.list(sheet).length >= WAYPOINT_SLOTS,
+    });
+    if (block === 'locked') return WAYPOINT_LOCKED_NOTE;
+    if (block === 'loading') return tr('読み込みが終わってから置けます');
+    if (block) return WAYPOINT_TAKEN_NOTE; // taken。full は行を出さないので、念のための守り
+    return null;
+  }
+
+  function placeWaypoint(hex: Hex) {
+    const note = waypointBlockNote(hex, true);
+    if (note) {
+      toast(note);
+      return;
+    }
+    const slot = waypoints.place(sheets.current, hex, Date.now());
+    toast(slot === null ? waypointFailNote() : tr('ポータル {0} を置きました（棚の「ポータル」から押すと、ここへ来ます）', { 0: slot + 1 }));
+  }
+
+  function moveWaypointHere(slot: number, hex: Hex) {
+    const note = waypointBlockNote(hex, false);
+    if (note) {
+      toast(note);
+      return;
+    }
+    const moved = waypoints.moveTo(sheets.current, slot, hex, Date.now());
+    toast(moved ? tr('ポータル {0} をここへ動かしました', { 0: slot + 1 }) : waypointFailNote());
+  }
+
+  function renumberWaypoint(from: number, to: number) {
+    if (waypoints.locked) {
+      toast(WAYPOINT_LOCKED_NOTE);
+      return;
+    }
+    const done = waypoints.setSlot(sheets.current, from, to, Date.now());
+    if (done === 'swapped') toast(tr('ポータル {0} と {1} を入れ替えました', { 0: from + 1, 1: to + 1 }));
+    else if (done === 'moved') toast(tr('ポータル {0} を {1} 番にしました', { 0: from + 1, 1: to + 1 }));
+    else toast(waypointGoneNote());
+  }
+
+  function removeWaypoint(slot: number) {
+    if (waypoints.locked) {
+      toast(WAYPOINT_LOCKED_NOTE);
+      return;
+    }
+    const removed = waypoints.remove(sheets.current, slot, Date.now());
+    toast(removed ? tr('ポータル {0} を外しました', { 0: slot + 1 }) : waypointGoneNote());
+  }
+
+  // 今のシートのその番号のポータルを盤面のまん中へ（メニューの「まん中へ」も棚のチップも、ここを通す）
+  function jumpToWaypoint(slot: number) {
+    const hex = waypoints.list(sheets.current).find((p) => p.slot === slot)?.hex;
+    if (!hex) return;
+    if (prefs.mode === 'large') {
+      toast(tr('一覧の表示のあいだは使えません（盤面の表示で使えます）'));
+      return;
+    }
+    if (editorsBusy()) {
+      toast(tr('書きかけの欄を「残す」か「やめる」で閉じてから押してください'));
+      return;
+    }
+    sidebar.centerOn(hex);
+  }
+
+  function openWaypointMenu(slot: number, x: number, y: number) {
+    cellMenu.open(x, y, [
+      { section: tr('ポータル {0}', { 0: slot + 1 }) },
+      { label: tr('まん中へ'), run: () => jumpToWaypoint(slot) },
+      { label: tr('番号を替える ▸'), run: () => openWaypointSlotMenu(slot, x, y) },
+      { label: tr('外す'), hint: tr('置き直せます'), run: () => removeWaypoint(slot) },
+    ]);
+  }
+
+  function openWaypointSlotMenu(slot: number, x: number, y: number) {
+    const used = waypoints.list(sheets.current).map((p) => p.slot);
+    const entries: MenuEntry[] = [{ section: tr('ポータル {0} の番号', { 0: slot + 1 }) }];
+    for (const row of waypointSlotRows(slot, used)) {
+      const label = tr('{0} 番', { 0: row.slot + 1 });
+      if (row.state === 'current') entries.push({ label, disabled: true });
+      else entries.push({ label, hint: row.state === 'used' ? tr('入れ替え') : tr('空き'), run: () => renumberWaypoint(slot, row.slot) });
+    }
+    cellMenu.open(x, y, entries);
+  }
+
+  // 空いたマスの「ポータルをここへ動かす ▸」：あるポータルだけを並べる
+  function openWaypointMoveMenu(at: Hex, x: number, y: number) {
+    const entries: MenuEntry[] = [{ section: tr('どのポータルをここへ動かすか') }];
+    for (const p of waypoints.list(sheets.current)) entries.push({ label: tr('ポータル {0}', { 0: p.slot + 1 }), run: () => moveWaypointHere(p.slot, at) });
+    cellMenu.open(x, y, entries);
+  }
+
   function openCellMenu(info: { id: number | null; memo: string | null; hex: Hex | null; x: number; y: number }) {
     const clickedTab = info.id !== null ? store.get(info.id) : undefined;
     const clickedMemo = info.memo !== null ? memos.get(info.memo) : undefined;
@@ -3330,6 +3482,14 @@ export function startPrimary() {
     }
     if (portal?.capture) {
       openCaptureMenu(portal, info);
+      return;
+    }
+    // 今のシートのポータルのマス（小窓のセルのマスは見ない）。セルを押していなければ、選んでいるセルがあってもポータルのメニュー
+    // セルを押したときは、そのセルのマスで引く（番号の丸は隣のマスへはみ出すので、ポインタの下のマスとずれることがある）
+    const waypointHex = info.hex ? (clickedTab?.pos ?? clickedMemo?.pos ?? info.hex) : null;
+    const waypointSlot = waypointHex && !offSheet ? waypoints.slotAt(sheets.current, waypointHex) : -1;
+    if (info.id === null && info.memo === null && waypointSlot >= 0) {
+      openWaypointMenu(waypointSlot, info.x, info.y);
       return;
     }
     const entries: MenuEntry[] = [];
@@ -3407,6 +3567,11 @@ export function startPrimary() {
       }
       if (total > 1) entries.push({ label: tr('選択を解除'), hint: 'Esc', run: () => sidebar.clearSelection() });
       entries.push({ label: tr('Ctrl+クリックで選び足す・Shift+クリックで範囲'), disabled: true });
+      // セルが乗っているポータルのマス：ポータルのメニューへの 1 行
+      if (waypointSlot >= 0) {
+        const slot = waypointSlot;
+        entries.push({ label: tr('ポータル {0} ▸', { 0: slot + 1 }), run: () => openWaypointMenu(slot, info.x, info.y) });
+      }
     } else {
       entries.push({ section: tr('このセルに') });
       if (info.hex) {
@@ -3426,6 +3591,10 @@ export function startPrimary() {
         entries.push({ label: tr('画像ファイルを開く…'), run: () => void openImageFile(at) });
         clipEntry = { label: tr('クリップボードの画像をセルにする'), hint: tr('確かめています…'), disabled: true };
         entries.push(clipEntry);
+        // ポータル（6 つ埋まっていれば置く行は出さない）
+        const placed = waypoints.list(sheets.current).map((p) => p.slot);
+        if (placed.length < WAYPOINT_SLOTS) entries.push({ label: tr('ここにポータルを置く'), hint: tr('{0} 番', { 0: freeWaypointSlot(placed) + 1 }), run: () => placeWaypoint(at) });
+        if (placed.length > 0) entries.push({ label: tr('ポータルをここへ動かす ▸'), run: () => openWaypointMoveMenu(at, info.x, info.y) });
         entries.push(...appPlaceEntries(at, info.x, info.y));
       }
       pasteEntry = { label: tr('貼り付け'), hint: tr('確かめています…'), disabled: true };
@@ -3448,6 +3617,7 @@ export function startPrimary() {
     }
     if (pasteEntry) {
       const entry = pasteEntry;
+      const pasteToken = cellMenu.token(); // 確かめの間に別のメニュー（「…▸」の先）へ替わっていたら、描き直さない
       void pasteable().then((p) => {
         if (!p) {
           Object.assign(entry, { label: tr('貼り付け'), hint: tr('コピーしたものがありません'), disabled: true });
@@ -3461,7 +3631,7 @@ export function startPrimary() {
             entries.splice(entries.indexOf(entry) + 1, 0, textEntry);
           }
         }
-        cellMenu.update(entries);
+        cellMenu.update(entries, pasteToken);
       });
     }
   }
@@ -3640,6 +3810,7 @@ export function startPrimary() {
         boardLinks: boardLinks.list(),
         kindNames: names,
         selection: { tabs: sidebar.selection(), memos: sidebar.memoSelection() },
+        dropMarks: true, // カードの印（♥・色）は Grok へ送らない（MK5。当てる前の写し writePatchBefore には残す）
       },
       GROK_LIMITS,
     );
@@ -4429,7 +4600,7 @@ export function startPrimary() {
     toast(tr('島「{0}」を作りました（名前を右クリックで直せます）', { 0: normalizeIslandName(name) }));
   }
 
-  // 島に入るセルを、ひとかたまりの空いたセルへ寄せる（タブもメモのセルも。ほかのセルと返事待ちの予約の場所は使わない）
+  // 島に入るセルを、ひとかたまりの空いたセルへ寄せる（タブもメモのセルも。ほかのセルと返事待ちの予約の場所とポータルのマスは使わない）
   function gatherIsland(tabIds: number[], memoIds: string[], sheet = sheets.current) {
     const memoKey = new Map<number, string>(); // 寄せる計算のための仮の番号 → メモのセル
     const pseudo = [
@@ -4880,6 +5051,7 @@ export function startPrimary() {
   let rightReady = false; // 右サイドバーの UI が一度でも動き出したか（閉じても裏に残っている）
   let memoReady = false; // 下のメモの面が一度でも動き出したか
   let memoPaneDraft = false; // 下の区画に書きかけがあるか（下の面が知らせる）
+  let boardComposeDraft = false; // ボードの書く欄に書きかけがあるか（ボードが知らせる。「上のコメントボードで開く」の守りが見る。MK4）
   const flushReminders = () => {
     for (const payload of forRight.splice(0)) send({ type: 'relay', to: 'right', payload });
   };
@@ -5962,6 +6134,7 @@ export function startPrimary() {
   const saveHealth = new SaveHealth();
   function startSessionSaving() {
     sessionWritable = true;
+    waypoints.flush(); // 書かないあいだにメモリだけで外したポータルを書く
     sessionNotice.hideRecovery();
     saveSession(false);
     toast(tr('盤面の保存を始めました'));
@@ -5979,7 +6152,7 @@ export function startPrimary() {
   sleep.isPopped = (id) => popouts.has(id);
   let downloadsSeen = false;
   let downloadItems: { id: string; name: string; bytes: number; at: number }[] = [];
-  // 試し：棚は盤面の下（盤面の外）に置き、欄を切り替える：ダウンロード・最近閉じた・撮ったもの・シート。▾ でたたむ
+  // 試し：棚は盤面の下（盤面の外）に置き、欄を切り替える：ポータル・ダウンロード・最近閉じた・撮ったもの・シート。▾ でたたむ
   //   盤面の外なので、セル・固定したポップアップ・知らせ（toast）には重ならない
   const shelf = el('div', 'download-shelf');
   const shelfTabs = el('div', 'shelf-tabs');
@@ -5989,6 +6162,7 @@ export function startPrimary() {
   shelf.append(shelfTabs, shelfItems, shelfToggle);
   board.after(shelf);
   const SHELF_VIEWS: { id: ShelfView; label: string }[] = [
+    { id: 'waypoints', label: tr('ポータル') },
     { id: 'downloads', label: tr('ダウンロード') },
     { id: 'closed', label: tr('最近閉じた') },
     { id: 'captures', label: tr('撮ったもの') },
@@ -6002,8 +6176,13 @@ export function startPrimary() {
     if (prefs.shelfView === 'closed') renderShelf();
   });
   sheets.onChange(() => {
-    if (prefs.shelfView === 'sheets') renderShelf();
+    if (prefs.shelfView === 'sheets' || prefs.shelfView === 'waypoints') renderShelf();
   });
+  waypoints.onChange(() => {
+    if (prefs.shelfView === 'waypoints') renderShelf();
+  });
+  // ポータルの欄で最後に描いたチップの鍵（同じならチップの段を作り直さない。押している途中に作り直すと押しが届かないことがある）
+  let waypointChipsShown: string | null = null;
   shelfHooks.refresh = () => {
     if (prefs.shelfView === 'captures') renderShelf();
   };
@@ -6041,13 +6220,44 @@ export function startPrimary() {
     );
     if (!open) {
       shelfItems.replaceChildren();
+      waypointChipsShown = null;
       return;
     }
+    if (prefs.shelfView === 'waypoints') {
+      // 新しい版の値で変えられないとき（locked）は、その知らせを出す（鍵も別にして描き直す）
+      const key = (waypoints.locked ? 'locked|' : '') + waypointChipsKey(sheets.current, waypoints.list(sheets.current).map((p) => p.slot));
+      if (key !== waypointChipsShown) {
+        shelfItems.replaceChildren(...waypointChips());
+        shelfItems.scrollLeft = 0;
+        waypointChipsShown = key;
+      }
+      return;
+    }
+    waypointChipsShown = null;
     if (prefs.shelfView === 'downloads') shelfItems.replaceChildren(...downloadChips());
     else if (prefs.shelfView === 'closed') shelfItems.replaceChildren(...closedChips());
     else if (prefs.shelfView === 'captures') shelfItems.replaceChildren(...captureChips());
     else shelfItems.replaceChildren(...sheetChips());
     shelfItems.scrollLeft = 0;
+  }
+
+  // 今のシートのポータルを番号の順に。字は番号だけ。押すとまん中へ、右クリックでポータルのメニュー
+  function waypointChips(): HTMLElement[] {
+    if (waypoints.locked) return [shelfEmpty(WAYPOINT_LOCKED_NOTE)];
+    const list = waypoints.list(sheets.current);
+    if (list.length === 0) return [shelfEmpty(tr('ポータルはまだありません（盤面の空いたマスを右クリック →「ここにポータルを置く」。シートごとに 6 つまで）'))];
+    return list.map(({ slot }) => {
+      const chip = el('button', 'download-chip shelf-waypoint', String(slot + 1));
+      chip.type = 'button';
+      chip.title = tr('ポータル {0}。押すと盤面のまん中へ。右クリックで、ほかの操作', { 0: slot + 1 });
+      chip.setAttribute('aria-label', chip.title);
+      chip.addEventListener('click', () => jumpToWaypoint(slot));
+      chip.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        openWaypointMenu(slot, event.clientX, event.clientY);
+      });
+      return chip;
+    });
   }
 
   function downloadChips(): HTMLElement[] {
@@ -6079,7 +6289,7 @@ export function startPrimary() {
       return;
     }
     const sheet = sheets.get(item.sheet) ? item.sheet : sheets.current;
-    requestTab(item.url, { sheet, pos: item.pos, title: item.title, favicon: item.favicon, parentId: null });
+    requestTab(item.url, { sheet, pos: item.pos, title: item.title, favicon: item.favicon, parentId: null, keepPlace: sheet === item.sheet }); // 元のシートに戻すときだけ、元の場所へ
     toast(sheet === item.sheet ? tr('開き直しました: {0}', { 0: item.title || item.url }) : tr('開き直しました（元のシートが無いので、今のシートに）: {0}', { 0: item.title || item.url }));
   }
 
@@ -6295,7 +6505,7 @@ export function startPrimary() {
         const info = msg.requestId === null ? undefined : pending.get(msg.requestId);
         if (msg.requestId !== null) pending.delete(msg.requestId); // 場所の予約もここで外れる
         const trail = info?.trail; // 順路の台帳をまだ読み込んでいなくても持たせておく（無い順路なら、使うときに無視される）
-        store.add(msg.id, {
+        const add = () => store.add(msg.id, {
           uid: info?.uid,
           url: msg.url,
           parentId: msg.parentId,
@@ -6316,6 +6526,8 @@ export function startPrimary() {
           comment: info?.comment,
           look: info?.look,
         });
+        if (info?.keepPlace) withKeepPlace(add); // 元の場所へ戻すタブ：ポータルのマスに押し出さない
+        else add();
         if (trail) recorder.expectStep(msg.id, trail);
         // ページのリンクから新しいタブで開いた（UI が頼んだタブではない・右クリックの「セルに追加」）→ 開いた元のタブの順路の「枝」
         const branchFrom = msg.requestId === null ? msg.parentId : (info?.branchFrom ?? null);
@@ -6646,30 +6858,33 @@ export function startPrimary() {
       // UI だけが読み込み直された：今あるタブに、保存しておいた位置と番号を当てはめる
       const savedById = new Map(saved?.tabs.map((t) => [t.id, t]) ?? []);
       const orderOf = (id: number) => savedById.get(id)?.order ?? Number.MAX_SAFE_INTEGER;
-      for (const { id, ...info } of [...msg.tabs].sort((a, b) => orderOf(a.id) - orderOf(b.id))) {
-        const s = savedById.get(id);
-        store.add(id, {
-          uid: s?.uid,
-          url: info.url ?? '',
-          parentId: null,
-          sheet: s?.sheet ?? MAIN_SHEET,
-          pos: s?.pos,
-          asleep: info.asleep,
-          title: s?.title,
-          favicon: s?.favicon,
-          keepAwake: s?.keepAwake,
-          notes: s?.notes,
-          readEdges: s?.readEdges,
-          liked: s?.liked,
-          tags: s?.tags,
-          island: s?.island,
-          trail: s?.trail,
-          image: s?.image,
-          comment: s?.comment,
-          look: s?.look,
-        });
-        store.update(id, info);
-      }
+      // 今の場所のまま当てはめる（ポータルのマスに押し出さない）
+      withKeepPlace(() => {
+        for (const { id, ...info } of [...msg.tabs].sort((a, b) => orderOf(a.id) - orderOf(b.id))) {
+          const s = savedById.get(id);
+          store.add(id, {
+            uid: s?.uid,
+            url: info.url ?? '',
+            parentId: null,
+            sheet: s?.sheet ?? MAIN_SHEET,
+            pos: s?.pos,
+            asleep: info.asleep,
+            title: s?.title,
+            favicon: s?.favicon,
+            keepAwake: s?.keepAwake,
+            notes: s?.notes,
+            readEdges: s?.readEdges,
+            liked: s?.liked,
+            tags: s?.tags,
+            island: s?.island,
+            trail: s?.trail,
+            image: s?.image,
+            comment: s?.comment,
+            look: s?.look,
+          });
+          store.update(id, info);
+        }
+      });
       if (msg.activeId !== null) store.setActive(msg.activeId);
     } else if (saved && saved.tabs.length > 0) {
       // 前回のタブを、眠った状態で元の場所・番号に並べ直す。前回表示していたタブだけ起こす
@@ -6695,6 +6910,7 @@ export function startPrimary() {
           look: t.look,
           activate: t.id === activeId,
           follow: false, // 盤面は、前回見ていたシートのまま
+          keepPlace: true,
         });
       }
     } else {
@@ -6778,20 +6994,42 @@ export function startPrimary() {
       },
     });
   }
-  // 「上のコメントボードで開く」（左のメモのセルの右クリック・右のメモの区画の openBoardMemo）：ボードを上に出して、このメモを見る
+  // 「上のコメントボードで開く」（左のメモのセルの右クリック・右のメモの区画の openBoardMemo・右の検索の行の［上で開く］）：ボードを上に出して、このメモを見る
   //   分かれと呼ぶ順は runBoardOpen（下が別のメモを開いていれば下はそのまま・同じメモか閉じていればボードは下に付いていく・閉じていれば下にも開く）
-  //   選べないメモ（無い・特別なセル）は何もせず、左の一言で知らせる
-  function openBoardMemoUpper(id: string) {
+  //   選べないメモ（無い・特別なセル）は何もせず、左の一言で知らせる。開けたら true
+  //   書きかけの守り（MK4）：ボードの書く欄に書きかけがあって、ボードが別のメモを見ていれば、替えずに知らせる（tellBoardDraft）。fromSearch：右の検索の行から来た（右の状態の行にも出す）
+  function openBoardMemoUpper(id: string, fromSearch = false) {
     const memo = memos.get(id);
-    runBoardOpen({
+    return runBoardOpen({
       lower: memoPane.openId,
       id,
       usable: !!memo && !isSpecialCell(memo),
+      board: memoPane.boardMemoId ?? memoPane.openId, // ボードが今見ているメモ（選んだメモか、下の区画のメモ）
+      draft: boardComposeDraft,
       setBoardMemo: (next) => memoPane.setBoardMemo(next),
       open: (next) => memoPane.open(next),
       askUpper: askBoardUpper,
       refuse: () => toast(tr('そのメモは、ボードで開けません（もう無いか、特別なセルです）')),
+      keepDraft: () => tellBoardDraft(fromSearch),
     });
+  }
+  // ボードの書く欄に書きかけがあるので、ボードを別のメモへ替えなかった（MK4）：左の一言。右の検索の行から来たときだけ、右の検索の状態の行（右が見えているときだけ）にも出す
+  //   （openMemoPane の「検索から来たときだけ tellSearch」と同じ。左のセルの右クリック・右のメモの区画から押したときに、検索の行へ古い知らせを残さない。MK4 の見直し）
+  function tellBoardDraft(fromSearch: boolean) {
+    const text = tr('ボードの書く欄に書きかけがあります。書き終えるか消してから開いてください');
+    toast(text);
+    if (fromSearch) tellSearch(text);
+  }
+  // 右の検索の行の［上で開く］（MK4）：「上のコメントボードで開く」と同じ道（openBoardMemoUpper）で開き、開けたら、ボードにそのカードを選んで 100% で見せる頼みを載せる（focusBoard）
+  //   返信の行は一番上のカードに直す（ボードの面にあるのは一番上のカードだけ）。カードが台帳にもう無ければ、そのままの id を渡す（ボードが「カードがもうありません。メモだけ開きました」と言う）
+  function openBoardCardUpper(id: string, replyId: string) {
+    const memo = memos.get(id);
+    if (!memo || isSpecialCell(memo)) {
+      tellSearch(tr('そのメモは、もうありません'));
+      return;
+    }
+    if (!openBoardMemoUpper(id, true)) return;
+    memoPane.focusBoard(id, pathTo(memo.replies ?? [], replyId)[0]?.id ?? replyId);
   }
   // ボードを上に出す頼み。下の面がまだ動いていない（一度も出していない）と届かないので、印を残して memoPaneReady で送り直す（Grok Cards の open と同じ）
   //   印（boardUpperWanted）は区画の世話役の近くに置く（区画を閉じたときに下ろすため）
@@ -6895,6 +7133,24 @@ export function startPrimary() {
   // 右の「検索」の区画に短い知らせを出す（右が見えているときだけ）
   function tellSearch(text: string) {
     if (sidebars.right.visible) send({ type: 'relay', to: 'right', payload: { kind: 'searchNotice', text } });
+  }
+
+  // 右の検索の［まとめてコピー］（MK9。計画 §4.9）：右と同じ条件（字・段）で台帳から組み直し（memo-search.ts の cardHeartsCopy。新しい順の頭から 300 件まで）、
+  //   ただの文でクリップボードへ書く（ボードのカードの「コピー」と同じ clipboardWrite。履歴・同期に入れない印 noHistory を付ける）。一言は右の検索の状態の行
+  //   台帳を読めていないときは、右の状態の行の今の字（準備中）で断る（0 件ではないので）。書けなかったときは、ボードのカードのコピーと同じ一言
+  async function copyCardHearts(query: string, min: LikeLevel) {
+    if (!memos.ready) {
+      tellSearch(tr('メモ・コメントは準備中です（左がメモを読み込んでいます）'));
+      return;
+    }
+    const built = cardHeartsCopy(memos.list(), { query, min });
+    if (built.count === 0) {
+      tellSearch(cardHeartsCopyNote(0, 0));
+      return;
+    }
+    const answer = await request((requestId) => ({ type: 'clipboardWrite', requestId, text: built.text, html: '', noHistory: true }), 8_000).catch(() => null);
+    const ok = answer?.type === 'clipboardWritten' && answer.ok;
+    tellSearch(ok ? cardHeartsCopyNote(built.count, built.total) : tr('コピーできませんでした'));
   }
 
   // 引用元を開く。同じページのタブがあれば、それを表に出してから引用の所を色づける。無ければ新しいタブ
@@ -7447,7 +7703,10 @@ export function startPrimary() {
           memos.inSheet(id).length === 0 &&
           store.inSheet(id).length === 0 &&
           !memos.list().some((m) => m.portal === id);
-        if (empty) sheets.remove(id);
+        if (empty) {
+          sheets.remove(id);
+          waypoints.dropSheet(id, sessionWritable); // ポータルは中身に数えない。シートといっしょに外す
+        }
         break;
       }
       case 'showRightSheet':
@@ -7481,6 +7740,7 @@ export function startPrimary() {
         memoPane.ready();
         memoReady = true;
         memoPaneDraft = false; // 下の面が読み込み直された＝書きかけは無い
+        boardComposeDraft = false; // ボードも読み込み直された＝ボードの書く欄も空（MK4）
         relayReplyPending();
         grokCards.onMemoReady();
         // 「上のコメントボードで開く」の頼みが、下の面の動き出す前で届かなかった：下の区画が開いているときだけ送り直す（Grok Cards のあと。取り合いはあとから出したボードが上）
@@ -7529,6 +7789,10 @@ export function startPrimary() {
         break;
       case 'memoPaneDraft':
         memoPaneDraft = action.busy === true;
+        break;
+      case 'boardComposeDraft':
+        // ボードの書く欄の書きかけ（MK4）。下の区画の書きかけ（memoPaneDraft）とは別に持つ（「下で開く」・openMemoPane の守りの意味は変えない）
+        boardComposeDraft = action.busy === true;
         break;
       case 'addMemoComment': {
         if (typeof action.text !== 'string') break;
@@ -7580,12 +7844,20 @@ export function startPrimary() {
       }
       case 'changeReplyTags': {
         // 下の区画のカードのタグ（依頼②）。足し引きの差分で受け、その時のタグに当てる
+        //   印（♥・色。MK5）の値は add・remove から捨てる（印は setReplyMark だけで変わる。整えたあとの字で見る：「#♥:1」も印）
         if (typeof action.id !== 'string' || typeof action.replyId !== 'string') break;
-        const add = Array.isArray(action.add) ? action.add : [];
-        const remove = Array.isArray(action.remove) ? action.remove : [];
+        const add = dropMarkValues(action.add);
+        const remove = dropMarkValues(action.remove);
         const done = memos.changeReplyTags(action.id, action.replyId, add, remove);
         if (done.result === 'refused') tellMemo(tr('このカードのタグは変えられませんでした（メモの台帳を読めていないか、カードがもうありません）'), { memo: action.id });
-        else if (done.over) tellMemo(tr('タグは1つに {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB }), { memo: action.id });
+        else if (done.over) tellMemo(tr('タグは1つに {0} 個までです（ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB }) + markCountNote(memos.get(action.id)?.replies?.find((r) => r.id === action.replyId)?.tags ?? []), { memo: action.id });
+        break;
+      }
+      case 'setReplyMark': {
+        // カードの印（♥・色。MK5）。その種類の印を value に替える（空なら外す）。断ったら下の面へ知らせる（ボードは知らせが出ていれば一言を重ねない）
+        if (typeof action.id !== 'string' || typeof action.replyId !== 'string' || (action.kind !== 'like' && action.kind !== 'color') || typeof action.value !== 'string') break;
+        const done = memos.setReplyMark(action.id, action.replyId, action.kind, action.value);
+        if (!done.ok) tellMemo(done.why === 'full' ? markFullNote(action.kind, MAX_TAGS_PER_TAB) : tr('このカードのタグは変えられませんでした（メモの台帳を読めていないか、カードがもうありません）'), { memo: action.id });
         break;
       }
       case 'changeReplyLinks': {
@@ -7701,6 +7973,12 @@ export function startPrimary() {
         // 右のメモの区画の「下で開く」。id は信用せず形を確かめる（断りは左の一言。「上のコメントボードで開く」と同じ）
         if (typeof action.id !== 'string') break;
         openOnLowerBoard(action.id);
+        break;
+      }
+      case 'openBoardCard': {
+        // 右の検索の行の［上で開く］（MK4）。id は信用せず形を確かめる（もう無いメモの断りは右の検索の状態の行だけ。書きかけの守りの一言は、左の一言と右の検索の状態の行）
+        if (typeof action.id !== 'string' || typeof action.replyId !== 'string') break;
+        openBoardCardUpper(action.id, action.replyId);
         break;
       }
       case 'newMemoForPane': {
@@ -7859,8 +8137,17 @@ export function startPrimary() {
         if (typeof action.seq !== 'number' || typeof action.query !== 'string' || !sidebars.right.visible) break;
         const sort = action.sort === 'created' ? 'created' : 'updated';
         const limit = typeof action.limit === 'number' && Number.isFinite(action.limit) ? action.limit : 30;
-        const found = memos.ready ? searchMemos(memos.list(), { query: action.query.slice(0, 200), sort, limit }) : { items: [], total: 0 };
+        const hearts = likeLevel(action.hearts); // 切り替え［カードの ♥］の段（MK9。無い・形の違う値は、ふつうの検索）
+        const query = action.query.slice(0, 200);
+        const found = !memos.ready ? { items: [], total: 0 } : hearts ? searchCardHearts(memos.list(), { query, min: hearts, limit }) : searchMemos(memos.list(), { query, sort, limit });
         send({ type: 'relay', to: 'right', payload: { kind: 'searchResults', seq: action.seq, ready: memos.ready, items: found.items, total: found.total } });
+        break;
+      }
+      case 'copyCardHearts': {
+        // 右の検索の［まとめてコピー］（MK9。台帳は読むだけ）
+        const min = likeLevel(action.min);
+        if (typeof action.query !== 'string' || !min) break;
+        void copyCardHearts(action.query.slice(0, 200), min);
         break;
       }
       case 'editTabFace':

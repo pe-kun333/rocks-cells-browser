@@ -1,7 +1,7 @@
 // 会話に参加できる AI のキャラクターたち（右サイドバーの相棒）
 //   ・main   : いつもの相棒 Claude（ブラウザの操作・Web 検索・出来事への反応）
 //   ・second : 二人目の相棒（ミツ。役割とモデルを選べる）
-//   ・fable  : 博識な賢者（Claude Fable 5.1）
+//   ・fable  : 博識な賢者（Claude Fable 5.2。5.1 で話し始めた会話は、その会話の間 5.1）
 //   ・trio1〜3: ソネット三人組（Claude Sonnet 5.5 が3体。性格がそれぞれ違う）
 //   ・tsukushi〜tombo: ハイク組（Claude Haiku 5.5 が3〜6体。名前は季語。係がそれぞれ違う）
 // 一度に会話に参加できるのは、Claude も含めて3枠まで（ハイク組は何体でも1枠）
@@ -234,7 +234,7 @@ export function blurbOf(cast: Cast, id: CharacterId): string {
   return firstSentence(personaOf(cast, id));
 }
 
-// 答えるモデル（Claude と二人目は ⚙ で選ぶ。フェイブルは Fable 5.1、三人組は Sonnet 5.5、ハイク組は Haiku 5.5）
+// 答えるモデル（Claude と二人目は ⚙ で選ぶ。フェイブルは Fable 5.2、三人組は Sonnet 5.5、ハイク組は Haiku 5.5）
 export function modelOf(cast: Cast, id: CharacterId, mainModel: ModelId): ModelId | HaikuModelId {
   if (id === 'main') return mainModel;
   if (id === 'second') return cast.second.model;

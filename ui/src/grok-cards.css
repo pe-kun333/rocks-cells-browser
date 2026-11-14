@@ -770,6 +770,12 @@
   font: inherit;
 }
 
+/* 書く欄の ♡（MK6。足す欄だけ。つなぐの後ろ）：段が付いていれば ♥ の色の縁と字（下の区画のメモの ♡ と同じ見た目） */
+.memo-board-compose-like[aria-pressed='true'] {
+  border-color: var(--heart);
+  color: var(--heart);
+}
+
 .memo-board-compose-hint {
   color: var(--muted);
 }
@@ -993,9 +999,10 @@
   overflow: hidden;
   border: 1.5px solid var(--border);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--card-mark-fill, var(--surface)); /* 色の印のカードだけ淡い地（MK7。下の data-mark-color の規則） */
   color: var(--text);
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 14%, transparent);
+  /* 並びの最後は ♥ の縁（MK6。♥ のカードだけ --card-heart-ring を書く。既定の値が無いと、♥ の無いカード全部で影が消える）。ほかの状態の並びも同じ */
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 14%, transparent), var(--card-heart-ring, 0 0 0 0 transparent);
   cursor: default;
 }
 
@@ -1004,11 +1011,11 @@
   border-color: var(--accent-line);
   border-width: 2.5px;
   padding: 5px 7px;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-line) 35%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-line) 35%, transparent), var(--card-heart-ring, 0 0 0 0 transparent);
 }
 
 .memo-board-card.is-selected.is-dragging {
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--text) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--accent-line) 35%, transparent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--text) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--accent-line) 35%, transparent), var(--card-heart-ring, 0 0 0 0 transparent);
 }
 
 /* Shift＋空きのドラッグ：範囲選択の四角（面の上に重ねる） */
@@ -1028,7 +1035,7 @@
 /* つまんでいる間：影つきで浮かせる（線は追従する。カードが線の層の上に来る） */
 .memo-board-card.is-dragging {
   z-index: 2;
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--text) 30%, transparent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--text) 30%, transparent), var(--card-heart-ring, 0 0 0 0 transparent);
 }
 
 .memo-board-card.is-provisional {
@@ -1047,7 +1054,7 @@
 @keyframes memo-board-arrive {
   from {
     background: var(--accent-soft);
-    box-shadow: 0 0 0 3px var(--accent);
+    box-shadow: 0 0 0 3px var(--accent), var(--card-heart-ring, 0 0 0 0 transparent);
   }
 }
 
@@ -1055,6 +1062,66 @@
   .memo-board-card.is-arrive {
     animation: none;
     outline: 2px solid var(--accent-line);
+  }
+}
+
+/* MK6：♥ のカード（data-like＝段）。縁の太さの段の px（四角と六角で同じ。六角の縁は HX4 の節の .memo-board-hex-frame）。
+   段ごとに替えるのは太さだけ（色の規則を段ごとに書かない。強制色の規則に詳しさで勝たないように）。色は今のテーマの --heart */
+.memo-board-card[data-like='1'] {
+  --card-heart-px: 2px;
+}
+
+.memo-board-card[data-like='2'] {
+  --card-heart-px: 3px;
+}
+
+.memo-board-card[data-like='3'] {
+  --card-heart-px: 4px;
+}
+
+/* 四角の ♥ の縁：box-shadow の並びの最後の一つ（上の 4 つの規則と足した光りの並びに入れてある）。太さは min(8px, 段の px ÷ 倍率)（縮めても画面で 2px 前後は残る。倍率は縮む層の --board-zoom）。
+   選んだカードは選びの輪（3px）の外。box-shadow は縁から spread までを塗るので、選びの輪の下の 3px は面の地（.memo-board の --bg。不透明）で埋める
+   （埋めないと、半透明の選びの輪に ♥ の色が透ける。並びは 選びの輪 → 地の帯 → ♥ の帯 の順に上から描かれる。見直しのあと） */
+.memo-board-card[data-like] {
+  --card-heart-ring: 0 0 0 min(8px, var(--card-heart-px) / var(--board-zoom, 1)) var(--heart);
+}
+
+.memo-board-card.is-selected[data-like] {
+  --card-heart-ring: 0 0 0 3px var(--bg), 0 0 0 calc(3px + min(8px, var(--card-heart-px) / var(--board-zoom, 1))) var(--heart);
+}
+
+/* 強制色のときだけの ♥ の字（box-shadow が描かれないので、右上の印の席に「♥2」。席はその分広げる。tab の build） */
+.memo-board-card-heart,
+.memo-board-card-heart-seat {
+  display: none;
+}
+
+@media (forced-colors: active) {
+  .memo-board-card-heart,
+  .memo-board-card-heart-seat {
+    display: inline;
+  }
+}
+
+/* MK7：色の印のカード（data-mark-color＝likes.ts の MARK_COLOR_KEY）。地の語を --card-mark-fill に入れるだけ（四角の background と六角の顔の fill が読む。
+   色ごとの規則は変数だけ：詳しさで強制色の規則や状態の規則に勝たない）。語の値はテーマごと（themes.css・theme-check.css の --mark-*-soft。不透明。決まりは themes.test.ts）。
+   足した光り（地を --accent-soft から戻す）は終わると印の地に戻り、薄くする絞り（0.28）では地も薄くなる（どちらも今の規則のまま） */
+.memo-board-card[data-mark-color='mizu'] {
+  --card-mark-fill: var(--mark-mizu-soft);
+}
+
+.memo-board-card[data-mark-color='wakakusa'] {
+  --card-mark-fill: var(--mark-wakakusa-soft);
+}
+
+.memo-board-card[data-mark-color='akamurasaki'] {
+  --card-mark-fill: var(--mark-akamurasaki-soft);
+}
+
+/* 強制色：地は Canvas に戻す（色は記号で分ける。六角の顔は HX4 の節の強制色の規則でも Canvas） */
+@media (forced-colors: active) {
+  .memo-board-card[data-mark-color] {
+    --card-mark-fill: Canvas;
   }
 }
 
@@ -1362,7 +1429,7 @@
   background: var(--accent-soft);
 }
 
-/* HX4：正六角のカード（.memo-board-card.is-hex。箱 150×174・頂点が上。app/memo-board-hex.ts）。色は今のテーマの変数だけ（新しい色は作らない）
+/* HX4：正六角のカード（.memo-board-card.is-hex。箱 150×174・頂点が上。app/memo-board-hex.ts）。色は今のテーマの変数だけ（新しい色は作らない。ただし MK6 の ♥ の縁と、MK7 の色の印の地の語は開け直して足した）
    四角の規則（枠・角の丸め・地・影・輪・余白・光り・仮の破線・写真の余白）を、詳しさ 0,3,0 以上でここ（ファイルの後ろ）で打ち消す。
    div と svg は押せず、多角形の顔だけが押しを受ける（六角の外の角を押すと、下のカード・線・空きに届く） */
 .memo-board-stage .memo-board-card.is-hex,
@@ -1409,8 +1476,9 @@
   pointer-events: none;
 }
 
+/* 顔の地は、色の印のカードだけ淡い地（MK7。--card-mark-fill は四角と同じく、HX4 の節より前の data-mark-color の規則で入る） */
 .memo-board-hex-face {
-  fill: var(--surface);
+  fill: var(--card-mark-fill, var(--surface));
   stroke: var(--border);
   stroke-width: 1.5;
   pointer-events: visiblePainted;
@@ -1428,6 +1496,17 @@
 
 .memo-board-stage .memo-board-card.is-hex.is-selected .memo-board-hex-ring {
   display: inline;
+}
+
+/* ♥ の縁（MK6。app/memo-board-hex.ts）：顔の後ろの多角形。点は六角の縁（中心から頂点まで 86.6）で、太さの 2 倍の線の内側の半分は顔が隠す
+   （顔の塗りは不透明：13 のテーマと検査のテーマの --surface・足した光りの --accent-soft は #rrggbb〈themes.test.ts で確かめる〉、強制色は Canvas）。
+   太さは min(8px, 段の px ÷ 倍率)（段の px は四角と同じ --card-heart-px。倍率は縮む層の --board-zoom）。押しを受けない。♥ の無いカードには描かない（DOM に無い） */
+.memo-board-hex-frame {
+  fill: none;
+  stroke: var(--heart);
+  stroke-width: calc(2 * min(8px, var(--card-heart-px) / var(--board-zoom, 1)));
+  stroke-linejoin: round; /* 頂点の張り出しを太さの半分までに（留め継ぎでは約 1.15 倍。縮めたとき隣との隙間 16 の半分を超えないように。見直しのあと） */
+  pointer-events: none;
 }
 
 /* 線の元：顔の縁を色付きの破線に（破線は辺ごとにそろえる。pathLength 60 で 1 辺に 2 本） */
@@ -1589,7 +1668,7 @@
   }
 }
 
-/* 強制色（ハイコントラスト）：顔は Canvas／CanvasText、選びの輪と線の元は Highlight */
+/* 強制色（ハイコントラスト）：顔は Canvas／CanvasText、選びの輪と線の元は Highlight。♥ の縁は CanvasText の破線（MK6。顔の縁とは太さと破線で分かる） */
 @media (forced-colors: active) {
   .memo-board-stage .memo-board-card.is-hex .memo-board-hex-face {
     fill: Canvas;
@@ -1599,5 +1678,158 @@
   .memo-board-stage .memo-board-card.is-hex.is-link-source .memo-board-hex-face,
   .memo-board-stage .memo-board-card.is-hex .memo-board-hex-ring {
     stroke: Highlight;
+  }
+
+  .memo-board-stage .memo-board-card.is-hex .memo-board-hex-frame {
+    stroke: CanvasText;
+    stroke-dasharray: 3 2;
+  }
+}
+
+/* 吹き出し（MK8a・MK8b。docs/plan-comment-board-marks.md §4.8）：「［全体］の間」だけ、印のカードの文の頭を面の左右の空きに番号つきで出す（app/memo-board-callouts.ts）。
+   層は面の子で、縮む層のすぐ後ろ（z は付けない：縮む層＜吹き出し＜範囲選択の枠（3）＜📌 の層（4））。層・吹き出しの体・番号の小札・絵は押しを受けない。
+   押しを受けるのは頭と「＋n」だけ（MK8b。右上の札は押せない札だが、乗せたとき説明が出るように押しは受ける）。
+   置き場（left・top・width・height）は描くときに書く。名前に四角のカードの名前を含めない（四角のカードの規則と数え違えないように）。色は今のテーマの変数だけ */
+.memo-board-callouts {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* はみ出しは切る（頭の記号が別の字体で描かれて行が高くなっても、文が縁と吹き出しの外にかからないように。下の余白には入ることがある。見ていない） */
+.memo-board-callout {
+  position: absolute;
+  box-sizing: border-box;
+  height: 44px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 17px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* 頭（番号と印）と文の頭を 1 行目から続け、2 行で切る */
+.memo-board-callout-text {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* 頭（番号と印）はボタン（MK8b）：左クリックで選ぶ・ダブルクリックでそのカードへ 100%・右クリックでそのカードのメニュー。押しで焦点を取らない（Tab では入れる）。
+   高さと幅の下限は、全体の button の規則（style.css。高さ 28・幅 28）を打ち消す（📌 の ✕ と同じ。28 のままだと 1 行目が伸びて、2 行目が吹き出しの下で切れる） */
+.memo-board-callout-head {
+  height: auto;
+  min-width: 0;
+  margin-right: 6px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.memo-board-callout-head:hover {
+  text-decoration: underline;
+}
+
+/* 選んだカードの頭（作り直さずに class を切り替える）。輪は内側（頭は文の箱の左上にあり、箱も吹き出しもはみ出しを切るので、外の輪は上と左が切れる） */
+.memo-board-callout-head.is-selected {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+/* 選んだ頭に乗せても、選んだ地のまま（全体の button:hover:not(:disabled) の地 --hover のほうが詳しいので、ここで勝つ） */
+.memo-board-callout-head.is-selected:hover {
+  background: var(--accent-soft);
+}
+
+/* 焦点の輪も内側（上と左が切れないように） */
+.memo-board-callout-head:focus-visible,
+.memo-board-callout-more:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: -2px;
+}
+
+/* 字の無い写真のカード（MK8b）：頭の横に、縮めた顔の絵（読めていなければ隠して頭だけ） */
+.memo-board-callout.has-picture {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.memo-board-callout-picture {
+  flex: none;
+  height: 34px;
+  max-width: 120px;
+  border-radius: 3px;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* 番号の小札（MK8b）：カードの上の頂点（四角は左上の角）に、直径 14 の丸（2 桁からは横に伸びる）。中心を点に合わせる。押しを受けない */
+.memo-board-callout-badge {
+  position: absolute;
+  box-sizing: border-box;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* 「＋n」：最後の席（入らない分。説明「次の n 枚」。押すと次の組のボタン。MK8b）と、左右に席が無いときの面の右上の札（is-corner。押せない。置き場は描くときに書く）。
+   どちらも押しは受ける（右上の札は、乗せたときに説明を出すため） */
+.memo-board-callout-more {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.memo-board-callout-more.is-corner {
+  padding: 2px 8px;
+  cursor: default;
+}
+
+/* 強制色：小札は地が塗られないので縁を描く。選んだ頭は影が消えるので輪（内側。外の輪は上と左が切れる） */
+@media (forced-colors: active) {
+  .memo-board-callout-badge {
+    border: 1px solid CanvasText;
+  }
+
+  .memo-board-callout-head.is-selected {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
   }
 }

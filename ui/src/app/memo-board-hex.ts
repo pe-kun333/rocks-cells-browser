@@ -4,6 +4,7 @@
 import { el } from '../util';
 import { hexCornerPoints } from '../hex';
 import { HEX, HEX_CENTER, type HexFaceInfo } from '../memo-card-board-hex';
+import { MARK_COLOR_KEY } from '../likes';
 import type { CardFace } from '../memo-card-board-view';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -18,6 +19,8 @@ const points = (radius: number) =>
 // 顔は縁の太さの半分だけ内側に描く（縁の外側が、線の端・重なりの計算と同じ六角の縁にちょうど来る）
 const FACE_POINTS = points(HEX.h / 2 - FACE_STROKE / 2 / (Math.sqrt(3) / 2));
 const RING_POINTS = points(HEX.h / 2 - RING_IN);
+// ♥ の縁（MK6）：六角の縁（中心から頂点まで 86.6）の上に、顔の後ろに描く。太さは CSS で 2 倍にして、内側の半分は不透明な顔が隠す（点は倍率で変わらない）
+const FRAME_POINTS = points(HEX.h / 2);
 
 // 一枚の六角の顔。picture は写真だけのカードの縮めた絵（まだ読んでいなければ undefined。あとで img の src だけ差し替える）
 export function hexCardEl(f: CardFace, info: HexFaceInfo, picture: string | undefined): HTMLDivElement {
@@ -26,6 +29,7 @@ export function hexCardEl(f: CardFace, info: HexFaceInfo, picture: string | unde
   card.style.left = `${f.x}px`;
   card.style.top = `${f.y}px`;
   card.title = f.title;
+  if (info.color) card.dataset.markColor = MARK_COLOR_KEY[info.color]; // 色の印の地（MK7。CSS が --card-mark-fill に語を入れ、顔の fill が読む）
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.classList.add('memo-board-hex-svg');
   svg.setAttribute('width', String(HEX.w));
@@ -40,7 +44,15 @@ export function hexCardEl(f: CardFace, info: HexFaceInfo, picture: string | unde
   const ring = document.createElementNS(SVG_NS, 'polygon');
   ring.classList.add('memo-board-hex-ring');
   ring.setAttribute('points', RING_POINTS);
-  svg.append(face, ring);
+  // ♥ のカードだけ、顔の後ろに縁の多角形（MK6。押しを受けない。太さの段は data-like から CSS の --card-heart-px）
+  if (info.like > 0) {
+    card.dataset.like = String(info.like);
+    const frame = document.createElementNS(SVG_NS, 'polygon');
+    frame.classList.add('memo-board-hex-frame');
+    frame.setAttribute('points', FRAME_POINTS);
+    frame.setAttribute('pathLength', '60'); // 強制色の破線を辺ごとにそろえる（顔と同じ）
+    svg.append(frame, face, ring);
+  } else svg.append(face, ring);
   card.append(svg);
   // 上の三角：印だけ（書いた日時は出さない。2026-11-09 の利用者の依頼）。1 行の箱に入らない印は次の行へ回って隠れる（後ろから落ちる）
   const top = el('div', 'memo-board-hex-top');

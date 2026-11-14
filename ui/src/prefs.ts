@@ -50,7 +50,7 @@ export function parsePopoutPlaces(raw: unknown): PopoutPlace[] {
   });
 }
 
-export type ShelfView = 'downloads' | 'closed' | 'captures' | 'sheets';
+export type ShelfView = 'waypoints' | 'downloads' | 'closed' | 'captures' | 'sheets';
 
 const KEY = 'honeycomb.view';
 
@@ -78,7 +78,7 @@ export function loadPrefs(): Prefs {
     pasteSetAs: saved.pasteSetAs === 'portal' ? 'portal' : 'here',
     linkOpen: saved.linkOpen === 'back' ? 'back' : 'front',
     botAppConfirmed: saved.botAppConfirmed === true,
-    shelfView: pick(saved.shelfView, ['downloads', 'closed', 'captures', 'sheets'], 'downloads'),
+    shelfView: pick(saved.shelfView, ['waypoints', 'downloads', 'closed', 'captures', 'sheets'], 'downloads'),
     shelfOpen: saved.shelfOpen !== false,
     popupDetail: saved.popupDetail !== false,
     cardWins: parseCardWins(saved.cardWins),

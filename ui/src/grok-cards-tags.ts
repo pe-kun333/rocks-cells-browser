@@ -2,6 +2,9 @@
 //   宛て先はメモのタグの頭に付ける。ふつうのタグの一覧・候補には出さない（付いていなければ、今までと変わらない）
 //   頭の字はここだけ。段 5 の「送った:」も、同じ置き場にする
 import { t } from './i18n';
+//   カードの印（♥・色。MK5）も隠す。こちらは頭の字でなく、likes.ts の値の一覧とぴったり同じタグだけ（isMarkTag）
+import { MARK_COUNT_NOTE, markValues } from './likes';
+import { normalizeTag } from './tags';
 
 export const ADDRESS_PREFIX = '宛て:';
 export const SENT_PREFIX = '送った:';
@@ -18,8 +21,24 @@ export function isCardsBotId(value: string): boolean {
   return BOT_ID_RE.test(value);
 }
 
+const MARK_SET: ReadonlySet<string> = new Set(markValues);
+
+// カードの印（♥:1〜3・⬢:水・⬢:若草・⬢:赤紫）か。値の一覧とぴったり同じものだけ（人が手で付けた「♥:9」「色:赤」などは印でない）
+export function isMarkTag(tag: string): boolean {
+  return MARK_SET.has(tag);
+}
+
 export function isMachineTag(tag: string): boolean {
-  return tag.startsWith(ADDRESS_PREFIX) || tag.startsWith(SENT_PREFIX) || tag.startsWith(PASTED_PREFIX);
+  return tag.startsWith(ADDRESS_PREFIX) || tag.startsWith(SENT_PREFIX) || tag.startsWith(PASTED_PREFIX) || isMarkTag(tag);
+}
+
+// ふつうのタグの上限の断りの後ろに足す一言（印が付いているカードのときだけ。付いていなければ空）
+export const markCountNote = (tags: readonly string[]): string => (tags.some(isMarkTag) ? MARK_COUNT_NOTE : '');
+
+// ふつうのタグの命令（changeReplyTags）の add・remove から、印の値を捨てる（印は setReplyMark だけで変わる）。配列でなければ空
+//   整えたあとの字で見る（「#♥:1」「＃⬢:水」も印）。ほかの値は、字でないものもそのまま残す（左の changeTagList が整えて読み捨てる）
+export function dropMarkValues(list: unknown): unknown[] {
+  return Array.isArray(list) ? list.filter((value) => !isMarkTag(normalizeTag(value))) : [];
 }
 
 export function visibleTags(tags: readonly string[]): string[] {

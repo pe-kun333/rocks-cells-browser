@@ -57,8 +57,8 @@ describe('runBoardOpen：呼ぶ順と回数（偽物の関数で）', () => {
   it('b. 下も A・A を開く：ボードの選びを外し、上に出す頼みを 1 回。下は開き直さない', () => {
     expect(fake('A', 'A', true)).toEqual({ done: true, calls: ['setBoardMemo:null', 'askUpper'] });
   });
-  it('c. 下が閉じている：選びを外す → 下に開く → 上に出す頼み、の順に 1 回ずつ', () => {
-    expect(fake(null, 'C', true)).toEqual({ done: true, calls: ['setBoardMemo:null', 'open:C', 'askUpper'] });
+  it('c. 下が閉じている：下に開く → 選びを外す → 上に出す頼み、の順に 1 回ずつ（MK4 の見直しで、開くのを先にした。選びを先に外すとボードが一度 null の写しを受けて書く欄を閉じるため）', () => {
+    expect(fake(null, 'C', true)).toEqual({ done: true, calls: ['open:C', 'setBoardMemo:null', 'askUpper'] });
   });
   it('d. 選べないメモ：refuse だけを呼ぶ（選びも、開くも、頼みもしない）', () => {
     for (const lower of [null, 'A', 'B']) expect(fake(lower, 'B', false)).toEqual({ done: false, calls: ['refuse'] });
@@ -210,7 +210,7 @@ describe('左のメモのセルの右クリック（openCellMenu）', () => {
 
 describe('左の処理（openBoardMemoUpper・askBoardUpper・memoPaneReady・区画を閉じたとき）', () => {
   it('openBoardMemoUpper：runBoardOpen を呼ぶだけ。下の区画の世話役と左の一言をつなぐ', () => {
-    const body = code(bodyOf(primary, 'function openBoardMemoUpper(id: string) {'));
+    const body = code(bodyOf(primary, 'function openBoardMemoUpper(id: string, fromSearch = false) {')); // fromSearch は MK4 の見直し（右の検索の行から来たときだけ、書きかけの一言を右の状態の行にも出す）
     expect(body).toMatch(/runBoardOpen\(\{/);
     expect(body).toMatch(/lower:\s*memoPane\.openId,/);
     expect(body).toMatch(/usable:\s*!!memo && !isSpecialCell\(memo\),/);
@@ -218,7 +218,13 @@ describe('左の処理（openBoardMemoUpper・askBoardUpper・memoPaneReady・�
     expect(body).toMatch(/open:\s*\(next\) => memoPane\.open\(next\),/);
     expect(body).toMatch(/askUpper:\s*askBoardUpper,/);
     expect(body).toMatch(/refuse:\s*\(\) => toast\('そのメモは、ボードで開けません/);
-    expect(body).not.toContain('openMemoPane'); // 書きかけの守りの道は通らない（1c）
+    expect(body).not.toContain('openMemoPane'); // 下の区画の書きかけの守りの道は通らない（1c）
+    // MK4：runBoardOpen の結果を返す（右の検索の［上で開く］が、開けたときだけ選ぶカードを頼む）。ボードの書く欄の書きかけの守りに、ボードが今見ているメモと印を渡す
+    expect(body).toMatch(/^\s*const memo = memos\.get\(id\);\s*return runBoardOpen\(\{/);
+    expect(body).toMatch(/board:\s*memoPane\.boardMemoId \?\? memoPane\.openId,/);
+    expect(body).toMatch(/draft:\s*boardComposeDraft,/);
+    expect(body).toMatch(/keepDraft:\s*\(\) => tellBoardDraft\(fromSearch\),/);
+    expect(body).not.toContain('memoPaneDraft'); // 下の区画の書きかけ（「下で開く」・openMemoPane の守り）とは別の印
   });
   it('askBoardUpper：下の面がまだ動いていなければ印を立て、送る。送るのは sendBoardUpper の 1 か所だけ', () => {
     expect(code(bodyOf(primary, 'function askBoardUpper() {'))).toMatch(/boardUpperWanted = !memoReady;\s*sendBoardUpper\(\);/);
@@ -243,7 +249,7 @@ describe('左の処理（openBoardMemoUpper・askBoardUpper・memoPaneReady・�
   it('runCommand の openBoardMemo：id の形（文字列）を確かめてから、同じ処理を呼ぶだけ', () => {
     const body = code(between(primary, "case 'openBoardMemo': {", "case '"));
     expect(body).toMatch(/if \(typeof action\.id !== 'string'\) break;\s*openBoardMemoUpper\(action\.id\);\s*break;\s*\}\s*$/);
-    expect(count(code(primary), 'openBoardMemoUpper(')).toBe(3); // 宣言・盤面のメニュー・右からの命令
+    expect(count(code(primary), 'openBoardMemoUpper(')).toBe(4); // 宣言・盤面のメニュー・右からの命令・右の検索の［上で開く］（openBoardCardUpper。MK4）
   });
 });
 

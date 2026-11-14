@@ -1,6 +1,19 @@
 /* 見た目のテーマの値（計画書 docs/plan-themes.md）。蜜蝋は style.css の :root。語の意味と、どの組の比を確かめるかは ui/test/themes.test.ts */
 /* 部品の明暗ごとの塊（ハイク組・Grok Cards の殻・依頼の一覧・回答カード）は、それぞれの CSS で :root[data-kind] を見る */
 
+/* 蜜蝋の、あとから足した語（style.css は触らないので、蜜蝋の塊と同じ選択子でここに置く。根の要素に data-theme がまだ無い最初の描きでも効くよう :root も。
+   ほかのテーマの塊は :root[data-theme='…'] なので、詳しさで勝つ）。決まりは ui/test/themes.test.ts */
+:root,
+:root[data-theme='mitsurou'],
+[data-theme-swatch='mitsurou'] {
+  /* 色の印の淡い地（MK7。ボードのカードの地。水・若草・赤紫。不透明の #rrggbb。面・淡い金と OKLab で 0.04 以上、本文・補足・金の文字と 4.5:1 以上、
+     3 色どうし 0.04 以上、選びの輪〈--accent-line〉と 3:1 以上、色合いは ♥ と線の色から離した空き〈水 196〜228・若草 127〜137・赤紫 321〜327 度〉。
+     テーマごとに台本 docs/wip/2026-11-13/comment-board-marks-plan/mk7-colors/ で決めた。目では見ていない） */
+  --mark-mizu-soft: #c2f4fe;
+  --mark-wakakusa-soft: #eafed3;
+  --mark-akamurasaki-soft: #fde2ff;
+}
+
 /* 炭：既定の暗いテーマ（Windows が暗いとき） */
 :root[data-theme='sumi'],
 [data-theme-swatch='sumi'] {
@@ -52,6 +65,9 @@
   --warn: #f0a050;
   --ok: #6fd39a; /* 済み・届いた（緑） */
   --heart: #e0607e;
+  --mark-mizu-soft: #073848; /* 色の印の淡い地（MK7。決まりは蜜蝋の塊の注と themes.test.ts） */
+  --mark-wakakusa-soft: #253410;
+  --mark-akamurasaki-soft: #3b213e;
   --shadow: rgb(0 0 0 / 30%);
   --shadow-pop: rgb(0 0 0 / 50%);
   --scrim: rgb(0 0 0 / 55%);
@@ -123,6 +139,9 @@
   --warn: #a8500a;
   --ok: #1a7f37;
   --heart: #bf3989;
+  --mark-mizu-soft: #c7f0fa; /* 色の印の淡い地（MK7） */
+  --mark-wakakusa-soft: #e9fed3;
+  --mark-akamurasaki-soft: #ffdeff;
   --shadow: rgb(20 35 60 / 12%);
   --shadow-pop: rgb(20 35 60 / 24%);
   --scrim: rgb(20 35 60 / 45%);
@@ -194,6 +213,9 @@
   --warn: #a8500a;
   --ok: #3c7a2e;
   --heart: #c0476a;
+  --mark-mizu-soft: #c6f0ff; /* 色の印の淡い地（MK7） */
+  --mark-wakakusa-soft: #e1f6cc;
+  --mark-akamurasaki-soft: #fedeff;
   --shadow: rgb(70 55 25 / 11%);
   --shadow-pop: rgb(70 55 25 / 24%);
   --scrim: rgb(70 55 25 / 45%);
@@ -265,6 +287,9 @@
   --warn: #a14a00;
   --ok: #4a6e1f;
   --heart: #b0435f;
+  --mark-mizu-soft: #bffafe; /* 色の印の淡い地（MK7） */
+  --mark-wakakusa-soft: #cde0b6;
+  --mark-akamurasaki-soft: #f5daf7;
   --shadow: rgb(80 55 20 / 14%);
   --shadow-pop: rgb(80 55 20 / 24%);
   --scrim: rgb(80 55 20 / 45%);
@@ -336,6 +361,9 @@
   --warn: #a8500a;
   --ok: #2f7a2f;
   --heart: #bd4466;
+  --mark-mizu-soft: #c4ecfd; /* 色の印の淡い地（MK7） */
+  --mark-wakakusa-soft: #d8f0c7;
+  --mark-akamurasaki-soft: #fee0ff;
   --shadow: rgb(30 60 30 / 11%);
   --shadow-pop: rgb(30 60 30 / 24%);
   --scrim: rgb(30 60 30 / 45%);
@@ -407,6 +435,9 @@
   --warn: #a54d03;
   --ok: #3b7b55;
   --heart: #b4637a;
+  --mark-mizu-soft: #beeefb; /* 色の印の淡い地（MK7） */
+  --mark-wakakusa-soft: #e6fed5;
+  --mark-akamurasaki-soft: #fcdbfc;
   --shadow: rgb(80 40 60 / 12%);
   --shadow-pop: rgb(80 40 60 / 24%);
   --scrim: rgb(80 40 60 / 45%);
@@ -478,6 +509,9 @@
   --warn: #943e00;
   --ok: #1f6b3f;
   --heart: #b03a5a;
+  --mark-mizu-soft: #b5e7f7; /* 色の印の淡い地（MK7） */
+  --mark-wakakusa-soft: #bcd0a6;
+  --mark-akamurasaki-soft: #dfbee1;
   --shadow: rgb(40 35 25 / 16%);
   --shadow-pop: rgb(40 35 25 / 24%);
   --scrim: rgb(40 35 25 / 45%);
@@ -549,6 +583,9 @@
   --warn: #a8500a;
   --ok: #04591f;
   --heart: #a3155e;
+  --mark-mizu-soft: #c4effd; /* 色の印の淡い地（MK7） */
+  --mark-wakakusa-soft: #e5facf;
+  --mark-akamurasaki-soft: #ffdeff;
   --shadow: rgb(0 0 0 / 22%);
   --shadow-pop: rgb(0 0 0 / 24%);
   --scrim: rgb(0 0 0 / 45%);
@@ -620,6 +657,9 @@
   --warn: #f0a050;
   --ok: #7fd39e;
   --heart: #ef8fae;
+  --mark-mizu-soft: #1c545f; /* 色の印の淡い地（MK7） */
+  --mark-wakakusa-soft: #2d3e1f;
+  --mark-akamurasaki-soft: #573a57;
   --shadow: rgb(0 0 0 / 30%);
   --shadow-pop: rgb(0 0 0 / 50%);
   --scrim: rgb(0 0 0 / 55%);
@@ -691,6 +731,9 @@
   --warn: #f0a050;
   --ok: #3fd28f;
   --heart: #ff6fa8;
+  --mark-mizu-soft: #0a3336; /* 色の印の淡い地（MK7） */
+  --mark-wakakusa-soft: #101c01;
+  --mark-akamurasaki-soft: #2e1530;
   --shadow: rgb(0 0 0 / 50%);
   --shadow-pop: rgb(0 0 0 / 50%);
   --scrim: rgb(0 0 0 / 55%);
@@ -762,6 +805,9 @@
   --warn: #f0a050;
   --ok: #9be6b4;
   --heart: #ffa3c2;
+  --mark-mizu-soft: #2e5a6b; /* 色の印の淡い地（MK7） */
+  --mark-wakakusa-soft: #394335;
+  --mark-akamurasaki-soft: #523955;
   --shadow: rgb(0 10 30 / 40%);
   --shadow-pop: rgb(0 0 0 / 50%);
   --scrim: rgb(0 0 0 / 55%);
@@ -833,6 +879,9 @@
   --warn: #f0a050;
   --ok: #9be0a2;
   --heart: #f39bb3;
+  --mark-mizu-soft: #254c5c; /* 色の印の淡い地（MK7） */
+  --mark-wakakusa-soft: #435733;
+  --mark-akamurasaki-soft: #463146;
   --shadow: rgb(0 0 0 / 35%);
   --shadow-pop: rgb(0 0 0 / 50%);
   --scrim: rgb(0 0 0 / 55%);

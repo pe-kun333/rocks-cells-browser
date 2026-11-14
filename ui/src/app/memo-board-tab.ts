@@ -11,7 +11,7 @@ import { BOT_FEATURES } from '../features';
 //         id を先に決めて sendReplies（ids。B3-2a）で貼り、左の写しに全部現れてから、座標（基準＋型の dx,dy）を書く（断られたら座標は書かない＝孤児を作らない）。貼ったカードは全部選ぶ。計算は memo-card-board-paste.ts（試験あり）
 //   B3-3b：道具の列の「元に戻す」「やり直す」と Ctrl+Z／Ctrl+Shift+Z／Ctrl+Y（文字の欄にいないときだけ）。移動・足す・消す・線・型の貼り付けを 50 回まで積み（メモを替えたら捨てる）、
 //         戻し方は memo-card-board-undo.ts：消す＝restoreReplies（B3-3a。削除のたびに新しい undoToken）／足す＝removeReply／貼り付け＝undoSendReplies／線＝逆の changeReplyLinks／移動＝座標。戻せなければ一言出して、その 1 件だけ積みから外す
-//   保存に失敗したら（カードは）元の位置に戻し、理由を出す。読めないボード・読み込み中は動かさない・書かない。Esc：つまむのを取り消す→選びを外す→縮める→メモへ
+//   保存に失敗したら（カードは）元の位置に戻し、理由を出す。読めないボード・読み込み中は動かさない・書かない。Esc：つまむのを取り消す→選びを外す→（「［全体］の間」なら）全体の前へ戻る（MK2）→縮める→メモへ
 //   B1-3 のとおり、［拡大］［縮小］は高さの道（PaneHeightApi。つまみと同じ道）。計算は memo-card-board-view.ts・memo-card-board-select.ts・memo-pane-expand.ts（試験あり）
 //   画面の文字は textContent だけで入れる
 import { t as tr } from '../i18n';
@@ -20,12 +20,13 @@ import { CellMenu, type MenuEntry } from '../panels/cell-menu';
 import { tagArea } from '../panels/tag-pad';
 import { MAX_TAGS_PER_TAB, normalizeTag, registeredTagNames } from '../tags';
 import type { RelayCommand } from '../types';
-import { addBlockedNote, addCommand, addLinkFrom, addSpot, canReturnDraft, cardAppeared, cardsGone, cardTextIs, composeTextHeight, type ComposeMode, deleteCommands, editCheck, editCommand, HEX_PASTE_NOTE, HEX_TEMPLATE_NOTE, kindChoices, linkAddPlan, linkIs, linkRemoveCommand, liveSelection, makeReplyId, relationsOf, type Relation, returnMode, tagCommands, tagFullCount, takenSpots, templateBlockedNote, templateOffsets, toolState, unionTags } from '../memo-card-board-edit';
+import { addBlockedNote, addCommand, addLinkFrom, addSpot, canReturnDraft, cardAppeared, cardsGone, cardTextIs, composeHasDraft, composeTextHeight, type ComposeMode, deleteCommands, editCheck, editCommand, HEX_PASTE_NOTE, HEX_TEMPLATE_NOTE, kindChoices, linkAddPlan, linkIs, linkRemoveCommand, liveSelection, makeReplyId, relationsOf, type Relation, returnMode, tagCommands, tagFullCount, tagFullMarkNote, takenSpots, templateBlockedNote, templateOffsets, toolState, unionTags } from '../memo-card-board-edit';
 import { readData, readDataChecked } from '../data';
 import { request } from '../bridge';
 import { type PasteAnchor, pasteDoneText, pastedAppeared, planBoardPaste, planRepaste, pasteToolNote } from '../memo-card-board-paste';
 import { pointSpot } from '../memo-card-board-spots';
-import { addUndoCommand, linkKindOf, linkSetCommand, linkStateIs, moveTargets, newUndoToken, pasteUndoCommand, REDO_STALE_NOTE, removeAt, restoreCommand, restoreMoves, UNDO_STALE_NOTE, undoBlockedNote, undoButtons, undoDoneText, undoLayoutNote, UndoStack, type UndoDir, type UndoOp } from '../memo-card-board-undo';
+import { addUndoCommand, linkKindOf, linkSetCommand, linkStateIs, markCommand, markFull, markNow, markStateIs, moveTargets, newUndoToken, pasteUndoCommand, REDO_STALE_NOTE, removeAt, restoreCommand, restoreMoves, UNDO_STALE_NOTE, undoBlockedNote, undoButtons, undoDoneText, undoLayoutNote, UndoStack, type UndoDir, type UndoOp } from '../memo-card-board-undo';
+import { type LikeLevel, likeButtonText, likeTag, MARK_COLOR_KEY, markFullNote, type MarkKind, nextLike } from '../likes';
 import { BOARD_KEY_HINT, boardKeyAction, boardKeysActive, emptyComposeArrowPan, isKeyboardMenu, KEYSHORTCUTS, keyFocusOf } from '../memo-card-board-keys';
 import { orphanNoteText, planTidy, tidyButton, tidyConfirmMessage, tidyDoneText, TIDY_LABEL, tidyNoneNote } from '../memo-card-board-tidy';
 import { pasteBlocked, TEMPLATE_EMPTY_HINT, templateMenuGroups, templateMenuLabel, type LoadTemplatesResult } from '../memo-card-template-store';
@@ -33,15 +34,18 @@ import { type CardTemplate, extractHoles } from '../memo-card-templates';
 import { cardFilterRow, cardTagCandidates, cardTagCounts } from '../memo-card-filter';
 import { type BoardLayout, boardToScreen, type BoardView, DEFAULT_VIEW, type NodeMove, panBy, screenToBoard, zoomAt } from '../memo-card-board';
 import { type BoardGeo, geoOf, planBoardMoves } from '../memo-card-board-geo';
+import { type Overview, type OverviewEnd, overviewFaceMoved, overviewGoesBack, overviewNeedPx, overviewStart, overviewUpperWaits, UPPER_BACK_MS, upperGiveBackView, zoomTexts } from '../memo-card-board-overview';
 import { type HexFaceInfo, hexFaceInfos } from '../memo-card-board-hex';
 import { ROUTE_BUDGET_MS } from '../memo-card-board-route';
 import { hexCardEl } from './memo-board-hex';
 import type { Pt, Selection } from '../memo-card-board-select';
 import { boardPaneIo } from './memo-board-io';
 import { boardSaveMessage, type LoadBoardResult, loadBoard, saveBoard } from '../memo-card-board-store';
-import { actualSizeView, ARRIVAL_FLASH_MS, ARRIVAL_MS, arrivedCards, boardEmptyText, boardFaces, boardLinks, boardNote, CARD_VISIBLE_ENOUGH, type CardFace, cardVisibleRatio, composeView, dimmedIds, type EdgeChip, edgeChipAt, type EdgeGeometry, fitAll, lastWritten, linkDimmed, loadOutcome, markSeatWidth, moveBlockedNote, moveResultNote, openingView, type OpeningRule, pastThreshold, planView, type ReadBox, searchWords, settleView, viewAfterShow, viewResultNote, viewSaveWait, viewToRead, viewToReadAdded, viewToShowCard, viewToShowMoved, wheelPlan, withPending } from '../memo-card-board-view';
-import { boardMenuEntries, lineMenuEntries, cardCopyText, cardFacts, cardFullText, cardHead, type CardMenuActions, type CardMenuInput, cardMenuEntries, cardTip, confirmListEntries, confirmPageEntries, confirmVideoEntries, oldestCardText, readMenuEntries, TAG_WRITE_LABEL, tagMenuEntries, tagMenuPool, TEMPLATE_ADD_LABEL, TEMPLATE_CENTER_HEADING, TEMPLATE_HERE_HEADING, templateDeleteEntries, templateMakeLabel, templateTierEntries } from '../memo-card-board-menu';
+import { actualSizeView, ARRIVAL_FLASH_MS, ARRIVAL_MS, arrivedCards, boardEmptyText, boardFaces, boardLinks, boardNote, CARD_VISIBLE_ENOUGH, type CardFace, cardVisibleRatio, composeView, dimmedIds, type EdgeChip, edgeChipAt, type EdgeGeometry, fitAll, lastWritten, linkDimmed, loadOutcome, markSeatWidth, moveBlockedNote, moveResultNote, openingView, type OpeningRule, pastThreshold, planView, type ReadBox, recentTops, searchWords, settleView, viewAfterShow, viewResultNote, viewSaveWait, viewToRead, viewToReadAdded, viewToShowCard, viewToShowMoved, wheelPlan, withPending } from '../memo-card-board-view';
+import { boardMenuEntries, lineMenuEntries, cardCopyText, cardFacts, cardFullText, cardHead, type CardMenuActions, type CardMenuInput, cardMenuEntries, cardTip, confirmListEntries, confirmPageEntries, confirmVideoEntries, menuPicked, oldestCardText, readMenuEntries, TAG_WRITE_LABEL, tagMenuEntries, tagMenuPool, TEMPLATE_ADD_LABEL, TEMPLATE_CENTER_HEADING, TEMPLATE_HERE_HEADING, templateDeleteEntries, templateMakeLabel, templateTierEntries } from '../memo-card-board-menu';
 import { BoardPins, type PinContent } from './memo-board-pins';
+import { BoardCallouts } from './memo-board-callouts';
+import { type CalloutCard, calloutShot, calloutText, hasCalloutMark } from '../memo-card-board-callouts';
 import { ClickCounter, PEEK_DOUBLE_MS } from '../sheet-peek-logic';
 import { BOARD_ARROW_DIR, cardNear, centerMostCard, type EmptyTap, emptyTap, dragBoardDelta, dragCancelPlan, EDGE_FRAME_MS, edgeFrameMove, edgePan, edgePanStep, groupDragBy, innerPoint, marqueeHits, nearestInDirection, marqueeRect, marqueeSelection, nextInner, pressSelect, pruneSelection, sameSelection, selectAll, selectionCountText } from '../memo-card-board-select';
 import { cardLabel, type DrawLink, type LinkKind, type LinkKindNames, linkKindInfo, LINK_KINDS, linkSentence, withLinkKindNames } from '../memo-card-links';
@@ -50,6 +54,7 @@ import { expandLabel, isExpanded, leaveExpand, shrinkExpand, toggleExpand, type 
 import { type BoardPlace, boardExpandShown, PLACE_BUTTON_LABEL, PLACE_BUTTON_TITLE } from '../memo-card-board-place';
 import { quoteFragmentUrl, type Reply } from '../threads';
 import { type BoardMemoInfo, type PickMode, memoTagOf, pickerEntries, pickMode } from '../memo-board-pick';
+import { type BoardFocus, boardFocusStep } from '../memo-board-source';
 import { arrivedPhotoCard, canOpenPhotoTitle, PHOTO_TITLE_LABEL, PHOTO_TITLE_LATER } from '../memo-board-photo';
 import { shrinkPicture } from '../picture-fit';
 import type { MemoIndexItem } from '../memocells';
@@ -66,6 +71,7 @@ export interface BoardSource {
   onChange(fn: () => void): void; // 写しが替わったとき（メモを開いた・替えた・カードが替わった・閉じた）
   info?(): BoardMemoInfo | null; // 名札の元（見ているメモの見出し・下の区画のメモ・別のメモを選んでいるか。M3）
   linkNames?(): LinkKindNames | undefined; // 見ているメモの関連の呼び名（呼称セットを選んでいればそのセット。M4。別のメモを見ているときだけ、ボードの描画・メニューで使う）
+  focus?(): BoardFocus | null; // 右の検索の［上で開く］：選んで 100% で見せるカード（見ている写しに載っている頼み。番号が新しいときだけ当てる。MK4）
 }
 
 // ボードで見るメモを選ぶ道（M3）。メモの一覧は下の面が持っているもの。選ぶと左へ頼む（null＝下の区画と同じに戻す。命令は下の面が送る）
@@ -83,6 +89,8 @@ export interface BoardCommands {
   place?: BoardPlaceHook; // 「上に出す／下に戻す」ボタンが押されたとき（案 C・C3。旗は廃止したので常にボタンを出す）
   pick?: BoardMemoPick; // 見るメモの名札と選び口（M3。上に出しているときだけ選べる）
   showList?(): void; // 下の帯をメモのタブにする（カードのメニューの［下の一覧］で、移った先を見せるため）
+  borrowUpper?(needPx: number): boolean; // 「［全体］の間」だけ上の区画を needPx だけ高くする（今の高さに足す量。床が許す所まで。境目を一時に下げる。保存しない。MK3）。下げたら true。下の区画が、上に出していない・持ち主が違う・借りている・窓が開いている・狭いときは断る
+  releaseUpper?(): void; // 借りた高さを戻す（借りる前の割合へ。上に出していて、持ち主がボードで、借りているときだけ下の区画が動く。MK3）
 }
 
 // ボードを上の半分に出す・下に戻す道。押された向き（いま下なら upper、上なら bottom）を渡す
@@ -128,6 +136,9 @@ const COMPOSE_ADD_PLACE = tr('［決める］で足すカードは、最後に�
 // 上の区画の書く欄のプレースホルダー（短く。長い説明は title だけ）と、［決める］の字（どの形かを見て分かるように）
 const COMPOSE_SHORT = { add: tr('新しいカードの文'), edit: tr('カードの文を書き直す'), photo: tr('この写真の題') } as const;
 const COMPOSE_OK = { add: tr('決める'), edit: tr('書き直す'), photo: tr('題を付ける') } as const;
+const COMPOSE_LIKE_TITLE = tr('次に足すカードにいいねを付けます（押すたびに 1→2→3→なし）'); // 書く欄の ♡ の説明（MK6。足す欄だけ）
+// 結果を待っている印の鍵（MK6。setMark・likeAdded の markWaits）：メモ・カード・種類
+const markWaitKey = (memoId: string, id: string, kind: MarkKind): string => `${memoId}\n${id}\n${kind}`;
 
 
 // ←↑→↓ で見ている場所を動かす量（画面の画素。→ で右の方が見える＝面は左へ）
@@ -204,7 +215,13 @@ export class MemoBoardPanel {
   private readonly search = el('input', 'memo-board-search');
   private readonly fitBtn = el('button', 'memo-board-fit', tr('全体'));
   private readonly zoomBtn = el('button', 'memo-board-zoom', '100%'); // 今の倍率を出す。押すと 100%（HX1）
-  private zoomShown = -1; // zoomBtn に今書いてある倍率（％）
+  private zoomShown = -1; // zoomBtn に今書いてある倍率（％）。字だけの守り
+  private zoomVar = -1; // 縮む層（world）に今書いてある --board-zoom（MK6。♥ の縁の太さ）。前に書いた倍率とそのまま比べる（zoomShown は四捨五入なので使わない）
+  private zoomTip = ''; // zoomBtn に今書いてある説明と読み上げ（「［全体］の間」の始まり・終わりでも替わる。MK2）
+  private overview: Overview | null = null; // 「［全体］の間」（［全体］を押す直前の位置を覚えている。％・Esc で戻る。MK2）
+  private upperTimer = 0; // ピンチで「［全体］の間」を終えたあと、借りた上の高さを戻すまでの時計（保存の時計とは別。MK3）
+  // 「［全体］の間」の吹き出し（MK8a・MK8b。§4.8。層は面の子で、縮む層のすぐ後ろ。止まってから置き直す時計と、頭・「＋n」の受け口も持つ）
+  private readonly callouts = new BoardCallouts({ paint: () => this.paintCallouts(), pick: (id) => this.pickCallout(id), jump: (id) => this.jumpToCallout(id), menu: (id, x, y, byKey) => this.calloutMenu(id, x, y, byKey) });
   private readonly filterBox = el('div', 'memo-board-filter');
   private readonly note = el('div', 'memo-board-note');
   private readonly stage = el('div', 'memo-board-stage');
@@ -266,7 +283,10 @@ export class MemoBoardPanel {
   private readonly tidyText = el('span', 'memo-board-tidybar-text');
   private tidyOk: HTMLButtonElement | null = null;
   private readonly undo = new UndoStack(); // 元に戻す・やり直しの積み（B3-3b。メモを替えたら捨てる）
-  private undoBusy = false; // 戻している最中（左の結果を待っている）
+  private undoHeld = 0; // 元に戻すを止めている数（戻している最中・足したカードの線といいねの後送り。どれも左の結果を待っている。MK6 の見直しで真偽から数に：先に終わった側が下ろしても、ほかが待っていれば止めたまま）
+  private get undoBusy(): boolean {
+    return this.undoHeld > 0;
+  }
   private undoAbort: ((text: string) => void) | null = null; // 戻している最中に左が「元に戻せませんでした」と知らせてきたら、待たずに失敗にする
   private lastSend: { token: string; openMemo: string; at: number } | null = null; // 左から最後に届いた「送りを元に戻す」の印（型の貼り付けの Undo 用）
   private awaitingPaste: Extract<UndoOp, { kind: 'paste' }> | null = null; // 貼ったあと、印がまだ届いていない操作
@@ -280,6 +300,9 @@ export class MemoBoardPanel {
   private readonly composeText = el('textarea', 'memo-board-compose-text');
   private readonly linkKindBox = el('label', 'memo-board-linkkind'); // 足すと同時に引く線の種類（CB13。足す欄だけ）
   private readonly linkKindSel = el('select');
+  private readonly composeLike = el('button', 'memo-board-tool memo-board-compose-like', likeButtonText(0)); // 次に足すカードのいいね（MK6。足す欄だけ。つなぐの後ろ。押すたびに 1→2→3→なし）
+  private composeLikeLevel: 0 | LikeLevel = 0; // 書く欄の ♡ の段（欄を開くたび・閉じるたびに なし へ。足すときは submitAdd の頭で読む）
+  private readonly markWaits = new Map<string, { value: string; next: string | null }>(); // 結果を待っている印（MK6。鍵は markWaitKey）。value＝送った値、next＝待っている間に押された値（最後の 1 つ）
   private composing: ComposeMode | null = null;
   private composeAt: Pt | null = null; // 「ここに書く」で押した所（置き場の左上。ボードの座標）。足す欄が開いている間だけ覚える（閉じる・入れ替える・形を替えると消す。TA4b）
   private composeShift: { before: BoardView } | null = null; // 書く欄を開いたときに寄せた（HX2）。閉じたとき、寄せてから触っていなければ before へ戻す
@@ -290,7 +313,9 @@ export class MemoBoardPanel {
   private readonly composeHint = el('span', 'memo-board-compose-hint', COMPOSE_HINT); // 案内の文（下の置き場で見える。四角と六角で同じ字。HX5）
   private photoTitleFor: string | null = null; // 書く欄が写真の題のときの、そのカード（Enter で決める・空なら付けずに閉じる）
   private photoTitleShot: string | null = null; // この画像のカードが現れたら題の欄を開く（CB7）
-  private readonly refusedDrafts: { mode: ComposeMode; text: string }[] = []; // 左に断られた文のうち、欄が使われていて戻せなかったもの（欄が閉じたら戻す）
+  private readonly refusedDrafts: { mode: ComposeMode; text: string; like?: LikeLevel }[] = []; // 左に断られた文のうち、欄が使われていて戻せなかったもの（欄が閉じたら戻す）。like：足す欄の ♡（returnLike が付ける。MK6）
+  private composeDraftSent = false; // 左へ知らせた「書く欄に書きかけがあるか」（変わったときだけ知らせる。MK4）
+  private focusDone = 0; // 右の検索の［上で開く］で、当てた（か、カードが無くて一言を出した）いちばん新しい番号（MK4）
   private readonly linkBar = el('div', 'memo-board-linkbar');
   private readonly linkBarText = el('span', 'memo-board-linkbar-text');
   private linkFrom: string | null = null; // 線を引く元のカード（相手のカードを押すのを待っている）
@@ -353,10 +378,18 @@ export class MemoBoardPanel {
     });
     this.fitBtn.type = 'button';
     this.fitBtn.title = tr('全部のカードが入るように見ている位置を合わせます');
+    // マウスで押したときは焦点を取らない（％と同じ。矢印・Enter がボードに効くまま。MK2）。
+    //   ただし焦点が Esc を自分で受ける所（字の欄・書く欄の中）にあるときは、今までどおり焦点を［全体］へ移す（欄に残すと、そのあとの Esc は欄のものになり、
+    //   書く欄なら閉じて書きかけを捨てる。検索の欄なら何もしない。どちらも全体の前へ戻れない。MK2 の見直し）
+    this.fitBtn.addEventListener('pointerdown', (e) => {
+      const active = document.activeElement;
+      const ownsEsc = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || this.compose.contains(active);
+      if (!ownsEsc) e.preventDefault();
+    });
     this.fitBtn.addEventListener('click', () => this.fit());
     this.zoomBtn.type = 'button';
     this.zoomBtn.dataset.key = 'board-zoom';
-    this.zoomBtn.title = tr('100% にします（1 枚選んでいればそのカード、選んでいなければ最後に書いた辺りを見せます）');
+    this.paintZoom(); // 字・説明・読み上げ（MK2）
     this.zoomBtn.addEventListener('pointerdown', (e) => e.preventDefault()); // マウスで押したときは焦点を取らない（題のボタンと同じ）
     this.zoomBtn.addEventListener('click', () => this.actualSize());
     this.btn.type = 'button';
@@ -382,13 +415,14 @@ export class MemoBoardPanel {
     this.linkHits.setAttribute('focusable', 'false');
     this.world.append(this.linkHits, this.links);
     this.marqueeEl.hidden = true;
-    this.stage.append(this.world, this.marqueeEl, this.emptyText); // 操作の説明（this.hint）は利用者の希望で画面に出さない
+    this.stage.append(this.world, this.callouts.layer, this.marqueeEl, this.emptyText); // 操作の説明（this.hint）は利用者の希望で画面に出さない。吹き出しの層は縮む層のすぐ後ろ（範囲選択の枠と 📌 の層より下。MK8a）
     this.status.setAttribute('role', 'status');
     this.status.hidden = true;
     // 出入りする行は面の下に置く（面の上端が動かないのでカードが動かない）。下ほど動かしたくない行：一言はすぐ下に出入りし、書く欄は動かない。絞りの札の行だけ上のまま
     this.root.append(bar, this.tools, this.filterBox, this.stage, this.status, this.note, this.linkBar, this.tidyBar, this.tagRow, this.compose);
     this.root.append(this.pinLayer);
-    this.pins = new BoardPins({ layer: this.pinLayer, content: (memoId, id) => this.pinContent(memoId, id), anchor: (id) => this.pinAnchor(id), area: () => this.pinArea() });
+    // 留めたカードの組が替わったら、吹き出しを置き直す（📌 で留めたカードは吹き出しに出さない。隠さない。MK8b）
+    this.pins = new BoardPins({ layer: this.pinLayer, content: (memoId, id) => this.pinContent(memoId, id), anchor: (id) => this.pinAnchor(id), area: () => this.pinArea(), onChange: () => this.paintCallouts() });
     this.filterBox.hidden = true;
     this.note.hidden = true;
     this.emptyText.hidden = true;
@@ -402,7 +436,9 @@ export class MemoBoardPanel {
         if (this.needFit && !this.hidden) this.render();
         if (!this.compose.hidden) this.growCompose(); // 幅が変わると欄の折り返しが変わる（高さが同じなら何もしない。HX2）
         this.pins.place();
+        this.paintCallouts(); // 面の大きさが替わった（上の区画を高くしたときも）：「［全体］の間」なら吹き出しを置き直す（隠さない。止まるのを待っている間は時計に任せる。MK8a）
         this.paintArrivals();
+        this.takeFocus(); // 右の検索の［上で開く］：面の大きさが 0 か、開いたときの位置の前で待っていた頼みを、大きさが付いたここで当てる（needFit が下りていても、大きさを待っていることがある。MK4 の見直し）
       }).observe(this.stage);
     }
     api?.onChange(() => this.paintButton());
@@ -437,6 +473,7 @@ export class MemoBoardPanel {
     this.btn.hidden = !boardExpandShown(upper); // 上のあいだは高さを広げない（高さは上の面が決める）
     this.root.classList.toggle('is-upper', upper);
     this.paintMemoTag();
+    if (moved) this.endOverview('place'); // 「［全体］の間」は置き場が替わったら終える（戻らない。MK2）
     if (moved) this.paintComposeShape(); // 上の区画では書く欄を細くする（置き場が替わったときだけ。HX2）
     if (moved) this.cancelDrag(); // root を移すと指の捕まえが外れることがある：つまむのを先に取り消す（HX3）
     if (moved) this.settleFace(0); // root を移したあと：触っていない決まり 2〜4 は新しい面で計算し直す。ほかは位置を保つ（上端の差は使わない。HX1・U7）
@@ -582,6 +619,7 @@ export class MemoBoardPanel {
       else this.setLoaded(key, result);
       this.paintTools(); // ［整理］と孤児の注の出入りを先に決める（面の大きさが決まってから開き方を決める。HX4 の直し 5 と同じ）
       this.render();
+      this.takeFocus(); // 右の検索の［上で開く］：読み込みが済んで開いたときの位置を決めたあと（メモが替わったときは、ここで初めて当てられる。MK4）
     });
   }
 
@@ -645,6 +683,7 @@ export class MemoBoardPanel {
       return;
     }
     this.cancelDrag();
+    this.endOverview('shape'); // 「［全体］の間」は形を替えたら終える（戻らない。開き方の決まりで決め直す前に。MK2）
     this.flushView(); // 見ている位置を替える前に（いまの形のファイルへ。六角のファイルがまだ無ければ書かない）
     this.closeTidy(false);
     this.menu?.close();
@@ -664,6 +703,7 @@ export class MemoBoardPanel {
     this.paintTools(); // ［整理］と孤児の注の出入りを先に決める（面の大きさが替わってから開き方を決める）
     this.render();
     this.paintShape();
+    this.takeFocus(); // 右の検索の［上で開く］：覚え（known）があって開き方をここで決め直したとき、待っていた頼みを当てる（読むときは readBoard の終わり。MK4 の見直し）
   }
 
   // ---------- 写真の行き先と題（CB7） ----------
@@ -741,6 +781,7 @@ export class MemoBoardPanel {
     if (hidden) {
       this.releasePan();
       this.cancelDrag();
+      this.endOverview('hide'); // 「［全体］の間」は隠したら終える（戻らない。MK2）
       this.flushView(); // タブを離れる：見ている位置の保存が残っていたら、その場で保存する（寄せていれば寄せる前の位置）
       this.dropComposeShift(); // 隠したら、書く欄を閉じても前の位置へは戻さない（保存のあとで。HX2）
       this.cancelLink();
@@ -810,6 +851,7 @@ export class MemoBoardPanel {
     this.paintMemoTag();
     const snap = this.source?.get() ?? null;
     if (!snap) {
+      this.endOverview('close'); // 「［全体］の間」はメモが閉じたら終える（戻らない。間でなければ何もしない。MK2）
       this.flushView();
       this.rememberView(); // メモが閉じる前の、この形の見ている位置を覚える（六角は、そのメモをまた開いたときに決まり 1 で確かめて使う。HX4）
       this.resetUndo();
@@ -824,6 +866,7 @@ export class MemoBoardPanel {
     const changed = snap.memoId !== this.memoId;
     if (changed) {
       this.cancelDrag();
+      this.endOverview('memo'); // 「［全体］の間」はメモを替えたら終える（戻らない。MK2）
       this.flushView(); // 前のメモの、見ている位置の保存が残っていたら、その場で（メモを替える前の位置で）保存する
       this.rememberView(); // 前のメモのこの形の見ている位置を覚える（六角は、そのメモへ戻ったときにこれを使う。保存しない。HX4）
       this.clearFlash();
@@ -854,6 +897,7 @@ export class MemoBoardPanel {
     this.render();
     if (show) this.reopenAfterShow(snap.replies);
     if (knownBefore) this.openPhotoTitle(snap.replies, knownBefore);
+    this.takeFocus(); // 右の検索の［上で開く］：写しを受けたとき・出したとき（出したあとの位置の決め直しより後。MK4）
   }
 
   // 別のメモ（B）を見ているあいだだけ、関連の呼び名を B のものに一時的に差し替えて動かす（下の区画のメモの呼び名は全体で 1 つの状態なので、動かし終えたら必ず戻す。M4）。見ていないとき・同じメモのときは何もしない（今までと同じ）
@@ -960,6 +1004,8 @@ export class MemoBoardPanel {
       card.classList.toggle('is-provisional', !f.saved);
       card.classList.toggle('is-ai', f.who !== '');
       card.classList.toggle('has-tags', f.tags.length > 0);
+      if (f.like > 0) card.dataset.like = String(f.like); // ♥ の縁の段（CSS の --card-heart-px。MK6）
+      if (f.color) card.dataset.markColor = MARK_COLOR_KEY[f.color]; // 色の印の地（MK7。CSS が --card-mark-fill に語を入れる。記号は f.mark の先頭）
       card.title = f.title;
       if (f.thumb) {
         card.classList.add('has-thumb');
@@ -977,6 +1023,13 @@ export class MemoBoardPanel {
         seatEl.style.width = `${seat}px`;
         flow.append(seatEl);
       }
+      // 強制色では box-shadow の ♥ の縁が描かれないので、右上の印の席に「♥2」を字で出す（MK6）。その分の席（印の席の左。ふだんは出さない。CSS）
+      const heart = f.like > 0 ? `♥${f.like}` : '';
+      if (heart) {
+        const heartSeat = el('span', 'memo-board-card-seat memo-board-card-heart-seat');
+        heartSeat.style.width = `${markSeatWidth(f.mark ? `${heart} ${f.mark}` : heart) - seat}px`;
+        flow.append(heartSeat);
+      }
       flow.append(f.bold ? el('span', 'memo-board-card-first', f.first) : document.createTextNode(f.first));
       if (f.rest) flow.append(document.createTextNode(`\n${f.rest}`));
       card.append(flow);
@@ -985,7 +1038,11 @@ export class MemoBoardPanel {
       if (f.moreTags > 0) tags.append(el('span', 'memo-board-chip is-more', `+${f.moreTags}`));
       card.append(tags);
       if (f.who) card.append(el('span', 'memo-board-card-who', f.who));
-      if (f.mark) card.append(el('span', 'memo-board-card-mark', f.mark));
+      if (f.mark || heart) {
+        const markEl = el('span', 'memo-board-card-mark', f.mark);
+        if (heart) markEl.prepend(el('span', 'memo-board-card-heart', f.mark ? `${heart} ` : heart)); // 強制色のときだけ見える（CSS）
+        card.append(markEl);
+      }
       frag.append(card);
       this.cardEls.set(f.id, card);
     }
@@ -1130,6 +1187,7 @@ export class MemoBoardPanel {
     const dim = dimmedIds(replies, this.filterTag, this.words);
     for (const [id, node] of this.cardEls) node.classList.toggle('is-dim', dim.has(id));
     for (const line of this.lineEls) line.g.classList.toggle('is-dim', linkDimmed({ from: line.from, to: line.to, kind: 'next' }, dim));
+    this.paintCallouts(); // 薄くしたカードは吹き出しに出さない。写しが替わったとき（renderBoard）もここを通る：「［全体］の間」なら置き直す（隠さない。MK8a）
   }
 
   // ---------- 見ている位置（止まって約 0.4 秒後に保存。B2-2） ----------
@@ -1143,16 +1201,31 @@ export class MemoBoardPanel {
     this.world.style.transform = `translate(${v.x}px, ${v.y}px) scale(${v.zoom})`;
     this.stage.style.backgroundSize = `${20 * v.zoom}px ${20 * v.zoom}px`;
     this.stage.style.backgroundPosition = `${v.x}px ${v.y}px`;
-    const percent = Math.round(v.zoom * 100);
-    if (percent !== this.zoomShown) {
-      // 値が変わったときだけ書く（端で動かす間は毎こま呼ぶので。HX3）
-      this.zoomShown = percent;
-      this.zoomBtn.textContent = `${percent}%`;
-      this.zoomBtn.setAttribute('aria-label', tr('倍率 {0}%。押すと 100% にします', { 0: percent }));
+    // 倍率の CSS 変数（MK6。♥ の縁の太さ。CSS は var(--board-zoom, 1)）：替わったときだけ書く（端で動かす・パンの間は毎こま呼ぶので。子のカード全部の style を計算し直すため）
+    if (v.zoom !== this.zoomVar) {
+      this.zoomVar = v.zoom;
+      this.world.style.setProperty('--board-zoom', String(v.zoom));
     }
+    this.paintZoom();
     this.pins.place();
     this.paintArrivals();
     this.loadFaces();
+  }
+
+  // ％の項目の字・説明・読み上げ（MK2）：applyView と、「［全体］の間」の始まり・終わりから呼ぶ。中身は zoomTexts（memo-card-board-overview.ts）
+  //   値が変わったときだけ書く（端で動かす間は毎こま呼ぶので。HX3）。字は％が替わったとき（zoomShown）、説明と読み上げは中身が替わったとき（zoomTip）
+  private paintZoom() {
+    const z = zoomTexts(this.view.zoom, this.overview?.before ?? null);
+    if (z.percent !== this.zoomShown) {
+      this.zoomShown = z.percent;
+      this.zoomBtn.textContent = z.text;
+    }
+    const tip = `${z.title}\n${z.label}`;
+    if (tip !== this.zoomTip) {
+      this.zoomTip = tip;
+      this.zoomBtn.title = z.title;
+      this.zoomBtn.setAttribute('aria-label', z.label);
+    }
   }
 
   // 見えているカードの絵を、1〜2 件ずつ読む（描き直さず img の src だけ差し替える。CB16）
@@ -1182,6 +1255,7 @@ export class MemoBoardPanel {
             const img = this.cardEls.get(f.id)?.querySelector<HTMLImageElement>('.memo-board-card-thumb');
             if (img) img.src = url;
           }
+          this.callouts.setPicture(shot, url); // 吹き出しの絵（字の無い写真のカード）も、作り直さずに替える（MK8b）
         } else {
           this.faceMisses.set(shot, (this.faceMisses.get(shot) ?? 0) + 1);
         }
@@ -1189,15 +1263,218 @@ export class MemoBoardPanel {
       });
   }
 
-  private fit() {
-    if (this.drag || this.marquee) return; // つまむ・範囲選択の間は動かさない（「100%」と同じ。HX3）
-    this.view = fitAll(this.faces, this.viewport(), this.geo.box);
+  // ---------- 吹き出し（MK8a。docs/plan-comment-board-marks.md §4.8） ----------
+  //   「［全体］の間」だけ、印のカードの文の頭を面の左右の空きに番号つきで出す（計算は memo-card-board-callouts.ts、層と時計は app/memo-board-callouts.ts）。上と下の置き場の両方
+  //   出す：［全体］（fit。待たずに）。隠す：見ている位置が実際に替わった（touchView で、置いたときの位置と比べる）・つまむ（moveDrag。動き始めたとき）・範囲選択（moveMarquee。枠が出たとき）・滑らせる（touchView）。
+  //   置き直す：止まって 400ms 後（時計）・面の大きさが替わった（ResizeObserver）・写しや絞り・検索が替わった（paintDim）・📌 を留めた・閉じた（pins の onChange）・「＋n」で組を進めた。
+  //   このときは隠さない。applyView では受けない。消す：間が終わった（endOverview）。
+  //   MK8b：番号の小札（形ごとの点 geo.badge）・字の無い写真のカードの絵（読めたら loadFace が setPicture で入れる）・頭の押し（pickCallout・jumpToCallout・calloutMenu）・
+  //   選んだ見た目（paintSelect が paintSelected で切り替える。作り直さない）・📌 で留めたカードは出さない。
+  //   頭を押してからダブルクリックの間は、層が作り直さない（選ぶとタグの行が出て面が低くなり、席の数が替わることがあるため。間のあとに置き直す。層の時計なので waiting）
+
+  // now：止まるのを待っている間でも、待たずに置く（［全体］を押したとき）
+  private paintCallouts(now = false) {
+    if (!this.overview || this.hidden) {
+      this.callouts.clear();
+      return;
+    }
+    if (this.callouts.waiting && !now) return; // 止まるのを待っている：時計が置く
+    const panMoved = this.pan !== null && (this.pan.x !== this.pan.sx || this.pan.y !== this.pan.sy); // 押しただけのパン・枠の出ていない範囲選択は、動きに数えない（その間に面の大きさ・写しが替わっても隠さない）
+    if (this.drag?.moved || (this.marquee && !this.marqueeEl.hidden) || panMoved) {
+      this.callouts.later(); // つまむ・範囲選択・パンの途中：隠したまま待ち直す
+      return;
+    }
+    const replies = this.source?.get()?.replies ?? [];
+    const byId = new Map(replies.map((r) => [r.id, r]));
+    const cards: CalloutCard[] = this.faces.map((f) => {
+      const at = this.pos.get(f.id) ?? f; // 描いている位置
+      return { id: f.id, x: at.x, y: at.y, like: f.like, color: f.color, createdAt: byId.get(f.id)?.createdAt ?? 0 };
+    });
+    const exclude = dimmedIds(replies, this.filterTag, this.words); // 絞り・検索で薄くしたカードは出さない
+    for (const id of this.pins.openIds(this.memoId)) exclude.add(id); // 📌 で留めたカードも出さない（全文が面にあるため。MK8b）
+    const thumbs = new Map(this.faces.map((f) => [f.id, f.thumb]));
+    this.callouts.show({ view: this.view, viewport: this.viewport(), box: this.geo.box, cards, recent: recentTops(replies), exclude, badge: this.geo.badge }, (id) => {
+      const reply = byId.get(id);
+      const text = reply ? calloutText(reply) : '';
+      const shot = calloutShot(text, thumbs.get(id) ?? ''); // 字の無い写真のカードだけ、顔の絵（読めているものだけ。MK8b）
+      return { text, shot, url: shot ? this.faceUrls.get(shot) : undefined };
+    });
+  }
+
+  // 吹き出しの頭の左クリック（MK8b。§4.8）：そのカードを選ぶ（頭は選んだ見た目になる。選んだ見た目では作り直さない。ダブルクリックの間は層が席を保つ）。
+  //   つまむ・範囲選択・パン・線を引く途中は何もしない（線の相手はカードを押して選ぶ）
+  private pickCallout(id: string) {
+    if (this.drag || this.marquee || this.pan || this.linkFrom !== null || !this.pos.has(id)) return;
+    this.setSelected(new Set([id]));
+  }
+
+  // 頭のダブルクリック（MK8b）：選ぶ → 「［全体］の間」を終える（戻らない。借りた高さは戻す）→ ％の受け口（間でないので、選んだ 1 枚を 100% で真ん中に）。
+  //   つまむ・範囲選択・パン・線を引く途中は何もしない（％の受け口が何もせずに戻り、間だけが終わるのを避ける。線の帯を残したまま跳ばない）
+  private jumpToCallout(id: string) {
+    if (!this.overview || this.drag || this.marquee || this.pan || this.linkFrom !== null || !this.pos.has(id)) return;
+    this.setSelected(new Set([id]));
+    this.endOverview('jump');
+    this.actualSize();
+  }
+
+  // 頭の右クリック（メニューキーも。MK8b）：面の右クリック（onContextMenu）と同じ止めを通す（つまむ・範囲選択・パンの途中は開かない。線を引く途中はやめる。
+  //   メニューキーは、面のキーの道と同じく、書く欄・確かめ・小窓・メニューが開いている間は開かない）。
+  //   選びの外のカードなら選び直してから、そのカードのメニューを押した所に開く（空きのメニューへ行かない）。メニューキーなら頭の右上に開き、焦点をメニューの頭へ
+  private calloutMenu(id: string, x: number, y: number, byKey: boolean) {
+    if (this.drag || this.marquee || this.pan) return;
+    if (this.linkFrom !== null) {
+      this.cancelLink();
+      return;
+    }
+    if (byKey && (this.modalOpen || this.menu?.isOpen)) return;
+    if (!this.pos.has(id)) return;
+    if (!this.selected.has(id)) this.setSelected(new Set([id]));
+    this.openCardMenu(id, x, y, null);
+    if (byKey) this.menu?.focusFirst();
+  }
+
+  // ---------- 右の検索の［上で開く］（MK4。docs/plan-comment-board-marks.md §4.4） ----------
+
+  // 頼まれたカード（source.focus）を、選んで 100% で真ん中に見せる（「100%」の中の道 showActualSize の 1 枚の道）。
+  //   呼ぶのは、写しを受けたとき・出したとき（refresh の終わり）・読み込みが済んだとき（readBoard）と、待つ理由が解ける所（面の大きさの変化 ResizeObserver・形の替え setShape の終わり・
+  //   つまむか範囲選択を終える所 pointerup・pointercancel・lostpointercapture・blur。MK4 の見直し：ここで当てないと、待った頼みが後の関係ない写しで急に当たる）。
+  //   番号が大きく（> で比べる。下の写しに前の小さい番号の頼みが残ることがあるため）、メモが同じで、そのカードが面にあるときだけ当てる
+  //   当てられない間（隠れている・読み込み中・開いたときの位置を決める前・面の大きさが 0・つまむか範囲選択の途中）は番号を使わずに待つ（boardFocusStep）。
+  //   当てる前に「［全体］の間」を終える（戻らない。借りた高さは戻る。面は showActualSize が読み直す）。カードが無ければ当てずに一言
+  private takeFocus() {
+    const want = this.source?.focus?.() ?? null;
+    if (!want || want.n <= this.focusDone) return; // 頼みが無い・もう当てた（面の大きさを読まずに戻る）
+    const vp = this.viewport();
+    const step = boardFocusStep({ want, done: this.focusDone, hidden: this.hidden, memoId: this.memoId, loaded: this.loaded !== null, needFit: this.needFit, sized: vp.w > 0 && vp.h > 0, busy: this.drag !== null || this.marquee !== null, faces: this.faces });
+    if (step !== 'hit' && step !== 'gone') return;
+    this.focusDone = want.n;
+    if (step === 'gone') {
+      this.flash(tr('カードがもうありません。メモだけ開きました'), 'warn');
+      return;
+    }
+    this.endOverview('jump');
+    this.setSelected(new Set([want.replyId]));
+    this.showActualSize();
+  }
+
+  // ---------- 「［全体］の間」（MK2。docs/plan-comment-board-marks.md §4.2） ----------
+  //   ［全体］を押すと始まり、押す直前の位置を覚える。％・Esc で覚えた位置へ戻る。ピンチ・Ctrl＋ホイールで倍率が替わる・メモの替え・メモが閉じる・置き場の替え・形の替え・隠すでは終わるだけ（戻らない）。パンでは終わらない
+  //   MK3（§4.3）：上に出しているときは、間だけ上の区画を高くする（境目を一時に下げる。保存しない。下の区画の borrowUpper・releaseUpper）。間が終わると戻す
+
+  // Esc の段（grok-cards.ts）が聞く：今「［全体］の間」か
+  get inOverview(): boolean {
+    return this.overview !== null;
+  }
+
+  // Esc（MK2）：「［全体］の間」なら、％と同じく覚えた位置へ戻る。戻ったら true（つまむ・範囲選択の間は戻らない）
+  leaveOverview(): boolean {
+    if (!this.overview || this.drag || this.marquee) return false;
+    this.endOverview('return');
+    return true;
+  }
+
+  // 「［全体］の間」を終える（終わりの出来事は全部ここで受ける）。間でなければ何もしない（ピンチのあとの戻しを待っていれば、その場で戻すだけ。y も寄せる）
+  //   戻るとき（％・Esc）の順：境目を戻す（MK3）→ 面の大きさを読む → 覚えた位置へ 220ms 滑らせる → 保存（touchView）
+  //   借りた高さ（MK3）：ピンチ・Ctrl＋ホイールで終えたときは止まったとみなすまで待って戻す（armGiveBack）。ほかの理由はその場で戻す
+  private endOverview(reason: OverviewEnd) {
+    if (!overviewUpperWaits(reason)) this.flushGiveBack(); // 戻しを待っている間に、メモ・形・置き場などが替わった：その場で戻す（MK3）
+    const o = this.overview;
+    if (!o) return;
+    this.callouts.clear(); // 吹き出しは間の中だけ：消す（席の順も捨てる。MK8a）
+    this.overview = null;
+    if (overviewUpperWaits(reason)) this.armGiveBack();
+    else this.giveBackUpper();
+    if (overviewGoesBack(reason)) {
+      const vp = this.viewport(); // 境目を戻したあとの面の大きさ（読むと、その場で並べ直す）
+      if (vp.w > 0 && vp.h > 0) this.slide();
+      this.view = { ...o.before };
+      this.applyView();
+      this.touchView();
+      return;
+    }
+    this.paintZoom(); // 終わるだけ：位置はそのまま。％の説明と読み上げを 100% のものに戻す
+  }
+
+  // 「［全体］の間」に借りた上の区画の高さ（境目）を、その場で戻す（MK3。借りる前の割合へ。借りていなければ下の区画が何もしない）。戻しを待つ時計も消す
+  private giveBackUpper() {
+    window.clearTimeout(this.upperTimer);
+    this.upperTimer = 0;
+    this.cmds?.releaseUpper?.();
+  }
+
+  // ピンチのあとの戻しを待っていれば、待たずにその場で戻す（MK3。メモ・形・置き場などの替え・［全体］・100%）。時計と同じ道（giveBackCentered）で、y も寄せる
+  //   （寄せずに戻すと、［全体］が覚える位置・保存する位置が、高い面での位置のまま残る。直す役の見直し）
+  private flushGiveBack() {
+    if (this.upperTimer === 0) return;
+    window.clearTimeout(this.upperTimer);
+    this.upperTimer = 0;
+    this.giveBackCentered();
+  }
+
+  // ピンチのあとに借りた高さを戻す（時計と、待ちを流すときの一つの道。MK3）：面の真ん中に見えていた点が真ん中に残るよう、見ている位置の y を高さの差の半分だけ動かして保存する。
+  //   戻す前と後の面の高さを読む。高さが替わらなかった（借りていなかった・つまみに触った・下の区画が戻した・隠れていて面の高さが 0）ときは動かさない
+  private giveBackCentered() {
+    const h0 = this.stage.clientHeight;
+    this.cmds?.releaseUpper?.();
+    const h1 = this.viewport().h; // 戻したあとの面の高さ（読むと、その場で並べ直す）
+    if (h0 <= 0 || h1 <= 0 || h1 === h0) return;
+    this.view = upperGiveBackView(this.view, h0, h1);
     this.applyView();
     this.touchView();
   }
 
-  // 「100%」：1 枚選んでいればそのカードを真ん中に、選んでいなければ最後に書いた辺りを、倍率 1.0 で見せる。保存する（HX1）
+  // ピンチ・Ctrl＋ホイールで間を終えた（MK3）：止まったとみなすまで（最後の wheel から 400ms）待ってから、借りた高さを戻す（wheel が続く間は待ち直す）。
+  //   戻すときは giveBackCentered（y を高さの差の半分だけ寄せて保存する）。つまむ・範囲選択・パンの途中なら待ち直す
+  private armGiveBack() {
+    window.clearTimeout(this.upperTimer);
+    this.upperTimer = window.setTimeout(() => {
+      this.upperTimer = 0;
+      if (this.drag || this.marquee || this.pan) {
+        this.armGiveBack();
+        return;
+      }
+      this.giveBackCentered();
+    }, UPPER_BACK_MS);
+  }
+
+  // 「［全体］の間」に上の区画を高くする（MK3。§4.3）：要る高さ（overviewNeedPx）を下の区画に頼む（境目を下げる。保存しない）。下げたら true（面の大きさが替わった）
+  //   上に出しているときだけ。借りている間は、下の区画が借り直さない（借りる前の割合を上書きしない）
+  private borrowForOverview(vp: { w: number; h: number }): boolean {
+    if (this.place !== 'upper' || !this.cmds?.borrowUpper) return false;
+    const need = overviewNeedPx(this.faces, vp, this.geo.box);
+    return need > 0 && this.cmds.borrowUpper(need);
+  }
+
+  // ［全体］：「［全体］の間」でなければ始めて、押す直前の位置を覚える（読み込み中・カード 0 枚・読めないボード・面の大きさが 0・開いたときの位置をまだ決めていない・全体の位置が今と同じなら始めない）。
+  //   ただし印のカード（描いているカードの全部で見る。薄くした・📌 で留めたカードも数える）があれば、全体の位置が今と同じでも始める（吹き出しを出すため。MK8b）。
+  //   そのときは ％ と Esc の 1 回目がその場へ戻る。印の無いボードは今までどおり始めない（最後に書いた 2 枚は出ない）
+  //   間にもう一度押したら合わせ直す（覚えた位置は替えない）。位置の保存は今までどおり（0.4 秒後）。fitAll の動きは今までどおり
+  //   MK3：ピンチのあとの戻しを待っていれば先に戻す（y も寄せる。覚える位置が低い面での位置になる）。覚えたあと、間なら上の区画を高くし（境目を下げる）、面の大きさを読み直して合わせる
+  private fit() {
+    if (this.drag || this.marquee) return; // つまむ・範囲選択の間は動かさない（「100%」と同じ。HX3）
+    this.flushGiveBack();
+    const next = fitAll(this.faces, this.viewport(), this.geo.box);
+    const vp = this.viewport();
+    const ready = !this.needFit && vp.w > 0 && vp.h > 0; // 面の大きさが 0 のまま needFit が残っていると、覚えるのが開く前の位置になる（MK2 の見直し）
+    if (!this.overview) this.overview = overviewStart({ loading: this.loaded === null, unreadable: this.loaded?.state === 'unreadable', cards: this.faces.length, ready, view: this.view, fit: next, marked: this.faces.some(hasCalloutMark) }); // 印のカードがあれば、全体の位置が今と同じでも始める（吹き出しを出すため。MK8b）
+    this.view = next;
+    if (this.overview && this.borrowForOverview(vp)) this.view = fitAll(this.faces, this.viewport(), this.geo.box); // 高くした面で合わせ直す
+    this.applyView();
+    this.touchView();
+    this.paintCallouts(true); // 間なら吹き出しを出す（待たずに。間でなければ何もしない。MK8a）
+  }
+
+  // ％の項目：「［全体］の間」なら覚えた位置へ戻る（1 枚選んでいても。MK2）。そうでなければ 100%（showActualSize）
   private actualSize() {
+    const vp = this.viewport();
+    if (vp.w <= 0 || vp.h <= 0 || this.drag || this.marquee) return;
+    if (this.overview) this.endOverview('return');
+    else this.showActualSize();
+  }
+
+  // 「100%」の中の道（％の受け口と分けた。MK4・MK8 も使う）：1 枚選んでいればそのカードを真ん中に、選んでいなければ最後に書いた辺りを、倍率 1.0 で見せる。保存する（HX1）
+  private showActualSize() {
+    if (!this.drag && !this.marquee) this.flushGiveBack(); // ピンチのあとの戻しを待っていれば、先に戻して（y も寄せて）から今の面で 100% にする（あとで時計が 100% の位置を動かさないように。MK3）
     const vp = this.viewport();
     if (vp.w <= 0 || vp.h <= 0 || this.drag || this.marquee) return;
     const selected = this.selected.size === 1 ? [...this.selected][0] : null;
@@ -1220,6 +1497,7 @@ export class MemoBoardPanel {
     const next = settleView(this.view, this.source?.get()?.replies ?? [], this.faces, vp, { dy, rule: this.openRule, touched: this.viewTouched, selected: this.selected.size }, { place: this.place, readBox: this.readBox, recent: this.geo.recent });
     this.view = next.view;
     this.openRule = next.rule;
+    if (this.overview) this.overview = overviewFaceMoved(this.overview, dy); // 「［全体］の間」に覚えた位置の y にも同じ差を足す（戻ったとき、上端が動いた分ずれないように。MK2）
     this.dropComposeShift(); // 面が替わったので、書く欄を閉じても前の位置へは戻さない（HX2）
     this.applyView();
   }
@@ -1229,6 +1507,7 @@ export class MemoBoardPanel {
     this.viewTouched = true; // 触った（保存しないときも。面が替わっても計算し直さず、上端の差を引くだけにする）
     this.viewMoved = true; // 見ている位置を変えた（パン・ホイール・矢印・［全体］・倍率・滑り。六角のファイルを初めて作るときに今の位置を入れる。HX5）
     this.dropComposeShift(); // 書く欄で寄せたあとに触った：閉じても戻さない（HX2）
+    if (this.overview && this.callouts.movedFrom(this.view)) this.callouts.later(); // 吹き出し：置いたときから見ている位置が実際に替わった（パン・矢印・滑らせる）。隠して、止まって 400ms 後に置き直す（MK8a）
     if (!this.memoId || moveBlockedNote(this.loaded) !== null) return;
     this.viewTouchedAt = Date.now();
     if (this.viewTimer === 0) this.armViewTimer();
@@ -1331,12 +1610,15 @@ export class MemoBoardPanel {
         const plan = wheelPlan(e, this.stage.clientHeight);
         if (plan.kind === 'zoom') {
           const rect = this.stage.getBoundingClientRect();
+          const zoom0 = this.view.zoom; // 倍率が実際に替わったら「［全体］の間」を終える（端で替わらないピンチでは終えない。パンでも終えない。MK2）
           this.view = zoomAt(this.view, plan.factor, e.clientX - rect.left, e.clientY - rect.top);
+          if (this.view.zoom !== zoom0) this.endOverview('zoom');
         } else {
           this.view = panBy(this.view, -plan.dx, -plan.dy);
         }
         this.applyView();
         this.touchView();
+        if (this.upperTimer !== 0) this.armGiveBack(); // ピンチで間を終えたあとの境目の戻しは、wheel が止まるまで待ち直す（MK3）
       },
       { passive: false },
     );
@@ -1366,7 +1648,7 @@ export class MemoBoardPanel {
         return;
       }
       const onCard = cardEl !== null;
-      if (e.target instanceof Element && e.target.closest('input, button, select')) return;
+      if (e.target instanceof Element && e.target.closest('input, button, select, .memo-board-callout-more')) return; // ボタン（吹き出しの頭・席の「＋n」も）と、押せない右上の札「＋n」の上では、パン・範囲選択・選びを外すを始めない（MK8b）
       if (!onCard && e.button === 0 && e.shiftKey && !this.space && idle) {
         this.startMarquee(e);
         return;
@@ -1407,15 +1689,18 @@ export class MemoBoardPanel {
       }
       this.dropDrag(e);
       this.finishMarquee(e);
+      this.takeFocus(); // 右の検索の［上で開く］：つまむ・範囲選択の途中で待っていた頼みを、終えたここで当てる（MK4 の見直し。下の 3 か所も同じ）
     });
     this.stage.addEventListener('pointercancel', (e) => {
       if (this.pan && e.pointerId === this.pan.id) this.releasePan();
       if (this.drag && e.pointerId === this.drag.pointerId) this.cancelDrag();
       if (this.marquee && e.pointerId === this.marquee.id) this.cancelDrag();
+      this.takeFocus();
     });
     this.stage.addEventListener('lostpointercapture', (e) => {
       if (this.drag && e.pointerId === this.drag.pointerId) this.cancelDrag();
       if (this.marquee && e.pointerId === this.marquee.id) this.cancelDrag();
+      this.takeFocus();
     });
     window.addEventListener(
       'keydown',
@@ -1541,6 +1826,7 @@ export class MemoBoardPanel {
       this.releaseSpace();
       this.cancelDrag();
       this.flushView();
+      this.takeFocus(); // つまむのをやめた：待っていた頼みを当てる（MK4 の見直し）
     });
     window.addEventListener('pagehide', () => this.flushView());
     document.addEventListener('visibilitychange', () => {
@@ -1578,6 +1864,7 @@ export class MemoBoardPanel {
 
   private paintSelect() {
     for (const [id, node] of this.cardEls) node.classList.toggle('is-selected', this.selected.has(id));
+    this.callouts.paintSelected(this.selected); // 吹き出しの頭の選んだ見た目（作り直さずに class を切り替える。MK8b）
     this.count.textContent = selectionCountText(this.total, this.selected.size);
     this.paintFacts();
     this.paintLinkSource();
@@ -1615,7 +1902,9 @@ export class MemoBoardPanel {
     const at = this.stagePoint(e);
     const a = { x: m.sx, y: m.sy };
     const r = marqueeRect(a, at);
-    this.marqueeEl.hidden = !pastThreshold({ dx: r.w, dy: r.h });
+    const past = pastThreshold({ dx: r.w, dy: r.h });
+    if (past && this.marqueeEl.hidden && this.overview) this.callouts.later(); // 吹き出しは、範囲選択の枠が出たら隠す（Shift で押しただけでは隠さない。終えて止まってから置き直す。MK8a）
+    this.marqueeEl.hidden = !past;
     this.marqueeEl.style.left = `${r.x}px`;
     this.marqueeEl.style.top = `${r.y}px`;
     this.marqueeEl.style.width = `${r.w}px`;
@@ -1710,6 +1999,7 @@ export class MemoBoardPanel {
       d.moved = true;
       this.viewTouched = true; // カードを動かしたのも「触った」に数える（面が替わっても計算し直さない。HX1）
       this.dropComposeShift(); // 書く欄を閉じても戻さない（HX2）
+      if (this.overview) this.callouts.later(); // 吹き出しは、つまんでいる間は隠す（離して止まってから置き直す。MK8a）
       for (const node of d.els) node.classList.add('is-dragging');
       this.stage.classList.add('is-dragging');
     }
@@ -1992,6 +2282,7 @@ export class MemoBoardPanel {
       if (this.place !== 'upper' || this.imeComposing || (e instanceof InputEvent && e.isComposing)) return;
       this.growCompose();
     });
+    this.composeText.addEventListener('input', () => this.reportComposeDraft()); // 書きかけの有無を左へ（上と下のどちらの置き場でも。変換の途中も。MK4）
     this.composeOk.type = 'submit';
     const cancel = el('button', 'memo-board-tool', tr('やめる'));
     cancel.type = 'button';
@@ -2008,7 +2299,16 @@ export class MemoBoardPanel {
     kindText.append(el('span', 'memo-board-linkkind-note', tr('（Ctrl+Enter・Shift+Enter で足すとき）'))); // 上の区画では括弧の中を出さない（title に同じ説明がある。HX2）
     this.linkKindBox.append(kindText, this.linkKindSel);
     this.linkKindBox.hidden = true;
-    actions.append(this.composeOk, cancel, this.linkKindBox, this.composeHint);
+    // 書く欄の ♡（MK6）：押すたびに 1→2→3→なし。欄は form なので押しても送らない（type button）。押しで焦点を取らない（文の欄のまま続けて打てる。％の項目と同じ）
+    this.composeLike.type = 'button';
+    this.composeLike.title = COMPOSE_LIKE_TITLE;
+    this.composeLike.hidden = true;
+    this.composeLike.addEventListener('pointerdown', (e) => e.preventDefault());
+    this.composeLike.addEventListener('click', () => {
+      this.composeLikeLevel = nextLike(this.composeLikeLevel);
+      this.paintComposeLike();
+    });
+    actions.append(this.composeOk, cancel, this.linkKindBox, this.composeLike, this.composeHint);
     this.compose.append(this.composeLabel, this.composeText, actions);
     this.compose.hidden = true;
     this.compose.addEventListener('submit', (e) => {
@@ -2153,8 +2453,16 @@ export class MemoBoardPanel {
     this.linkKindBox.title = one ? tr('選んだカードの横に足すとき、この種類の線も引きます（前のカード → 新しいカード）') : tr('選んだカードが 1 枚のときに使えます');
   }
 
+  // 書く欄の ♡（MK6）：足す欄だけに出す。字は今の段（♡・♥1〜♥3）。押してあるか（段が付いているか）は aria-pressed
+  private paintComposeLike() {
+    this.composeLike.hidden = this.composing?.kind !== 'add';
+    this.composeLike.textContent = likeButtonText(this.composeLikeLevel);
+    this.composeLike.setAttribute('aria-pressed', String(this.composeLikeLevel > 0));
+  }
+
   private paintToolsBoard() {
     this.paintLinkKind();
+    this.paintComposeLike();
     this.paintShape(); // 切り替えのボタン（押している状態・止めている理由。HX4）
     const snap = this.source?.get() ?? null;
     const on = !!this.cmds && snap !== null && !this.hidden;
@@ -2271,12 +2579,14 @@ export class MemoBoardPanel {
     this.photoTitleFor = photoTitle && mode.kind === 'edit' ? mode.id : null;
     this.composeLabel.textContent = this.photoTitleFor !== null ? PHOTO_TITLE_LABEL : mode.kind === 'add' ? COMPOSE_ADD_LABEL : tr('カードの文を書き直す');
     this.composeText.value = text;
+    this.composeLikeLevel = 0; // 書く欄の ♡ は開くたびに なし から（足す欄から書き直しの欄へ替えたときも持ち越さない。断られた文を戻すときは showRefused が戻す。MK6）
     this.imeComposing = false; // 前の変換の印を持ち越さない（HX2）
     this.composeUntouched = true;
     this.compose.hidden = false;
     this.paintTools(); // 書く欄の間はタグの行を畳む（つなぐの箱もここで出し入れするので、欄の幅が決まってから高さを測る）
     this.paintComposeShape();
     this.shiftForCompose(); // 面が低くなった：目当てのカードが半分以下しか見えていなければ寄せる（HX2）
+    this.reportComposeDraft(); // 開いた（書き直し・断られた文を戻した・写真の題）：書きかけの有無を左へ（MK4）
   }
 
   // 書く欄の形（HX2）：上の区画では 1 行から 3 行まで伸びる細い欄にし、見出しと案内の文は欄の title へ（CSS で隠す）。プレースホルダーは短い字だけ
@@ -2387,13 +2697,42 @@ export class MemoBoardPanel {
 
   // 左に断られた文を欄へ戻す（文を失わない）。書いている最中の欄は壊さず、閉じたときに戻す
   private returnDraft(mode: ComposeMode, text: string) {
-    if (canReturnDraft(this.composing, this.composeText.value)) this.showRefused(mode, text);
-    else this.refusedDrafts.push({ mode, text });
+    if (canReturnDraft(this.composing, this.composeText.value)) {
+      // 空の足す欄で押してあった ♡ は残す（開き直すと なし に戻るため。断られた文に ♡ があれば、すぐあとの returnLike がそちらにする。MK6 の見直し）
+      const kept = this.composing?.kind === 'add' ? this.composeLikeLevel : 0;
+      this.showRefused(mode, text, kept);
+    } else this.refusedDrafts.push({ mode, text });
+    this.reportComposeDraft(); // 断られた文を戻した・待たせた：書きかけの有無を左へ（MK4）
   }
 
-  private showRefused(mode: ComposeMode, text: string) {
+  // 書く欄に書きかけがあるか（composeHasDraft。足す欄の字・書き直しの欄・断られて待っている文。写真の題は字があるときだけ）を、変わったときだけ左へ知らせる（MK4）。
+  //   左は、ボードを別のメモへ替える前（「上のコメントボードで開く」・右の検索の［上で開く］）に見る。替えると欄が閉じて書きかけが消えるため
+  private reportComposeDraft() {
+    const busy = composeHasDraft({ open: this.composing, text: this.composeText.value, photoTitle: this.photoTitleFor !== null, waiting: this.refusedDrafts.length });
+    if (busy === this.composeDraftSent) return;
+    this.composeDraftSent = busy;
+    this.ask({ command: 'boardComposeDraft', busy });
+  }
+
+  // like：足す欄の ♡（MK6。closeCompose は待たせた文の ♡、returnDraft は空の足す欄で押してあった ♡ を渡す。書き直しの欄では出ない）
+  private showRefused(mode: ComposeMode, text: string, like: 0 | LikeLevel = 0) {
     this.showCompose(returnMode(mode, this.source?.get()?.replies ?? []), text);
+    if (like > 0 && this.composing?.kind === 'add') {
+      this.composeLikeLevel = like;
+      this.paintComposeLike();
+    }
     this.focusComposeIfFree();
+  }
+
+  // 断られて戻した足す欄の文に、足すときに読んだ ♡ も戻す（MK6）。queued：returnDraft を呼ぶ前の、待っている文の数
+  //   待たせたなら（書いている最中の欄があった）、その文に付けておく（欄が閉じて出すとき closeCompose が戻す）。欄に出したなら、その欄へ
+  private returnLike(like: 0 | LikeLevel, queued: number) {
+    if (like === 0) return;
+    if (this.refusedDrafts.length > queued) this.refusedDrafts[this.refusedDrafts.length - 1].like = like;
+    else if (this.composing?.kind === 'add') {
+      this.composeLikeLevel = like;
+      this.paintComposeLike();
+    }
   }
 
   // 焦点はどこにも無いときだけ欄へ（下の帯やほかの欄を使っている最中は奪わない）
@@ -2409,13 +2748,15 @@ export class MemoBoardPanel {
     this.photoTitleFor = null;
     this.compose.hidden = true;
     this.composeText.value = '';
+    this.composeLikeLevel = 0; // ♡ も なし へ（足したら 1 回ごとに戻る。MK6）
     this.imeComposing = false; // 変換の途中で閉じても印を残さない（HX2）
     this.composeUntouched = false;
     this.fitComposeText(); // 閉じたら、自分で決めた高さを外す
     this.restoreAfterCompose(); // 面が戻った：寄せてから触っていなければ、寄せる前の位置へ（HX2）
     const waiting = this.refusedDrafts.shift();
-    if (waiting) this.showRefused(waiting.mode, waiting.text);
+    if (waiting) this.showRefused(waiting.mode, waiting.text, waiting.like);
     else if (wasOpen) this.paintTools(); // 畳んでいたタグの行を戻す
+    this.reportComposeDraft(); // 閉じた（待っていた文を戻したあと。メモの替えもここを通る）：書きかけの有無を左へ（MK4）
   }
 
   private submitCompose() {
@@ -2434,6 +2775,7 @@ export class MemoBoardPanel {
   // dir：Ctrl+Enter は右・Shift+Enter は下。選んだカードが 1 枚のときだけその横へ（ないとき・空きがないときは、四角は今までどおり真ん中、六角は［決める］と同じ置き方。HX5）
   //   書く先は、足し始めたときの形のファイル（鍵は始めたときの形。結果を待つ間は形を替えない）。六角は初めてなら固める（planBoardMoves。HX5）
   private submitAdd(text: string, dir?: 'right' | 'down') {
+    const like = this.composeLikeLevel; // 書く欄の ♡（MK6）。closeCompose で なし に戻る前に読む
     const snap = this.source?.get() ?? null;
     const memoId = this.memoId;
     if (!snap || !memoId || snap.memoId !== memoId) return;
@@ -2476,7 +2818,9 @@ export class MemoBoardPanel {
         if (this.pending.get(id)?.seq === token) this.pending.delete(id);
         if (this.memoId === memoId) {
           if (!this.quietAfterNotice()) this.flash(tr('カードを足せませんでした（左が断ったか、時間がかかっています。足せていなければ、もう一度お試しください）'), 'warn');
+          const queued = this.refusedDrafts.length;
           this.returnDraft({ kind: 'add' }, text);
+          this.returnLike(like, queued); // ♡ も戻す（MK6）
           this.render();
         }
         return;
@@ -2486,7 +2830,9 @@ export class MemoBoardPanel {
       if (this.memoId === memoId) this.slideToRead(this.pos.get(id) ?? spot);
       const replies = this.source?.get()?.replies ?? [];
       this.pushUndo({ kind: 'add', id, text: replies.find((r) => r.id === id)?.text ?? text, at: { x: spot.x, y: spot.y } }, geo.layout);
-      if (link) this.named(() => this.drawAddedLink(memoId, link.from, id, link.kind));
+      // 足す → 線 → いいね の一本の順（MK6）：線を引くなら、線の見張りが終わってから drawAddedLink がいいねを送る。線が無ければ、すぐ
+      if (link) this.named(() => this.drawAddedLink(memoId, link.from, id, link.kind, like));
+      else this.likeAdded(memoId, id, like);
       const view = this.freezeView(); // 滑らせたあとの位置（六角のファイルを初めて作るときに入れる）
       this.enqueue(async () => {
         try {
@@ -2518,24 +2864,65 @@ export class MemoBoardPanel {
   }
 
   // 足したカードへ線を引く（CB13）。断られてもカードは残す。線を送ってから積むまでの間は Ctrl+Z を受けない（カードの Undo が線より先に走らないように）
-  private drawAddedLink(memoId: string, from: string, to: string, kind: LinkKind) {
+  //   like：書く欄の ♡（MK6）。線が終わってから（引けなかったときも）続けて likeAdded へ（足す → 線 → いいね の一本の順。Ctrl+Z の止め undoHeld は同じ手番のうちに渡す）
+  private drawAddedLink(memoId: string, from: string, to: string, kind: LinkKind, like: 0 | LikeLevel = 0) {
     const replies = this.source?.get()?.replies ?? [];
     const plan = linkAddPlan(replies, memoId, from, to, kind);
     if (!plan.ok) {
       this.flash(tr('カードは足しましたが線は引けませんでした（{0}）', { 0: plan.note }), 'warn');
       this.noticeAt = Date.now(); // すぐあとの位置の保存の成功で、この一言を消さない
+      this.likeAdded(memoId, to, like);
       return;
     }
-    this.undoBusy = true;
+    this.undoHeld += 1;
     this.paintTools();
     this.ask(plan.command);
     this.watch(memoId, (rs) => linkIs(rs, from, to, kind), (ok) => {
-      this.undoBusy = false;
+      this.undoHeld -= 1;
       if (this.memoId === memoId) {
         if (ok) this.pushUndo({ kind: 'link', from, to, before: null, after: kind });
         else if (!this.quietAfterNotice()) this.flash(tr('カードは足しましたが線は引けませんでした'), 'warn');
       }
       this.paintTools();
+      this.likeAdded(memoId, to, like);
+    });
+  }
+
+  // 書く欄の ♡ で、足したカードにいいねを付ける（MK6）。足したカードが写しに現れ、線の後送りが終わってから呼ぶ（線が無ければ足したすぐあと）。
+  //   送ってから積むまでの間は Ctrl+Z を受けない（線と同じ。積む順を 足す → 線 → いいね に保つ。足したカードを消すまでの Ctrl+Z は最大 3 回）。断られてもカードは残す。
+  //   右クリックの setMark とは別の道（setMark は undoBusy を持たない。線の見張りと取り合わないように）。成功の一言は出さず、前の文も消さない（線の断りの一言を残す）。
+  //   同じカードの印の結果を待っていれば（markWaits）、その次に回す（押しが早いときの setMark と同じ）
+  private likeAdded(memoId: string, id: string, like: 0 | LikeLevel) {
+    if (like === 0 || this.memoId !== memoId) return;
+    const snap = this.source?.get() ?? null;
+    if (!snap || snap.memoId !== memoId) return;
+    const value = likeTag(like);
+    const key = markWaitKey(memoId, id, 'like');
+    const waiting = this.markWaits.get(key);
+    if (waiting) {
+      waiting.next = value === waiting.value ? null : value;
+      return;
+    }
+    const before = markNow(snap.replies, id, 'like');
+    if (before === null || before === value) return;
+    if (markFull(snap.replies, id, 'like', value, MAX_TAGS_PER_TAB)) {
+      this.flash(markFullNote('like', MAX_TAGS_PER_TAB), 'warn');
+      return;
+    }
+    this.markWaits.set(key, { value, next: null });
+    this.undoHeld += 1;
+    this.paintTools();
+    this.ask(markCommand(memoId, id, 'like', value));
+    this.watch(memoId, (rs) => markStateIs(rs, id, 'like', value), (ok) => {
+      const next = this.markWaits.get(key)?.next ?? null;
+      this.markWaits.delete(key); // メモが替わって終えたときも解く
+      this.undoHeld -= 1;
+      if (this.memoId === memoId) {
+        if (ok) this.pushUndo({ kind: 'mark', id, mark: 'like', before, after: value });
+        else if (!this.quietAfterNotice()) this.flash(tr('タグを変えられませんでした'), 'warn');
+      }
+      this.paintTools();
+      if (next !== null && this.memoId === memoId) this.setMark(id, 'like', next);
     });
   }
 
@@ -2612,7 +2999,7 @@ export class MemoBoardPanel {
     const cmds = tagCommands(memoId, snap.replies, ids, add, remove);
     if (cmds.length === 0) return;
     const full = add.reduce((n, tag) => Math.max(n, tagFullCount(snap.replies, ids, tag, MAX_TAGS_PER_TAB)), 0);
-    if (full > 0) this.flash(tr('タグは 1 つに {0} 個までです（{1} 枚には付けられません。ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB, 1: full }), 'warn');
+    if (full > 0) this.flash(tr('タグは 1 つに {0} 個までです（{1} 枚には付けられません。ほかのタグを外してから付けてください）', { 0: MAX_TAGS_PER_TAB, 1: full }) + tagFullMarkNote(snap.replies, ids, add, MAX_TAGS_PER_TAB), 'warn');
     for (const cmd of cmds) this.ask(cmd);
     if (full > 0) return;
     this.watch(
@@ -2717,6 +3104,7 @@ export class MemoBoardPanel {
       other: this.source?.info?.()?.other ?? false,
       picture: image ? this.shotUrls.get(image) : undefined,
       from: from ? replies.find((r) => r.id === from) : undefined,
+      picked: menuPicked(replies, [...this.selected], id), // ［削除］の字（選びの中なら選びの数。MK1）
       actions: this.cardMenuActions(id, x, y, from),
     };
   }
@@ -2862,7 +3250,7 @@ export class MemoBoardPanel {
 
   private openCardMenu(id: string, x: number, y: number, from: string | null) {
     const menu = this.getMenu();
-    menu.node.style.setProperty('--cell-menu-note-max', `${Math.max(64, Math.min(160, window.innerHeight - 190))}px`); // 下のタブの低い面では、囲みを低くする
+    menu.node.style.setProperty('--cell-menu-note-max', `${Math.max(64, Math.min(160, window.innerHeight - 250))}px`); // 下のタブの低い面では、囲みを低くする（190 に、MK6 のいいねの行と MK7 の色の行の分の見込み 30 ずつを足した。開発画面では測っていない）
     const seq = ++this.menuSeq;
     menu.open(x, y, this.cardMenuItems(id, x, y, from));
     this.loadMenuPicture(id, seq, () => this.cardMenuItems(id, x, y, from));
@@ -3000,6 +3388,25 @@ export class MemoBoardPanel {
       },
       // 型を足す…：型の一覧を読んでから、型の段へ替える（TA2）。← 戻る はカードの段を開き直す
       template: (reply) => void this.openTemplateTier({ kind: 'card', id: reply.id }, { x, y }, () => this.openCardMenu(id, x, y, from)),
+      // ［削除］（MK1）：押したときに選びを見直す。押したカードが選びの中で 2 枚以上なら選んだ全部、そうでなければ選びをそのカード 1 枚にしてから、道具の列の［削除］と同じ道へ（確かめは無い。一言と Ctrl+Z も同じ）
+      //   メニューを開いている間に押したカードが消えていたら、選びを替えずに一言で止める（タグを書く欄と同じ一言）。写しが無いときは removeSelected の守りに任せる
+      remove: (reply) => {
+        const snap = this.source?.get() ?? null;
+        if (snap && !cardAppeared(snap.replies, reply.id)) {
+          this.flash(tr('カードがもうありません'), 'warn');
+          return;
+        }
+        const many = menuPicked(snap?.replies ?? [], [...this.selected], reply.id) >= 2;
+        const editing = this.composing?.kind === 'edit' ? this.composing.id : null; // 書き直し中のカードは消さない（書いた文が黙って消えるため。右クリックの道だけ）
+        if (editing !== null && (editing === reply.id || (many && this.selected.has(editing)))) {
+          this.flash(tr('書き直しの欄を閉じてから削除してください'), 'warn');
+          return;
+        }
+        if (!many) this.setSelected(new Set([reply.id]));
+        this.removeSelected();
+      },
+      // いいねの行（MK6）と色の行（MK7）：押したカード 1 枚だけ（選びは替えない）。止めと元に戻すへの積みは setMark
+      mark: (reply, kind, value) => this.setMark(reply.id, kind, value),
     };
   }
 
@@ -3575,6 +3982,45 @@ export class MemoBoardPanel {
       else if (!this.quietAfterNotice()) this.flash(tr('関連を外せませんでした'), 'warn');
     });
   }
+
+  // カードの印（♥・色。MK5）を value（likes.ts の likeTag・colorTag の値。空＝外す）にする。口は右クリックの「いいね」の行（MK6）と「色」の行（MK7）
+  //   今と同じなら送らない。新しく足すとタグが 10 個を超えるなら、送らずに断る（左も同じ決まりで断る）。
+  //   元に戻すに積むのは、左の写しで値が替わったのを見てから（断られたら積まない）。
+  //   うまくいったときは一言を出さない（結果は面に見える。quietSuccess で前の失敗の文は消す。MK6）。undoBusy は持たない（線の後送りの見張りと取り合わないように。書く欄の ♡ は likeAdded）
+  //   押しが早いとき（MK6。計画 §4.6）：同じカード・同じ種類の印の結果を待っている間（markWaits）に呼ばれたら、前の値は待っている値として扱い（同じなら何もしない）、
+  //   送るのは前の結果を見てから（最後に押した値だけ）。待たずに送ると、前の見張りが途中の値を見逃して 3 秒後に誤って断りの一言を出し、積む順も崩れるため
+  setMark(replyId: string, kind: MarkKind, value: string) {
+    const snap = this.source?.get() ?? null;
+    const memoId = this.memoId;
+    if (!snap || !memoId || snap.memoId !== memoId) return;
+    const key = markWaitKey(memoId, replyId, kind);
+    const waiting = this.markWaits.get(key);
+    if (waiting) {
+      waiting.next = value === waiting.value ? null : value;
+      return;
+    }
+    const before = markNow(snap.replies, replyId, kind);
+    if (before === null) {
+      this.flash(tr('カードがもうありません'), 'warn');
+      return;
+    }
+    if (before === value) return;
+    if (markFull(snap.replies, replyId, kind, value, MAX_TAGS_PER_TAB)) {
+      this.flash(markFullNote(kind, MAX_TAGS_PER_TAB), 'warn');
+      return;
+    }
+    this.markWaits.set(key, { value, next: null });
+    this.ask(markCommand(memoId, replyId, kind, value));
+    this.watch(memoId, (rs) => markStateIs(rs, replyId, kind, value), (ok) => {
+      const next = this.markWaits.get(key)?.next ?? null;
+      this.markWaits.delete(key); // メモが替わって終えたときも解く（残すと、そのカードの印をもう送れない）
+      if (this.memoId !== memoId) return;
+      if (ok) this.pushUndo({ kind: 'mark', id: replyId, mark: kind, before, after: value });
+      if (ok) this.quietSuccess();
+      else if (!this.quietAfterNotice()) this.flash(tr('タグを変えられませんでした'), 'warn');
+      if (next !== null) this.setMark(replyId, kind, next); // 待っている間に押された値（前の値は、いま写しにある値）
+    });
+  }
   // ---------- 元に戻す・やり直す（B3-3b） ----------
 
   private resetUndo() {
@@ -3658,17 +4104,21 @@ export class MemoBoardPanel {
   // Ctrl+Z・Ctrl+Shift+Z・Ctrl+Y・ボタン。1 つずつ（戻している最中は受けない）。戻せなかったら一言出して、その 1 件だけ積みから外す（そのあとのメモの変わり方では戻せない）
   private runUndo(dir: UndoDir) {
     if (this.undoBusy || this.hidden) return;
+    // 右クリックのいいね（setMark）の結果を待っている間も受けない（MK6 の見直し）。まだ積んでいないので一つ前の操作が戻ってしまい、
+    //   同じカードの印なら命令が二つ続いて、setMark の見張りが途中の値を見逃すため。undoBusy とは別の条件（setMark は undoBusy を持たない）
+    if (this.markWaits.size > 0) return;
     const snap = this.source?.get() ?? null;
     const memoId = this.memoId;
     if (!snap || !memoId || snap.memoId !== memoId) return;
-    const blocked = undoBlockedNote(this.loaded);
+    const peeked = dir === 'undo' ? this.undo.peekUndo() : this.undo.peekRedo();
+    // カードの印（mark。MK5）はボードのファイルを書かないので、読み込み中・読めないボードでも戻す（形の印も持たない：peekLayout が null）
+    const blocked = peeked?.kind === 'mark' ? null : undoBlockedNote(this.loaded);
     if (blocked) {
       this.flash(blocked, 'warn');
       return;
     }
     // 取り出す前に覗く：始めたときの形が今と違えば取り出さない（その形に戻すと戻せる。HX4）
     const layout = this.undo.peekLayout(dir);
-    const peeked = dir === 'undo' ? this.undo.peekUndo() : this.undo.peekRedo();
     if (layout !== null && peeked && layout !== this.shape) {
       this.flash(undoLayoutNote(peeked, dir, layout), 'info');
       return;
@@ -3681,7 +4131,7 @@ export class MemoBoardPanel {
     this.cancelLink();
     const shape = this.shape; // 始めたときの形＝位置を書く先のファイル（取り出せたのは操作と同じ形のときだけ。結果を待つ間は形を替えない。HX5）
     const version = this.undo.version;
-    this.undoBusy = true;
+    this.undoHeld += 1;
     this.paintTools();
     // result：ok＝積みの反対側へ（next があればそれを）。text＝一言（null なら出さない。保存が終わってから別に出す）。quiet＝失敗の一言は別で出した
     let settled = false;
@@ -3689,7 +4139,7 @@ export class MemoBoardPanel {
       if (settled) return; // 左の断りで先に終えたあとに、写しを待つ側が終わっても二重にしない
       settled = true;
       this.undoAbort = null;
-      this.undoBusy = false;
+      this.undoHeld -= 1;
       if (this.memoId !== memoId) {
         this.paintTools();
         return;
@@ -3813,6 +4263,22 @@ export class MemoBoardPanel {
         });
         return;
       }
+      case 'mark': {
+        // カードの印（MK5）：前の値（やり直しは後の値）を置き直す。カードが無ければ戻さない。足すとタグが 10 個を超えるなら、送らずに断る
+        const target = dir === 'undo' ? op.before : op.after;
+        const now = markNow(replies, op.id, op.mark);
+        if (now === null) return finish({ ok: false });
+        if (now !== target) {
+          if (markFull(replies, op.id, op.mark, target, MAX_TAGS_PER_TAB)) return finish({ ok: false, note: markFullNote(op.mark, MAX_TAGS_PER_TAB) });
+          this.ask(markCommand(memoId, op.id, op.mark, target));
+        }
+        this.watch(memoId, (rs) => markStateIs(rs, op.id, op.mark, target), (ok) => finish(ok ? { ok: true } : { ok: false }));
+        return;
+      }
+      default:
+        // 漏れの検査：種類を足して case を書かないと、型の検査がここで止める（書かないまま動くと undoBusy が下りない）
+        op satisfies never;
+        return finish({ ok: false });
     }
   }
   private releaseSpace() {

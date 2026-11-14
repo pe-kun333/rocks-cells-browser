@@ -323,10 +323,12 @@ export function startSecondary() {
   });
   // タグごとの一覧のすぐ上：検索（メモとコメントは左に探してもらい、タブ・撮影・置き場・単語帳は右の中で探す）
   const searchPanel = new SearchPanel({
-    ask: (seq, query, sort, limit) => askLeft({ command: 'searchMemos', seq, query, sort, limit }),
+    ask: (seq, query, sort, limit, hearts) => askLeft({ command: 'searchMemos', seq, query, sort, limit, ...(hearts ? { hearts } : {}) }), // hearts：切り替え［カードの ♥］の段（MK9。切のときは欄を付けない）
+    copyHearts: (query, min) => askLeft({ command: 'copyCardHearts', query, min }), // ［まとめてコピー］（MK9）：左が同じ条件で台帳から組み直して書く
     memoKnown: (id) => (memoIndex ? memoIndex.some((m) => m.id === id) : null),
     sheetName: (id) => (id === MAIN_SHEET ? null : (sheets.find((s) => s.id === id)?.name ?? tr('シート'))),
     openMemo: (item) => askLeft({ command: 'openMemoPane', id: item.memoId, ...(item.replyId ? { replyId: item.replyId } : {}), from: 'search' }),
+    openBoard: (id, replyId) => askLeft({ command: 'openBoardCard', id, replyId }), // ［上で開く］（MK4）：上のボードでこのカードを選んで見せる（返信は左が一番上のカードに直す）
     showMemo: (id) => askLeft({ command: 'showMemo', id }),
     local: (query, kinds) => {
       // 右が持っているもの（タブの写し・撮影の台帳・置き場の目次・単語帳の写し）から探す。まだ無いものは知らせに回す

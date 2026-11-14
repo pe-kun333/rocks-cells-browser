@@ -609,7 +609,8 @@ describe('grok-cards.css：六角のカード（HX4 の節）', () => {
   it('箱は 150×174。div は押せず、多角形の顔だけが押しを受ける（visiblePainted）。svg は外へはみ出して描ける', () => {
     expect(decls('.memo-board-stage .memo-board-card.is-hex')).toMatchObject({ width: '150px', height: '174px', 'pointer-events': 'none', isolation: 'isolate', '--board-card-lines': '5' });
     expect(decls('.memo-board-hex-svg')).toMatchObject({ overflow: 'visible', 'pointer-events': 'none' });
-    expect(decls('.memo-board-hex-face')).toMatchObject({ fill: 'var(--surface)', stroke: 'var(--border)', 'stroke-width': '1.5', 'pointer-events': 'visiblePainted' });
+    // 顔の地は、色の印のカードだけ淡い地（MK7。--card-mark-fill は data-mark-color の規則が入れる。無ければ --surface）
+    expect(decls('.memo-board-hex-face')).toMatchObject({ fill: 'var(--card-mark-fill, var(--surface))', stroke: 'var(--border)', 'stroke-width': '1.5', 'pointer-events': 'visiblePainted' });
     expect(decls('.memo-board-hex-ring')).toMatchObject({ display: 'none', fill: 'none', stroke: 'var(--accent-line)', 'stroke-width': '3', 'pointer-events': 'none' });
   });
   it('選んだカードは上に描き、内側の輪を出す。線の元は顔の縁の破線。足したカードは顔の地を光らせる', () => {
@@ -644,8 +645,9 @@ describe('grok-cards.css：六角のカード（HX4 の節）', () => {
   });
   it('色は今のテーマの変数だけ（直書き・名前の色・oklch を使わない）。切り替えのボタンの押している見た目も同じ変数', () => {
     expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|oklch\(|:\s*(white|black|gray|grey|red|blue|green)\b/);
-    const vars = new Set([...block.matchAll(/var\((--[a-z-]+)\)/g)].map((m) => m[1]));
-    expect([...vars].sort()).toEqual(['--accent-ink', '--accent-line', '--accent-soft', '--border', '--muted', '--shell-focus', '--surface', '--text']);
+    // 代わりの値つき（var(--x, 1)）と数字を含む名前も数える（MK6。♥ の縁の --heart・段の --card-heart-px・倍率の --board-zoom を足した。MK7 で顔の地の --card-mark-fill を足した）
+    const vars = new Set([...block.matchAll(/var\((--[a-z0-9-]+)[,)]/g)].map((m) => m[1]));
+    expect([...vars].sort()).toEqual(['--accent-ink', '--accent-line', '--accent-soft', '--board-zoom', '--border', '--card-heart-px', '--card-mark-fill', '--heart', '--muted', '--shell-focus', '--surface', '--text']);
     expect(decls('.memo-board-shape[aria-pressed=\'true\']')).toEqual({ 'border-color': 'var(--accent-line)', background: 'var(--accent-soft)', color: 'var(--accent-ink)', 'font-weight': '700' });
     expect(decls('.memo-board-tool.memo-board-shape-tool[aria-pressed=\'true\']')).toEqual({ 'border-color': 'var(--accent-line)', background: 'var(--accent-soft)', color: 'var(--accent-ink)', 'font-weight': '700' });
   });

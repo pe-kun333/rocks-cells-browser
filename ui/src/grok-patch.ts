@@ -11,6 +11,7 @@ import { cleanBotLine, cleanBotText, cutChars } from './bot-replies';
 import { IMPORT_FILE_BYTES, IMPORT_FILE_LABEL, withinImportBytes } from './import-limits';
 import { shortHash } from './memo-interchange';
 import { isLinkKind, type LinkKind } from './memo-card-links';
+import { isMarkTag, markCountNote } from './grok-cards-tags';
 import { TAG_PALETTE, normalizeTag } from './tags';
 
 export const PATCH_LIMITS = {
@@ -64,12 +65,13 @@ const text = (v: unknown, max: number) => (typeof v === 'string' ? cutChars(clea
 const line = (v: unknown, max: number) => (typeof v === 'string' ? cutChars(cleanBotLine(v), max).text : '');
 const id = (v: unknown) => (typeof v === 'string' && ID_RE.test(v) ? v : null);
 const url = (v: unknown) => (typeof v === 'string' && /^https?:\/\/\S{1,2040}$/.test(v) ? v : undefined);
+// カードの印（♥・色。MK5）の値は通さない（提案で印が付く・外れる・2 つになるのを防ぐ。印は使う人が付ける）
 function tags(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   const out: string[] = [];
   for (const raw of v) {
     const t = normalizeTag(typeof raw === 'string' ? cleanBotLine(raw) : raw);
-    if (t && !out.includes(t)) out.push(t);
+    if (t && !isMarkTag(t) && !out.includes(t)) out.push(t);
     if (out.length >= PATCH_LIMITS.tagsPerOp) break;
   }
   return out;
@@ -427,9 +429,11 @@ export function planPatch(patch: GrokPatch, world: PatchWorld): PlanItem[] {
         if (r.memo && r.memo.special && !r.card) return fail('refused', '入口・ボット・アプリのセルには付けません');
         item.changedSince = since(r.memo, r.card);
         const next = op.op === 'tags.add' ? [...now, ...op.tags.filter((t) => !now.includes(t))] : now.filter((t) => !op.tags.includes(t));
-        if (next.length > world.maxTags) return fail('refused', `タグは 1 つに ${world.maxTags} 個までです`);
-        item.before = list(now);
-        item.after = list(next);
+        // 上限は印も数える（生のまま）。前後の字には印を出さない（MK5）
+        if (next.length > world.maxTags) return fail('refused', `タグは 1 つに ${world.maxTags} 個までです${markCountNote(now)}`);
+        const shown = (t: readonly string[]) => t.filter((x) => !isMarkTag(x));
+        item.before = list(shown(now));
+        item.after = list(shown(next));
         if (next.length === now.length && next.every((t, i) => t === now[i])) return fail('same', 'もうそうなっています');
         return item;
       }

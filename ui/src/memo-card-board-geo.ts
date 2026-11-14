@@ -33,6 +33,7 @@ export interface BoardGeo {
   route?(a: Pt, b: Pt, others: readonly Pt[]): EdgeGeometry | null;
   hits(rect: Rect, at: Pt): boolean; // 範囲選択：ボードの座標の四角が、そのカード（箱の左上 at）に掛かるか
   menuAnchor(at: Pt): Pt; // メニュー・📌・［移る］の出し口（ボードの座標）
+  readonly badge: Pt; // 吹き出しの番号の小札を置く点（箱の左上から。四角は左上の角、六角は上の頂点。MK8b。画面へは memo-card-board-callouts.ts の calloutBadgeAt）
 }
 
 export const SQUARE_GEO: BoardGeo = {
@@ -53,6 +54,7 @@ export const SQUARE_GEO: BoardGeo = {
   edge: (a, b) => edgeGeometry(a, b),
   hits: (rect, at) => at.x < rect.x + rect.w && at.x + BOARD_CARD.w > rect.x && at.y < rect.y + rect.h && at.y + BOARD_CARD.h > rect.y,
   menuAnchor: (at) => ({ x: at.x + BOARD_CARD.w, y: at.y }),
+  badge: { x: 0, y: 0 },
 };
 
 export const HEX_GEO: BoardGeo = {
@@ -74,6 +76,7 @@ export const HEX_GEO: BoardGeo = {
   route: (a, b, others) => hexRoutedEdge(a, b, others),
   hits: (rect, at) => hexHitsRect(rect, at),
   menuAnchor: (at) => hexMenuAnchor(at),
+  badge: { x: HEX_CENTER.x, y: 0 }, // 上の頂点（頂点が上の正六角。中心の真上の y＝0）
 };
 
 export const geoOf = (layout: BoardLayout): BoardGeo => (layout === 'hex' ? HEX_GEO : SQUARE_GEO);

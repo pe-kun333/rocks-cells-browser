@@ -83,6 +83,8 @@ interface MountOpts {
   closeLists(): void;
   pane: HTMLElement;
   setCardsUpper(on: boolean, owner?: 'cards' | 'board'): void; // 上の入れ物（段 9・案 C）。owner は上に入れるもの（既定は Grok Cards）
+  borrowUpper?(needPx: number): boolean; // ボードの「［全体］の間」だけ境目を下げる（保存しない。下げたら true。MK3）。ボードの BoardCommands へそのまま渡す
+  releaseUpper?(): void; // 借りた高さを戻す（借りる前の割合へ。借りていなければ何もしない。MK3）
   paneHeight?: PaneHeightApi; // 区画の高さの道（つまみと同じ）。「ボード」の［拡大］で使う
   boardSource?: BoardSource; // いま開いているメモのカードの写し（読むだけ）。「ボード」に描く
   boardPick?: BoardMemoPick; // ボードの見るメモの名札・選び口（M3）
@@ -261,7 +263,7 @@ class GrokCardsView {
     if (this.tab === 'memo') return this.consumeBoardUpperEsc(e);
     const target = e.target;
     const inField = target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement;
-    const action = escAction(this.tab, { inField, picker: this.picker, boardExpanded: this.board?.expanded, boardDragging: this.board?.dragging, boardSelected: this.board?.hasSelection });
+    const action = escAction(this.tab, { inField, picker: this.picker, boardExpanded: this.board?.expanded, boardDragging: this.board?.dragging, boardSelected: this.board?.hasSelection, boardOverview: this.board?.inOverview });
     if (action === 'ignore') return false;
     e.preventDefault();
     if (action === 'close-picker') {
@@ -277,6 +279,10 @@ class GrokCardsView {
       this.board?.clearSelection();
       return true;
     }
+    if (action === 'leave-overview') {
+      this.board?.leaveOverview(); // 「［全体］の間」：全体の前の位置へ戻る（縮めるより前。MK2）
+      return true;
+    }
     if (action === 'shrink-board') {
       this.board?.shrink();
       return true;
@@ -287,7 +293,7 @@ class GrokCardsView {
     return true;
   }
 
-  // ボードを上に出しているあいだの Esc（C4）。つまむのを取り消す→選びを外す、まで。縮めない・メモのタブへ戻さない・下へ戻さない（戻すのは［下に戻す］だけ。U9）
+  // ボードを上に出しているあいだの Esc（C4）。つまむのを取り消す→選びを外す→「［全体］の間」なら全体の前へ戻る（MK2）、まで。縮めない・メモのタブへ戻さない・下へ戻さない（戻すのは［下に戻す］だけ。U9）
   //   下の帯のメモ側（フォーカスが下の帯・境目）の Esc は、メモの今までの Esc に任せる。上に出していないとき（段 "2" 無しも含む）は、今までどおり何もしない
   private consumeBoardUpperEsc(e: KeyboardEvent): boolean {
     const board = this.board;
@@ -299,7 +305,7 @@ class GrokCardsView {
     if (!board.keysAllowed(e.target)) return false;
     const target = e.target;
     const inField = target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement;
-    const action = escActionFor('memo', { inField, picker: false, boardDragging: board.dragging, boardSelected: board.hasSelection }, true);
+    const action = escActionFor('memo', { inField, picker: false, boardDragging: board.dragging, boardSelected: board.hasSelection, boardOverview: board.inOverview }, true);
     if (action === 'cancel-drag') {
       e.preventDefault();
       board.cancelDrag();
@@ -308,6 +314,11 @@ class GrokCardsView {
     if (action === 'clear-selection') {
       e.preventDefault();
       board.clearSelection();
+      return true;
+    }
+    if (action === 'leave-overview') {
+      e.preventDefault();
+      board.leaveOverview(); // 「［全体］の間」：全体の前の位置へ戻る（焦点の止めより前。MK2）
       return true;
     }
     // 取り消すものが無いとき：ボードの面の中（ボタンなど。欄は除く）にフォーカスがあるなら、何もしない（メモの帯を閉じない）。どこにも無いときは、メモの今までの Esc に任せる
@@ -435,7 +446,7 @@ class GrokCardsView {
   private ensureBoard() {
     if (!this.board) {
       const place: BoardPlaceHook = { request: (to) => this.placeBoard(to) };
-      const panel = new MemoBoardPanel(this.o.paneHeight, this.o.boardSource, { ask: (action) => (this.o.boardAsk ?? this.o.ask)(action), pick: this.o.boardPick, onNotice: this.o.boardNotices?.onNotice, onUndoSend: this.o.boardNotices?.onUndoSend, template: this.o.boardTemplate, place, showList: () => this.showMemo() });
+      const panel = new MemoBoardPanel(this.o.paneHeight, this.o.boardSource, { ask: (action) => (this.o.boardAsk ?? this.o.ask)(action), pick: this.o.boardPick, onNotice: this.o.boardNotices?.onNotice, onUndoSend: this.o.boardNotices?.onUndoSend, template: this.o.boardTemplate, place, showList: () => this.showMemo(), borrowUpper: this.o.borrowUpper, releaseUpper: this.o.releaseUpper });
       const btn = el('button', 'grok-cards-tab board-tab', t('ボード'));
       btn.type = 'button';
       btn.dataset.key = 'board-tab';

@@ -65,7 +65,7 @@ export function newIslandId() {
 // 島ごとに、入るタブの行き先を決める。戻り値：タブ → 行き先のセル
 //   ・それぞれの島は、入るタブの今の位置の「まん中」にいちばん近いタブのセルから、近い順に空いたセルを使う
 //   ・島に入らないタブのセルと、先に置いた島のまわり1マスは使わない
-//   others：タブ以外でふさがっているセル（メモのセル）
+//   others：タブ以外でふさがっているセル（メモのセル・ポータルのマス）
 export function layoutIslands(tabs: Tab[], groups: { tabIds: number[] }[], others: Hex[] = []): Map<number, Hex> {
   const moving = new Set(groups.flatMap((g) => g.tabIds));
   const taken = new Set([...tabs.filter((t) => !moving.has(t.id)).map((t) => hexKey(t.pos)), ...others.map(hexKey)]);

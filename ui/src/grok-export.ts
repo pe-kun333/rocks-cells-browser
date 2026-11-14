@@ -5,6 +5,7 @@
 //   ・ここは DOM を使わない（組み立てと大きさの確かめだけ。書くのは呼ぶ側）
 import type { BoardLink } from './board-links';
 import { stripUrlQuery } from './bot-replies';
+import { isMarkTag } from './grok-cards-tags';
 import type { MemoCell } from './memocells';
 import type { Sheet } from './sheets';
 import type { Tab } from './tabs';
@@ -25,6 +26,7 @@ export interface ExportInput {
   kindNames: Record<string, string>; // 盤面の関連の種類の名前
   selection?: { tabs: number[]; memos: string[] }; // scope が selection のとき
   now?: Date;
+  dropMarks?: boolean; // カードの印（♥・色。MK5）を落とす。Grok へ送る書き出しだけ true（提案・取り込みを当てる前の写しは、戻すときに印が消えないように残す）
 }
 
 export interface ExportCard {
@@ -92,12 +94,13 @@ function assemble(input: ExportInput, limits: GrokExport['limits'], cardMax: num
   const cards: ExportCard[] = [];
   for (const m of memos) {
     for (const r of m.replies ?? []) {
+      const tags = input.dropMarks ? (r.tags ?? []).filter((t) => !isMarkTag(t)) : [...(r.tags ?? [])];
       cards.push({
         memo: m.id,
         id: r.id,
         parent: r.parent,
         text: cut(r.text, cardMax),
-        ...(r.tags?.length ? { tags: [...r.tags] } : {}),
+        ...(tags.length ? { tags } : {}),
         ...(r.links?.length ? { links: r.links.map((l) => ({ to: l.to, kind: l.kind })) } : {}),
         ...(r.by ? { by: r.by.name } : {}),
         createdAt: iso(r.createdAt),

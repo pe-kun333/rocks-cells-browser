@@ -174,6 +174,20 @@ describe('クリックと Esc の決まり', () => {
     expect(escAction('memo', { ...base, inField: false, boardSelected: true })).toBe('ignore');
     expect(escAction('cards', { ...base, inField: false, boardSelected: true })).toBe('show-memo');
   });
+  it('ボードの Esc（MK2）：「［全体］の間」なら、選びを外すの直後・縮めるより前に全体の前へ戻る。間でなければ今までどおり', () => {
+    const base = { picker: false };
+    expect(escAction('board', { ...base, inField: false, boardExpanded: true, boardSelected: true, boardDragging: true, boardOverview: true })).toBe('cancel-drag');
+    expect(escAction('board', { ...base, inField: false, boardExpanded: true, boardSelected: true, boardOverview: true })).toBe('clear-selection');
+    expect(escAction('board', { ...base, inField: false, boardExpanded: true, boardSelected: false, boardOverview: true })).toBe('leave-overview');
+    expect(escAction('board', { ...base, inField: false, boardOverview: true })).toBe('leave-overview');
+    expect(escAction('board', { ...base, inField: true, boardOverview: true })).toBe('ignore');
+    expect(escAction('board', { ...base, inField: false, boardExpanded: true, boardOverview: false })).toBe('shrink-board');
+    expect(escAction('board', { ...base, inField: false, boardOverview: false })).toBe('show-memo');
+    // メモ・Grok Cards では、boardOverview が付いていても何も変わらない
+    expect(escAction('memo', { ...base, inField: false, boardOverview: true })).toBe('ignore');
+    expect(escAction('cards', { ...base, inField: false, boardOverview: true })).toBe('show-memo');
+    expect(escAction('cards', { ...base, picker: true, inField: false, boardOverview: true })).toBe('close-picker');
+  });
   it('ボードのタブを出すか：旗がなければ出さない。上に出していれば出さない（ボードを見ている最中を除く）', () => {
     expect(boardTabShown(false, 'memo', false)).toBe(false);
     expect(boardTabShown(false, 'board', true)).toBe(false);

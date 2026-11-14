@@ -62,10 +62,21 @@ describe('上のボードの Esc（escActionFor）', () => {
     for (const drag of [false, true]) for (const sel of [false, true]) for (const field of [false, true]) for (const ex of [false, true]) all.add(escActionFor('memo', { ...o, inField: field, boardExpanded: ex, boardDragging: drag, boardSelected: sel }, true));
     expect([...all].sort()).toEqual(['cancel-drag', 'clear-selection', 'ignore']);
   });
+  it('「［全体］の間」（MK2）：ボードが間と知らせたときだけ、選びを外すの直後に全体の前へ戻る（答えは 4 種。縮める・メモ・下へ戻すは無いまま）', () => {
+    expect(escActionFor('memo', { ...o, inField: false, boardOverview: true }, true)).toBe('leave-overview');
+    expect(escActionFor('memo', { ...o, inField: false, boardSelected: true, boardOverview: true }, true)).toBe('clear-selection'); // 1 回目の Esc は選びを外すだけ
+    expect(escActionFor('memo', { ...o, inField: false, boardDragging: true, boardOverview: true }, true)).toBe('cancel-drag');
+    expect(escActionFor('memo', { ...o, inField: true, boardOverview: true }, true)).toBe('ignore'); // 欄の中なら何もしない
+    expect(escActionFor('memo', { ...o, inField: false, boardOverview: false }, true)).toBe('ignore');
+    expect(escActionFor('cards', { ...o, inField: false, boardOverview: true }, true)).toBe('show-memo'); // 下が Grok Cards なら Grok Cards の Esc のまま
+    const all = new Set<string>();
+    for (const drag of [false, true]) for (const sel of [false, true]) for (const field of [false, true]) for (const ex of [false, true]) for (const ov of [false, true]) all.add(escActionFor('memo', { ...o, inField: field, boardExpanded: ex, boardDragging: drag, boardSelected: sel, boardOverview: ov }, true));
+    expect([...all].sort()).toEqual(['cancel-drag', 'clear-selection', 'ignore', 'leave-overview']);
+  });
   it('下に出している（上に出していない）ときは、今までの escAction と全部同じ', () => {
     for (const t of ['memo', 'cards', 'board'] as const) {
-      for (const picker of [false, true]) for (const field of [false, true]) for (const ex of [false, true]) for (const drag of [false, true]) for (const sel of [false, true]) {
-        const opts = { inField: field, picker, boardExpanded: ex, boardDragging: drag, boardSelected: sel };
+      for (const picker of [false, true]) for (const field of [false, true]) for (const ex of [false, true]) for (const drag of [false, true]) for (const sel of [false, true]) for (const ov of [false, true]) {
+        const opts = { inField: field, picker, boardExpanded: ex, boardDragging: drag, boardSelected: sel, boardOverview: ov };
         expect(escActionFor(t, opts, false)).toBe(escAction(t, opts));
       }
     }

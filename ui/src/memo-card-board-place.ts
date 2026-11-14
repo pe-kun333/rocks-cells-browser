@@ -128,16 +128,17 @@ export interface EscOpts {
   boardExpanded?: boolean;
   boardDragging?: boolean;
   boardSelected?: boolean;
+  boardOverview?: boolean; // ボードが「［全体］の間」（MK2）
 }
 
-// Esc：ボードを上に出していないときは今までと同じ。出しているあいだは、つまむのを取り消す→（文字欄の中なら何もしない）→選びを外す、まで。
+// Esc：ボードを上に出していないときは今までと同じ。出しているあいだは、つまむのを取り消す→（文字欄の中なら何もしない）→選びを外す→「［全体］の間」なら全体の前へ戻る（MK2）、まで。
 //   縮める・メモへ戻す・下へ戻すはしない（誤操作を避ける。戻すのは「下に戻す」のボタンだけ。U9）。Grok Cards を下で見ているときは、Grok Cards の Esc のまま
 export function escActionFor(tab: PaneTab, opts: EscOpts, boardUpper: boolean): EscAction {
   if (!boardUpper) return escAction(tab, opts);
   if (opts.boardDragging === true) return 'cancel-drag';
   if (tab === 'cards') return escAction('cards', opts);
   if (opts.inField) return 'ignore';
-  return opts.boardSelected === true ? 'clear-selection' : 'ignore';
+  return opts.boardSelected === true ? 'clear-selection' : opts.boardOverview === true ? 'leave-overview' : 'ignore';
 }
 
 // 旗と読んだ値から、ホストへ渡す命令まで一度に決める入口（配線のときの置き換え先）。段 "2" が無ければ grok-cards-place.ts の hostPlaceCommand と必ず同じ（試験で全組み合わせを確かめる）

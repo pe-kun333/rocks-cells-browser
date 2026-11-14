@@ -151,7 +151,7 @@ export interface TemplateReport {
     children: number; // 下の返信（💬）
     images: number;
     quotes: number;
-    machineTags: number; // 宛て:・送った:・貼った:
+    machineTags: number; // 宛て:・送った:・貼った:・カードの印（♥・色。MK5。grok-cards-tags.ts の isMachineTag）
     spans?: number; // 結んだ区間（六角で見るの線）のあるカード。1 枚以上のときだけ付く（plan-reader-video の S8）
   };
   holes?: number; // 穴あきのときだけ：空欄の数

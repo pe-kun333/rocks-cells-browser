@@ -39,5 +39,7 @@ describe('公開版の既定：Grok 機能はオフ、Grok Cards の枠は出る
     expect(board).toMatch(/selected: BOT_FEATURES && picked > 0 \?/); // 空きの右クリックの「選んだ n 枚［Grok に頼む］」（Ver0.032β）
     const cards = readFileSync(new URL('../src/app/grok-cards.ts', import.meta.url), 'utf8');
     expect(cards).toMatch(/if \(!BOT_FEATURES\) write\.style\.display = 'none';/);
+    const sheetList = readFileSync(new URL('../src/panels/sheet-list.ts', import.meta.url), 'utf8');
+    expect(sheetList).not.toContain('表示と Grok'); // シートの一覧の ⋯ の説明（Ver0.033β から。G3b）
   });
 });

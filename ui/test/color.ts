@@ -176,6 +176,12 @@ function simulate(rgb: Rgb, vision: Vision): Rgb {
   return CVD[vision].map((row) => unlin(Math.max(0, Math.min(1, row[0] * v[0] + row[1] * v[1] + row[2] * v[2])))) as Rgb;
 }
 
+// OKLCH の色合い（度。0〜360）
+export function oklchHue(color: string): number {
+  const [, a, b] = oklab(parseColor(color));
+  return ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360;
+}
+
 // OKLab の距離（×100）。カテゴリの色どうしは 10 以上あると見分けやすい
 export function deltaE(a: string, b: string, vision: Vision = 'normal'): number {
   const A = oklab(simulate(parseColor(a), vision));

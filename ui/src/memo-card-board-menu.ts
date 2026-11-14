@@ -2,8 +2,9 @@
 //   描くのは app/memo-board-tab.ts。ここで決めるのは：カードの事実の 1 行、乗せた説明の文、カードのメニューの項目
 import { t as tr } from './i18n';
 import type { MenuButton, MenuEntry } from './panels/cell-menu';
-import { visibleTags } from './grok-cards-tags';
-import { editCheck, relationsOf } from './memo-card-board-edit';
+import { markCountNote, visibleTags } from './grok-cards-tags';
+import { cardColor, cardLike, colorTag, type LikeLevel, likeTag, MARK_COLORS, markColorLabel, type MarkKind } from './likes';
+import { deleteTitle, editCheck, liveSelection, relationsOf } from './memo-card-board-edit';
 import { TIDY_LABEL } from './memo-card-board-tidy';
 import { cardLines, replyCount } from './memo-card-board-view';
 import { cardLabel, type LinkKind, linkKindInfo } from './memo-card-links';
@@ -57,7 +58,7 @@ function domainOf(reply: Reply): string {
   }
 }
 
-// カードの事実の 1 行：書き手 · 日時 · 字数（あれば）· 返信 n · 関連 n · ドメイン。項目のつなぎは「 · 」
+// カードの事実の 1 行：書き手 · 日時 · 字数（あれば）· 返信 n · 関連 n · いいね n · 色：名前 · ドメイン。項目のつなぎは「 · 」
 //   書き手：by があれば（AI のカード）名前。名前が空白だけなら AI。by が無ければ（人のカード）あなた
 export function cardFacts(replies: readonly Reply[], reply: Reply): string {
   const items: string[] = [];
@@ -69,6 +70,10 @@ export function cardFacts(replies: readonly Reply[], reply: Reply): string {
   if (replied >= 1) items.push(tr('返信 {0}', { 0: replied }));
   const linked = relationsOf(replies, reply.id).length;
   if (linked >= 1) items.push(tr('関連 {0}', { 0: linked }));
+  const like = cardLike(reply.tags ?? []);
+  if (like > 0) items.push(tr('いいね {0}', { 0: like })); // カードの ♥ の段（MK6。字だけ。乗せた説明 cardTip にも入る）
+  const color = cardColor(reply.tags ?? []);
+  if (color) items.push(tr('色：{0}', { 0: markColorLabel(color) })); // カードの色の印（MK7。字だけ。乗せた説明 cardTip にも入る）
   const host = domainOf(reply);
   if (host) items.push(host);
   return items.join(' · ');
@@ -112,6 +117,8 @@ export interface CardMenuActions {
   link(reply: Reply): void; // このカードから線を引き始める
   tags(reply: Reply): void; // タグの段へ替える
   template(reply: Reply): void; // 型の段へ替える（TA2）
+  remove(reply: Reply): void; // 消す（押したカードが選びの中で 2 枚以上なら選んだ全部。道具の列の［削除］と同じ道。MK1）
+  mark(reply: Reply, kind: MarkKind, value: string): void; // カードの印（♥ は MK6、色は MK7）を value（likes.ts の値。空＝外す）にする。そのカード 1 枚だけ（選びは替えない）
 }
 
 export interface CardMenuInput {
@@ -121,6 +128,7 @@ export interface CardMenuInput {
   other: boolean; // 別のメモを見ている
   picture?: string; // 読めた画像（data:image/ の文字列）
   from?: Reply; // 移ってきた元のカード（あれば先頭に「← 元のカードへ」）
+  picked?: number; // ［削除］で消す枚数（menuPicked。省くと 1。MK1）
   actions: CardMenuActions;
 }
 
@@ -307,10 +315,53 @@ function editRow(input: CardMenuInput, reply: Reply): MenuEntry {
   return { row: tr('編集'), wrap: true, buttons };
 }
 
+export const LIKE_LEVELS: readonly LikeLevel[] = [1, 2, 3];
+
+// いいねの行（MK6。1 段目だけ。編集の行の下）：［♡1］［♡2］［♡3］（今の段が押された見た目）と、付いていれば［外す］。段を直に押すので、段の押しの止めは要らない
+//   押すと閉じる（押された見た目は描き直さないので、開いたままだと古い段が残る）。
+//   今の段を押しても送る（同じ値かどうかは setMark が、今の写しと待っている値で決める。開いたときの写しの段は、結果を待っている間に古くなるため。MK6 の見直し）
+function likeRow(input: CardMenuInput, reply: Reply): MenuEntry {
+  const now = cardLike(reply.tags ?? []);
+  const buttons: MenuButton[] = LIKE_LEVELS.map((level) => ({
+    label: `♡${level}`,
+    pressed: level === now,
+    close: true,
+    run: () => input.actions.mark(reply, 'like', likeTag(level)),
+  }));
+  // 読み上げの名前は、元に戻すの名前と同じ字（色の行の［外す］と分ける。MK7 の見直し。§9.2 の字の外は増やさない）
+  if (now > 0) buttons.push({ label: tr('外す'), aria: tr('いいねを外す'), close: true, run: () => input.actions.mark(reply, 'like', '') });
+  return { row: tr('いいね'), wrap: true, buttons };
+}
+
+// 色の行（MK7。1 段目だけ。いいねの行の下）：色ごとのボタン（字は色の名前。今の色が押された見た目）と、付いていれば［外す］。1 枚に 1 色（替えると前の色は外れる。setReplyMark の置き換え）
+//   押すと閉じる・今の色も送る・そのカード 1 枚だけ（いいねの行と同じ。同じ値かどうかは setMark が決める）
+function colorRow(input: CardMenuInput, reply: Reply): MenuEntry {
+  const now = cardColor(reply.tags ?? []);
+  const buttons: MenuButton[] = MARK_COLORS.map((name) => ({
+    label: markColorLabel(name),
+    pressed: name === now,
+    close: true,
+    run: () => input.actions.mark(reply, 'color', colorTag(name)),
+  }));
+  if (now !== '') buttons.push({ label: tr('外す'), aria: tr('色を外す'), close: true, run: () => input.actions.mark(reply, 'color', '') }); // 読み上げの名前（いいねの行の［外す］と分ける）
+  return { row: tr('色'), wrap: true, buttons };
+}
+
+// ［削除］で消す枚数（MK1）：押したカードが選び（台帳の一番上のカードにあるもの。道具の列と同じ数え方）の中なら選びの数、外なら 1
+//   メニューを開くとき（字）と、押したとき（選びの見直し）の両方で使う
+export function menuPicked(replies: readonly Reply[], selected: readonly string[], id: string): number {
+  const live = liveSelection(replies, selected);
+  return live.includes(id) ? live.length : 1;
+}
+
+// ［削除］の字（MK1）：2 枚以上なら「選んだ n 枚を削除」
+export const menuRemoveLabel = (n: number): string => (n >= 2 ? tr('選んだ {0} 枚を削除', { 0: n }) : tr('削除'));
+
 // 1 段目：カードのメニュー（カードが無ければ、消えたことを一つだけ出す）
 export function cardMenuEntries(input: CardMenuInput): MenuEntry[] {
   const reply = input.replies.find((r) => r.id === input.id && r.parent === null);
   if (!reply) return [{ section: GONE }];
+  const picked = Math.max(1, input.picked ?? 1);
   const out: MenuEntry[] = [];
   if (input.from) out.push({ label: tr('← 元のカードへ'), hint: cardLabel(input.from, 8), run: () => input.actions.back() });
   out.push(
@@ -320,11 +371,15 @@ export function cardMenuEntries(input: CardMenuInput): MenuEntry[] {
     ...relationEntries(input, reply),
     ...writtenEntries(input, reply),
     editRow(input, reply),
+    likeRow(input, reply),
+    colorRow(input, reply),
     {
       row: '',
       buttons: [
         ...(input.upper ? [{ label: tr('📌 留める'), title: tr('閉じずに残して、面を動かしても見ていられるようにします'), close: true, run: () => input.actions.pin(reply) }] : []),
         { label: tr('コピー'), title: tr('全文と出どころをコピーします'), close: true, run: () => input.actions.copy(reply) },
+        // ［削除］（MK1）：確かめは無い（道具の列の［削除］・Delete キーと同じ。説明の字も同じ）
+        { label: menuRemoveLabel(picked), title: deleteTitle(picked), close: true, run: () => input.actions.remove(reply) },
       ],
     },
   );
@@ -379,7 +434,7 @@ export function tagMenuEntries(o: TagMenuInput): MenuEntry[] {
     { section: tr('「{0}」にタグを足す', { 0: cardLabel(reply, 12) }) },
   ];
   if (tags.length >= MAX_TAGS_PER_TAB) {
-    return [...out, { note: tr('タグは 1 つに {0} 個までです。ほかのタグを外してから付けてください', { 0: MAX_TAGS_PER_TAB }) }, ...attached];
+    return [...out, { note: tr('タグは 1 つに {0} 個までです。ほかのタグを外してから付けてください', { 0: MAX_TAGS_PER_TAB }) + markCountNote(tags) }, ...attached]; // 印（♥・色）は数えるが見せないので、付いていればそう書く（MK5）
   }
   if (o.pool.length > 0) {
     const buttons: MenuButton[] = o.pool.map((tag) =>

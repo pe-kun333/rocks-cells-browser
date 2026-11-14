@@ -1,5 +1,35 @@
 # 変更点 / CHANGELOG
 
+## Ver0.033β（2026-11-14）
+
+### 新しくできること
+
+- **カードの印（いいね・色）**：コメントボードのカードに、♥ のいいね（1〜3）と色の印（水・若草・赤紫）を付けられるようになりました。色はカードの淡い地と記号で出ます。ボードを小さくしても ♥ の枠は見えたままです。印はタグの 1 つとして数えます。
+- **カードの削除**：ボードのカードの右クリックに「削除」が入りました。選んだ何枚かをまとめて削除することもできます。
+- **［全体］の間**：［全体］を押したあとは、印の付いたカードに吹き出しが出て、上の区画の高さを借りて広く見られます。倍率の表示を押すか Esc で、［全体］の前の見え方に戻ります。
+- **右の検索**：「カードの ♥」でいいねの付いたカードを探せます（♥1 以上・♥2 以上・新しい順）。「まとめてコピー」と、カードを上のボードで開く「上で開く」も入りました。
+- **ポータル**：盤面の空いたマスを右クリック →「ここにポータルを置く」で、シートごとに 6 つまで目印を置けます。棚の「ポータル」の番号を押すと、そのマスが盤面のまん中に来ます。右クリックで、動かす・番号を替える・入れ替える・外す、ができます。
+- **🌙 先生つき**：AI パネルの三人組で、返事の途中に先生（Claude 先生・フェイブル先生）に見てもらえるようにしました。押すと確認の欄が出て、先生を付ける体を選べます。今日の残りの回数と料金の目安も出ます（API の料金がかかります。練習モードでは何も送りません）。
+
+### 変わったこと
+
+- 新しい画面の文も英語にしました（約 90 件）。英語の画面では、ポータルは「Waypoints」、先生は「mentor」（先生つきは「With mentor」）と出ます。日本語版と英語版は同じ exe で、見た目（テーマ）の小窓の「言語 / Language」で切り替えます。
+- 先生つきの会話の途中に出る案内の一部（先生に見てもらったときの知らせ・回数の上限・止まった理由など）は、英語の画面でも日本語のまま出ます。
+
+### New
+
+- **Card marks (likes and colors)**: you can now add a ♥ like (1–3) and a color mark (Aqua, Leaf green, Magenta) to cards on the comment board. Colors show as a soft card tint and a symbol, and the ♥ frame stays visible when zoomed out. Marks count as one tag each.
+- **Deleting cards**: "Delete" is now on a board card's right-click menu, and you can delete several selected cards at once.
+- **The "All" view**: after you press "All", marked cards get callouts and the board borrows height from the upper area. Click the zoom indicator or press Esc to return to the view before "All".
+- **Right search**: "Card ♥" finds liked cards (♥1+, ♥2+, newest first). "Copy all" and "Open above" (open a card in the upper board) were added too.
+- **Waypoints**: right-click an empty cell on the honeycomb → "Place a waypoint here" to place up to 6 waypoints per sheet. Click a number under "Waypoints" on the shelf to center that cell. Right-click a waypoint to move, renumber, swap or remove it.
+- **🌙 With mentor**: in the AI panel's trio, members can have a mentor (Claude or Fable) review a reply midway. Clicking it shows a confirmation where you choose the members with mentor, with today's remaining uses and cost estimates (API charges apply; practice mode sends nothing).
+
+### Changed
+
+- The new UI text is translated into English too (about 90 strings). The Japanese and English versions are the same exe — switch with "Language" in the appearance (theme) popup.
+- Some messages shown during a with-mentor conversation (the review notice, use limits, why a reply stopped, etc.) still appear in Japanese in the English UI.
+
 ## Ver0.032β（2026-11-11）
 
 ### 新しくできること

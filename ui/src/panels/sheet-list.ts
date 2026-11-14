@@ -76,7 +76,7 @@ export class SheetList {
       pick.setAttribute('aria-pressed', 'false');
       tools.append(pick);
     }
-    if (model.more) tools.append(this.tool('⋯', tr('このシートの名前・消す・アーカイブ、アーカイブの一覧、表示と Grok'), (at) => model.more?.(at)));
+    if (model.more) tools.append(this.tool('⋯', tr('このシートの名前・消す・アーカイブ、アーカイブの一覧、表示'), (at) => model.more?.(at)));
     this.box.setAttribute('role', 'listbox');
     this.node.append(title, this.crumbBar, tools, this.box, this.foot);
     this.render(false);

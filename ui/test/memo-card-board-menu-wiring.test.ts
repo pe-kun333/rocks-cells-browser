@@ -129,6 +129,34 @@ describe('編集の行（書き直す・関連線を足す・タグを足す…�
     );
   });
 
+  it('［削除］（MK1）：押したときに選びを見直す（押したカードが選びの中で 2 枚以上でなければ、選びをそのカード 1 枚に）。そのあと道具の列の［削除］・Delete キーと同じ removeSelected（確かめ・欄の止めは足さない）。字の枚数も同じ menuPicked で数える。押したカードが消えていたら、選びを替えずに一言で止める。書き直し中のカードを消す押しも一言で止める', () => {
+    expect(actions).toContain(
+      lines(
+        '      remove: (reply) => {',
+        '        const snap = this.source?.get() ?? null;',
+        '        if (snap && !cardAppeared(snap.replies, reply.id)) {',
+        "          this.flash('カードがもうありません', 'warn');",
+        '          return;',
+        '        }',
+        '        const many = menuPicked(snap?.replies ?? [], [...this.selected], reply.id) >= 2;',
+      ),
+    );
+    expect(actions).toContain(
+      lines(
+        '        if (editing !== null && (editing === reply.id || (many && this.selected.has(editing)))) {',
+        "          this.flash('書き直しの欄を閉じてから削除してください', 'warn');",
+        '          return;',
+        '        }',
+        '        if (!many) this.setSelected(new Set([reply.id]));',
+        '        this.removeSelected();',
+        '      },',
+      ),
+    );
+    expect(part('private cardMenuInput(', '\n  private cardMenuItems(')).toContain('      picked: menuPicked(replies, [...this.selected], id),\n');
+    expect(count(live, 'this.removeSelected()')).toBe(3); // Delete キー・道具の列・メニュー
+    expect(count(live, 'menuPicked(')).toBe(2);
+  });
+
   it('タグを足す…：候補（pool）をここで 1 回だけ作り（タグの行と同じ候補から、そのときのカードのタグを除く）、replaceMenu でタグの段へ替える。← 戻る はカードの段を開き直す（読む段と同じ）', () => {
     expect(actions).toContain(
       lines(
@@ -270,7 +298,8 @@ describe('編集の行（書き直す・関連線を足す・タグを足す…�
         '    const cmds = tagCommands(memoId, snap.replies, ids, add, remove);',
         '    if (cmds.length === 0) return;',
         '    const full = add.reduce((n, tag) => Math.max(n, tagFullCount(snap.replies, ids, tag, MAX_TAGS_PER_TAB)), 0);',
-        '    if (full > 0) this.flash(tr(\'タグは 1 つに {0} 個までです（{1} 枚には付けられません。ほかのタグを外してから付けてください）\', { 0: MAX_TAGS_PER_TAB, 1: full }), \'warn\');',
+        // 止まったカードに印（♥・色）があれば、その一言も（MK5。計画 §9.2。tagFullMarkNote の動きは card-marks.test.ts）
+        '    if (full > 0) this.flash(tr(\'タグは 1 つに {0} 個までです（{1} 枚には付けられません。ほかのタグを外してから付けてください）\', { 0: MAX_TAGS_PER_TAB, 1: full }) + tagFullMarkNote(snap.replies, ids, add, MAX_TAGS_PER_TAB), \'warn\');',
         '    for (const cmd of cmds) this.ask(cmd);',
         '    if (full > 0) return;',
         '    this.watch(',

@@ -34,8 +34,10 @@ describe('memo-board-tab.ts：うまくいった操作は一言を出さない',
     expect(quiet).toContain('this.clearFlash()');
     expect(quiet.indexOf('this.quietAfterNotice()')).toBeLessThan(quiet.indexOf('this.clearFlash()'));
   });
-  it('quietSuccess の呼び出しは 7 か所（HX5：足して位置が変わらなかったときも静かに終える）', () => {
-    expect(code(tab).match(/this\.quietSuccess\(\)/g)).toHaveLength(7);
+  it('quietSuccess の呼び出しは 8 か所（HX5：足して位置が変わらなかったときも静かに終える。MK6：右クリックのいいね setMark も）', () => {
+    expect(code(tab).match(/this\.quietSuccess\(\)/g)).toHaveLength(8);
+    expect(code(body('setMark(replyId: string,', 'private resetUndo(')).match(/this\.quietSuccess\(\)/g)).toHaveLength(1); // 右クリックのいいね（MK6）
+    expect(code(body('private likeAdded(', 'private startEdit(')).match(/this\.quietSuccess\(\)/g)).toBeNull(); // 書く欄の ♡ の後送りは、線の断りの一言を残す
     expect(code(body('private submitAdd(', 'private drawAddedLink(')).match(/this\.quietSuccess\(\)/g)).toHaveLength(2); // 保存できた・もうその位置だった
   });
 });

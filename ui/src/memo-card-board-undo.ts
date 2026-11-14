@@ -1,9 +1,11 @@
 // ボードの元に戻す・やり直しの計算（B3-3b。DOM も保存も使わない。ui/test/memo-card-board-undo.test.ts）
-//   積み（UndoStack）：移動・足す・消す・線・型の貼り付けを 50 回まで。メモを切り替えたら捨てる（画面側の clear）。新しい操作を積むと「やり直し」の積みは空になる
+//   積み（UndoStack）：移動・足す・消す・線・型の貼り付け・カードの印を 50 回まで。メモを切り替えたら捨てる（画面側の clear）。新しい操作を積むと「やり直し」の積みは空になる
 //   戻し方（QB8・計画書 §9）：移動＝座標を戻す／足す＝そのカード（事前に決めた id）を removeReply（undoToken なし）／消す＝restoreReplies（B3-3a。削除のたびの undoToken）／
 //   線＝逆の changeReplyLinks／型の貼り付け＝undoSendReplies（既存）。やり直し：移動＝座標／足す＝同じ id で足し直す／消す＝新しい undoToken で消し直す／線＝もう一度／貼り付け＝貼り直し（id は新しい）
+//   カードの印（♥・色。MK5）＝前の値を setReplyMark で置き直す（やり直しは後の値）。タグ・書き直しは今も積まない（印だけ開け直す）
 //   ここで決めるのは：積みの動き・命令の中身・確かめ（写しにどうなれば成功か）・ボタンの文。台帳を書くのは左だけ（命令を送るだけ）。画面は app/memo-board-tab.ts
 import { t } from './i18n';
+import { type MarkKind, markOf, withMark } from './likes';
 import type { BoardLayout, NodeMove } from './memo-card-board';
 import type { LoadBoardResult } from './memo-card-board-store';
 import type { Pt } from './memo-card-board-select';
@@ -25,15 +27,20 @@ export type UndoOp =
   | { kind: 'add'; id: string; text: string; at: Pt } // at：足した座標（その操作を始めたときの形のファイルの位置。HX5 は六角でも位置を持つ）
   | { kind: 'remove'; ids: string[]; at: Record<string, Pt>; token: string } // token：消したときに付けた undoToken（restoreReplies で使う）。at：消す前の座標（始めたときの形の位置）
   | { kind: 'link'; from: string; to: string; before: LinkKind | null; after: LinkKind | null } // from→to の線の種類（無ければ null）の、操作の前と後
-  | { kind: 'paste'; template: CardTemplate; ids: string[]; at: Pt[]; token: string | null }; // at：貼ったカードの座標（ids と同じ順）。token：左が返した undoSend の印（まだ届かなければ null）
+  | { kind: 'paste'; template: CardTemplate; ids: string[]; at: Pt[]; token: string | null } // at：貼ったカードの座標（ids と同じ順）。token：左が返した undoSend の印（まだ届かなければ null）
+  // カードの印（♥・色。MK5）：id のカードの mark の種類の印の、操作の前と後（likes.ts の値。無ければ空）。ボードのファイルを書かず、位置も持たない
+  | { kind: 'mark'; id: string; mark: MarkKind; before: string; after: string };
 
 export type UndoDir = 'undo' | 'redo';
 
 // 積みの一つ：操作と、始めたときの形（HX4。印は UndoOp の外に持つので、mapOpIds で落ちない）。位置はどれもその形のファイルの位置（HX5）
+//   カードの印（mark）は形を持たない（null）：どちらの形でも戻せる
 interface UndoEntry {
   op: UndoOp;
-  layout: BoardLayout;
+  layout: BoardLayout | null;
 }
+
+const entryOf = (op: UndoOp, layout: BoardLayout): UndoEntry => ({ op, layout: op.kind === 'mark' ? null : layout });
 
 export class UndoStack {
   private done: UndoEntry[] = [];
@@ -55,7 +62,7 @@ export class UndoStack {
 
   // 新しい操作を積む（やり直しの積みは空になる。UNDO_LIMIT を超えたら古いものから捨てる）。layout：始めたときの形（既定は四角）
   push(op: UndoOp, layout: BoardLayout = 'square') {
-    this.done.push({ op, layout });
+    this.done.push(entryOf(op, layout));
     if (this.done.length > UNDO_LIMIT) this.done.splice(0, this.done.length - UNDO_LIMIT);
     this.undone = [];
     this.ver += 1;
@@ -95,7 +102,7 @@ export class UndoStack {
   finish(dir: UndoDir, op: UndoOp, version: number, layout: BoardLayout = 'square') {
     if (version !== this.ver) return;
     const to = dir === 'undo' ? this.undone : this.done;
-    to.push({ op, layout });
+    to.push(entryOf(op, layout));
     if (to.length > UNDO_LIMIT) to.splice(0, to.length - UNDO_LIMIT);
   }
 
@@ -127,6 +134,8 @@ export function mapOpIds(op: UndoOp, map: ReadonlyMap<string, string>): UndoOp {
       return { ...op, from: mapId(map, op.from), to: mapId(map, op.to) };
     case 'paste':
       return { ...op, ids: op.ids.map((id) => mapId(map, id)) };
+    case 'mark':
+      return { ...op, id: mapId(map, op.id) };
   }
 }
 
@@ -144,6 +153,10 @@ export function opLabel(op: UndoOp): string {
       return op.before === null ? t('関連を付ける') : op.after === null ? t('関連を外す') : t('関連の種類を変える');
     case 'paste':
       return t('型「{0}」の貼り付け', { 0: op.template.name });
+    case 'mark':
+      // 種類ごとに文を丸ごと（英語でも自然に読めるように）
+      if (op.mark === 'like') return op.before === '' ? t('いいねを付ける') : op.after === '' ? t('いいねを外す') : t('いいねを変える');
+      return op.before === '' ? t('色を付ける') : op.after === '' ? t('色を外す') : t('色を変える');
   }
 }
 
@@ -163,16 +176,20 @@ export interface UndoButtons {
 //   layout：いまの形と、次に戻す・やり直す操作を始めたときの形（HX4）。形が違えば押せず、その形に戻すと戻せると書く。無ければ形を見ない
 export function undoButtons(input: { undo: UndoOp | null; redo: UndoOp | null; busy: boolean; load: LoadBoardResult | null; layout?: { now: BoardLayout; undo: BoardLayout | null; redo: BoardLayout | null } }): UndoButtons {
   if (input.busy) return { undo: { enabled: false, note: t('元に戻している途中です') }, redo: { enabled: false, note: t('元に戻している途中です') } };
-  const blocked = undoBlockedNote(input.load);
+  // カードの印（mark。MK5）はボードのファイルを書かないので、読み込み中・読めないボード・形の違いでは止めない
+  const loadNote = undoBlockedNote(input.load);
+  const blockedFor = (op: UndoOp): string | null => (op.kind === 'mark' ? null : loadNote);
   const other = (dir: UndoDir, op: UndoOp): string | null => {
     const at = input.layout?.[dir] ?? null;
-    return input.layout && at !== null && at !== input.layout.now ? undoLayoutNote(op, dir, at) : null;
+    return op.kind !== 'mark' && input.layout && at !== null && at !== input.layout.now ? undoLayoutNote(op, dir, at) : null;
   };
+  const undoBlocked = input.undo === null ? null : blockedFor(input.undo);
+  const redoBlocked = input.redo === null ? null : blockedFor(input.redo);
   const undoOther = input.undo === null ? null : other('undo', input.undo);
   const redoOther = input.redo === null ? null : other('redo', input.redo);
   return {
-    undo: input.undo === null ? { enabled: false, note: UNDO_EMPTY_NOTE } : blocked ? { enabled: false, note: blocked } : undoOther ? { enabled: false, note: undoOther } : { enabled: true, note: t('「{0}」を元に戻します（Ctrl+Z）', { 0: opLabel(input.undo) }) },
-    redo: input.redo === null ? { enabled: false, note: REDO_EMPTY_NOTE } : blocked ? { enabled: false, note: blocked } : redoOther ? { enabled: false, note: redoOther } : { enabled: true, note: t('「{0}」をやり直します（Ctrl+Shift+Z／Ctrl+Y）', { 0: opLabel(input.redo) }) },
+    undo: input.undo === null ? { enabled: false, note: UNDO_EMPTY_NOTE } : undoBlocked ? { enabled: false, note: undoBlocked } : undoOther ? { enabled: false, note: undoOther } : { enabled: true, note: t('「{0}」を元に戻します（Ctrl+Z）', { 0: opLabel(input.undo) }) },
+    redo: input.redo === null ? { enabled: false, note: REDO_EMPTY_NOTE } : redoBlocked ? { enabled: false, note: redoBlocked } : redoOther ? { enabled: false, note: redoOther } : { enabled: true, note: t('「{0}」をやり直します（Ctrl+Shift+Z／Ctrl+Y）', { 0: opLabel(input.redo) }) },
   };
 }
 
@@ -212,6 +229,24 @@ export const linkKindOf = (replies: readonly Reply[], from: string, to: string):
 
 // 左の写しで、from→to の線が kind（null＝無い）になっているか
 export const linkStateIs = (replies: readonly Reply[], from: string, to: string, kind: LinkKind | null): boolean => linkKindOf(replies, from, to) === kind;
+
+// カードの印（MK5）：一番上のカード id の mark の種類の印を value（likes.ts の値。空＝外す）にする命令（左がその種類の印を置き換える）
+export const markCommand = (memoId: string, id: string, mark: MarkKind, value: string): RelayCommand => ({ command: 'setReplyMark', id: memoId, replyId: id, kind: mark, value });
+
+// 一番上のカード id の、mark の種類の今の印（無ければ空。カードが無ければ null）
+export const markNow = (replies: readonly Reply[], id: string, mark: MarkKind): string | null => {
+  const top = topOf(replies, id);
+  return top ? markOf(top.tags ?? [], mark) : null;
+};
+
+// 左の写しで、一番上のカード id の mark の種類の印が value（空＝無い）になっているか
+export const markStateIs = (replies: readonly Reply[], id: string, mark: MarkKind, value: string): boolean => markNow(replies, id, mark) === value;
+
+// 印を value にすると、タグが max 個を超えるか（新しく足すときだけ。今ある印を替える・外すのは数えない）。超えるなら送る前に断る（左も同じ決まりで断る）
+export const markFull = (replies: readonly Reply[], id: string, mark: MarkKind, value: string, max: number): boolean => {
+  const top = topOf(replies, id);
+  return !!top && withMark(top.tags ?? [], mark, value, max) === 'full';
+};
 
 // 座標を戻す・やり直す動き（台帳の一番上に残っているカードだけ。無ければ空）
 export function moveTargets(op: Extract<UndoOp, { kind: 'move' }>, dir: UndoDir, replies: readonly Reply[]): NodeMove[] {

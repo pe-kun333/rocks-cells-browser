@@ -23,6 +23,9 @@ export interface BoardPinsDeps {
   content(memoId: string, id: string): PinContent | null; // カードが無ければ null（閉じる）
   anchor(id: string): { x: number; y: number } | null; // カードの右上（層の左上からの画素）。無ければ今の場所のまま
   area(): PinRect; // 収める四角（層の左上からの画素）
+  // 留めたカードの組が替わった（留めた・✕・Esc・全部閉じた・カードが消えて閉じた）。省いてよい。
+  //   ボードの吹き出し（app/memo-board-callouts.ts）が、📌 で留めたカードを外して置き直すため（MK8b。docs/plan-comment-board-marks.md §4.8）
+  onChange?(): void;
 }
 
 const PIN_MARGIN = 4;
@@ -66,6 +69,7 @@ export class BoardPins {
     this.deps.layer.append(rec.node);
     this.raise(rec.node);
     this.fill(rec, content);
+    this.deps.onChange?.();
   }
 
   // 写しが替わった・メモが替わった。そのメモのものだけ見せ、中身を直す。カードが消えたら閉じる。ほかのメモのものは隠す（閉じない）
@@ -90,9 +94,11 @@ export class BoardPins {
     for (const rec of this.recs) if (!rec.node.hidden) this.placeOne(rec);
   }
 
-  // 全部閉じる（下に戻した）
+  // 全部閉じる（下に戻した）。閉じたものがあったときだけ知らせる（下の置き場では、置き場の知らせのたびに呼ばれるため）
   closeAll(): void {
-    for (const rec of this.recs.splice(0)) rec.node.remove();
+    const gone = this.recs.splice(0);
+    for (const rec of gone) rec.node.remove();
+    if (gone.length > 0) this.deps.onChange?.();
   }
 
   // そのメモの新しいものを 1 つ閉じる（Esc）。閉じたら true
@@ -105,6 +111,11 @@ export class BoardPins {
 
   hasOpen(memoId: string | null): boolean {
     return this.recs.some((r) => r.memoId === memoId);
+  }
+
+  // そのメモで留めているカードの id（留めた順）。ボードの吹き出しは、これを出さない（MK8b）
+  openIds(memoId: string | null): string[] {
+    return this.recs.filter((r) => r.memoId === memoId).map((r) => r.id);
   }
 
   // 1 件の DOM を作る（まだ層には入れない）
@@ -177,9 +188,11 @@ export class BoardPins {
     node.style.zIndex = String(++this.z);
   }
 
+  // 閉じる（✕・Esc の closeNewest・カードが消えた refresh）。留めていたものを閉じたときだけ知らせる
   private drop(rec: PinRec): void {
     const i = this.recs.indexOf(rec);
     if (i >= 0) this.recs.splice(i, 1);
     rec.node.remove();
+    if (i >= 0) this.deps.onChange?.();
   }
 }

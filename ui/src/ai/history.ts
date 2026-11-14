@@ -21,6 +21,9 @@ export interface SavedConversation {
   heard?: Record<string, number>; // キャラごとに、shared のどこまで聞いたか（seq）
   teamTurn?: number; // ハイク組が2つの班で話すとき、次に「ハイク組へ」「みんなへ」に答える班
   banterTurn?: number; // 同じく、次に掛け合いでひとこと返す班
+  // 三人組の先生つき（Anthropic の advisor 道具。無ければ先生なし）。道具の定義・だれが持つか・休み・止めた体・練習で始めたか。
+  // 読むときは trio-advisor.ts の parseAdvisorState を通す（docs/plan-trio-advisor.md の §4）
+  advisor?: unknown;
   // 前の形（二人目の相棒まで）。読むときだけ使う
   backlog?: string[]; // Claude がまだ聞いていない、二人目の相棒とのやりとり
   second?: SavedVoice & { backlog: string[] };

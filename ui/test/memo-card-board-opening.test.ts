@@ -3,6 +3,7 @@
 //   DOM の動き（畳んだときにカードが画面の上で止まる・置き場の替え・隠して出す・ボタンの焦点）は Windows の確かめ（計画書 §8.1 の確かめ A）
 import { readFileSync as readFile } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { ZOOM_TITLE, zoomTexts } from '../src/memo-card-board-overview';
 import { parseCss } from './theme-css';
 
 const tab = readFile(new URL('../src/app/memo-board-tab.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -176,14 +177,19 @@ describe('「100%」のボタン', () => {
     expect(tab).toContain("this.zoomBtn.addEventListener('pointerdown', (e) => e.preventDefault());");
     expect(tab).toContain("this.zoomBtn.addEventListener('click', () => this.actualSize());");
     expect(tab).toContain('right.append(this.search, this.fitBtn, this.zoomBtn);');
+    // 字・説明・読み上げは一つの関数（paintZoom → zoomTexts）で書き、applyView から呼ぶ（MK2。「［全体］の間」の始まり・終わりからも）
     const apply = body('private applyView(', 'private loadFaces(');
-    expect(apply).toContain('const percent = Math.round(v.zoom * 100);');
-    expect(apply).toContain('this.zoomBtn.textContent = `${percent}%`;');
-    expect(apply).toContain("this.zoomBtn.setAttribute('aria-label', tr('倍率 {0}%。押すと 100% にします', { 0: percent }));");
+    expect(apply).toContain('this.paintZoom();');
+    const paint = body('private paintZoom() {', 'private loadFaces(');
+    expect(paint).toContain('const z = zoomTexts(this.view.zoom, this.overview?.before ?? null);');
+    expect(paint).toContain('this.zoomBtn.textContent = z.text;');
+    expect(paint).toContain('this.zoomBtn.title = z.title;');
+    expect(paint).toContain("this.zoomBtn.setAttribute('aria-label', z.label);");
+    expect(zoomTexts(0.85, null)).toEqual({ percent: 85, text: '85%', title: ZOOM_TITLE, label: '倍率 85%。押すと 100% にします' });
     expect(tab).not.toContain('zoomLabel');
   });
   it('1 枚選んでいればそのカード、ほかは最後に書いた辺り（actualSizeView）。保存する（touchView）', () => {
-    const size = body('private actualSize() {', 'private faceTop()');
+    const size = body('private showActualSize() {', 'private faceTop()'); // 100% の中の道（％の受け口 actualSize と分けた。MK2）
     expect(size).toContain('this.selected.size === 1 ? [...this.selected][0] : null');
     expect(size).toContain('actualSizeView(this.view, this.source?.get()?.replies ?? [], this.faces, vp, { place: this.place, selected, readBox: this.readBox, recent: this.geo.recent })');
     expect(size.indexOf('this.applyView();')).toBeLessThan(size.indexOf('this.touchView();'));

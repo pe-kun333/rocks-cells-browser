@@ -293,6 +293,85 @@ describe('起動し直したとき：前に選んだメモを、見つかった�
   });
 });
 
+// MK4：右の検索の［上で開く］。選ぶカードの頼みは、ボードが見る写しにだけ載せる（setBoardMemo・open の中では送らない。送る数を固めた上の試験は今のまま）
+describe('focusBoard：ボードで選んで見せるカードの頼み（MK4）', () => {
+  it('選んだメモがあれば、その写し（memoBoardView）に載せて 1 通だけ送り直す。下の区画の写しには載せない', () => {
+    const f = fakes([memo('m1', '一'), memo('m2', '二')]);
+    f.host.open('m1');
+    f.host.setBoardMemo('m2');
+    sent.length = 0;
+    f.host.focusBoard('m2', 'm2-r1');
+    expect(kinds()).toEqual(['memoBoardView']);
+    expect(boardMsgs()[0].view).toMatchObject({ id: 'm2', boardFocus: { id: 'm2-r1', n: 1 } });
+    expect(boardMsgs()[0].view.focusReply).toBeUndefined(); // 下の区画の「このカードへ移る」とは別の欄
+    sent.length = 0;
+    f.host.ready(); // 下の面が読み込み直されても、写しに載ったまま（番号は同じ。作り直したボードは番号を 0 から数えるので、もう一度当てる。下の区画の focusReply と同じ）
+    expect(relays().find((p) => p.kind === 'memoPane')?.view.boardFocus).toBeUndefined();
+    expect(boardMsgs()[0].view.boardFocus).toEqual({ id: 'm2-r1', n: 1 });
+  });
+  it('選んだメモが無ければ（ボードは下に付いていく）、下の区画の写しに載せて送り直す。番号は頼むたびに上がる', () => {
+    const f = fakes([memo('m1', '一')]);
+    f.host.open('m1');
+    sent.length = 0;
+    f.host.focusBoard('m1', 'm1-r1');
+    expect(kinds()).toEqual(['memoPane', 'memoPaneList']); // ボードの写しは選んでいないので送らない（今までどおり）
+    expect(relays()[0].view).toMatchObject({ id: 'm1', boardFocus: { id: 'm1-r1', n: 1 } });
+    sent.length = 0;
+    f.host.focusBoard('m1', 'm1-r1');
+    expect(relays()[0].view.boardFocus).toEqual({ id: 'm1-r1', n: 2 });
+  });
+  it('頼みのメモと違う写しには載せない。見るメモを選び直したら頼みを捨てる', () => {
+    const f = fakes([memo('m1', '一'), memo('m2', '二')]);
+    f.host.open('m1');
+    f.host.focusBoard('m2', 'm2-r1'); // 下は m1、選んだメモも無い：載せる写しが無い
+    expect(relays().every((p) => p.view?.boardFocus === undefined)).toBe(true);
+    f.host.focusBoard('m1', 'm1-r1');
+    f.host.setBoardMemo('m2'); // 選び直した：頼みは捨てる（m2 の写しにも、m1 の写しにも載らない）
+    f.host.setBoardMemo(null);
+    sent.length = 0;
+    f.host.ready();
+    expect(relays().every((p) => p.view?.boardFocus === undefined)).toBe(true);
+  });
+  it('どちらも無い（下が閉じていて、選んだメモも無い）ときは何も送らない', () => {
+    const f = fakes([memo('m1', '一')]);
+    sent.length = 0;
+    f.host.focusBoard('m1', 'm1-r1');
+    expect(sent).toEqual([]);
+  });
+  // 見直し：頼みに寿命が無いと、当たらなかった頼みが、あとでそのメモを開き直したときに急に当たる
+  it('ボードが下に付いていく間に、下が別のメモへ替わる・閉じると、頼みを捨てる（開き直しても載らない）', () => {
+    const f = fakes([memo('m1', '一'), memo('m2', '二')]);
+    f.host.open('m1');
+    f.host.focusBoard('m1', 'm1-r1');
+    f.host.open('m2'); // 別のメモへ
+    f.host.open('m1');
+    sent.length = 0;
+    f.host.ready();
+    expect(relays().find((p) => p.kind === 'memoPane')?.view.boardFocus).toBeUndefined();
+    f.host.focusBoard('m1', 'm1-r1');
+    f.host.close(); // 閉じる
+    f.host.open('m1');
+    sent.length = 0;
+    f.host.ready();
+    expect(relays().find((p) => p.kind === 'memoPane')?.view.boardFocus).toBeUndefined();
+  });
+  it('同じメモを開き直すときは捨てない（番号も同じ）。選んだメモがあるときは、下を替えても閉じても捨てない（ボードは下を見ていない）', () => {
+    const f = fakes([memo('m1', '一'), memo('m2', '二'), memo('m3', '三')]);
+    f.host.open('m1');
+    f.host.focusBoard('m1', 'm1-r1');
+    sent.length = 0;
+    f.host.open('m1');
+    expect(relays().find((p) => p.kind === 'memoPane')?.view.boardFocus).toEqual({ id: 'm1-r1', n: 1 });
+    f.host.setBoardMemo('m2');
+    f.host.focusBoard('m2', 'm2-r1');
+    f.host.open('m3');
+    f.host.close();
+    sent.length = 0;
+    f.host.ready();
+    expect(boardMsgs()[0].view.boardFocus).toEqual({ id: 'm2-r1', n: 2 });
+  });
+});
+
 describe('命令の型と受け口（画面はまだ変えない）', () => {
   const src = (p: string) => readFileSync(new URL(p, import.meta.url), 'utf8');
   it('types.ts：setBoardMemo（id は文字列か null）と memoBoardView（view は写しか null）が宣言されている', () => {

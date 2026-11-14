@@ -1923,6 +1923,16 @@ body.surface-memo > .panels {
   color: var(--text);
 }
 
+/* このカードのいいね（MK6。押すたびに 1→2→3→なし）：字だけの小さいボタン。付いていれば ♥ の色（頭の行のメモの ♡ と同じ色） */
+.memo-pane-card-like {
+  min-width: 0;
+  padding: 0 5px;
+}
+
+.memo-pane-card-like[aria-pressed='true'] {
+  color: var(--heart);
+}
+
 /* カードを整頓（CC2）：道具は頭の帯の右に一組だけ。幅はいつも空けておき、左クリックしたカード・焦点・関連づけの元・「消す？」の間だけ見せる（寸法は変わらない。乗せただけでは出さない。確かめ 5 の答え） */
 .memo-pane-cards.is-compact > .memo-pane-card > .memo-pane-card-head {
   position: relative;
@@ -1930,7 +1940,7 @@ body.surface-memo > .panels {
 }
 
 .memo-pane-cards.is-compact > .memo-pane-card .memo-pane-card-head-main {
-  padding-right: 86px; /* 道具 5 個の実寸 83px＋3px（開発画面で測った。帯の字やボタンが道具の下に入らない） */
+  padding-right: 108px; /* 道具 6 個（MK6 で ♡ を足した）。5 個の実寸 83px（開発画面で測った）に、♡（♥3）の分の見込み 22px と 3px。♡ の分は測っていない。帯の字やボタンが道具の下に入らない */
 }
 
 .memo-pane-cards.is-compact > .memo-pane-card .memo-pane-card-head-main > .thread-action,

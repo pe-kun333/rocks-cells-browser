@@ -34,6 +34,8 @@ export interface SearchItem {
   by?: string; // AI の相棒が書いたものなら名前
   image?: boolean; // 画像のメモ・画像のカード
   liked?: number; // メモの ♥（1〜3）。メモの行だけ
+  cardLike?: number; // カードの ♥（1〜3）。右の検索の「カードの ♥」の行だけ（MK9。liked とは混ぜない）
+  cardHead?: string; // カードの文の頭（40 字。切ったら「…」）。「カードの ♥」の行だけ（字が空だと抜き出しが無いので、別に運ぶ）
 }
 
 const MARK = /\p{M}/u;

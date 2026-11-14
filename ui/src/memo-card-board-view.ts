@@ -8,6 +8,7 @@ import type { BoardPlace } from './memo-card-board-place';
 import { boardSaveMessage, boardUnreadableNote, type LoadBoardResult, type SaveBoardResult } from './memo-card-board-store';
 import { BOARD_EMPTY_TEXT, BOARD_LOADING_NOTE, layoutHead, loadingNote, unreadableBlockNote } from './memo-card-board-texts';
 import { visibleTags } from './grok-cards-tags';
+import { cardColor, cardLike, type LikeLevel, type MarkColor, withColorSymbol } from './likes';
 import { cardLabel, type DrawLink } from './memo-card-links';
 import { parseAiCardText } from './reader-ai-card';
 import type { Reply } from './threads';
@@ -23,12 +24,14 @@ export interface CardFace {
   body: string; // 画像・引用のカードでは空（題と印だけ）
   tags: string[]; // 機械タグを除いた先頭 tagsMax 個
   moreTags: number; // 入りきらなかったタグの数
-  mark: string; // ❝（引用）📷（画像）💬n（返信の数）。無ければ空
+  mark: string; // 色の記号（◎▢☆。MK7。先頭）・❝（引用）📷（画像）💬n（返信の数）。無ければ空
   first: string; // 流し込む文の 1 行目（画像・引用のカードは題）
   rest: string; // 流し込む文の 2 行目から（改行でつなぐ）。1 行だけのカード・画像・引用のカードは空
   bold: boolean; // 1 行目を太字にする（2 行以上のカード、画像・引用のカード）
   who: string; // AI のカードの書き手の名前（人のカードは空）
   thumb: string; // 顔の左に絵を出す写真の shots の id（画像だけのカード。引用つきの画像・ほかのカードは空。決定 1）
+  like: 0 | LikeLevel; // カードの ♥ の段（MK5。印のタグ。無ければ 0）。顔に入るので、替わると描き直しの鍵も替わる
+  color: MarkColor | ''; // カードの色の印の名前（MK5。無ければ空）
 }
 
 const clip = (text: string, max: number) => {
@@ -115,6 +118,7 @@ export function cardFace(replies: readonly Reply[], reply: Reply, place: { x: nu
   const tags = visibleTags(reply.tags ?? []);
   const title = cardLabel(reply, BOARD_FACE.titleMax);
   const flowLines = flat ? [] : cardLines(reply);
+  const color = cardColor(reply.tags ?? []);
   return {
     id: reply.id,
     x: place.x,
@@ -124,12 +128,14 @@ export function cardFace(replies: readonly Reply[], reply: Reply, place: { x: nu
     body: flat ? '' : clip(lines.slice(1).join(' '), BOARD_FACE.bodyMax),
     tags: tags.slice(0, BOARD_FACE.tagsMax),
     moreTags: Math.max(0, tags.length - BOARD_FACE.tagsMax),
-    mark: cardMark(replies, reply),
+    mark: withColorSymbol(cardMark(replies, reply), color), // 色の記号は右上の印の席の先頭（MK7。席の幅もこの字で決まる）
     first: flowLines.length > 0 ? clip(flowLines[0], BOARD_FACE.flowMax) : title,
     rest: clip(flowLines.slice(1).join('\n'), BOARD_FACE.flowMax),
     bold: Boolean(flat) || flowLines.length > 1,
     who: reply.by ? reply.by.name.trim() || 'AI' : '',
     thumb: reply.image && !reply.quote ? reply.image : '',
+    like: cardLike(reply.tags ?? []),
+    color,
   };
 }
 

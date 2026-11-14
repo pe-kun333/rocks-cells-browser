@@ -346,6 +346,81 @@ describe('BoardPins（偽物の DOM の上）', () => {
     expect(pins.hasOpen('m1')).toBe(false);
     expect(cards.has('m1/a')).toBe(true);
   });
+
+  // MK8b（docs/plan-comment-board-marks.md §4.8）：ボードの吹き出しは、📌 で留めたカードを出さない。留めた・閉じたら置き直す
+  describe('openIds と onChange（MK8b）', () => {
+    let changes = 0;
+    let watched: BoardPins;
+    beforeEach(() => {
+      changes = 0;
+      watched = new BoardPins({
+        layer: layer as unknown as HTMLElement,
+        content: (memoId, id) => cards.get(`${memoId}/${id}`) ?? null,
+        anchor: (id) => anchors.get(id) ?? null,
+        area: () => ({ left: 0, top: 0, right: 500, bottom: 400 }),
+        onChange: () => changes++,
+      });
+      card('m1', 'a', 'A');
+      card('m1', 'b', 'B');
+      card('m2', 'c', 'C');
+    });
+
+    it('openIds：そのメモで留めているカードの id（留めた順）。ほかのメモの分は入らない（隠れていても、閉じていなければ入る）', () => {
+      watched.pin('m1', 'b');
+      watched.pin('m2', 'c');
+      watched.pin('m1', 'a');
+      expect(watched.openIds('m1')).toEqual(['b', 'a']);
+      expect(watched.openIds('m2')).toEqual(['c']);
+      expect(watched.openIds(null)).toEqual([]);
+      watched.refresh('m2'); // m1 の分は隠れる（閉じない）
+      expect(watched.openIds('m1')).toEqual(['b', 'a']);
+    });
+
+    it('留めると知らせる。同じカードをもう一度留める（前に出すだけ）・カードが無くて留めないときは知らせない', () => {
+      watched.pin('m1', 'a');
+      expect(changes).toBe(1);
+      watched.pin('m1', 'a');
+      watched.pin('m1', 'none');
+      expect(changes).toBe(1);
+    });
+
+    it('閉じると知らせる：✕・Esc（closeNewest）・カードが消えた（refresh）。閉じるものが無ければ知らせない', () => {
+      watched.pin('m1', 'a');
+      watched.pin('m1', 'b');
+      watched.pin('m2', 'c');
+      changes = 0;
+      fire(closeOf(layer.kids[0]), 'click'); // a の ✕
+      expect(changes).toBe(1);
+      expect(watched.openIds('m1')).toEqual(['b']);
+      expect(watched.closeNewest('m1')).toBe(true);
+      expect(changes).toBe(2);
+      expect(watched.closeNewest('m1')).toBe(false);
+      expect(changes).toBe(2);
+      cards.delete('m2/c');
+      watched.refresh('m2');
+      expect(changes).toBe(3);
+      watched.refresh('m2');
+      expect(changes).toBe(3);
+    });
+
+    it('全部閉じる（下に戻した）：閉じたものがあったときだけ、1 回知らせる', () => {
+      watched.closeAll();
+      expect(changes).toBe(0);
+      watched.pin('m1', 'a');
+      watched.pin('m2', 'c');
+      changes = 0;
+      watched.closeAll();
+      expect(changes).toBe(1);
+      expect(watched.openIds('m1')).toEqual([]);
+    });
+
+    it('onChange は省いてよい（上の試験の pins は onChange 無しで作っている）', () => {
+      pins.pin('m1', 'a');
+      fire(closeOf(layer.kids[layer.kids.length - 1]), 'click');
+      pins.closeAll();
+      expect(pins.openIds('m1')).toEqual([]);
+    });
+  });
 });
 
 describe('style（規則を読んで確かめる）', () => {
